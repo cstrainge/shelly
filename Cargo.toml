@@ -6,3 +6,4 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
+reedline = "0.52.0"

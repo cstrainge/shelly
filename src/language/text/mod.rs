@@ -1,0 +1,13 @@
+
+/**
+ * This module holds the location based struct for keeping track of locations in source code.
+ */
+pub mod location;
+
+/**
+ * This module holds a simple buffer for reading through source text character by character while
+ * keeping track of the current location.
+ *
+ * The module also defines a trait for other buffer implementations to follow.
+ */
+pub mod buffer;
