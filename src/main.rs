@@ -22,7 +22,7 @@ mod runtime;
 use language::{ compiler::compile_ast,
                 text::{ buffer::SimpleBuffer, location::Location },
                 parser::parse_text,
-                interpreter::{ BuiltIns, interpret, InterpreterError },
+                interpreter::Interpreter,
                 tokenizer::Tokenizer };
 
 
@@ -34,8 +34,12 @@ impl Prompt for ShellyPrompt
 {
     fn render_prompt_left(&self) -> Cow<'_, str>
     {
-        let formatted = format!("\n{}\n",
-                                Color::Yellow.bold().paint("<shelly>"));
+        // Get the current working directory.
+        let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
+
+        let formatted = format!("\n{} [{}]\n",
+                                Color::Yellow.bold().paint("<shelly>"),
+                                Color::Cyan.paint(cwd.display().to_string()));
 
         Cow::Owned(formatted)
     }
@@ -125,32 +129,10 @@ fn apply_keybindings(keybindings: &mut Keybindings)
 }
 
 
-fn process(text: &str) -> Result<bool, InterpreterError>
-{
-    let mut buffer = SimpleBuffer::new("<repl>", text, None);
-    let mut tokenizer = Tokenizer::new(&mut buffer);
-    let statements = parse_text(&mut tokenizer)?;
-    let instructions = compile_ast(&statements)?;
-
-    let should_exit = std::cell::Cell::new(false);
-
-    let mut built_ins: BuiltIns<'_> = HashMap::new();
-
-    built_ins.insert("exit".to_string(),
-        Box::new(|_location: &Location, _args: &[String]|
-            {
-                should_exit.set(true);
-                Ok(())
-            }));
-
-    interpret(instructions, &built_ins)?;
-
-    Ok(should_exit.get() == false)
-}
-
-
 fn main()
 {
+    let mut interpreter = Interpreter::new();
+
     let prompt = ShellyPrompt { };
     let mut keybindings = Keybindings::empty();
 
@@ -166,7 +148,7 @@ fn main()
         {
             Ok(Signal::Success(text)) =>
                 {
-                    let result = process(&text);
+                    let result = interpreter.execute_code("<repl>", &text);
 
                     if let Err(error) = result
                     {
@@ -174,11 +156,16 @@ fn main()
                         continue;
                     }
 
-                    if    let Ok(should_continue) = result
-                       && should_continue == false
+                    if interpreter.halted
                     {
                         break;
                     }
+
+//                    if    let Ok(should_continue) = result
+//                       //&& should_continue == false
+//                    {
+//                        break;
+//                    }
                 },
 
             Ok(Signal::CtrlC) =>
