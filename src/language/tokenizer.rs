@@ -298,18 +298,18 @@ pub struct Token
     /**
      * The logical location in the source code this token was extracted from.
      */
-    location: Location,
+    pub location: Location,
 
     /**
      * The type of the token, indicating its role in the language syntax.
      */
-    kind: TokenKind,
+    pub kind: TokenKind,
 
     /**
      * The value of the token, which may be a literal, identifier, or none depending on the token
      * type.
      */
-    value: TokenValue
+    pub value: TokenValue
 }
 
 
@@ -318,7 +318,7 @@ impl Token
     /**
      * Returns the textual representation of the token's original value.
      */
-    fn token_value_text(&self) -> String
+    pub fn token_value_text(&self) -> String
     {
         match &self.kind
         {
@@ -408,7 +408,7 @@ impl Display for Token
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
     {
-        write!(f, "Token: {}: ({}, {})", self.location, self.kind, self.value)
+        write!(f, "{}: ({}, {})", self.location, self.kind, self.value)
     }
 }
 
@@ -427,6 +427,15 @@ pub struct TokenizerError
      * A descriptive message explaining the error.
      */
     message: String
+}
+
+
+impl Display for TokenizerError
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
+    {
+        write!(f, "TokenizerError at {}: {}", self.location, self.message)
+    }
 }
 
 
@@ -868,8 +877,16 @@ impl<'a> Tokenizer<'a>
             }))
     }
 
+    /**
+     * Processes an escape sequence within a string literal and returns the corresponding character.
+     *
+     * The sequence can be a single known character like \n or \\ or a numeric escape sequence like
+     * \xNN or \o{NNNN}.
+     */
     fn process_string_escape(&mut self) -> Result<char, TokenizerError>
     {
+        // Attempt to parse the numeric value from the escape sequence. If not parsed correctly, an
+        // error will be returned.
         fn parse_number(location: &Location, input: &mut dyn Buffer,
                         is_digit: fn(char) -> bool, radix: u32)
                         -> Result<char, TokenizerError>
@@ -892,6 +909,8 @@ impl<'a> Tokenizer<'a>
                     })
         }
 
+        // Read a sequence of digits from the input buffer that satisfy the `is_digit` predicate
+        // breaking when a non-digit character is encountered.
         fn read_digits(input: &mut dyn Buffer, is_digit: fn(char) -> bool) -> String
         {
             let mut number_str = String::new();
