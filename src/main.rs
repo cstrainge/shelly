@@ -19,14 +19,11 @@ mod language;
 mod runtime;
 
 
-use language::{ ast::AstStatement,
-                compiler::{ compile_ast, CompileError },
+use language::{ compiler::compile_ast,
                 text::{ buffer::SimpleBuffer, location::Location },
-                parser::{ ParserError, parse_text },
+                parser::parse_text,
                 interpreter::{ BuiltIns, interpret, InterpreterError },
-                tokenizer::{ Tokenizer,
-                             TokenKind,
-                             TokenValue } };
+                tokenizer::Tokenizer };
 
 
 struct ShellyPrompt
@@ -37,9 +34,8 @@ impl Prompt for ShellyPrompt
 {
     fn render_prompt_left(&self) -> Cow<'_, str>
     {
-        let formatted = format!("\n{}\n{}\n",
-                                Color::Yellow.bold().paint("[git: main]"),
-                                Color::LightBlue.bold().paint("~/workdir/foo/"));
+        let formatted = format!("\n{}\n",
+                                Color::Yellow.bold().paint("<shelly>"));
 
         Cow::Owned(formatted)
     }
