@@ -19,10 +19,12 @@ mod language;
 mod runtime;
 
 
-use language::{ text::buffer::SimpleBuffer, tokenizer::{ Tokenizer,
-                                                         TokenizerError,
-                                                         TokenKind,
-                                                         TokenValue } };
+use language::{ ast::AstStatement,
+                text::buffer::SimpleBuffer,
+                parser::{ ParserError, parse_text },
+                tokenizer::{ Tokenizer,
+                             TokenKind,
+                             TokenValue } };
 
 
 struct ShellyPrompt
@@ -125,23 +127,24 @@ fn apply_keybindings(keybindings: &mut Keybindings)
 }
 
 
-fn process(text: &str) -> Result<bool, TokenizerError>
+fn process(text: &str) -> Result<bool, ParserError>
 {
     let mut buffer = SimpleBuffer::new("<repl>", text, None);
     let mut tokenizer = Tokenizer::new(&mut buffer);
+    let statements = parse_text(&mut tokenizer)?;
 
     let mut should_continue = true;
 
-    while let Some(token) = tokenizer.next_token()?
+    for statement in statements
     {
-        println!("{}", token);
+        let AstStatement::ExecuteStatement(execute_statement) = statement;
 
-        if    token.kind == TokenKind::Symbol
-           && let TokenValue::Symbol(symbol) = &token.value
-           && symbol == "exit"
+        if execute_statement.executable_name == "exit"
         {
             should_continue = false;
         }
+
+        println!("Execute command {}.", execute_statement.executable_name);
     }
 
     Ok(should_continue)
