@@ -1,5 +1,5 @@
 
-use std::borrow::Cow;
+use std::{ borrow::Cow, collections::HashMap};
 
 use reedline::{ Color,
                 Emacs,
@@ -20,8 +20,10 @@ mod runtime;
 
 
 use language::{ ast::AstStatement,
-                text::buffer::SimpleBuffer,
+                compiler::{ compile_ast, CompileError },
+                text::{ buffer::SimpleBuffer, location::Location },
                 parser::{ ParserError, parse_text },
+                interpreter::{ BuiltIns, interpret, InterpreterError },
                 tokenizer::{ Tokenizer,
                              TokenKind,
                              TokenValue } };
@@ -127,27 +129,27 @@ fn apply_keybindings(keybindings: &mut Keybindings)
 }
 
 
-fn process(text: &str) -> Result<bool, ParserError>
+fn process(text: &str) -> Result<bool, InterpreterError>
 {
     let mut buffer = SimpleBuffer::new("<repl>", text, None);
     let mut tokenizer = Tokenizer::new(&mut buffer);
     let statements = parse_text(&mut tokenizer)?;
+    let instructions = compile_ast(&statements)?;
 
-    let mut should_continue = true;
+    let should_exit = std::cell::Cell::new(false);
 
-    for statement in statements
-    {
-        let AstStatement::ExecuteStatement(execute_statement) = statement;
+    let mut built_ins: BuiltIns<'_> = HashMap::new();
 
-        if execute_statement.executable_name == "exit"
-        {
-            should_continue = false;
-        }
+    built_ins.insert("exit".to_string(),
+        Box::new(|_location: &Location, _args: &[String]|
+            {
+                should_exit.set(true);
+                Ok(())
+            }));
 
-        println!("Execute command {}.", execute_statement.executable_name);
-    }
+    interpret(instructions, &built_ins)?;
 
-    Ok(should_continue)
+    Ok(should_exit.get() == false)
 }
 
 
