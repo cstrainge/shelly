@@ -254,6 +254,11 @@ pub enum TokenLiteral
     Float(f64, String),
 
     /**
+     * A boolean literal value.
+     */
+    Boolean(bool),
+
+    /**
      * A string literal value.
      */
     String(String)
@@ -268,6 +273,7 @@ impl Display for TokenLiteral
         {
             TokenLiteral::Integer(value, text) => write!(f, "{}:{}", value, text),
             TokenLiteral::Float(value, text)   => write!(f, "{}:{}", value, text),
+            TokenLiteral::Boolean(value)       => write!(f, "{}", value),
             TokenLiteral::String(text)         => write!(f, "{:?}", text)
         }
     }
@@ -343,6 +349,7 @@ impl Token
                         {
                             TokenLiteral::Integer(_, text) => return text.clone(),
                             TokenLiteral::Float(_, text)   => return text.clone(),
+                            TokenLiteral::Boolean(value)   => return value.to_string(),
                             TokenLiteral::String(text)     => return text.clone()
                         }
                     }
@@ -575,13 +582,16 @@ impl<'a> Tokenizer<'a>
                 "struct" => TokenKind::Struct,
                 "enum"   => TokenKind::Enum,
                 "import" => TokenKind::Import,
+                "true"   => TokenKind::Literal,
+                "false"  => TokenKind::Literal,
                 _        => TokenKind::Symbol
             };
 
         let value = match &kind
             {
-                TokenKind::Symbol => TokenValue::Symbol(symbol),
-                _                 => TokenValue::None
+                TokenKind::Symbol  => TokenValue::Symbol(symbol),
+                TokenKind::Literal => TokenValue::Literal(TokenLiteral::Boolean(symbol == "true")),
+                _                  => TokenValue::None
             };
 
          Token { location, kind, value }

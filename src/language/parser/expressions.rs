@@ -257,6 +257,7 @@ fn parse_literal_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
         {
             TokenLiteral::Integer(value, _) => Value::Integer(value),
             TokenLiteral::Float(value, text) => Value::Float(value, Some(text)),
+            TokenLiteral::Boolean(value) => Value::Boolean(value),
             TokenLiteral::String(value) => Value::String(value)
         };
 

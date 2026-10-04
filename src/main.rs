@@ -156,12 +156,6 @@ fn main()
                     {
                         break;
                     }
-
-//                    if    let Ok(should_continue) = result
-//                       //&& should_continue == false
-//                    {
-//                        break;
-//                    }
                 },
 
             Ok(Signal::CtrlC) =>
