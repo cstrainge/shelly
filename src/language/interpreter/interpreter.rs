@@ -212,7 +212,25 @@ impl Interpreter
 
                         args.reverse();
 
-                        let executable = Self::pop_as_text(&location, &mut stack)?;
+                        let mut executable = Self::pop_as_text(&location, &mut stack)?;
+
+                        // If the executable name starts with a $ eval as a variable first.
+                        if executable.starts_with('$')
+                        {
+                            if let Some(value) = self.variables.get(&executable)
+                            {
+                                executable = value.as_text();
+                            }
+                            else
+                            {
+                                return Err(InterpreterError
+                                    {
+                                        location: location.clone(),
+                                        what: ErrorWhat::InvalidOperand(
+                                            "Variable not found for Execute instruction.".to_string())
+                                    });
+                            }
+                        }
 
                         self.execute(&location, executable, args)?;
                     }
@@ -247,6 +265,17 @@ impl Interpreter
                             };
 
                         let value = Self::pop(&location, &mut stack)?;
+
+                        if !self.variables.contains_key(&variable_name)
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(
+                                        "Variable not found for SetVariable instruction.".to_string())
+                                });
+                        }
+
                         self.variables.insert(variable_name, value);
                     },
 
