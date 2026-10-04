@@ -115,6 +115,18 @@ fn compile_let_statement(instructions: &mut Vec<Instruction>, let_statement: &As
         });
 }
 
+fn compile_set_statement(instructions: &mut Vec<Instruction>, set_statement: &AstSetStatement)
+{
+    compile_expression(instructions, &set_statement.expression);
+
+    instructions.push(Instruction
+        {
+            location: Some(set_statement.location.clone()),
+            code: Code::SetVariable,
+            operand: Some(Value::String(set_statement.identifier.clone()))
+        });
+}
+
 
 fn compile_execute_statement(instructions: &mut Vec<Instruction>,
                              execute_statement: &AstExecuteStatement)
@@ -153,6 +165,11 @@ pub fn compile_ast(ast: &AstTopLevel) -> CompileResult<Vec<Instruction>>
             AstStatement::LetStatement(let_statement) =>
                 {
                     compile_let_statement(&mut instructions, let_statement);
+                },
+
+            AstStatement::SetStatement(set_statement) =>
+                {
+                    compile_set_statement(&mut instructions, set_statement);
                 },
 
             AstStatement::ExecuteStatement(execute_statement) =>

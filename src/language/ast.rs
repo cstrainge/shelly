@@ -105,11 +105,32 @@ pub struct AstExecuteStatement
 }
 
 
+pub struct AstSetStatement
+{
+    pub location: Location,
+    pub identifier: String,
+    pub expression: AstExpression,
+}
+
+
 pub fn new_ast_let_statement(location: Location,
                              identifier: String,
                              expression: AstExpression) -> Option<AstStatement>
 {
     Some(AstStatement::LetStatement(Box::new(AstLetStatement
+        {
+            location,
+            identifier,
+            expression,
+        })))
+}
+
+
+pub fn new_ast_set_statement(location: Location,
+                             identifier: String,
+                             expression: AstExpression) -> Option<AstStatement>
+{
+    Some(AstStatement::SetStatement(Box::new(AstSetStatement
         {
             location,
             identifier,
@@ -134,6 +155,7 @@ pub fn new_ast_execute_statement(location: Location,
 pub enum AstStatement
 {
     LetStatement(Box<AstLetStatement>),
+    SetStatement(Box<AstSetStatement>),
     ExecuteStatement(Box<AstExecuteStatement>),
     NullStatement
 }

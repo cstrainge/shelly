@@ -40,6 +40,33 @@ fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
 }
 
 
+fn parse_set_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
+{
+    // $var = <expression>
+
+    let identifier = expect_token(buffer, TokenKind::Identifier)?;
+
+    expect_token(buffer, TokenKind::Assign)?;
+
+    let expression = parse_expression(buffer)?;
+
+    if let Some(expression) = expression
+    {
+        Ok(new_ast_set_statement(identifier.location.clone(),
+                                 identifier.token_value_text(),
+                                 expression))
+    }
+    else
+    {
+        Err(ParserError
+            {
+                location: Some(identifier.location.clone()),
+                kind: ParserErrorKind::ExpectedExpression
+            })
+    }
+}
+
+
 fn parse_execute_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     let exec_expression = parse_exec_expression(buffer)?;
