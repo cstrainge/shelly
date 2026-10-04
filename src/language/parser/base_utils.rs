@@ -86,7 +86,9 @@ pub fn try_expect_token(buffer: &mut TokenBuffer<'_, '_>,
     {
         match error.kind
         {
-            ParserErrorKind::ExpectedToken(_, _) => return Ok(None),
+              ParserErrorKind::ExpectedToken(_, _)
+            | ParserErrorKind::UnexpectedEOF(_) => return Ok(None),
+
             _ => return Err(error)
         }
     }

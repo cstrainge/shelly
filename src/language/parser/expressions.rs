@@ -2,7 +2,7 @@
 use crate::language::{ ast::{ * },
                        data::value::Value,
                        tokenizer::{ TokenBuffer, TokenKind, TokenLiteral, TokenValue },
-                       parser::{ base_utils::{ expect_token, match_one_of, Lookahead },
+                       parser::{ base_utils::{ expect_token, match_one_of, Lookahead, try_expect_token },
                        results::{ ParseResult, ParserError, ParserErrorKind } } };
 
 
@@ -11,7 +11,7 @@ fn parse_variable_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
 {
     let identifier = expect_token(buffer, TokenKind::Identifier)?;
 
-    let mut identifier_value = match identifier.value
+    let identifier_value = match identifier.value
         {
             TokenValue::Identifier(identifier) => identifier,
 
@@ -23,20 +23,16 @@ fn parse_variable_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
         };
 
     // Check for the splat operator, `...`, which may follow the variable.
+    let splat_operator = try_expect_token(buffer, TokenKind::Splat)?;
 
+    if let Some(_) = splat_operator
     {
-        let mut lookahead = Lookahead::new(buffer);
-
-        if    let Some(splat) = lookahead.buffer.next()?
-           && splat.kind == TokenKind::Splat
-        {
-            lookahead.commit();
-
-            return Ok(Some(new_ast_variable_splat(identifier.location.clone(), identifier_value)));
-        }
+        Ok(Some(new_ast_variable_splat(identifier.location.clone(), identifier_value)))
     }
-
-    Ok(Some(new_ast_variable(identifier.location.clone(), identifier_value)))
+    else
+    {
+        Ok(Some(new_ast_variable(identifier.location.clone(), identifier_value)))
+    }
 }
 
 
