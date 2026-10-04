@@ -121,6 +121,26 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                             code: Code::ExpandArray,
                             operand: None
                         });
+            },
+
+        AstExpressionKind::MathExpression(operator, lhs, rhs) =>
+            {
+                compile_expression(instructions, lhs);
+                compile_expression(instructions, rhs);
+
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()),
+                        code: match operator
+                            {
+                                AstMathOperator::Add      => Code::MathAdd,
+                                AstMathOperator::Subtract => Code::MathSubtract,
+                                AstMathOperator::Multiply => Code::MathMultiply,
+                                AstMathOperator::Divide   => Code::MathDivide,
+                                AstMathOperator::Modulo   => Code::MathModulo,
+                            },
+                        operand: None
+                    });
             }
     }
 }

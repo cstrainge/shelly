@@ -184,7 +184,7 @@ impl Interpreter
 
                         if let Some(operand) = &instruction.operand
                         {
-                            let value = operand.as_int();
+                            let value = operand.as_integer();
 
                             if value < 0
                             {
@@ -355,6 +355,41 @@ impl Interpreter
                         }
 
                         Self::push(&mut stack, value);
+                    },
+
+                Code::MathAdd =>
+                    {
+                        let rhs = Self::pop(&location, &mut stack)?;
+                        let lhs = Self::pop(&location, &mut stack)?;
+                        Self::push(&mut stack, Value::Integer(lhs.as_integer() + rhs.as_integer()));
+                    },
+
+                Code::MathSubtract =>
+                    {
+                        let rhs = Self::pop(&location, &mut stack)?;
+                        let lhs = Self::pop(&location, &mut stack)?;
+                        Self::push(&mut stack, Value::Integer(lhs.as_integer() - rhs.as_integer()));
+                    },
+
+                Code::MathMultiply =>
+                    {
+                        let rhs = Self::pop(&location, &mut stack)?;
+                        let lhs = Self::pop(&location, &mut stack)?;
+                        Self::push(&mut stack, Value::Integer(lhs.as_integer() * rhs.as_integer()));
+                    },
+
+                Code::MathDivide =>
+                    {
+                        let rhs = Self::pop(&location, &mut stack)?;
+                        let lhs = Self::pop(&location, &mut stack)?;
+                        Self::push(&mut stack, Value::Integer(lhs.as_integer() / rhs.as_integer()));
+                    },
+
+                Code::MathModulo =>
+                    {
+                        let rhs = Self::pop(&location, &mut stack)?;
+                        let lhs = Self::pop(&location, &mut stack)?;
+                        Self::push(&mut stack, Value::Integer(lhs.as_integer() % rhs.as_integer()));
                     }
             }
 

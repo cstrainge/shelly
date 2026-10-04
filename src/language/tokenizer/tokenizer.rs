@@ -120,6 +120,11 @@ pub enum TokenKind
     Asterisk,
 
     /**
+     * The `**` character used for globbing or file pattern matching.
+     */
+    Glob,
+
+    /**
      * The `/` character used for division or file path operations.
      */
     Slash,
@@ -389,6 +394,7 @@ impl Token
             TokenKind::Minus          => "-".to_string(),
             TokenKind::Plus           => "+".to_string(),
             TokenKind::Asterisk       => "*".to_string(),
+            TokenKind::Glob           => "**".to_string(),
             TokenKind::Slash          => "/".to_string(),
             TokenKind::Percent        => "%".to_string(),
             TokenKind::StatementBreak => ";".to_string(),
@@ -1042,6 +1048,7 @@ impl<'a> Tokenizer<'a>
             "->"  => return operator_token(location, TokenKind::RedirectTo),
             "<-"  => return operator_token(location, TokenKind::RedirectFrom),
             "{}"  => return operator_token(location, TokenKind::EmptyBlock),
+            "**"  => return operator_token(location, TokenKind::Glob),
             "..." => return operator_token(location, TokenKind::Splat),
             _     => Ok(Some(Self::symbol_str_to_token(location, operator_str)))
         }

@@ -20,12 +20,23 @@ pub struct AstLiteral
 }
 
 
+pub enum AstMathOperator
+{
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo
+}
+
+
 pub enum AstExpressionKind
 {
     Variable(AstSymbol),
     VariableSplat(AstSymbol),
     Symbol(AstSymbol),
-    Literal(AstLiteral)
+    Literal(AstLiteral),
+    MathExpression(AstMathOperator, Box<AstExpression>, Box<AstExpression>)
 }
 
 
@@ -97,8 +108,9 @@ impl AstExpression
             AstExpressionKind::Symbol(symbol) => Ok(symbol.name.clone()),
             AstExpressionKind::Variable(variable) => Ok(variable.name.clone()),
             AstExpressionKind::VariableSplat(variable) => Ok(variable.name.clone()),
-            AstExpressionKind::Literal(literal) => Ok(literal.value.as_text())
-            //_ => Err(AstError::ExpressionNotString(self.location.clone()))
+            AstExpressionKind::Literal(literal) => Ok(literal.value.as_text()),
+            AstExpressionKind::MathExpression(_, _, _) =>
+                Err(AstError::ExpressionNotString(self.location.clone()))
         }
     }
 }

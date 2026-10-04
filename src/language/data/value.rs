@@ -27,7 +27,7 @@ impl Value
         }
     }
 
-    pub fn as_int(&self) -> i64
+    pub fn as_integer(&self) -> i64
     {
         match self
         {
@@ -35,8 +35,8 @@ impl Value
             Value::Float(f, _) => *f as i64,
             Value::Boolean(b) => if *b { 1 } else { 0 },
             Value::String(s) => s.parse::<i64>().unwrap_or(0),
-            Value::Array(arr) => arr.iter().map(|v| v.as_int()).sum(),
-            Value::ArgumentExpansion(args) => args.iter().map(|v| v.as_int()).sum()
+            Value::Array(arr) => arr.iter().map(|v| v.as_integer()).sum(),
+            Value::ArgumentExpansion(args) => args.iter().map(|v| v.as_integer()).sum()
         }
     }
 }

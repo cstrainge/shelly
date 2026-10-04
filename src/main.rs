@@ -1,5 +1,5 @@
 
-use std::{ borrow::Cow, collections::HashMap};
+use std::borrow::Cow;
 
 use reedline::{ Color,
                 Emacs,
@@ -19,11 +19,7 @@ mod language;
 mod runtime;
 
 
-use language::{ compiler::compile_ast,
-                text::{ buffer::SimpleBuffer, location::Location },
-                parser::parse_text,
-                interpreter::Interpreter,
-                tokenizer::Tokenizer };
+use language::interpreter::Interpreter;
 
 
 struct ShellyPrompt

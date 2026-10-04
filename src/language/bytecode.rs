@@ -11,7 +11,12 @@ pub enum Code
     SetVariable,
     GetVariable,
     GlobFiles,
-    ExpandArray
+    ExpandArray,
+    MathAdd,
+    MathSubtract,
+    MathMultiply,
+    MathDivide,
+    MathModulo
 }
 
 
