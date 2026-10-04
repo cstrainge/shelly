@@ -100,7 +100,7 @@ pub type InterpreterResult<T> = Result<T, InterpreterError>;
 
 pub struct Interpreter
 {
-    //variables: HashMap<String, Value>,
+    variables: HashMap<String, Value>,
     built_ins: BuiltIns<'static>,
     pub halted: bool
 }
@@ -124,7 +124,7 @@ impl Interpreter
 
         Self
             {
-                //variables: HashMap::new(),
+                variables: HashMap::new(),
                 built_ins,
                 halted: false
             }
@@ -216,6 +216,67 @@ impl Interpreter
 
                         self.execute(&location, executable, args)?;
                     }
+
+                Code::NewVariable =>
+                    {
+                        let variable_name = match &instruction.operand
+                            {
+                                Some(Value::String(name)) => name.clone(),
+                                _ => return Err(InterpreterError
+                                    {
+                                        location: location.clone(),
+                                        what: ErrorWhat::InvalidOperand(
+                                            "Missing or invalid operand for NewVariable instruction.".to_string())
+                                    })
+                            };
+
+                        self.variables.insert(variable_name, Value::Integer(0));
+                    },
+
+                Code::SetVariable =>
+                    {
+                        let variable_name = match &instruction.operand
+                            {
+                                Some(Value::String(name)) => name.clone(),
+                                _ => return Err(InterpreterError
+                                    {
+                                        location: location.clone(),
+                                        what: ErrorWhat::InvalidOperand(
+                                            "Missing or invalid operand for SetVariable instruction.".to_string())
+                                    })
+                            };
+
+                        let value = Self::pop(&location, &mut stack)?;
+                        self.variables.insert(variable_name, value);
+                    },
+
+                Code::GetVariable =>
+                    {
+                        let variable_name = match &instruction.operand
+                            {
+                                Some(Value::String(name)) => name.clone(),
+                                _ => return Err(InterpreterError
+                                    {
+                                        location: location.clone(),
+                                        what: ErrorWhat::InvalidOperand(
+                                            "Missing or invalid operand for GetVariable instruction.".to_string())
+                                    })
+                            };
+
+                        if let Some(value) = self.variables.get(&variable_name).cloned()
+                        {
+                            Self::push(&mut stack, value);
+                        }
+                        else
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(
+                                        "Variable not found for GetVariable instruction.".to_string())
+                                });
+                        }
+                    },
             }
 
             instruction_pointer += 1;
@@ -308,9 +369,10 @@ impl Interpreter
         Ok(())
     }
 
-    fn handle_exit(&mut self, location: &Location, args: &[String]) -> InterpreterResult<()>
+    fn handle_exit(&mut self, _location: &Location, _args: &[String]) -> InterpreterResult<()>
     {
         self.halted = true;
+
         Ok(())
     }
 }

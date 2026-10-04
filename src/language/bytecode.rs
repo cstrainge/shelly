@@ -6,7 +6,10 @@ use super::{ data::value::Value, text::location::Location };
 pub enum Code
 {
     Push,
-    Execute
+    Execute,
+    NewVariable,
+    SetVariable,
+    GetVariable
 }
 
 

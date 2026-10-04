@@ -1,7 +1,7 @@
 
 use std::fmt::{ self, Display, Formatter };
 
-use super::text::{ buffer::Buffer, location::Location };
+use crate::language::text::{ buffer::Buffer, location::Location };
 
 
 
@@ -230,6 +230,7 @@ impl Display for TokenKind
 /**
  * Represents the different types of literals that can be associated with a token.
  */
+#[derive(Clone)]
 pub enum TokenLiteral
 {
     /**
@@ -266,6 +267,7 @@ impl Display for TokenLiteral
 /**
  * Represents a value that can be associated with a token, such as a literal, identifier, or none.
  */
+#[derive(Clone)]
 pub enum TokenValue
 {
     None,
@@ -293,6 +295,7 @@ impl Display for TokenValue
 /**
  * Represents a single token of language as extracted from the input source code.
  */
+#[derive(Clone)]
 pub struct Token
 {
     /**
@@ -421,12 +424,12 @@ pub struct TokenizerError
     /**
      * The logical location in the source code the error occurred at.
      */
-    location: Location,
+    pub location: Location,
 
     /**
      * A descriptive message explaining the error.
      */
-    message: String
+    pub message: String
 }
 
 
