@@ -5,7 +5,9 @@ pub enum Value
     Integer(i64),
     Float(f64, Option<String>),
     Boolean(bool),
-    String(String)
+    String(String),
+    Array(Vec<Value>),
+    ArgumentExpansion(Vec<Value>)
 }
 
 
@@ -19,7 +21,9 @@ impl Value
             Value::Float(_, Some(s)) => s.clone(),
             Value::Float(f, None) => f.to_string(),
             Value::Boolean(b) => b.to_string(),
-            Value::String(s) => s.clone()
+            Value::String(s) => s.clone(),
+            Value::Array(arr) => arr.iter().map(|v| v.as_text()).collect::<Vec<String>>().join(":"),
+            Value::ArgumentExpansion(args) => args.iter().map(|v| v.as_text()).collect::<Vec<String>>().join(":"),
         }
     }
 
@@ -30,7 +34,9 @@ impl Value
             Value::Integer(i) => *i,
             Value::Float(f, _) => *f as i64,
             Value::Boolean(b) => if *b { 1 } else { 0 },
-            Value::String(s) => s.parse::<i64>().unwrap_or(0)
+            Value::String(s) => s.parse::<i64>().unwrap_or(0),
+            Value::Array(arr) => arr.iter().map(|v| v.as_int()).sum(),
+            Value::ArgumentExpansion(args) => args.iter().map(|v| v.as_int()).sum()
         }
     }
 }

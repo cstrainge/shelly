@@ -9,7 +9,9 @@ pub enum Code
     Execute,
     NewVariable,
     SetVariable,
-    GetVariable
+    GetVariable,
+    GlobFiles,
+    ExpandArray
 }
 
 

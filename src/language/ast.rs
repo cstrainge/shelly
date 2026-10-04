@@ -23,6 +23,7 @@ pub struct AstLiteral
 pub enum AstExpressionKind
 {
     Variable(AstSymbol),
+    VariableSplat(AstSymbol),
     Symbol(AstSymbol),
     Literal(AstLiteral)
 }
@@ -41,6 +42,19 @@ pub fn new_ast_variable(location: Location, name: String) -> AstExpression
         {
             location: location.clone(),
             kind: AstExpressionKind::Variable(AstSymbol
+                {
+                    name
+                })
+        }
+}
+
+
+pub fn new_ast_variable_splat(location: Location, name: String) -> AstExpression
+{
+    AstExpression
+        {
+            location: location.clone(),
+            kind: AstExpressionKind::VariableSplat(AstSymbol
                 {
                     name
                 })
@@ -82,6 +96,7 @@ impl AstExpression
         {
             AstExpressionKind::Symbol(symbol) => Ok(symbol.name.clone()),
             AstExpressionKind::Variable(variable) => Ok(variable.name.clone()),
+            AstExpressionKind::VariableSplat(variable) => Ok(variable.name.clone()),
             AstExpressionKind::Literal(literal) => Ok(literal.value.as_text())
             //_ => Err(AstError::ExpressionNotString(self.location.clone()))
         }

@@ -65,12 +65,25 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
     {
         AstExpressionKind::Symbol(symbol) =>
             {
-                instructions.push(Instruction
-                    {
-                        location: Some(expression.location.clone()),
-                        code: Code::Push,
-                        operand: Some(Value::String(symbol.name.clone()))
-                    });
+                // If the string contains a * then we need to handle it as a file glob.
+                if symbol.name.contains('*')
+                {
+                    instructions.push(Instruction
+                        {
+                            location: Some(expression.location.clone()),
+                            code: Code::GlobFiles,
+                            operand: Some(Value::String(symbol.name.clone()))
+                        });
+                }
+                else
+                {
+                    instructions.push(Instruction
+                        {
+                            location: Some(expression.location.clone()),
+                            code: Code::Push,
+                            operand: Some(Value::String(symbol.name.clone()))
+                        });
+                }
             },
 
         AstExpressionKind::Literal(value) =>
@@ -91,6 +104,23 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                         code: Code::GetVariable,
                         operand: Some(Value::String(variable.name.clone()))
                     });
+            }
+
+        AstExpressionKind::VariableSplat(variable) =>
+            {
+                instructions.push(Instruction
+                        {
+                            location: Some(expression.location.clone()),
+                            code: Code::GetVariable,
+                            operand: Some(Value::String(variable.name.clone()))
+                        });
+
+                    instructions.push(Instruction
+                        {
+                            location: Some(expression.location.clone()),
+                            code: Code::ExpandArray,
+                            operand: None
+                        });
             }
     }
 }

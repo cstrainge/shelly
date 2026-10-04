@@ -18,6 +18,7 @@ pub enum ErrorWhat
     ParserError(ParserError),
     CompileError(CompileError),
     InvalidOperand(String),
+    FileGlobError(String),
     StackUnderflow,
     ExecutableNotFound(String),
     ExecutableIoError(String),
@@ -34,6 +35,7 @@ impl Display for ErrorWhat
             ErrorWhat::ParserError(error) => write!(f, "Parser error: {}", error),
             ErrorWhat::CompileError(error) => write!(f, "Compile error: {}", error),
             ErrorWhat::InvalidOperand(message) => write!(f, "Invalid operand: {}", message),
+            ErrorWhat::FileGlobError(message) => write!(f, "File glob error: {}", message),
             ErrorWhat::StackUnderflow => write!(f, "Stack underflow"),
             ErrorWhat::ExecutableNotFound(name) => write!(f, "Executable not found: {}", name),
             ErrorWhat::ExecutableIoError(message) => write!(f, "Executable I/O error: {}", message),
@@ -197,7 +199,19 @@ impl Interpreter
 
                             for _ in 0..value
                             {
-                                args.push(Self::pop_as_text(&location, &mut stack)?);
+                                let arg = Self::pop(&location, &mut stack)?;
+
+                                if let Value::ArgumentExpansion(expanded_args) = arg
+                                {
+                                    for expanded_arg in expanded_args.into_iter().rev()
+                                    {
+                                        args.push(expanded_arg.as_text());
+                                    }
+                                }
+                                else
+                                {
+                                    args.push(arg.as_text());
+                                }
                             }
                         }
                         else
@@ -264,7 +278,13 @@ impl Interpreter
                                     })
                             };
 
-                        let value = Self::pop(&location, &mut stack)?;
+                        let mut value = Self::pop(&location, &mut stack)?;
+
+                        match value
+                        {
+                            Value::ArgumentExpansion(array) => { value = Value::Array(array); }
+                            _ => {}
+                        }
 
                         if !self.variables.contains_key(&variable_name)
                         {
@@ -306,6 +326,36 @@ impl Interpreter
                                 });
                         }
                     },
+
+
+                Code::GlobFiles =>
+                    {
+                        stack.push_back(self.handle_file_glob(&instruction.operand)
+                            .map_err(|mut error|
+                            {
+                                error.location = location.clone();
+                                error
+                            })?);
+                    },
+
+                Code::ExpandArray =>
+                    {
+                        let mut value = Self::pop(&location, &mut stack)?;
+
+                        match value
+                        {
+                            Value::Array(array) => value = Value::ArgumentExpansion(array),
+
+                            Value::ArgumentExpansion(_) => {},
+
+                            _ =>
+                                {
+                                    value = Value::ArgumentExpansion(vec![value]);
+                                }
+                        }
+
+                        Self::push(&mut stack, value);
+                    }
             }
 
             instruction_pointer += 1;
@@ -371,6 +421,94 @@ impl Interpreter
                stack: &mut VecDeque<Value>) -> InterpreterResult<String>
     {
         Ok(Self::pop(location, stack)?.as_text())
+    }
+
+    fn handle_file_glob(&self, operand: &Option<Value>) -> InterpreterResult<Value>
+    {
+        // Glob results may omit an explicit "./" prefix or normalize separators.
+        // Normalize both sides for matching without resolving parent directories.
+        fn normalized_path(path: &std::path::Path) -> std::path::PathBuf
+        {
+            path.components()
+                .filter(|component| !matches!(component, std::path::Component::CurDir))
+                .collect()
+        }
+
+        let pattern = match operand
+            {
+                Some(Value::String(pattern)) => pattern,
+                _ => return Err(InterpreterError
+                    {
+                        location: Location::default(),
+                        what: ErrorWhat::InvalidOperand(
+                            "Missing or invalid operand for GlobFiles instruction.".to_string())
+                    })
+            };
+
+        let options = glob::MatchOptions
+            {
+                require_literal_separator: true,
+                require_literal_leading_dot: true,
+                ..glob::MatchOptions::new()
+            };
+
+        let invalid_pattern = |error| InterpreterError
+            {
+                location: Location::default(),
+                what: ErrorWhat::InvalidOperand(
+                    format!("Invalid glob pattern '{}': {}", pattern, error))
+            };
+
+        let matcher = glob::Pattern::new(
+            &normalized_path(std::path::Path::new(pattern)).to_string_lossy())
+            .map_err(&invalid_pattern)?;
+
+        // glob_with's leading-dot option prunes even explicitly requested hidden
+        // entries. Enumerate normally, then enforce that rule with Pattern instead.
+        let paths = glob::glob(pattern).map_err(invalid_pattern)?;
+
+        let mut arguments = Vec::new();
+
+        for entry in paths
+        {
+            let path = entry.map_err(|error| InterpreterError
+                {
+                    location: Location::default(),
+                    what: ErrorWhat::FileGlobError(
+                        format!("Failed to expand '{}': {}", pattern, error))
+                })?;
+
+            let path_text = path.to_string_lossy();
+
+            // Inspect the final entry as written: Path::file_name normalizes
+            // away a trailing "/.", which would hide that special entry.
+            let entry_name = path_text.trim_end_matches(std::path::is_separator)
+                .rsplit(std::path::is_separator).next();
+
+            if matches!(entry_name, Some(".") | Some(".."))
+            {
+                continue;
+            }
+
+            if !matcher.matches_path_with(&normalized_path(&path), options)
+            {
+                continue;
+            }
+
+            arguments.push(Value::String(path_text.into_owned()));
+        }
+
+        if arguments.is_empty()
+        {
+            return Err(InterpreterError
+                {
+                    location: Location::default(),
+                    what: ErrorWhat::FileGlobError(
+                        format!("No paths matched glob pattern '{}'.", pattern))
+                });
+        }
+
+        Ok(Value::ArgumentExpansion(arguments))
     }
 
     fn handle_cd(&mut self, location: &Location, args: &[String]) -> InterpreterResult<()>

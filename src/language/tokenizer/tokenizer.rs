@@ -214,7 +214,12 @@ pub enum TokenKind
     /**
      * Represents redirection in the source code from a file or variable, the `<-` symbol.
      */
-    RedirectFrom
+    RedirectFrom,
+
+    /**
+     * Represents the splat operator, `...`, used for argument expansion.
+     */
+    Splat
 }
 
 
@@ -401,7 +406,8 @@ impl Token
             TokenKind::Pipe           => "|".to_string(),
             TokenKind::ErrorSource    => "~".to_string(),
             TokenKind::RedirectTo     => "->".to_string(),
-            TokenKind::RedirectFrom   => "<-".to_string()
+            TokenKind::RedirectFrom   => "<-".to_string(),
+            TokenKind::Splat          => "...".to_string()
         }
     }
 }
@@ -1024,19 +1030,20 @@ impl<'a> Tokenizer<'a>
 
         match operator_str.as_str()
         {
-            "="  => return operator_token(location, TokenKind::Assign),
-            "{"  => return operator_token(location, TokenKind::BlockOpen),
-            "}"  => return operator_token(location, TokenKind::BlockClose),
-            "-"  => return operator_token(location, TokenKind::Minus),
-            "~"  => return operator_token(location, TokenKind::ErrorSource),
-            "+"  => return operator_token(location, TokenKind::Plus),
-            "*"  => return operator_token(location, TokenKind::Asterisk),
-            "/"  => return operator_token(location, TokenKind::Slash),
-            "%"  => return operator_token(location, TokenKind::Percent),
-            "->" => return operator_token(location, TokenKind::RedirectTo),
-            "<-" => return operator_token(location, TokenKind::RedirectFrom),
-            "{}" => return operator_token(location, TokenKind::EmptyBlock),
-            _    => Ok(Some(Self::symbol_str_to_token(location, operator_str)))
+            "="   => return operator_token(location, TokenKind::Assign),
+            "{"   => return operator_token(location, TokenKind::BlockOpen),
+            "}"   => return operator_token(location, TokenKind::BlockClose),
+            "-"   => return operator_token(location, TokenKind::Minus),
+            "~"   => return operator_token(location, TokenKind::ErrorSource),
+            "+"   => return operator_token(location, TokenKind::Plus),
+            "*"   => return operator_token(location, TokenKind::Asterisk),
+            "/"   => return operator_token(location, TokenKind::Slash),
+            "%"   => return operator_token(location, TokenKind::Percent),
+            "->"  => return operator_token(location, TokenKind::RedirectTo),
+            "<-"  => return operator_token(location, TokenKind::RedirectFrom),
+            "{}"  => return operator_token(location, TokenKind::EmptyBlock),
+            "..." => return operator_token(location, TokenKind::Splat),
+            _     => Ok(Some(Self::symbol_str_to_token(location, operator_str)))
         }
     }
 
