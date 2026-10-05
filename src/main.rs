@@ -119,6 +119,18 @@ fn apply_keybindings(keybindings: &mut Keybindings)
 }
 
 
+fn default_prompt() -> String
+{
+    let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
+
+    let formatted = format!("\n{} [{}]\n",
+                            Color::Yellow.bold().paint("<shelly>"),
+                            Color::Cyan.paint(cwd.display().to_string()));
+
+    formatted
+}
+
+
 fn main()
 {
     let mut interpreter = Interpreter::new();
@@ -164,17 +176,18 @@ fn main()
                                                     vec![])
                     });
 
-                String::from_utf8_lossy(&bytes).to_string()
+                if result.is_err()
+                {
+                    default_prompt()
+                }
+                else
+                {
+                    String::from_utf8_lossy(&bytes).to_string()
+                }
             }
             else
             {
-                let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
-
-                let formatted = format!("\n{} [{}]\n",
-                                Color::Yellow.bold().paint("<shelly>"),
-                                Color::Cyan.paint(cwd.display().to_string()));
-
-                formatted
+                default_prompt()
             };
 
         prompt.prompt_text = prompt_text;

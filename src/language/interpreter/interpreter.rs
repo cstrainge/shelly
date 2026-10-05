@@ -117,11 +117,18 @@ pub type InterpreterResult<T> = Result<T, InterpreterError>;
 
 
 
+type ReadFunction = Rc<dyn Fn(&Interpreter) -> InterpreterResult<Value>>;
+
+
+type SpecialVars = HashMap<&'static str, ReadFunction>;
+
+
 
 
 pub struct Interpreter
 {
     variables: ScopedVariables,
+    special_vars: SpecialVars,
     base_function_block: FunctionBlockRef,
     current_function_block: Option<FunctionBlockRef>,
     built_ins: BuiltIns<'static>,
@@ -148,9 +155,20 @@ impl Interpreter
                 )
             ]);
 
+        let special_vars: SpecialVars = HashMap::from([
+                (
+                    "$pwd",
+                    Rc::new(|_interpreter: &Interpreter|
+                        {
+                            let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
+                            Ok(Value::String(cwd.display().to_string()))
+                        }) as ReadFunction)
+            ]);
+
         Self
             {
                 variables,
+                special_vars,
                 base_function_block: Rc::new(RefCell::new(FunctionBlock
                     {
                         parent: None,
@@ -343,18 +361,10 @@ impl Interpreter
                             {
                                 executable = self.interpolate_string(&location, &executable)?;
                             }
-                            else if let Some(value) = self.variables.get(&executable)
-                            {
-                                executable = value.value.as_text();
-                            }
                             else
                             {
-                                return Err(InterpreterError
-                                    {
-                                        location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand(
-                                            "Variable not found for Execute instruction.".to_string())
-                                    });
+                                let value = self.read_variable(&executable, &location)?.as_text();
+                                executable = value;
                             }
                         }
 
@@ -439,19 +449,8 @@ impl Interpreter
                                     })
                             };
 
-                        if let Some(value) = self.variables.get(&variable_name).cloned()
-                        {
-                            Self::push(&mut stack, value.value);
-                        }
-                        else
-                        {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        format!("Variable '{}' not found.", variable_name))
-                                });
-                        }
+                        let value = self.read_variable(&variable_name, &location)?;
+                        Self::push(&mut stack, value);
                     },
 
                 Code::ExportVariable =>
@@ -575,6 +574,27 @@ impl Interpreter
         }
 
         Ok(())
+    }
+
+    fn read_variable(&self, name: &str, location: &Location) -> InterpreterResult<Value>
+    {
+        if let Some(value) = self.variables.get(&name).cloned()
+        {
+            Ok(value.value)
+        }
+        else if let Some(value) = self.special_vars.get(name).cloned()
+        {
+            Ok(value(self)?)
+        }
+        else
+        {
+            Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::InvalidOperand(
+                        format!("Variable '{}' not found.", name))
+                })
+        }
     }
 
     fn get_function<'a>(&self,
@@ -850,12 +870,10 @@ impl Interpreter
                 }
             }
 
-            let value = self.variables.get(&variable_name).ok_or_else(||
-                invalid_operand(format!("Variable '{}' not found for string interpolation.",
-                                        variable_name)))?;
+            let value = self.read_variable(&variable_name, &location)?;
 
             // Append values directly so their contents are not interpolated again.
-            interpolated.push_str(&value.value.as_text());
+            interpolated.push_str(&value.as_text());
         }
 
         Ok(interpolated)
