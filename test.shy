@@ -1,0 +1,72 @@
+
+let $must_succeed    = sort ./tests/must_succeed/*.shy
+let $succeed_outputs = sort ./tests/must_succeed/*.txt
+
+let $must_fail       = sort ./tests/must_fail/*.shy
+let $fail_outputs    = sort ./tests/must_fail/*.txt
+
+
+if (($must_succeed != $succeed_outputs) || ($must_fail != $fail_outputs))
+{
+    echo "* Missing expected output files for tests. Each test must have an expected output .txt
+            If the output doesn't matter include an empty .txt file for that test.
+          *"
+}
+
+
+let $total_succeed = count $must_succeed
+let $total_fail    = count $must_fail
+
+let $total = $total_succeed + $total_fail
+
+
+echo "*
+        Shelly Test Suite
+
+        About to run $total tests.
+
+            $total_succeed positive tests.
+            $total_fail negative tests.
+
+      *"
+
+
+let $success_count = 0
+
+for $file in $must_succeed
+{
+    let $result = $file
+
+    if $result
+    {
+        $success_count = $success_count + 1
+    }
+    else
+    {
+        echo "$file failed."
+    }
+}
+
+for $file in $must_fail
+{
+    let $result = $file
+
+    if not $result
+    {
+        $success_count = $success_count + 1
+    }
+    else
+    {
+        echo "$file unexpectedly succeeded."
+    }
+}
+
+
+
+echo ${success_count} '/' ${total} tests passed.
+
+
+if (($total - $success_count) != 0)
+{
+    exit 1
+}
