@@ -635,7 +635,14 @@ impl<'a> Tokenizer<'a>
         assert!(self.input.next() == Some('$'),
                 "Expected '$' at the beginning of an identifier");
 
-        identifier += &self.extract_to_separator(Some(&['.']));
+        identifier += &self.extract_to_separator(Some(&['.', '/']));
+
+        // A variable-prefixed path is one interpolated word, not a variable name.
+        if self.input.peek_next() == Some('/')
+        {
+            identifier += &self.extract_to_separator(None);
+            return Self::symbol_str_to_token(location, identifier);
+        }
 
         if identifier.len() == 1
         {
@@ -645,24 +652,6 @@ impl<'a> Tokenizer<'a>
                     kind: TokenKind::AutoIdentifier,
                     value: TokenValue::None
                 };
-        }
-
-        // Now that we know for sure the identifier started with a '$' we can keep going until we
-        // hit a whitespace, separator, or dot character. We break on a dot only in the context of
-        // parsing the identifier to allow for dotted notation (e.g., `$variable.property`).
-        while let Some(next) = self.input.peek_next()
-        {
-            if    !Self::is_whitespace_char(&next)
-               && !Self::is_separator_char(&next)
-               && !(next == '.')
-            {
-                let _ = &self.input.next();
-                identifier.push(next);
-            }
-            else
-            {
-                break;
-            }
         }
 
         Token

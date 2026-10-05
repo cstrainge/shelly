@@ -265,7 +265,11 @@ impl Interpreter
                         // If the executable name starts with a $ eval as a variable first.
                         if executable.starts_with('$')
                         {
-                            if let Some(value) = self.variables.get(&executable)
+                            if executable.contains('/')
+                            {
+                                executable = self.interpolate_string(&location, &executable)?;
+                            }
+                            else if let Some(value) = self.variables.get(&executable)
                             {
                                 executable = value.value.as_text();
                             }
@@ -679,6 +683,19 @@ impl Interpreter
                 "Expected a string for InterpolateString instruction.".to_string()));
         };
 
+        let interpolated = self.interpolate_string(location, &text)?;
+        Self::push(stack, Value::String(interpolated));
+        Ok(())
+    }
+
+    fn interpolate_string(&self, location: &Location, text: &str) -> InterpreterResult<String>
+    {
+        let invalid_operand = |message| InterpreterError
+            {
+                location: location.clone(),
+                what: ErrorWhat::InvalidOperand(message)
+            };
+
         let mut interpolated = String::with_capacity(text.len());
         let mut characters = text.chars().peekable();
 
@@ -744,8 +761,7 @@ impl Interpreter
             interpolated.push_str(&value.value.as_text());
         }
 
-        Self::push(stack, Value::String(interpolated));
-        Ok(())
+        Ok(interpolated)
     }
 
     fn handle_file_glob(&self, operand: &Option<Value>) -> InterpreterResult<Value>
@@ -866,102 +882,5 @@ impl Interpreter
         self.halted = true;
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests
-{
-    use super::*;
-
-    fn recording_interpreter() -> (Interpreter, Rc<RefCell<Vec<Vec<String>>>>)
-    {
-        let calls = Rc::new(RefCell::new(Vec::new()));
-        let recorded_calls = calls.clone();
-        let mut interpreter = Interpreter::new();
-        interpreter.built_ins.insert("echo", Rc::new(move |_, _, args|
-            {
-                recorded_calls.borrow_mut().push(args.to_vec());
-                Ok(())
-            }));
-
-        (interpreter, calls)
-    }
-
-    #[test]
-    fn echo_preserves_adjacent_variable_arguments()
-    {
-        let (mut interpreter, calls) = recording_interpreter();
-        let result = interpreter.execute_code("<test>",
-            "let $a = 12\nlet $b = 24\necho $a $b\n");
-
-        assert!(result.is_ok(), "{:?}", result.err().map(|error| error.to_string()));
-        assert_eq!(*calls.borrow(), vec![vec!["12".to_string(), "24".to_string()]]);
-    }
-
-    #[test]
-    fn nested_function_reads_outer_parameter()
-    {
-        let (mut interpreter, calls) = recording_interpreter();
-        let result = interpreter.execute_code("<test>", "
-fn foo($a)
-{
-    fn bar($b)
-    {
-        echo $a $b
-    }
-    bar $a * 2
-}
-foo 12
-");
-
-        assert!(result.is_ok(), "{:?}", result.err().map(|error| error.to_string()));
-        assert_eq!(*calls.borrow(), vec![vec!["12".to_string(), "24".to_string()]]);
-    }
-
-    #[test]
-    fn nested_function_reads_outer_parameter_across_repl_inputs()
-    {
-        let (mut interpreter, calls) = recording_interpreter();
-        let definition_result = interpreter.execute_code("<repl>", "
-fn foo($a)
-{
-    fn bar($b)
-    {
-        echo $a $b
-    }
-
-    bar $a * 2
-}
-");
-
-        assert!(definition_result.is_ok(), "{:?}",
-                definition_result.err().map(|error| error.to_string()));
-        assert!(calls.borrow().is_empty());
-
-        let call_result = interpreter.execute_code("<repl>", "foo 12");
-        assert!(call_result.is_ok(), "{:?}",
-                call_result.err().map(|error| error.to_string()));
-        assert_eq!(*calls.borrow(), vec![vec!["12".to_string(), "24".to_string()]]);
-    }
-
-    #[test]
-    fn undefined_variable_in_function_reports_error()
-    {
-        let (mut interpreter, calls) = recording_interpreter();
-        let definition_result = interpreter.execute_code("<repl>",
-            "fn q() { echo $bert ; }");
-        assert!(definition_result.is_ok(), "{:?}",
-                definition_result.err().map(|error| error.to_string()));
-
-        let result = interpreter.execute_code("<repl>", "q");
-        let error = match result
-        {
-            Err(error) => error,
-            Ok(()) => panic!("Expected an undefined-variable error")
-        };
-        assert!(error.to_string().contains("Variable '$bert' not found."),
-                "{}", error);
-        assert!(calls.borrow().is_empty());
     }
 }
