@@ -45,6 +45,11 @@ pub enum TokenKind
     Export,
 
     /**
+     * The `alias` keyword used for defining an alias.
+     */
+    Alias,
+
+    /**
      * The `,` character used to separate items in a list or function parameters.
      */
     Comma,
@@ -427,6 +432,7 @@ impl Token
             TokenKind::AutoIdentifier    => "$".to_string(),
             TokenKind::Let               => "let".to_string(),
             TokenKind::Export            => "export".to_string(),
+            TokenKind::Alias             => "alias".to_string(),
             TokenKind::Comma             => ",".to_string(),
             TokenKind::Sub               => "sub".to_string(),
             TokenKind::If                => "if".to_string(),
@@ -620,6 +626,7 @@ impl<'a> Tokenizer<'a>
             {
                 "let"    => TokenKind::Let,
                 "export" => TokenKind::Export,
+                "alias"  => TokenKind::Alias,
                 "sub"    => TokenKind::Sub,
                 "if"     => TokenKind::If,
                 "else"   => TokenKind::Else,

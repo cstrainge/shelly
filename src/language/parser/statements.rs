@@ -1,11 +1,11 @@
 
 use crate::language::{ ast::{ * },
-                       tokenizer::{ TokenBuffer, TokenKind },
+                       data::value::Value,
+                       tokenizer::{ TokenBuffer, TokenKind, TokenValue, TokenLiteral },
                        parser::{ base_utils::{ Lookahead,
                                                match_one_of,
                                                expect_token,
                                                try_expect_token,
-                                               match_multiple_of,
                                                expect_block_list_of },
                                  expressions::{ parse_expression, parse_exec_expression },
                                  results::{ ParseResult, ParserError, ParserErrorKind } } };
@@ -78,6 +78,53 @@ fn parse_set_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
 }
 
 
+fn parse_alias_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
+{
+    expect_token(buffer, TokenKind::Alias)?;
+
+    let alias = expect_token(buffer, TokenKind::Symbol)?;
+
+    expect_token(buffer, TokenKind::Assign)?;
+
+    let target = expect_token(buffer, TokenKind::Symbol)?;
+
+    let mut arguments = Vec::new();
+
+    while let Some(token) = buffer.next()?
+    {
+        match token.kind
+        {
+            TokenKind::LineBreak | TokenKind::StatementBreak => break,
+
+            TokenKind::LineContinue =>
+                {
+                    expect_token(buffer, TokenKind::LineBreak)?;
+                    continue;
+                },
+
+            _ => {}
+        }
+
+        // Alias arguments are stored values, not expressions to evaluate here.
+        let value = match &token.value
+            {
+                TokenValue::Literal(TokenLiteral::Integer(value, _)) => Value::Integer(*value),
+                TokenValue::Literal(TokenLiteral::Float(value, text)) =>
+                    Value::Float(*value, Some(text.clone())),
+                TokenValue::Literal(TokenLiteral::Boolean(value)) => Value::Boolean(*value),
+                _ => Value::String(token.token_value_text())
+            };
+
+        arguments.push(value);
+    }
+
+    Ok(new_ast_alias_statement(alias.location.clone(),
+                              alias.token_value_text(),
+                              target.token_value_text(),
+                              arguments))
+}
+
+
 fn parse_execute_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     let exec_expression = parse_exec_expression(buffer)?;
@@ -90,10 +137,43 @@ fn parse_execute_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
     let exec_expression = exec_expression.unwrap();
     let location = exec_expression.location.clone();
 
-    let parameter_expressions = match_multiple_of(buffer,
-                                                  &[parse_expression],
-                                                  &[TokenKind::LineBreak,
-                                                    TokenKind::StatementBreak])?;
+    let mut parameter_expressions = Vec::new();
+
+    loop
+    {
+        let next =
+            {
+                let mut lookahead = Lookahead::new(buffer);
+                let Some(token) = lookahead.buffer.next()? else { break; };
+
+                match token.kind
+                {
+                    TokenKind::LineBreak | TokenKind::StatementBreak =>
+                        {
+                            lookahead.commit();
+                            break;
+                        },
+
+                    TokenKind::LineContinue =>
+                        {
+                            expect_token(lookahead.buffer, TokenKind::LineBreak)?;
+                            lookahead.commit();
+                            continue;
+                        },
+
+                    _ => token
+                }
+            };
+
+        // The lookahead rewound this token so the full expression can consume it.
+        let expression = parse_expression(buffer)?.ok_or_else(|| ParserError
+            {
+                location: Some(next.location),
+                kind: ParserErrorKind::ExpectedExpression
+            })?;
+
+        parameter_expressions.push(expression);
+    }
 
     Ok(new_ast_execute_statement(location,
                                  exec_expression.resolve_as_text()?,
@@ -183,6 +263,7 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     match_one_of(buffer, &[parse_null_statement,
                            parse_let_statement,
                            parse_set_statement,
+                           parse_alias_statement,
                            parse_execute_statement,
                            parse_function_statement])
 }

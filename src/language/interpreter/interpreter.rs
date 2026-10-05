@@ -1,6 +1,6 @@
 
 use std::{ cell::RefCell,
-           collections::{ HashMap, VecDeque },
+           collections::{ HashMap, HashSet, VecDeque },
            fmt::{ self, Display, Formatter },
            io::{ self, Write },
            process::{ Command, Stdio },
@@ -123,12 +123,18 @@ type ReadFunction = Rc<dyn Fn(&Interpreter) -> InterpreterResult<Value>>;
 type SpecialVars = HashMap<&'static str, ReadFunction>;
 
 
+pub struct Alias
+{
+    pub name: String,
+    pub arguments: Vec<String>
+}
 
 
 pub struct Interpreter
 {
     variables: ScopedVariables,
     special_vars: SpecialVars,
+    aliases: HashMap<String, Alias>,
     base_function_block: FunctionBlockRef,
     current_function_block: Option<FunctionBlockRef>,
     built_ins: BuiltIns<'static>,
@@ -181,6 +187,7 @@ impl Interpreter
             {
                 variables,
                 special_vars,
+                aliases: HashMap::new(),
                 base_function_block: Rc::new(RefCell::new(FunctionBlock
                     {
                         parent: None,
@@ -382,6 +389,38 @@ impl Interpreter
 
                         self.execute(&location, executable, args)?;
                     }
+
+                Code::NewAlias =>
+                    {
+                        let definition = match &instruction.operand
+                            {
+                                Some(Value::Array(values)) => match values.as_slice()
+                                    {
+                                        [Value::String(alias), Value::String(target), arguments @ ..]
+                                            if !alias.is_empty() && !target.is_empty() =>
+                                                Some((alias, target, arguments)),
+                                        _ => None
+                                    },
+                                _ => None
+                            };
+
+                        let Some((alias, target, arguments)) = definition else
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(
+                                        "NewAlias requires an array containing a nonempty alias name, target command, and optional arguments."
+                                            .to_string())
+                                });
+                        };
+
+                        self.aliases.insert(alias.clone(), Alias
+                            {
+                                name: target.clone(),
+                                arguments: arguments.iter().map(Value::as_text).collect()
+                            });
+                    },
 
                 Code::NewVariable =>
                     {
@@ -704,6 +743,10 @@ impl Interpreter
                executable: String,
                args: Vec<String>) -> InterpreterResult<()>
     {
+        let (executable, mut resolved_args) = self.resolve_alias(location, &executable)?;
+        resolved_args.extend(args);
+        let args = resolved_args;
+
         if let Some(built_in) = self.built_ins.get(executable.as_str()).cloned()
         {
             return built_in(self, location, &args);
@@ -977,6 +1020,46 @@ impl Interpreter
         }
 
         Ok(Value::ArgumentExpansion(arguments))
+    }
+
+    fn resolve_alias(&self,
+                     location: &Location,
+                     command: &str) -> InterpreterResult<(String, Vec<String>)>
+    {
+        let mut name = command;
+        let mut arguments = VecDeque::new();
+        let mut visited = HashSet::new();
+
+        while let Some(alias) = self.aliases.get(name)
+        {
+            if !visited.insert(name)
+            {
+                return Err(InterpreterError
+                    {
+                        location: location.clone(),
+                        what: ErrorWhat::InvalidOperand(
+                            format!("Alias cycle detected at '{}' while resolving '{}'.",
+                                    name, command))
+                    });
+            }
+
+            // Target arguments precede the arguments of aliases that refer to it.
+            for argument in alias.arguments.iter().rev()
+            {
+                arguments.push_front(argument.clone());
+            }
+
+            // An alias such as `ls = ls -h` adds defaults to the real command.
+            // Apply it once, including when reached through another alias.
+            if alias.name == name
+            {
+                break;
+            }
+
+            name = &alias.name;
+        }
+
+        Ok((name.to_string(), arguments.into_iter().collect()))
     }
 
     fn handle_cd(&mut self, location: &Location, args: &[String]) -> InterpreterResult<()>

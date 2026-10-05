@@ -12,6 +12,8 @@ pub enum Code
     NewVariable,
     SetVariable,
     GetVariable,
+    // Operand: [alias name, target command, arguments...]. Names are strings.
+    NewAlias,
     ExportVariable,
     GlobFiles,
     ExpandArray,

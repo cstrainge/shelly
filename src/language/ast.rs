@@ -164,6 +164,15 @@ pub struct AstSetStatement
 }
 
 
+pub struct AstAliasStatement
+{
+    pub location: Location,
+    pub alias: String,
+    pub target: String,
+    pub arguments: Vec<Value>
+}
+
+
 pub struct AstFunctionStatement
 {
     pub location: Location,
@@ -229,10 +238,26 @@ pub fn new_ast_function_statement(location: Location,
 }
 
 
+pub fn new_ast_alias_statement(location: Location,
+                               alias: String,
+                               target: String,
+                               arguments: Vec<Value>) -> Option<AstStatement>
+{
+    Some(AstStatement::AliasStatement(Box::new(AstAliasStatement
+        {
+            location,
+            alias,
+            target,
+            arguments,
+        })))
+}
+
+
 pub enum AstStatement
 {
     LetStatement(Box<AstLetStatement>),
     SetStatement(Box<AstSetStatement>),
+    AliasStatement(Box<AstAliasStatement>),
     ExecuteStatement(Box<AstExecuteStatement>),
     FunctionDefinition(Box<AstFunctionStatement>),
     NullStatement

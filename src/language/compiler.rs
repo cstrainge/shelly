@@ -203,6 +203,22 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>, set_statement: &As
 }
 
 
+fn compile_alias_statement(instructions: &mut Vec<Instruction>, alias_statement: &AstAliasStatement)
+{
+    let mut definition = Vec::with_capacity(alias_statement.arguments.len() + 2);
+    definition.push(Value::String(alias_statement.alias.clone()));
+    definition.push(Value::String(alias_statement.target.clone()));
+    definition.extend(alias_statement.arguments.iter().cloned());
+
+    instructions.push(Instruction
+        {
+            location: Some(alias_statement.location.clone()),
+            code: Code::NewAlias,
+            operand: Some(Value::Array(definition))
+        });
+}
+
+
 fn compile_execute_statement(instructions: &mut Vec<Instruction>,
                              execute_statement: &AstExecuteStatement)
 {
@@ -270,6 +286,11 @@ pub fn compile_ast(function_block: &FunctionBlockRef,
             AstStatement::SetStatement(set_statement) =>
                 {
                     compile_set_statement(&mut instructions, set_statement);
+                },
+
+            AstStatement::AliasStatement(alias_statement) =>
+                {
+                    compile_alias_statement(&mut instructions, alias_statement);
                 },
 
             AstStatement::ExecuteStatement(execute_statement) =>
