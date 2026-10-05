@@ -1,10 +1,11 @@
 
-use std::{ collections::{ HashMap, VecDeque },
+use std::{ cell::RefCell,
+           collections::{ HashMap, VecDeque },
            fmt::{ self, Display, Formatter },
            process::Command,
            rc::Rc };
 
-use crate::language::{ bytecode::{ Code, Instruction },
+use crate::language::{ bytecode::{ Code, Instruction, FunctionBlockRef, FunctionRef, FunctionBlock },
                        compiler::{ CompileError, compile_ast },
                        data::{ value::Value,
                                scoped_variables::{ ScopedValue,
@@ -21,6 +22,7 @@ pub enum ErrorWhat
     ParserError(ParserError),
     CompileError(CompileError),
     InvalidOperand(String),
+    ArgumentMismatch(String),
     FileGlobError(String),
     StackUnderflow,
     ExecutableNotFound(String),
@@ -48,6 +50,7 @@ impl Display for ErrorWhat
                     write!(f, "Executable returned error code: {}", code)
                 },
 
+            ErrorWhat::ArgumentMismatch(message) => write!(f, "{}", message),
             ErrorWhat::InitialScopePopAttempt => write!(f, "Attempted to pop the initial scope")
         }
     }
@@ -112,6 +115,8 @@ pub type InterpreterResult<T> = Result<T, InterpreterError>;
 pub struct Interpreter
 {
     variables: ScopedVariables,
+    base_function_block: FunctionBlockRef,
+    current_function_block: Option<FunctionBlockRef>,
     built_ins: BuiltIns<'static>,
     pub halted: bool
 }
@@ -138,6 +143,12 @@ impl Interpreter
         Self
             {
                 variables,
+                base_function_block: Rc::new(RefCell::new(FunctionBlock
+                    {
+                        parent: None,
+                        functions: HashMap::new()
+                    })),
+                current_function_block: None,
                 built_ins,
                 halted: false
             }
@@ -148,7 +159,7 @@ impl Interpreter
         let mut buffer = SimpleBuffer::new(source, code, None);
         let mut tokenizer = Tokenizer::new(&mut buffer);
         let statements = parse_text(&mut tokenizer)?;
-        let instructions = compile_ast(&statements)?;
+        let instructions = compile_ast(&self.base_function_block, &statements)?;
 
         self.execute_instructions(&instructions)
     }
@@ -488,15 +499,109 @@ impl Interpreter
         Ok(())
     }
 
+    fn get_function<'a>(&self,
+                        executable: &str,
+                        function_block: &'a FunctionBlockRef) -> Option<FunctionRef>
+    {
+        if let Some(function) = function_block.borrow().functions.get(executable)
+        {
+            return Some(function.clone());
+        }
+
+        if let Some(parent_function_block) = &function_block.borrow().parent
+        {
+            return self.get_function(executable, parent_function_block);
+        }
+
+        None
+    }
+
+    fn execute_function(&mut self,
+                        location: &Location,
+                        name: &str,
+                        function: &FunctionRef,
+                        args: &Vec<String>) -> InterpreterResult<()>
+    {
+        self.variables.push_scope();
+
+        if function.arguments.len() != args.len()
+        {
+            let message = format!("Function {} expected {} arguments, but got {}.",
+                                  name,
+                                  function.arguments.len(),
+                                  args.len());
+
+            return Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::ArgumentMismatch(message)
+                });
+        }
+
+        for index in 0..function.arguments.len()
+        {
+            let result = self.variables.create(function.arguments[index].clone(),
+                ScopedValue
+                {
+                    value: Value::String(args[index].clone()),
+                    exported: ValueVisibility::Private
+                });
+
+            if let Err(error) = result
+            {
+                return Err(InterpreterError
+                    {
+                        location: location.clone(),
+                        what: ErrorWhat::ArgumentMismatch(error)
+                    });
+            }
+        }
+
+        self.current_function_block = Some(function.functions.clone());
+
+        let call_result = self.execute_instructions(&function.code);
+
+        self.current_function_block = function.functions.borrow().parent.clone();
+
+        self.variables.pop_scope();
+
+        call_result
+    }
+
+    fn find_and_execute_function(&mut self,
+                        location: &Location,
+                        executable: &str,
+                        args: &Vec<String>) -> InterpreterResult<bool>
+    {
+        if    let Some(current_function_block) = self.current_function_block.clone()
+           && let Some(function) = self.get_function(executable, &current_function_block)
+        {
+            self.execute_function(location, executable, &function, args)?;
+            return Ok(true);
+        }
+
+        if let Some(function) = self.get_function(executable, &self.base_function_block)
+        {
+            self.execute_function(location, executable, &function, args)?;
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
     fn execute(&mut self,
                location: &Location,
                executable: String,
                args: Vec<String>) -> InterpreterResult<()>
     {
         if let Some(built_in) = self.built_ins.get(executable.as_str()).cloned()
-
         {
             return built_in(self, location, &args);
+        }
+
+        if self.find_and_execute_function(location, &executable, &args)?
+        {
+            return Ok(());
         }
 
         // Only include the environment variables explicitly set by the interpreter.
@@ -761,5 +866,102 @@ impl Interpreter
         self.halted = true;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests
+{
+    use super::*;
+
+    fn recording_interpreter() -> (Interpreter, Rc<RefCell<Vec<Vec<String>>>>)
+    {
+        let calls = Rc::new(RefCell::new(Vec::new()));
+        let recorded_calls = calls.clone();
+        let mut interpreter = Interpreter::new();
+        interpreter.built_ins.insert("echo", Rc::new(move |_, _, args|
+            {
+                recorded_calls.borrow_mut().push(args.to_vec());
+                Ok(())
+            }));
+
+        (interpreter, calls)
+    }
+
+    #[test]
+    fn echo_preserves_adjacent_variable_arguments()
+    {
+        let (mut interpreter, calls) = recording_interpreter();
+        let result = interpreter.execute_code("<test>",
+            "let $a = 12\nlet $b = 24\necho $a $b\n");
+
+        assert!(result.is_ok(), "{:?}", result.err().map(|error| error.to_string()));
+        assert_eq!(*calls.borrow(), vec![vec!["12".to_string(), "24".to_string()]]);
+    }
+
+    #[test]
+    fn nested_function_reads_outer_parameter()
+    {
+        let (mut interpreter, calls) = recording_interpreter();
+        let result = interpreter.execute_code("<test>", "
+fn foo($a)
+{
+    fn bar($b)
+    {
+        echo $a $b
+    }
+    bar $a * 2
+}
+foo 12
+");
+
+        assert!(result.is_ok(), "{:?}", result.err().map(|error| error.to_string()));
+        assert_eq!(*calls.borrow(), vec![vec!["12".to_string(), "24".to_string()]]);
+    }
+
+    #[test]
+    fn nested_function_reads_outer_parameter_across_repl_inputs()
+    {
+        let (mut interpreter, calls) = recording_interpreter();
+        let definition_result = interpreter.execute_code("<repl>", "
+fn foo($a)
+{
+    fn bar($b)
+    {
+        echo $a $b
+    }
+
+    bar $a * 2
+}
+");
+
+        assert!(definition_result.is_ok(), "{:?}",
+                definition_result.err().map(|error| error.to_string()));
+        assert!(calls.borrow().is_empty());
+
+        let call_result = interpreter.execute_code("<repl>", "foo 12");
+        assert!(call_result.is_ok(), "{:?}",
+                call_result.err().map(|error| error.to_string()));
+        assert_eq!(*calls.borrow(), vec![vec!["12".to_string(), "24".to_string()]]);
+    }
+
+    #[test]
+    fn undefined_variable_in_function_reports_error()
+    {
+        let (mut interpreter, calls) = recording_interpreter();
+        let definition_result = interpreter.execute_code("<repl>",
+            "fn q() { echo $bert ; }");
+        assert!(definition_result.is_ok(), "{:?}",
+                definition_result.err().map(|error| error.to_string()));
+
+        let result = interpreter.execute_code("<repl>", "q");
+        let error = match result
+        {
+            Err(error) => error,
+            Ok(()) => panic!("Expected an undefined-variable error")
+        };
+        assert!(error.to_string().contains("Variable '$bert' not found."),
+                "{}", error);
+        assert!(calls.borrow().is_empty());
     }
 }

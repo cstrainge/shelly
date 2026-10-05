@@ -1,8 +1,9 @@
 
-use std::fmt::{ self, Display, Formatter };
+use std::{ cell::RefCell, collections::HashMap, fmt::{ self, Display, Formatter }, rc::Rc };
+
 
 use crate::language::{ ast::*,
-                       bytecode::{ Code, Instruction },
+                       bytecode::{ Code, Instruction, Function, FunctionBlock, FunctionBlockRef },
                        data::value::Value,
                        text::location::Location,
                        parser::ParserError };
@@ -226,13 +227,32 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
 }
 
 
-fn compile_function_definition(_function_statement: &AstFunctionStatement)
+fn compile_function_definition(parent_block: &FunctionBlockRef,
+                               function_statement: &AstFunctionStatement) -> CompileResult<()>
 {
-    //
+    let function_block = Rc::new(RefCell::new(FunctionBlock
+        {
+            parent: Some(parent_block.clone()),
+            functions: HashMap::new()
+        }));
+
+    let instructions = compile_ast(&function_block, &function_statement.body)?;
+
+    let new_function = Rc::new(Function
+        {
+            functions: function_block,
+            arguments: function_statement.parameters.clone(),
+            code: instructions
+        });
+
+    parent_block.borrow_mut().functions.insert(function_statement.name.clone(), new_function);
+
+    Ok(())
 }
 
 
-pub fn compile_ast(ast: &AstTopLevel) -> CompileResult<Vec<Instruction>>
+pub fn compile_ast(function_block: &FunctionBlockRef,
+                   ast: &AstTopLevel) -> CompileResult<Vec<Instruction>>
 {
     let mut instructions = Vec::new();
 
@@ -259,7 +279,7 @@ pub fn compile_ast(ast: &AstTopLevel) -> CompileResult<Vec<Instruction>>
 
             AstStatement::FunctionDefinition(function_statement) =>
                 {
-                    compile_function_definition(function_statement);
+                    compile_function_definition(&function_block, function_statement)?;
                 }
         }
     }

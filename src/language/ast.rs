@@ -169,7 +169,7 @@ pub struct AstFunctionStatement
     pub location: Location,
     pub name: String,
     pub parameters: Vec<String>,
-    pub body: Vec<AstStatement>
+    pub body: AstTopLevel
 }
 
 
