@@ -199,70 +199,70 @@ pub fn match_multiple_of<T>(buffer: &mut TokenBuffer<'_, '_>,
 }
 
 
-// /**
-//  * Parse a list enclosed by beginning and ending tokens, consuming both. A delimiter, when
-//  * specified, is required between items. Empty lists are allowed; trailing delimiters are not.
-//  * Failure rolls back the whole block.
-//  */
-//pub fn expect_block_list_of<T>(buffer: &mut TokenBuffer<'_, '_>,
-//                               beginning: TokenKind,
-//                               ending: TokenKind,
-//                               delimiter: Option<TokenKind>,
-//                               item_parser: &ParserFunction<T>) -> ParseResult<Vec<T>>
-//{
-//    let mut lookahead = Lookahead::new(buffer);
-//    expect_token(&mut *lookahead.buffer, beginning)?;
-//
-//    let mut items = Vec::new();
-//
-//    loop
-//    {
-//        // Check the closing token before requiring a separator or another item.
-//        // try_expect_token reports EOF as an error, so an unclosed block fails.
-//        if try_expect_token(&mut *lookahead.buffer, ending.clone())?.is_some()
-//        {
-//            lookahead.commit();
-//            return Ok(items);
-//        }
-//
-//        if !items.is_empty()
-//        {
-//            if let Some(delimiter) = &delimiter
-//            {
-//                expect_token(&mut *lookahead.buffer, delimiter.clone())?;
-//            }
-//        }
-//
-//        let location =
-//            {
-//                let peek = Lookahead::new(&mut *lookahead.buffer);
-//                peek.buffer.next()?.map(|token| token.location)
-//            };
-//
-//        let start = lookahead.buffer.position();
-//        let item = item_parser(&mut *lookahead.buffer)?;
-//
-//        match item
-//        {
-//            Some(item) =>
-//                {
-//                    if lookahead.buffer.position() == start
-//                    {
-//                        return Err(ParserError
-//                        {
-//                            location,
-//                            kind: ParserErrorKind::NoProgress
-//                        });
-//                    }
-//
-//                    items.push(item);
-//                },
-//
-//            None => return Err(ParserError
-//                {
-//                    location,
-//                    kind: ParserErrorKind::ExpectedExpression
-//                })
-//        }
-//    }
-//}
+/**
+ * Parse a list enclosed by beginning and ending tokens, consuming both. A delimiter, when
+ * specified, is required between items. Empty lists are allowed; trailing delimiters are not.
+ * Failure rolls back the whole block.
+ */
+pub fn expect_block_list_of<T>(buffer: &mut TokenBuffer<'_, '_>,
+                               beginning: TokenKind,
+                               ending: TokenKind,
+                               delimiter: Option<TokenKind>,
+                               item_parser: &ParserFunction<T>) -> ParseResult<Vec<T>>
+{
+    let mut lookahead = Lookahead::new(buffer);
+    expect_token(&mut *lookahead.buffer, beginning)?;
+
+    let mut items = Vec::new();
+
+    loop
+    {
+        // Check the closing token before requiring a separator or another item.
+        // try_expect_token reports EOF as an error, so an unclosed block fails.
+        if try_expect_token(&mut *lookahead.buffer, ending.clone())?.is_some()
+        {
+            lookahead.commit();
+            return Ok(items);
+        }
+
+        if !items.is_empty()
+        {
+            if let Some(delimiter) = &delimiter
+            {
+                expect_token(&mut *lookahead.buffer, delimiter.clone())?;
+            }
+        }
+
+        let location =
+            {
+                let peek = Lookahead::new(&mut *lookahead.buffer);
+                peek.buffer.next()?.map(|token| token.location)
+            };
+
+        let start = lookahead.buffer.position();
+        let item = item_parser(&mut *lookahead.buffer)?;
+
+        match item
+        {
+            Some(item) =>
+                {
+                    if lookahead.buffer.position() == start
+                    {
+                        return Err(ParserError
+                        {
+                            location,
+                            kind: ParserErrorKind::NoProgress
+                        });
+                    }
+
+                    items.push(item);
+                },
+
+            None => return Err(ParserError
+                {
+                    location,
+                    kind: ParserErrorKind::ExpectedExpression
+                })
+        }
+    }
+}

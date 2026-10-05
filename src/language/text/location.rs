@@ -1,5 +1,5 @@
 
-use std::{ fmt::{ self, Display, Formatter }, sync::Arc };
+use std::{ fmt::{ self, Debug, Display, Formatter }, sync::Arc };
 
 
 
@@ -74,5 +74,17 @@ impl Display for Location
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error>
     {
         write!(formatter, "{}: ({}, {})", self.origin, self.line, self.column)
+    }
+}
+
+
+impl Debug for Location
+{
+    /**
+     * Format the location for debugging purposes.
+     */
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error>
+    {
+        write!(formatter, "{}", self)
     }
 }

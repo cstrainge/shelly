@@ -45,6 +45,11 @@ pub enum TokenKind
     Export,
 
     /**
+     * The `,` character used to separate items in a list or function parameters.
+     */
+    Comma,
+
+    /**
      * The `sub` keyword used for defining a sub-process block.
      */
     Sub,
@@ -402,6 +407,7 @@ impl Token
             TokenKind::AutoIdentifier => "$".to_string(),
             TokenKind::Let            => "let".to_string(),
             TokenKind::Export         => "export".to_string(),
+            TokenKind::Comma          => ",".to_string(),
             TokenKind::Sub            => "sub".to_string(),
             TokenKind::If             => "if".to_string(),
             TokenKind::Else           => "else".to_string(),
@@ -1062,6 +1068,7 @@ impl<'a> Tokenizer<'a>
             '`'  => return operator_token(location, TokenKind::ExecEscape),
             '\n' => return operator_token(location, TokenKind::LineBreak),
             '\\' => return operator_token(location, TokenKind::LineContinue),
+            ','  => return operator_token(location, TokenKind::Comma),
             ':'  =>
                 {
                     if let Some(':') = self.input.peek_next()
@@ -1163,6 +1170,7 @@ impl<'a> Tokenizer<'a>
         || *next == ':'
         || *next == '#'
         || *next == '`'
+        || *next == ','
         || *next == '\n'
         || *next == '\\'
         || Self::is_whitespace_char(next)

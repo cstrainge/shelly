@@ -2,6 +2,7 @@
 use crate::language::{ text::location::Location, data::value::Value };
 
 
+#[derive(Debug)]
 pub enum AstError
 {
     ExpressionNotString(Location)
@@ -163,6 +164,15 @@ pub struct AstSetStatement
 }
 
 
+pub struct AstFunctionStatement
+{
+    pub location: Location,
+    pub name: String,
+    pub parameters: Vec<String>,
+    pub body: Vec<AstStatement>
+}
+
+
 pub fn new_ast_let_statement(location: Location,
                              export_flag: AstExportFlag,
                              identifier: String,
@@ -204,11 +214,27 @@ pub fn new_ast_execute_statement(location: Location,
 }
 
 
+pub fn new_ast_function_statement(location: Location,
+                                  name: String,
+                                  parameters: Vec<String>,
+                                  body: Vec<AstStatement>) -> Option<AstStatement>
+{
+    Some(AstStatement::FunctionDefinition(Box::new(AstFunctionStatement
+        {
+            location,
+            name,
+            parameters,
+            body,
+        })))
+}
+
+
 pub enum AstStatement
 {
     LetStatement(Box<AstLetStatement>),
     SetStatement(Box<AstSetStatement>),
     ExecuteStatement(Box<AstExecuteStatement>),
+    FunctionDefinition(Box<AstFunctionStatement>),
     NullStatement
 }
 

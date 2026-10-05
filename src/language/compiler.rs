@@ -226,6 +226,12 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
 }
 
 
+fn compile_function_definition(_function_statement: &AstFunctionStatement)
+{
+    //
+}
+
+
 pub fn compile_ast(ast: &AstTopLevel) -> CompileResult<Vec<Instruction>>
 {
     let mut instructions = Vec::new();
@@ -249,6 +255,11 @@ pub fn compile_ast(ast: &AstTopLevel) -> CompileResult<Vec<Instruction>>
             AstStatement::ExecuteStatement(execute_statement) =>
                 {
                     compile_execute_statement(&mut instructions, execute_statement);
+                }
+
+            AstStatement::FunctionDefinition(function_statement) =>
+                {
+                    compile_function_definition(function_statement);
                 }
         }
     }
