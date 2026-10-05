@@ -357,6 +357,11 @@ impl Interpreter
                         Self::push(&mut stack, value);
                     },
 
+                Code::InterpolateString =>
+                    {
+                        self.handle_string_interpolation(&location, &mut stack)?;
+                    },
+
                 Code::MathAdd =>
                     {
                         let rhs = Self::pop(&location, &mut stack)?;
@@ -456,6 +461,91 @@ impl Interpreter
                stack: &mut VecDeque<Value>) -> InterpreterResult<String>
     {
         Ok(Self::pop(location, stack)?.as_text())
+    }
+
+    fn handle_string_interpolation(&self,
+                                   location: &Location,
+                                   stack: &mut VecDeque<Value>) -> InterpreterResult<()>
+    {
+        let invalid_operand = |message| InterpreterError
+            {
+                location: location.clone(),
+                what: ErrorWhat::InvalidOperand(message)
+            };
+
+        let Value::String(text) = Self::pop(location, stack)? else
+        {
+            return Err(invalid_operand(
+                "Expected a string for InterpolateString instruction.".to_string()));
+        };
+
+        let mut interpolated = String::with_capacity(text.len());
+        let mut characters = text.chars().peekable();
+
+        while let Some(character) = characters.next()
+        {
+            if character != '$'
+            {
+                interpolated.push(character);
+                continue;
+            }
+
+            let mut variable_name = String::from("$");
+
+            if characters.peek() == Some(&'{')
+            {
+                characters.next();
+                let mut closed = false;
+
+                for character in characters.by_ref()
+                {
+                    if character == '}'
+                    {
+                        closed = true;
+                        break;
+                    }
+
+                    variable_name.push(character);
+                }
+
+                if !closed || variable_name.len() == 1
+                {
+                    return Err(invalid_operand(
+                        "Expected a variable name and closing '}' in string interpolation."
+                            .to_string()));
+                }
+            }
+            else
+            {
+                // Braces delimit names explicitly; bare names end at punctuation.
+                while let Some(&character) = characters.peek()
+                {
+                    if !character.is_alphanumeric() && character != '_'
+                    {
+                        break;
+                    }
+
+                    variable_name.push(character);
+                    characters.next();
+                }
+
+                if variable_name.len() == 1
+                {
+                    interpolated.push('$');
+                    continue;
+                }
+            }
+
+            let value = self.variables.get(&variable_name).ok_or_else(||
+                invalid_operand(format!("Variable '{}' not found for string interpolation.",
+                                        variable_name)))?;
+
+            // Append values directly so their contents are not interpolated again.
+            interpolated.push_str(&value.as_text());
+        }
+
+        Self::push(stack, Value::String(interpolated));
+        Ok(())
     }
 
     fn handle_file_glob(&self, operand: &Option<Value>) -> InterpreterResult<Value>

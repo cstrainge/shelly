@@ -1,8 +1,11 @@
 
 use crate::language::{ ast::{ * },
                        data::value::Value,
-                       tokenizer::{ TokenBuffer, TokenKind, TokenLiteral, TokenValue },
-                       parser::{ base_utils::{ expect_token, match_one_of, Lookahead, try_expect_token },
+                       tokenizer::{ TokenBuffer, TokenKind, TokenLiteral, TokenValue, StringFlag },
+                       parser::{ base_utils::{ expect_token,
+                                               match_one_of,
+                                               Lookahead,
+                                               try_expect_token },
                        results::{ ParseResult, ParserError, ParserErrorKind } } };
 
 
@@ -53,6 +56,8 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
         {
             TokenKind::Literal =>
                 {
+                    let mut string_flag = None;
+
                     let value = match token.value
                         {
                             TokenValue::Literal(TokenLiteral::Integer(value, _)) =>
@@ -63,12 +68,26 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                             TokenValue::Literal(TokenLiteral::Float(value, text)) =>
                                 {
                                     Value::Float(value, Some(text))
-                                }
+                                },
+
+                            TokenValue::Literal(TokenLiteral::String(value, flag)) =>
+                                {
+                                    string_flag = Some(match flag
+                                        {
+                                            StringFlag::Interpolated =>
+                                                AstStringFlag::Interpolated,
+
+                                            StringFlag::NonInterpolated =>
+                                                AstStringFlag::NonInterpolated,
+                                        });
+
+                                    Value::String(value)
+                                },
 
                             _ => return Ok(None)
                         };
 
-                    new_ast_literal(token.location, value)
+                    new_ast_literal(token.location, value, string_flag)
                 },
 
             TokenKind::Identifier =>
@@ -155,7 +174,8 @@ fn parse_math_binary_tail(buffer: &mut TokenBuffer<'_, '_>,
         left = AstExpression
             {
                 location: left.location.clone(),
-                kind: AstExpressionKind::MathExpression(operator, Box::new(left), Box::new(right))
+                kind: AstExpressionKind::MathExpression(operator, Box::new(left), Box::new(right)),
+                string_flag: None
             };
 
         lookahead.commit();
@@ -234,7 +254,17 @@ fn parse_symbol_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
                 })
         };
 
-    Ok(Some(new_ast_symbol(symbol.location.clone(), symbol_value)))
+    // Does the symbol have any $s in it?
+    let string_flag = if symbol_value.contains('$')
+        {
+            Some(AstStringFlag::Interpolated)
+        }
+        else
+        {
+            Some(AstStringFlag::NonInterpolated)
+        };
+
+    Ok(Some(new_ast_symbol(symbol.location.clone(), symbol_value, string_flag)))
 }
 
 
@@ -253,15 +283,25 @@ fn parse_literal_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
                 })
         };
 
+    let mut string_flag = None;
+
     let literal_value = match literal_value
         {
             TokenLiteral::Integer(value, _) => Value::Integer(value),
             TokenLiteral::Float(value, text) => Value::Float(value, Some(text)),
             TokenLiteral::Boolean(value) => Value::Boolean(value),
-            TokenLiteral::String(value) => Value::String(value)
+            TokenLiteral::String(value, flag) =>
+                {
+                    string_flag = match flag
+                        {
+                            StringFlag::Interpolated => Some(AstStringFlag::Interpolated),
+                            StringFlag::NonInterpolated => Some(AstStringFlag::NonInterpolated),
+                        };
+                    Value::String(value)
+                }
         };
 
-    Ok(Some(new_ast_literal(literal.location.clone(), literal_value)))
+    Ok(Some(new_ast_literal(literal.location.clone(), literal_value, string_flag)))
 }
 
 
@@ -272,12 +312,12 @@ fn parse_lonely_glob_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult
     if let Some(glob_operator) = glob_operator
     {
         let location = glob_operator.location.clone();
-        return Ok(Some(new_ast_symbol(location, "*".to_string())));
+        return Ok(Some(new_ast_symbol(location, "*".to_string(), None)));
     }
 
     let star = expect_token(buffer, TokenKind::Asterisk)?;
 
-    Ok(Some(new_ast_symbol(star.location.clone(), "*".to_string())))
+    Ok(Some(new_ast_symbol(star.location.clone(), "*".to_string(), None)))
 }
 
 

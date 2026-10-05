@@ -1,7 +1,16 @@
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum StringFlag
+{
+    Interpolated,
+    NonInterpolated,
+}
+
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value
 {
+    None,
     Integer(i64),
     Float(f64, Option<String>),
     Boolean(bool),
@@ -17,6 +26,7 @@ impl Value
     {
         match self
         {
+            Value::None => "()".to_string(),
             Value::Integer(i) => i.to_string(),
             Value::Float(_, Some(s)) => s.clone(),
             Value::Float(f, None) => f.to_string(),
@@ -31,6 +41,7 @@ impl Value
     {
         match self
         {
+            Value::None => 0,
             Value::Integer(i) => *i,
             Value::Float(f, _) => *f as i64,
             Value::Boolean(b) => if *b { 1 } else { 0 },

@@ -40,10 +40,18 @@ pub enum AstExpressionKind
 }
 
 
+pub enum AstStringFlag
+{
+    Interpolated,
+    NonInterpolated,
+}
+
+
 pub struct AstExpression
 {
     pub location: Location,
-    pub kind: AstExpressionKind
+    pub kind: AstExpressionKind,
+    pub string_flag: Option<AstStringFlag>
 }
 
 
@@ -55,7 +63,8 @@ pub fn new_ast_variable(location: Location, name: String) -> AstExpression
             kind: AstExpressionKind::Variable(AstSymbol
                 {
                     name
-                })
+                }),
+            string_flag:None
         }
 }
 
@@ -68,12 +77,13 @@ pub fn new_ast_variable_splat(location: Location, name: String) -> AstExpression
             kind: AstExpressionKind::VariableSplat(AstSymbol
                 {
                     name
-                })
+                }),
+            string_flag:None
         }
 }
 
 
-pub fn new_ast_symbol(location: Location, name: String) -> AstExpression
+pub fn new_ast_symbol(location: Location, name: String, string_flag: Option<AstStringFlag>) -> AstExpression
 {
     AstExpression
         {
@@ -81,12 +91,15 @@ pub fn new_ast_symbol(location: Location, name: String) -> AstExpression
             kind: AstExpressionKind::Symbol(AstSymbol
                 {
                     name
-                })
+                }),
+            string_flag
         }
 }
 
 
-pub fn new_ast_literal(location: Location, value: Value) -> AstExpression
+pub fn new_ast_literal(location: Location,
+                       value: Value,
+                       string_flag: Option<AstStringFlag>) -> AstExpression
 {
     AstExpression
         {
@@ -94,7 +107,8 @@ pub fn new_ast_literal(location: Location, value: Value) -> AstExpression
             kind: AstExpressionKind::Literal(AstLiteral
                 {
                     value
-                })
+                }),
+            string_flag
         }
 }
 

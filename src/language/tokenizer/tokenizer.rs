@@ -238,6 +238,17 @@ impl Display for TokenKind
 
 
 /**
+ * Indicate if the string should participate in interpolation or not.
+ */
+#[derive(Clone, PartialEq, Eq)]
+pub enum StringFlag
+{
+    Interpolated,
+    NonInterpolated
+}
+
+
+/**
  * Represents the different types of literals that can be associated with a token.
  */
 #[derive(Clone)]
@@ -261,7 +272,7 @@ pub enum TokenLiteral
     /**
      * A string literal value.
      */
-    String(String)
+    String(String, StringFlag)
 }
 
 
@@ -274,7 +285,7 @@ impl Display for TokenLiteral
             TokenLiteral::Integer(value, text) => write!(f, "{}:{}", value, text),
             TokenLiteral::Float(value, text)   => write!(f, "{}:{}", value, text),
             TokenLiteral::Boolean(value)       => write!(f, "{}", value),
-            TokenLiteral::String(text)         => write!(f, "{:?}", text)
+            TokenLiteral::String(text, _)      => write!(f, "{:?}", text)
         }
     }
 }
@@ -350,7 +361,7 @@ impl Token
                             TokenLiteral::Integer(_, text) => return text.clone(),
                             TokenLiteral::Float(_, text)   => return text.clone(),
                             TokenLiteral::Boolean(value)   => return value.to_string(),
-                            TokenLiteral::String(text)     => return text.clone()
+                            TokenLiteral::String(text, _)  => return text.clone()
                         }
                     }
                     else
@@ -544,7 +555,8 @@ impl<'a> Tokenizer<'a>
             '_' | 'a'..='z' | 'A'..='Z' => Ok(Some(self.parse_symbol())),
             '$'                         => Ok(Some(self.parse_identifier())),
             '0'..='9'                   => Ok(Some(self.try_parse_number())),
-            '"'                         => self.parse_string(),
+            '"'                         => self.parse_string(StringFlag::Interpolated),
+            '\''                        => self.parse_string(StringFlag::NonInterpolated),
             _                           => self.try_parse_operator()
         }
     }
@@ -715,17 +727,18 @@ impl<'a> Tokenizer<'a>
      * In single line strings `\n`, new lines are illegal and will result in a parsing error. An
      * error is also generated if the closing quote is never encountered in the source text.
      */
-    fn parse_string(&mut self) -> Result<Option<Token>, TokenizerError>
+    fn parse_string(&mut self, flag: StringFlag) -> Result<Option<Token>, TokenizerError>
     {
-        let next = self.input.next().unwrap();
         let location = self.input.location().clone();
+        let next = self.input.next().unwrap();
 
-        assert!(next == '"', "Internal error, expected a double quote to start a string literal.");
+        assert!(matches!(next, '"' | '\''),
+                "Internal error, expected a quote to start a string literal.");
 
         if    let Some(next) = self.input.peek_next()
            && next == '*'
         {
-            return self.parse_multiline_string(location);
+            return self.parse_multiline_string(location, flag);
         }
         else
         {
@@ -736,7 +749,13 @@ impl<'a> Tokenizer<'a>
             {
                 match next
                 {
-                    '"' =>
+                    '"' if flag == StringFlag::Interpolated =>
+                        {
+                            closed = true;
+                            break;
+                        },
+
+                    '\'' if flag == StringFlag::NonInterpolated =>
                         {
                             closed = true;
                             break;
@@ -769,9 +788,9 @@ impl<'a> Tokenizer<'a>
 
             Ok(Some(Token
                 {
-                    location: self.input.location().clone(),
+                    location,
                     kind: TokenKind::Literal,
-                    value: TokenValue::Literal(TokenLiteral::String(literal_string))
+                    value: TokenValue::Literal(TokenLiteral::String(literal_string, flag))
                 }))
         }
     }
@@ -780,8 +799,9 @@ impl<'a> Tokenizer<'a>
      * Called from parse string when a multi-line string is detected. The string parsed will have
      * leading whitespace removed while preserving the relative indentation of the subsequent lines.
      */
-    fn parse_multiline_string(&mut self, location: Location) -> Result<Option<Token>,
-                                                                       TokenizerError>
+    fn parse_multiline_string(&mut self,
+                              location: Location,
+                              flag: StringFlag) -> Result<Option<Token>, TokenizerError>
     {
         // Helper for skipping extra whitespace at the beginning of each line.  If there is no text
         // on a given line it is skipped entirely.
@@ -828,6 +848,8 @@ impl<'a> Tokenizer<'a>
         self.skip_whitespace(SkipComments::No, SkipNewlines::Yes);
 
         let target_column = self.input.location().column;
+
+        let mut closed = false;
         let mut text = String::new();
 
         // Keep going until we either hit the end of the buffer or the closing *" pair.
@@ -841,9 +863,11 @@ impl<'a> Tokenizer<'a>
                     if let Some(quote) = self.input.peek_next()
                     {
                         // We're at the end of the string.
-                        if quote == '"'
+                        if   (quote == '"' && flag == StringFlag::Interpolated)
+                          || (quote == '\'' && flag == StringFlag::NonInterpolated)
                         {
                             let _ = self.input.next();
+                            closed = true;
                             break;
                         }
                         else
@@ -894,11 +918,20 @@ impl<'a> Tokenizer<'a>
             }
         }
 
+        if !closed
+        {
+            return Err(TokenizerError
+                {
+                    location: location.clone(),
+                    message: "Unterminated string literal.".to_string()
+                });
+        }
+
         Ok(Some(Token
             {
                 location,
                 kind: TokenKind::Literal,
-                value: TokenValue::Literal(TokenLiteral::String(text))
+                value: TokenValue::Literal(TokenLiteral::String(text, flag))
             }))
     }
 

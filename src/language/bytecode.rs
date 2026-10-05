@@ -12,6 +12,7 @@ pub enum Code
     GetVariable,
     GlobFiles,
     ExpandArray,
+    InterpolateString,
     MathAdd,
     MathSubtract,
     MathMultiply,

@@ -142,6 +142,20 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                         operand: None
                     });
             }
+
+    }
+
+    if let Some(string_flag) = &expression.string_flag
+    {
+        if let AstStringFlag::Interpolated = string_flag
+        {
+            instructions.push(Instruction
+                {
+                    location: Some(expression.location.clone()),
+                    code: Code::InterpolateString,
+                    operand: None
+                });
+        }
     }
 }
 
