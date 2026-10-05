@@ -40,7 +40,7 @@ pub enum TokenKind
     Let,
 
     /**
-     * The `exp` keyword used for marking variables as exported.
+     * The `export` keyword used for marking variables as exported.
      */
     Export,
 
@@ -589,7 +589,7 @@ impl<'a> Tokenizer<'a>
         let kind = match symbol.as_str()
             {
                 "let"    => TokenKind::Let,
-                "exp"    => TokenKind::Export,
+                "export" => TokenKind::Export,
                 "sub"    => TokenKind::Sub,
                 "if"     => TokenKind::If,
                 "else"   => TokenKind::Else,
