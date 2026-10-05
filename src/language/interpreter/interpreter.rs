@@ -162,7 +162,19 @@ impl Interpreter
                         {
                             let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
                             Ok(Value::String(cwd.display().to_string()))
-                        }) as ReadFunction)
+                        }) as ReadFunction
+                ),
+                (
+                    "$HOSTNAME",
+                    Rc::new(|_interpreter: &Interpreter|
+                        {
+                            let name = hostname::get()
+                                .map(|name| name.to_string_lossy().into_owned())
+                                .unwrap_or_else(|_| "unknown".to_string());
+
+                            Ok(Value::String(name))
+                        }) as ReadFunction
+                )
             ]);
 
         Self
