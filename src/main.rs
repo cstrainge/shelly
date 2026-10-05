@@ -24,20 +24,14 @@ use language::interpreter::Interpreter;
 
 struct ShellyPrompt
 {
+    prompt_text: String
 }
 
 impl Prompt for ShellyPrompt
 {
     fn render_prompt_left(&self) -> Cow<'_, str>
     {
-        // Get the current working directory.
-        let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
-
-        let formatted = format!("\n{} [{}]\n",
-                                Color::Yellow.bold().paint("<shelly>"),
-                                Color::Cyan.paint(cwd.display().to_string()));
-
-        Cow::Owned(formatted)
+        Cow::Owned(self.prompt_text.clone())
     }
 
     fn render_prompt_right(&self) -> Cow<'_, str>
@@ -129,10 +123,31 @@ fn main()
 {
     let mut interpreter = Interpreter::new();
 
-    let prompt = ShellyPrompt { };
+    let mut prompt = ShellyPrompt { prompt_text: String::new() };
     let mut keybindings = Keybindings::empty();
 
     apply_keybindings(&mut keybindings);
+
+
+    if let Some(home) = std::env::home_dir()
+    {
+        let init_path = home.join(".shelly_init.shy");
+
+        if init_path.exists()
+        {
+            // Load the file to a string.
+            if let Ok(contents) = std::fs::read_to_string(&init_path)
+            {
+                let result = interpreter.execute_code(init_path.to_str()
+                                        .unwrap_or("<init>"), &contents);
+
+                if let Err(error) = result
+                {
+                    println!("Error processing init file: {}", error);
+                }
+            }
+        }
+    }
 
     let mut editor = Reedline::create()
         .use_kitty_keyboard_enhancement(true)
@@ -140,6 +155,30 @@ fn main()
 
     loop
     {
+        let prompt_text = if interpreter.has_command("prompt")
+            {
+                let (result, bytes) = interpreter.capture_stdout(|interpreter|
+                    {
+                        interpreter.execute_command(location_here!(),
+                                                    "prompt",
+                                                    vec![])
+                    });
+
+                String::from_utf8_lossy(&bytes).to_string()
+            }
+            else
+            {
+                let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
+
+                let formatted = format!("\n{} [{}]\n",
+                                Color::Yellow.bold().paint("<shelly>"),
+                                Color::Cyan.paint(cwd.display().to_string()));
+
+                formatted
+            };
+
+        prompt.prompt_text = prompt_text;
+
         match editor.read_line(&prompt)
         {
             Ok(Signal::Success(text)) =>

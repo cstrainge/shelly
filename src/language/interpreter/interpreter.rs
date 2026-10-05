@@ -2,10 +2,15 @@
 use std::{ cell::RefCell,
            collections::{ HashMap, VecDeque },
            fmt::{ self, Display, Formatter },
-           process::Command,
+           io::{ self, Write },
+           process::{ Command, Stdio },
            rc::Rc };
 
-use crate::language::{ bytecode::{ Code, Instruction, FunctionBlockRef, FunctionRef, FunctionBlock },
+use crate::language::{ bytecode::{ Code,
+                                   Instruction,
+                                   FunctionBlockRef,
+                                   FunctionRef,
+                                   FunctionBlock },
                        compiler::{ CompileError, compile_ast },
                        data::{ value::Value,
                                scoped_variables::{ ScopedValue,
@@ -22,6 +27,7 @@ pub enum ErrorWhat
     ParserError(ParserError),
     CompileError(CompileError),
     InvalidOperand(String),
+    CommandNotFound(String, Location),
     ArgumentMismatch(String),
     FileGlobError(String),
     StackUnderflow,
@@ -41,6 +47,7 @@ impl Display for ErrorWhat
             ErrorWhat::ParserError(error) => write!(f, "Parser error: {}", error),
             ErrorWhat::CompileError(error) => write!(f, "Compile error: {}", error),
             ErrorWhat::InvalidOperand(message) => write!(f, "Invalid operand: {}", message),
+            ErrorWhat::CommandNotFound(command, location) => write!(f, "Command not found: {} at {}", command, location),
             ErrorWhat::FileGlobError(message) => write!(f, "File glob error: {}", message),
             ErrorWhat::StackUnderflow => write!(f, "Stack underflow"),
             ErrorWhat::ExecutableNotFound(name) => write!(f, "Executable not found: {}", name),
@@ -118,6 +125,7 @@ pub struct Interpreter
     base_function_block: FunctionBlockRef,
     current_function_block: Option<FunctionBlockRef>,
     built_ins: BuiltIns<'static>,
+    captured_stdout: Option<Vec<u8>>,
     pub halted: bool
 }
 
@@ -150,8 +158,74 @@ impl Interpreter
                     })),
                 current_function_block: None,
                 built_ins,
+                captured_stdout: None,
                 halted: false
             }
+    }
+
+    pub fn write_stdout(&mut self, bytes: &[u8]) -> io::Result<()>
+    {
+        if let Some(buffer) = &mut self.captured_stdout
+        {
+            buffer.extend_from_slice(bytes);
+            Ok(())
+        }
+        else
+        {
+            let mut stdout = io::stdout().lock();
+            stdout.write_all(bytes)?;
+            stdout.flush()
+        }
+    }
+
+    pub fn capture_stdout<T>(&mut self,
+                             run: impl FnOnce(&mut Self) -> InterpreterResult<T>)
+                             -> (InterpreterResult<T>, Vec<u8>)
+    {
+        let previous = self.captured_stdout.replace(Vec::new());
+        let result = run(self);
+
+        let captured = std::mem::replace(&mut self.captured_stdout,
+                                         previous).expect("Capture buffer must be installed.");
+
+        (result, captured)
+    }
+
+    pub fn has_command(&self, command: &str) -> bool
+    {
+        if self.base_function_block.borrow().functions.contains_key(command)
+        {
+            return true;
+        }
+
+        self.built_ins.contains_key(command)
+    }
+
+    pub fn execute_command(&mut self,
+                           location: Location,
+                           command: &str,
+                           args: Vec<String>) -> InterpreterResult<()>
+    {
+        let function = self.base_function_block.borrow().functions.get(command).cloned();
+
+        if let Some(function) = function
+        {
+            self.execute_function(&location, command, &function, &args)?;
+        }
+        else if let Some(built_in) = self.built_ins.get(command).cloned()
+        {
+            built_in(self, &location, &args)?;
+        }
+        else
+        {
+            return Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::CommandNotFound(command.to_string(), location)
+                });
+        }
+
+        Ok(())
     }
 
     pub fn execute_code(&mut self, source: &str, code: &str) -> InterpreterResult<()>
@@ -617,11 +691,34 @@ impl Interpreter
                  value.value.as_text()))
             .collect();
 
-        let status = Command::new(&executable)
-            .args(args)
-            .env_clear()
-            .envs(env_vars)
-            .status()
+
+        let mut command = Command::new(&executable);
+
+        command.args(args).env_clear().envs(env_vars);
+
+        let status_result = if self.captured_stdout.is_some()
+            {
+                command
+                    .stdin(Stdio::inherit())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::inherit())
+                    .output()
+                    .map(|output|
+                        {
+                            self.captured_stdout
+                                .as_mut()
+                                .expect("Capture buffer must be installed.")
+                                .extend_from_slice(&output.stdout);
+
+                            output.status
+                        })
+            }
+            else
+            {
+                command.status()
+            };
+
+        let status = status_result
             .map_err(|error| InterpreterError
                 {
                     location: location.clone(),

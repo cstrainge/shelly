@@ -10,7 +10,7 @@ use std::{ fmt::{ self, Debug, Display, Formatter }, sync::Arc };
 macro_rules! location_here
 {
     () => {
-        $crate::language::text::location::Location::new(&file!(),
+        $crate::language::text::location::Location::new(file!(),
                                                         line!() as usize,
                                                         column!() as usize)
     };
