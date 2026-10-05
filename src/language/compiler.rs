@@ -169,6 +169,16 @@ fn compile_let_statement(instructions: &mut Vec<Instruction>, let_statement: &As
             operand: Some(Value::String(let_statement.identifier.clone()))
         });
 
+    if let_statement.export_flag == AstExportFlag::Exported
+    {
+        instructions.push(Instruction
+            {
+                location: None,
+                code: Code::ExportVariable,
+                operand: Some(Value::String(let_statement.identifier.clone()))
+            });
+    }
+
     compile_expression(instructions, &let_statement.expression);
 
     instructions.push(Instruction

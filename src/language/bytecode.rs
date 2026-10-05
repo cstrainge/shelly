@@ -10,6 +10,7 @@ pub enum Code
     NewVariable,
     SetVariable,
     GetVariable,
+    ExportVariable,
     GlobFiles,
     ExpandArray,
     InterpolateString,

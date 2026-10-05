@@ -1,13 +1,5 @@
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum StringFlag
-{
-    Interpolated,
-    NonInterpolated,
-}
-
-
-#[derive(Clone, Debug, PartialEq)]
 pub enum Value
 {
     None,

@@ -40,6 +40,11 @@ pub enum TokenKind
     Let,
 
     /**
+     * The `exp` keyword used for marking variables as exported.
+     */
+    Export,
+
+    /**
      * The `sub` keyword used for defining a sub-process block.
      */
     Sub,
@@ -396,6 +401,7 @@ impl Token
 
             TokenKind::AutoIdentifier => "$".to_string(),
             TokenKind::Let            => "let".to_string(),
+            TokenKind::Export         => "export".to_string(),
             TokenKind::Sub            => "sub".to_string(),
             TokenKind::If             => "if".to_string(),
             TokenKind::Else           => "else".to_string(),
@@ -583,6 +589,7 @@ impl<'a> Tokenizer<'a>
         let kind = match symbol.as_str()
             {
                 "let"    => TokenKind::Let,
+                "exp"    => TokenKind::Export,
                 "sub"    => TokenKind::Sub,
                 "if"     => TokenKind::If,
                 "else"   => TokenKind::Else,

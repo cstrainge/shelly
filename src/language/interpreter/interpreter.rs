@@ -100,9 +100,25 @@ pub type BuiltIns<'a> = HashMap<&'static str, BuiltIn<'a>>;
 pub type InterpreterResult<T> = Result<T, InterpreterError>;
 
 
+#[derive(Clone, PartialEq, Eq)]
+enum ValueKind
+{
+    Private,
+    Exported
+}
+
+
+#[derive(Clone)]
+struct InterpreterValue
+{
+    value: Value,
+    exported: ValueKind
+}
+
+
 pub struct Interpreter
 {
-    variables: HashMap<String, Value>,
+    variables: HashMap<String, InterpreterValue>,
     built_ins: BuiltIns<'static>,
     pub halted: bool
 }
@@ -112,6 +128,19 @@ impl Interpreter
 {
     pub fn new() -> Self
     {
+        let mut variables = HashMap::new();
+
+        for (name, value) in std::env::vars()
+        {
+            let interpreter_value = InterpreterValue
+                {
+                    value: Value::String(value),
+                    exported: ValueKind::Exported
+                };
+
+            variables.insert(format!("${}", name), interpreter_value);
+        }
+
         let built_ins: BuiltIns<'static> = HashMap::from([
                 (
                     "cd",
@@ -126,7 +155,7 @@ impl Interpreter
 
         Self
             {
-                variables: HashMap::new(),
+                variables,
                 built_ins,
                 halted: false
             }
@@ -233,7 +262,7 @@ impl Interpreter
                         {
                             if let Some(value) = self.variables.get(&executable)
                             {
-                                executable = value.as_text();
+                                executable = value.value.as_text();
                             }
                             else
                             {
@@ -262,7 +291,12 @@ impl Interpreter
                                     })
                             };
 
-                        self.variables.insert(variable_name, Value::Integer(0));
+                        self.variables.insert(variable_name,
+                            InterpreterValue
+                                {
+                                    value: Value::None,
+                                    exported: ValueKind::Private
+                                });
                     },
 
                 Code::SetVariable =>
@@ -296,7 +330,13 @@ impl Interpreter
                                 });
                         }
 
-                        self.variables.insert(variable_name, value);
+                        let original = self.variables.get(&variable_name).cloned().unwrap();
+
+                        self.variables.insert(variable_name, InterpreterValue
+                                {
+                                    value,
+                                    exported: original.exported
+                                });
                     },
 
                 Code::GetVariable =>
@@ -314,7 +354,7 @@ impl Interpreter
 
                         if let Some(value) = self.variables.get(&variable_name).cloned()
                         {
-                            Self::push(&mut stack, value);
+                            Self::push(&mut stack, value.value);
                         }
                         else
                         {
@@ -327,6 +367,33 @@ impl Interpreter
                         }
                     },
 
+                Code::ExportVariable =>
+                    {
+                        let variable_name = match &instruction.operand
+                            {
+                                Some(Value::String(name)) => name.clone(),
+                                _ => return Err(InterpreterError
+                                    {
+                                        location: location.clone(),
+                                        what: ErrorWhat::InvalidOperand(
+                                            "Missing or invalid operand for ExportVariable instruction.".to_string())
+                                    })
+                            };
+
+                        if let Some(value) = self.variables.get_mut(&variable_name)
+                        {
+                            value.exported = ValueKind::Exported;
+                        }
+                        else
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(
+                                        "Variable not found for ExportVariable instruction.".to_string())
+                                });
+                        }
+                    },
 
                 Code::GlobFiles =>
                     {
@@ -415,8 +482,19 @@ impl Interpreter
             return built_in(self, location, &args);
         }
 
+        // Only include the environment variables explicitly set by the interpreter.
+        let env_vars: Vec<(String, String)> = self.variables
+            .iter()
+            .filter(|(_, value)| value.exported == ValueKind::Exported)
+            .map(|(key, value)|
+                (key.strip_prefix('$').unwrap_or(key.as_str()).to_string(),
+                 value.value.as_text()))
+            .collect();
+
         let status = Command::new(&executable)
             .args(args)
+            .env_clear()
+            .envs(env_vars)
             .status()
             .map_err(|error| InterpreterError
                 {
@@ -541,7 +619,7 @@ impl Interpreter
                                         variable_name)))?;
 
             // Append values directly so their contents are not interpolated again.
-            interpolated.push_str(&value.as_text());
+            interpolated.push_str(&value.value.as_text());
         }
 
         Self::push(stack, Value::String(interpolated));

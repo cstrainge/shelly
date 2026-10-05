@@ -17,6 +17,15 @@ fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
 
     expect_token(buffer, TokenKind::Let)?;
 
+    let export_flag = if let Some(_) = try_expect_token(buffer, TokenKind::Export)?
+        {
+            AstExportFlag::Exported
+        }
+        else
+        {
+            AstExportFlag::NonExported
+        };
+
     let identifier = expect_token(buffer, TokenKind::Identifier)?;
 
     expect_token(buffer, TokenKind::Assign)?;
@@ -26,8 +35,9 @@ fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     if let Some(expression) = expression
     {
         Ok(new_ast_let_statement(identifier.location.clone(),
-                                identifier.token_value_text(),
-                                expression))
+                                 export_flag,
+                                 identifier.token_value_text(),
+                                 expression))
     }
     else
     {

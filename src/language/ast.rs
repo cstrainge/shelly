@@ -130,11 +130,20 @@ impl AstExpression
 }
 
 
+#[derive(PartialEq, Eq)]
+pub enum AstExportFlag
+{
+    Exported,
+    NonExported,
+}
+
+
 pub struct AstLetStatement
 {
     pub location: Location,
+    pub export_flag: AstExportFlag,
     pub identifier: String,
-    pub expression: AstExpression,
+    pub expression: AstExpression
 }
 
 
@@ -155,12 +164,14 @@ pub struct AstSetStatement
 
 
 pub fn new_ast_let_statement(location: Location,
+                             export_flag: AstExportFlag,
                              identifier: String,
                              expression: AstExpression) -> Option<AstStatement>
 {
     Some(AstStatement::LetStatement(Box::new(AstLetStatement
         {
             location,
+            export_flag,
             identifier,
             expression,
         })))
