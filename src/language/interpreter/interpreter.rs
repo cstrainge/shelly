@@ -6,7 +6,10 @@ use std::{ collections::{ HashMap, VecDeque },
 
 use crate::language::{ bytecode::{ Code, Instruction },
                        compiler::{ CompileError, compile_ast },
-                       data::value::Value,
+                       data::{ value::Value,
+                               scoped_variables::{ ScopedValue,
+                                                   ScopedVariables,
+                                                   ValueVisibility } },
                        parser::{ ParserError, parse_text },
                        tokenizer::Tokenizer,
                        text::{ buffer::SimpleBuffer,location::Location } };
@@ -22,7 +25,8 @@ pub enum ErrorWhat
     StackUnderflow,
     ExecutableNotFound(String),
     ExecutableIoError(String),
-    ExecutableBadReturn(u8)
+    ExecutableBadReturn(u8),
+    InitialScopePopAttempt
 }
 
 
@@ -42,7 +46,9 @@ impl Display for ErrorWhat
             ErrorWhat::ExecutableBadReturn(code) =>
                 {
                     write!(f, "Executable returned error code: {}", code)
-                }
+                },
+
+            ErrorWhat::InitialScopePopAttempt => write!(f, "Attempted to pop the initial scope")
         }
     }
 }
@@ -100,25 +106,12 @@ pub type BuiltIns<'a> = HashMap<&'static str, BuiltIn<'a>>;
 pub type InterpreterResult<T> = Result<T, InterpreterError>;
 
 
-#[derive(Clone, PartialEq, Eq)]
-enum ValueKind
-{
-    Private,
-    Exported
-}
 
-
-#[derive(Clone)]
-struct InterpreterValue
-{
-    value: Value,
-    exported: ValueKind
-}
 
 
 pub struct Interpreter
 {
-    variables: HashMap<String, InterpreterValue>,
+    variables: ScopedVariables,
     built_ins: BuiltIns<'static>,
     pub halted: bool
 }
@@ -128,18 +121,7 @@ impl Interpreter
 {
     pub fn new() -> Self
     {
-        let mut variables = HashMap::new();
-
-        for (name, value) in std::env::vars()
-        {
-            let interpreter_value = InterpreterValue
-                {
-                    value: Value::String(value),
-                    exported: ValueKind::Exported
-                };
-
-            variables.insert(format!("${}", name), interpreter_value);
-        }
+        let variables = ScopedVariables::new_from_environment();
 
         let built_ins: BuiltIns<'static> = HashMap::from([
                 (
@@ -172,6 +154,18 @@ impl Interpreter
     }
 
     pub fn execute_instructions(&mut self, instructions: &Vec<Instruction>) -> InterpreterResult<()>
+    {
+        let initial_scope = self.variables.current_scope();
+        let result = self.execute_instructions_scoped(instructions, initial_scope);
+
+        self.variables.reset_to_scope(initial_scope);
+
+        result
+    }
+
+    fn execute_instructions_scoped(&mut self,
+                                   instructions: &Vec<Instruction>,
+                                   initial_scope: usize) -> InterpreterResult<()>
     {
         let mut stack: VecDeque<Value> = VecDeque::new();
         let mut instruction_pointer: usize = 0;
@@ -291,12 +285,20 @@ impl Interpreter
                                     })
                             };
 
-                        self.variables.insert(variable_name,
-                            InterpreterValue
+                        if let Err(error) = self.variables.create(variable_name,
+                            ScopedValue
                                 {
                                     value: Value::None,
-                                    exported: ValueKind::Private
+                                    exported: ValueVisibility::Private
+                                })
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(
+                                        format!("Failed to create variable: {}", error))
                                 });
+                        }
                     },
 
                 Code::SetVariable =>
@@ -320,7 +322,11 @@ impl Interpreter
                             _ => {}
                         }
 
-                        if !self.variables.contains_key(&variable_name)
+                        if let Some(variable) = self.variables.get_mut(&variable_name)
+                        {
+                            variable.value = value;
+                        }
+                        else
                         {
                             return Err(InterpreterError
                                 {
@@ -329,14 +335,6 @@ impl Interpreter
                                         "Variable not found for SetVariable instruction.".to_string())
                                 });
                         }
-
-                        let original = self.variables.get(&variable_name).cloned().unwrap();
-
-                        self.variables.insert(variable_name, InterpreterValue
-                                {
-                                    value,
-                                    exported: original.exported
-                                });
                     },
 
                 Code::GetVariable =>
@@ -362,7 +360,7 @@ impl Interpreter
                                 {
                                     location: location.clone(),
                                     what: ErrorWhat::InvalidOperand(
-                                        "Variable not found for GetVariable instruction.".to_string())
+                                        format!("Variable '{}' not found.", variable_name))
                                 });
                         }
                     },
@@ -382,7 +380,7 @@ impl Interpreter
 
                         if let Some(value) = self.variables.get_mut(&variable_name)
                         {
-                            value.exported = ValueKind::Exported;
+                            value.exported = ValueVisibility::Exported;
                         }
                         else
                         {
@@ -427,6 +425,25 @@ impl Interpreter
                 Code::InterpolateString =>
                     {
                         self.handle_string_interpolation(&location, &mut stack)?;
+                    },
+
+                Code::EnterScope =>
+                    {
+                        self.variables.push_scope();
+                    },
+
+                Code::ExitScope =>
+                    {
+                        if self.variables.current_scope() == initial_scope
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InitialScopePopAttempt
+                                });
+                        }
+
+                        self.variables.pop_scope();
                     },
 
                 Code::MathAdd =>
@@ -483,9 +500,9 @@ impl Interpreter
         }
 
         // Only include the environment variables explicitly set by the interpreter.
-        let env_vars: Vec<(String, String)> = self.variables
+        let env_vars: Vec<(String, String)> = self.variables.get_all_flattened()
             .iter()
-            .filter(|(_, value)| value.exported == ValueKind::Exported)
+            .filter(|(_, value)| value.exported == ValueVisibility::Exported)
             .map(|(key, value)|
                 (key.strip_prefix('$').unwrap_or(key.as_str()).to_string(),
                  value.value.as_text()))

@@ -14,6 +14,8 @@ pub enum Code
     GlobFiles,
     ExpandArray,
     InterpolateString,
+    EnterScope,
+    ExitScope,
     MathAdd,
     MathSubtract,
     MathMultiply,
