@@ -232,6 +232,26 @@ pub enum TokenKind
     RedirectFrom,
 
     /**
+     * Represents redirection of stderr to a file or variable, the `~->` symbol.
+     */
+    RedirectErrorTo,
+
+    /**
+     * Represents redirection of both stdout and stderr to a file or variable, the `+~->` symbol.
+     */
+    RedirectBothTo,
+
+    /**
+     * Represents redirection of stderr from a file or variable, the `<-~` symbol.
+     */
+    RedirectErrorFrom,
+
+    /**
+     * Represents redirection of both stdout and stderr from a file or variable, the `<-+~` symbol.
+     */
+    RedirectBothFrom,
+
+    /**
      * Represents the splat operator, `...`, used for argument expansion.
      */
     Splat
@@ -404,46 +424,50 @@ impl Token
                     }
                 },
 
-            TokenKind::AutoIdentifier => "$".to_string(),
-            TokenKind::Let            => "let".to_string(),
-            TokenKind::Export         => "export".to_string(),
-            TokenKind::Comma          => ",".to_string(),
-            TokenKind::Sub            => "sub".to_string(),
-            TokenKind::If             => "if".to_string(),
-            TokenKind::Else           => "else".to_string(),
-            TokenKind::While          => "while".to_string(),
-            TokenKind::Loop           => "loop".to_string(),
-            TokenKind::Match          => "match".to_string(),
-            TokenKind::Return         => "return".to_string(),
-            TokenKind::Function       => "fn".to_string(),
-            TokenKind::Struct         => "struct".to_string(),
-            TokenKind::Enum           => "enum".to_string(),
-            TokenKind::Import         => "import".to_string(),
-            TokenKind::TypeDelimiter  => ":".to_string(),
-            TokenKind::Assign         => "=".to_string(),
-            TokenKind::Minus          => "-".to_string(),
-            TokenKind::Plus           => "+".to_string(),
-            TokenKind::Asterisk       => "*".to_string(),
-            TokenKind::Glob           => "**".to_string(),
-            TokenKind::Slash          => "/".to_string(),
-            TokenKind::Percent        => "%".to_string(),
-            TokenKind::StatementBreak => ";".to_string(),
-            TokenKind::LineBreak      => "\n".to_string(),
-            TokenKind::LineContinue   => "\\".to_string(),
-            TokenKind::Scope          => "::".to_string(),
-            TokenKind::ExecEscape     => "`".to_string(),
-            TokenKind::BlockOpen      => "{".to_string(),
-            TokenKind::BlockClose     => "}".to_string(),
-            TokenKind::EmptyBlock     => "{}".to_string(),
-            TokenKind::SquareOpen     => "[".to_string(),
-            TokenKind::SquareClose    => "]".to_string(),
-            TokenKind::ParenOpen      => "(".to_string(),
-            TokenKind::ParenClose     => ")".to_string(),
-            TokenKind::Pipe           => "|".to_string(),
-            TokenKind::ErrorSource    => "~".to_string(),
-            TokenKind::RedirectTo     => "->".to_string(),
-            TokenKind::RedirectFrom   => "<-".to_string(),
-            TokenKind::Splat          => "...".to_string()
+            TokenKind::AutoIdentifier    => "$".to_string(),
+            TokenKind::Let               => "let".to_string(),
+            TokenKind::Export            => "export".to_string(),
+            TokenKind::Comma             => ",".to_string(),
+            TokenKind::Sub               => "sub".to_string(),
+            TokenKind::If                => "if".to_string(),
+            TokenKind::Else              => "else".to_string(),
+            TokenKind::While             => "while".to_string(),
+            TokenKind::Loop              => "loop".to_string(),
+            TokenKind::Match             => "match".to_string(),
+            TokenKind::Return            => "return".to_string(),
+            TokenKind::Function          => "fn".to_string(),
+            TokenKind::Struct            => "struct".to_string(),
+            TokenKind::Enum              => "enum".to_string(),
+            TokenKind::Import            => "import".to_string(),
+            TokenKind::TypeDelimiter     => ":".to_string(),
+            TokenKind::Assign            => "=".to_string(),
+            TokenKind::Minus             => "-".to_string(),
+            TokenKind::Plus              => "+".to_string(),
+            TokenKind::Asterisk          => "*".to_string(),
+            TokenKind::Glob              => "**".to_string(),
+            TokenKind::Slash             => "/".to_string(),
+            TokenKind::Percent           => "%".to_string(),
+            TokenKind::StatementBreak    => ";".to_string(),
+            TokenKind::LineBreak         => "\n".to_string(),
+            TokenKind::LineContinue      => "\\".to_string(),
+            TokenKind::Scope             => "::".to_string(),
+            TokenKind::ExecEscape        => "`".to_string(),
+            TokenKind::BlockOpen         => "{".to_string(),
+            TokenKind::BlockClose        => "}".to_string(),
+            TokenKind::EmptyBlock        => "{}".to_string(),
+            TokenKind::SquareOpen        => "[".to_string(),
+            TokenKind::SquareClose       => "]".to_string(),
+            TokenKind::ParenOpen         => "(".to_string(),
+            TokenKind::ParenClose        => ")".to_string(),
+            TokenKind::Pipe              => "|".to_string(),
+            TokenKind::ErrorSource       => "~".to_string(),
+            TokenKind::RedirectTo        => "->".to_string(),
+            TokenKind::RedirectFrom      => "<-".to_string(),
+            TokenKind::RedirectErrorTo   => "~->".to_string(),
+            TokenKind::RedirectBothTo    => "+~->".to_string(),
+            TokenKind::RedirectErrorFrom => "<-~".to_string(),
+            TokenKind::RedirectBothFrom  => "<-+~".to_string(),
+            TokenKind::Splat             => "...".to_string()
         }
     }
 }
@@ -1082,21 +1106,25 @@ impl<'a> Tokenizer<'a>
 
         match operator_str.as_str()
         {
-            "="   => return operator_token(location, TokenKind::Assign),
-            "{"   => return operator_token(location, TokenKind::BlockOpen),
-            "}"   => return operator_token(location, TokenKind::BlockClose),
-            "-"   => return operator_token(location, TokenKind::Minus),
-            "~"   => return operator_token(location, TokenKind::ErrorSource),
-            "+"   => return operator_token(location, TokenKind::Plus),
-            "*"   => return operator_token(location, TokenKind::Asterisk),
-            "/"   => return operator_token(location, TokenKind::Slash),
-            "%"   => return operator_token(location, TokenKind::Percent),
-            "->"  => return operator_token(location, TokenKind::RedirectTo),
-            "<-"  => return operator_token(location, TokenKind::RedirectFrom),
-            "{}"  => return operator_token(location, TokenKind::EmptyBlock),
-            "**"  => return operator_token(location, TokenKind::Glob),
-            "..." => return operator_token(location, TokenKind::Splat),
-            _     => Ok(Some(Self::symbol_str_to_token(location, operator_str)))
+            "="    => return operator_token(location, TokenKind::Assign),
+            "{"    => return operator_token(location, TokenKind::BlockOpen),
+            "}"    => return operator_token(location, TokenKind::BlockClose),
+            "-"    => return operator_token(location, TokenKind::Minus),
+            "~"    => return operator_token(location, TokenKind::ErrorSource),
+            "+"    => return operator_token(location, TokenKind::Plus),
+            "*"    => return operator_token(location, TokenKind::Asterisk),
+            "/"    => return operator_token(location, TokenKind::Slash),
+            "%"    => return operator_token(location, TokenKind::Percent),
+            "->"   => return operator_token(location, TokenKind::RedirectTo),
+            "<-"   => return operator_token(location, TokenKind::RedirectFrom),
+            "~->"  => return operator_token(location, TokenKind::RedirectErrorTo),
+            "~+->" => return operator_token(location, TokenKind::RedirectBothTo),
+            "<-~"  => return operator_token(location, TokenKind::RedirectErrorFrom),
+            "<-+~" => return operator_token(location, TokenKind::RedirectBothFrom),
+            "{}"   => return operator_token(location, TokenKind::EmptyBlock),
+            "**"   => return operator_token(location, TokenKind::Glob),
+            "..."  => return operator_token(location, TokenKind::Splat),
+            _      => Ok(Some(Self::symbol_str_to_token(location, operator_str)))
         }
     }
 
