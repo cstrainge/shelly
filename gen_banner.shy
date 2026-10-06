@@ -1,0 +1,5 @@
+#!/usr/bin/env shelly
+
+./img2ascii.py -w 35 -o banner_truecolor.txt Shelly.png -r ' .:+#@' -g 0.6 -d truecolor -t welcome_true.txt --gap 3 --text-side right --valign center
+./img2ascii.py -w 35 -o banner_256.txt Shelly.png -r ' .:+#@' -g 0.6 -d 256 -t welcome_256.txt --gap 3 --text-side right --valign center
+./img2ascii.py -w 35 -o banner_mono.txt Shelly.png -r ' .:+#@' -g 0.6 -d none -t welcome_none.txt --gap 3 --text-side right --valign center

@@ -1,0 +1,9 @@
+S H E L L Y
+-----------
+
+Host: ${HOSTNAME}
+User: ${USER}
+
+Path: ${pwd}
+
+https://github.com/cstrainge/shelly

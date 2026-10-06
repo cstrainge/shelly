@@ -72,11 +72,6 @@ impl ScopedVariables
     {
         if let Some(scope) = self.scopes.back_mut()
         {
-            if scope.contains_key(&name)
-            {
-                return Err(format!("Variable '{}' already exists in the current scope.", name));
-            }
-
             scope.insert(name, value);
             Ok(())
         }

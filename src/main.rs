@@ -1,5 +1,7 @@
 
-use std::borrow::Cow;
+use std::{ borrow::Cow, io::{ stdout, IsTerminal } };
+
+use supports_color::Stream;
 
 use reedline::{ Color,
                 Emacs,
@@ -19,7 +21,29 @@ mod language;
 mod runtime;
 
 
-use language::interpreter::Interpreter;
+use language::{ data::value::Value, interpreter::Interpreter };
+
+
+enum ColorMode
+{
+    Plain,
+    Basic,
+    Ansi256,
+    TrueColor
+}
+
+
+fn color_mode(stream: Stream) -> ColorMode
+{
+    match supports_color::on(stream)
+    {
+        Some(c) if c.has_16m   => ColorMode::TrueColor,
+        Some(c) if c.has_256   => ColorMode::Ansi256,
+        Some(c) if c.has_basic => ColorMode::Basic,
+        _                      => ColorMode::Plain
+    }
+}
+
 
 
 struct ShellyPrompt
@@ -131,9 +155,36 @@ fn default_prompt() -> String
 }
 
 
+
+const BANNER_TRUECOLOR: &str = include_str!("../banner_truecolor.txt");
+const BANNER_256: &str = include_str!("../banner_256.txt");
+const BANNER_MONO: &str = include_str!("../banner_mono.txt");
+
+
+/*
+  TODO: Use std::io::IsTerminal (stable since 1.70), so stdout().is_terminal() and
+        stdin().is_terminal() to help determine how we should run.
+*/
+
+
 fn main()
 {
+    if !stdout().is_terminal()
+    {
+        return;
+    }
+
+    let banner = match color_mode(Stream::Stdout)
+        {
+              ColorMode::TrueColor => BANNER_TRUECOLOR,
+              ColorMode::Ansi256   => BANNER_256,
+              ColorMode::Basic
+            | ColorMode::Plain     => BANNER_MONO
+        };
+
     let mut interpreter = Interpreter::new();
+
+    interpreter.set_variable("$banner", Value::String(banner.to_string()));
 
     let mut prompt = ShellyPrompt { prompt_text: String::new() };
     let mut keybindings = Keybindings::empty();
@@ -159,6 +210,20 @@ fn main()
                 }
             }
         }
+    }
+
+    match interpreter.evaluate_variable("$banner")
+    {
+        Ok(filtered_banner) => println!("{}", filtered_banner),
+
+        Err(error) =>
+            {
+                interpreter.set_variable("$banner", Value::String(banner.to_string()));
+                let banner = interpreter.evaluate_variable("$banner").unwrap();
+
+                println!("{}", banner);
+                eprintln!("Error evaluating banner: {}", error)
+            }
     }
 
     let mut editor = Reedline::create()

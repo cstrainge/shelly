@@ -1,7 +1,7 @@
 
 use std::{ cell::RefCell,
            collections::{ HashMap, HashSet, VecDeque },
-           fmt::{ self, Display, Formatter },
+           fmt::{ self, Debug, Display, Formatter },
            io::{ self, Write },
            process::{ Command, Stdio },
            rc::Rc };
@@ -102,6 +102,15 @@ impl Display for InterpreterError
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
     {
         write!(f, "Interpreter error at {}: {}", self.location, self.what)
+    }
+}
+
+
+impl Debug for InterpreterError
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
+    {
+        write!(f, "{}", self)
     }
 }
 
@@ -625,6 +634,28 @@ impl Interpreter
         }
 
         Ok(())
+    }
+
+    pub fn set_variable(&mut self, name: &str, value: Value)
+    {
+        let _ = self.variables.create(name.to_string(), ScopedValue
+            {
+                value,
+                exported: ValueVisibility::Private
+            });
+    }
+
+    pub fn evaluate_variable(&self, name: &str) -> InterpreterResult<String>
+    {
+        if self.variables.get(name).is_none() && !self.special_vars.contains_key(name)
+        {
+            return Ok(String::new());
+        }
+
+        let location = Location::new(name, 1, 1);
+        let value = self.read_variable(name, &location)?;
+
+        self.interpolate_string(&location, &value.as_text())
     }
 
     fn read_variable(&self, name: &str, location: &Location) -> InterpreterResult<Value>
