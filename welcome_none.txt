@@ -1,9 +1,14 @@
 S H E L L Y
 -----------
 
-Host: ${HOSTNAME}
-User: ${USER}
+Host:  ${HOSTNAME}
+User:  ${USER}
 
-Path: ${pwd}
+Path:  ${pwd}
+
+Build: ${shelly}
+       ${build_date} - ${build_time}
+       ${version}
+
 
 https://github.com/cstrainge/shelly

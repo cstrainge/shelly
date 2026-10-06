@@ -474,7 +474,17 @@ fn main()
 
     let mut interpreter = Interpreter::new();
 
-    interpreter.set_variable("$banner", Value::String(banner.to_string()));
+    interpreter.set_variable("$banner",     Value::String(banner.to_string()));
+    interpreter.set_variable("$build_date", Value::String(env!("SHELLY_BUILD_DATE").to_string()));
+    interpreter.set_variable("$build_time", Value::String(env!("SHELLY_BUILD_TIME").to_string()));
+    interpreter.set_variable("$version",    Value::String(env!("CARGO_PKG_VERSION").to_string()));
+
+    // Set the the path to the shelly executable as $shelly
+    interpreter.set_variable("$shelly", Value::String(std::env::current_exe()
+                                                        .unwrap_or_else(|_| ".".into())
+                                                        .display()
+                                                        .to_string()));
+
 
     let mut prompt = ShellyPrompt { prompt_text: String::new() };
     let mut keybindings = Keybindings::empty();
