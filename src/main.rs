@@ -113,7 +113,79 @@ impl Prompt for ShellyPrompt
 struct ShellyCompleter
 {
     search_path: Vec<PathBuf>,
-    home: Option<PathBuf>
+    home: Option<PathBuf>,
+    variables: Vec<String>
+}
+
+
+// Return only the variable reference at the cursor, preserving surrounding text.
+fn completion_variable(line: &str, pos: usize) -> Option<(Span, &str, bool)>
+{
+    let before = line.get(..pos)?;
+    let mut start = None;
+    let mut quote = None;
+    let mut escaped = false;
+    let mut comment = false;
+
+    for (index, character) in before.char_indices()
+    {
+        if comment
+        {
+            if character == '\n' { comment = false; }
+            continue;
+        }
+        if escaped
+        {
+            escaped = false;
+            continue;
+        }
+        if character == '\\' && quote.is_some()
+        {
+            escaped = true;
+            continue;
+        }
+        if let Some(delimiter) = quote
+        {
+            if character == delimiter
+            {
+                quote = None;
+                start = None;
+                continue;
+            }
+            if delimiter == '\'' { continue; }
+        }
+        else if matches!(character, '\'' | '"')
+        {
+            quote = Some(character);
+            start = None;
+            continue;
+        }
+        else if character == '#'
+        {
+            comment = true;
+            start = None;
+            continue;
+        }
+
+        if character == '$' { start = Some(index); }
+    }
+
+    if comment || escaped || quote == Some('\'') { return None; }
+    let start = start?;
+    let reference = &before[start + 1..];
+    let braced = reference.starts_with('{');
+    let prefix = if braced { &reference[1..] } else { reference };
+    let name_character = |c: char| c.is_alphanumeric() || c == '_';
+    if !prefix.chars().all(name_character) { return None; }
+
+    let mut end = pos;
+    for character in line[pos..].chars().take_while(|c| name_character(*c))
+    {
+        end += character.len_utf8();
+    }
+    if braced && line[end..].starts_with('}') { end += 1; }
+
+    Some((Span::new(start, end), prefix, braced))
 }
 
 
@@ -229,6 +301,26 @@ impl Completer for ShellyCompleter
 {
     fn complete(&mut self, line: &str, pos: usize) -> CompletionResult
     {
+        if let Some((span, prefix, braced)) = completion_variable(line, pos)
+        {
+            return CompletionResult::fresh(self.variables.iter().filter_map(|variable|
+                {
+                    let name = variable.strip_prefix('$')?;
+                    if !name.starts_with(prefix) { return None; }
+                    if !braced && !name.chars().all(|c| c.is_alphanumeric() || c == '_')
+                    {
+                        return None;
+                    }
+                    Some(Suggestion
+                        {
+                            value: if braced { format!("${{{}}}", name) } else { variable.clone() },
+                            span,
+                            append_whitespace: false,
+                            ..Suggestion::default()
+                        })
+                }).collect::<Vec<_>>());
+        }
+
         let Some((span, word, command)) = completion_word(line, pos) else
         {
             return CompletionResult::fresh(Vec::new());
@@ -328,8 +420,20 @@ impl Completer for FirstTabCompleter
             if !prefix.is_empty()
             {
                 suggestion.span = first.span;
-                // A partial path may still need more characters inside its quotes.
-                suggestion.value = completion_text(&prefix, true);
+                if let Some((_, _, braced)) = completion_variable(line, pos)
+                {
+                    // Keep an existing closing brace beyond the cursor on partial completion.
+                    if braced && line[..first.span.end].ends_with('}') && !prefix.ends_with('}')
+                    {
+                        suggestion.span.end -= 1;
+                    }
+                    suggestion.value = prefix;
+                }
+                else
+                {
+                    // A partial path may still need more characters inside its quotes.
+                    suggestion.value = completion_text(&prefix, true);
+                }
             }
         }
 
@@ -569,7 +673,8 @@ fn main()
         let completer = ShellyCompleter
             {
                 search_path: std::env::split_paths(&search_path).collect(),
-                home
+                home,
+                variables: interpreter.variable_names()
             };
         editor = editor.clear_menus()
             .with_completer(Box::new(completer.clone()))

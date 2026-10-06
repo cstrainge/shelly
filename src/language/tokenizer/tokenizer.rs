@@ -595,7 +595,7 @@ impl<'a> Tokenizer<'a>
         match next
         {
             '_' | 'a'..='z' | 'A'..='Z' => Ok(Some(self.parse_symbol())),
-            '$'                         => Ok(Some(self.parse_identifier())),
+            '$'                         => self.parse_identifier().map(Some),
             '0'..='9'                   => Ok(Some(self.try_parse_number())),
             '"'                         => self.parse_string(StringFlag::Interpolated),
             '\''                        => self.parse_string(StringFlag::NonInterpolated),
@@ -655,9 +655,9 @@ impl<'a> Tokenizer<'a>
 
     /**
      * Parse a variable identifier from the input stream. A variable identifier starts with a `$`
-     * sign followed by alphanumeric characters and underscores.
+     * sign followed by a name, optionally enclosed in braces.
      */
-    fn parse_identifier(&mut self) -> Token
+    fn parse_identifier(&mut self) -> Result<Token, TokenizerError>
     {
         let location = self.input.location().clone();
         let mut identifier = "$".to_string();
@@ -666,31 +666,52 @@ impl<'a> Tokenizer<'a>
         assert!(self.input.next() == Some('$'),
                 "Expected '$' at the beginning of an identifier");
 
-        identifier += &self.extract_to_separator(Some(&['.', '/']));
+        let braced = self.input.peek_next() == Some('{');
+        if braced
+        {
+            self.input.next();
+            identifier += &self.extract_to_separator(Some(&['{', '}', '.', '/']));
+
+            if identifier.len() == 1 || self.input.next() != Some('}')
+            {
+                return Err(TokenizerError
+                    {
+                        location,
+                        message: "Expected a variable name and closing '}' in variable reference."
+                            .to_string()
+                    });
+            }
+        }
+        else
+        {
+            identifier += &self.extract_to_separator(Some(&['.', '/']));
+        }
 
         // A variable-prefixed path is one interpolated word, not a variable name.
         if self.input.peek_next() == Some('/')
         {
+            // Keep braces in interpolated paths to preserve the variable boundary.
+            if braced { identifier = format!("${{{}}}", &identifier[1..]); }
             identifier += &self.extract_to_separator(None);
-            return Self::symbol_str_to_token(location, identifier);
+            return Ok(Self::symbol_str_to_token(location, identifier));
         }
 
         if identifier.len() == 1
         {
-            return Token
+            return Ok(Token
                 {
                     location,
                     kind: TokenKind::AutoIdentifier,
                     value: TokenValue::None
-                };
+                });
         }
 
-        Token
+        Ok(Token
             {
                 location,
                 kind: TokenKind::Identifier,
                 value: TokenValue::Identifier(identifier)
-            }
+            })
     }
 
     /**

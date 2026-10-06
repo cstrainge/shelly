@@ -107,6 +107,11 @@ impl ScopedVariables
         None
     }
 
+    pub fn names(&self) -> impl Iterator<Item = &str>
+    {
+        self.scopes.iter().flat_map(|scope| scope.keys().map(String::as_str))
+    }
+
     pub fn get_all_flattened(&self) -> HashMap<String, ScopedValue>
     {
         let mut flattened = HashMap::new();

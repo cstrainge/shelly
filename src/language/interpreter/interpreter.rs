@@ -645,6 +645,15 @@ impl Interpreter
             });
     }
 
+    pub fn variable_names(&self) -> Vec<String>
+    {
+        let mut names: Vec<String> = self.variables.names()
+            .chain(self.special_vars.keys().copied()).map(str::to_string).collect();
+        names.sort();
+        names.dedup();
+        names
+    }
+
     pub fn evaluate_variable(&self, name: &str) -> InterpreterResult<String>
     {
         if self.variables.get(name).is_none() && !self.special_vars.contains_key(name)
