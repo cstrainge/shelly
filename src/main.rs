@@ -401,10 +401,18 @@ fn apply_keybindings(keybindings: &mut Keybindings)
     ]));
     shift_binding(keybindings, KeyCode::BackTab, ReedlineEvent::MenuPrevious);
 
-    binding(keybindings, KeyCode::Left, ReedlineEvent::Left);
-    binding(keybindings, KeyCode::Right, ReedlineEvent::Right);
-    binding(keybindings, KeyCode::Up, ReedlineEvent::Up);
-    binding(keybindings, KeyCode::Down, ReedlineEvent::Down);
+    binding(keybindings, KeyCode::Left, ReedlineEvent::UntilFound(vec![
+        ReedlineEvent::MenuLeft, ReedlineEvent::Left
+    ]));
+    binding(keybindings, KeyCode::Right, ReedlineEvent::UntilFound(vec![
+        ReedlineEvent::MenuRight, ReedlineEvent::Right
+    ]));
+    binding(keybindings, KeyCode::Up, ReedlineEvent::UntilFound(vec![
+        ReedlineEvent::MenuUp, ReedlineEvent::Up
+    ]));
+    binding(keybindings, KeyCode::Down, ReedlineEvent::UntilFound(vec![
+        ReedlineEvent::MenuDown, ReedlineEvent::Down
+    ]));
 
     binding(keybindings, KeyCode::Backspace, simple(EditCommand::Backspace));
     binding(keybindings, KeyCode::Delete, simple(EditCommand::Delete));
