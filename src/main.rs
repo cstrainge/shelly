@@ -246,7 +246,12 @@ fn main() -> RuntimeResult<()>
 {
     let args = CommandArguments::parse();
     let color_mode = determine_color_mode(&args);
-    let startup = if args.login
+
+    let invoked_as_login = std::env::args_os()
+        .next()
+        .is_some_and(|name| name.as_encoded_bytes().starts_with(b"-"));
+
+    let startup = if args.login || invoked_as_login
         {
             Startup::Login
         }
