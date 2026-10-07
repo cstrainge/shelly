@@ -1,731 +1,272 @@
 
-use std::{ borrow::Cow,
-           collections::BTreeMap,
-           fs,
-           io::{ stdout, IsTerminal },
-           path::{ Path, PathBuf } };
+use std::{ fs::File, io::{ BufReader, IsTerminal, stdin, stderr }, path::PathBuf };
 
+use clap::Parser;
 use supports_color::Stream;
-
-use reedline::{ Color,
-                ColumnarMenu,
-                Completer,
-                CompletionResult,
-                EditMode,
-                Emacs,
-                InputMode,
-                Keybindings,
-                KeyModifiers,
-                KeyCode,
-                MenuBuilder,
-                Prompt,
-                PromptEditMode,
-                PromptHistorySearch,
-                Reedline,
-                ReedlineMenu,
-                ReedlineRawEvent,
-                Signal,
-                Span,
-                Suggestion,
-                ReedlineEvent,
-                EditCommand };
-
 
 mod language;
 mod runtime;
 
+use crate::{ language::{ interpreter::{ Interpreter, Startup, Interactive },
+                         text::{ buffer::{ Buffer, SimpleBuffer }, read_buffer::ReadBuffer } },
+             runtime::{ color::TtyColorMode,
+                        repl::Repl,
+                        result::{ RuntimeResult, RuntimeError } } };
 
-use language::{ data::value::Value, interpreter::Interpreter };
 
 
-enum ColorMode
+#[derive(Parser, Debug)]
+#[command(version, about = "The Shelly interactive shell and scripting language.")]
+struct CommandArguments
 {
-    Plain,
-    Basic,
-    Ansi256,
-    TrueColor
+    /// Force interactive mode.
+    #[arg(short = 'i', conflicts_with_all = ["script", "stdin_code"])]
+    interactive: bool,
+
+    /// Start as a login shell.
+    #[arg(short = 'l', long)]
+    login: bool,
+
+    /// Execute the specified code and exit.
+    #[arg(short = 'c', long,
+          value_name = "code",
+          conflicts_with_all = ["stdin_code", "interactive"])]
+    code: Option<String>,
+
+    /// Read source code from standard input; remaining arguments are passed to the script.
+    #[arg(short = 's', long = "stdin")]
+    stdin_code: bool,
+
+    /// Do not show the shell's startup banner.
+    #[arg(short = 'b', long)]
+    no_banner: bool,
+
+    /// Force monochrome mode.
+    #[arg(short = 'm', long = "mono")]
+    mono: bool,
+
+    /// Specify the width that the shell should read tab characters as.
+    #[arg(short = 't', long)]
+    tab_width: Option<usize>,
+
+    /// Do not load the shell's configuration file.
+    #[arg(long)]
+    norc: bool,
+
+    /// Specify an alternative configuration file to load.
+    #[arg(long, conflicts_with = "norc")]
+    rcfile: Option<PathBuf>,
+
+    /// Execute the specified script.
+    #[arg(value_name = "SCRIPT", conflicts_with_all = ["code", "stdin_code"])]
+    script: Option<PathBuf>,
+
+    /// Arguments passed to the script, ignored by the shell itself.
+    #[arg(value_name = "script arguments", last = true)]
+     script_arguments: Vec<String>,
 }
 
 
-fn color_mode(stream: Stream) -> ColorMode
+/**
+ * The shell's execution mode, determined from command-line arguments and the system environment.
+ */
+enum RunningMode
 {
-    match supports_color::on(stream)
+    /**
+     * Are we running the full REPL?
+     */
+    Interactive,
+
+    /**
+     * Are we executing a script and then exiting?
+     */
+    Script,
+
+    /**
+     * Are we executing code passed via the command line and then exiting?
+     */
+    Code,
+
+    /**
+     * Are we reading source code from standard input and then exiting?
+     */
+    Stdin
+}
+
+
+/**
+ * Based on the command line arguments and the terminal, (if any,) we're attached to determine how
+ * the shell should run.
+ */
+fn determine_running_mode(args: &CommandArguments) -> RunningMode
+{
+    // Did the user force interactive mode?
+    if args.interactive
     {
-        Some(c) if c.has_16m   => ColorMode::TrueColor,
-        Some(c) if c.has_256   => ColorMode::Ansi256,
-        Some(c) if c.has_basic => ColorMode::Basic,
-        _                      => ColorMode::Plain
+        return RunningMode::Interactive;
+    }
+
+    // Or are we reading the source code for a script from standard input?
+    if args.stdin_code
+    {
+        return RunningMode::Stdin;
+    }
+
+    // Or are we executing code passed via the command line?
+    if args.code.is_some()
+    {
+        return RunningMode::Code;
+    }
+
+    // Or are we executing a script?
+    if args.script.is_some()
+    {
+        return RunningMode::Script;
+    }
+
+    // Now determine if we're running in an interactive tty.
+    if    stdin().is_terminal()
+       && stdin().is_terminal()
+       && stderr().is_terminal()
+    {
+        return RunningMode::Interactive;
+    }
+
+    // Default to reading from standard input.
+    RunningMode::Stdin
+}
+
+
+/**
+ * Determine the color mode for the shell based on command-line arguments and environment.
+ */
+fn determine_color_mode(args: &CommandArguments) -> TtyColorMode
+{
+    if args.mono
+    {
+        return TtyColorMode::TtyMonochrome;
+    }
+
+    match supports_color::on(Stream::Stdout)
+    {
+        Some(c) if c.has_16m   => TtyColorMode::TtyTrueColor,
+        Some(c) if c.has_256   => TtyColorMode::Tty256,
+        Some(c) if c.has_basic => TtyColorMode::TtyBasic,
+        _                      => TtyColorMode::TtyMonochrome
     }
 }
 
 
-
-struct ShellyPrompt
+/**
+ * Run the shell as a REPL, executing commands interactively.
+ */
+fn run_as_repl(tab_width: usize,
+               color_mode: TtyColorMode,
+               startup: Startup,
+               suppress_banner: bool) -> RuntimeResult<()>
 {
-    prompt_text: String
-}
+    let mut repl = Repl::new(color_mode, tab_width, startup, suppress_banner);
 
-impl Prompt for ShellyPrompt
-{
-    fn render_prompt_left(&self) -> Cow<'_, str>
-    {
-        Cow::Owned(self.prompt_text.clone())
-    }
-
-    fn render_prompt_right(&self) -> Cow<'_, str>
-    {
-        Cow::Borrowed("")
-    }
-
-    fn render_prompt_indicator(&self, _mode: PromptEditMode) -> Cow<'_, str>
-    {
-        Cow::Borrowed("$ ")
-    }
-
-    fn render_prompt_multiline_indicator(&self) -> Cow<'_, str>
-    {
-        Cow::Borrowed("> ")
-    }
-
-    fn render_prompt_history_search_indicator(&self, _search: PromptHistorySearch) -> Cow<'_, str>
-    {
-        Cow::Borrowed("search> ")
-    }
-
-    fn get_prompt_color(&self) -> Color
-    {
-        Color::LightGray
-    }
-
-    fn get_indicator_color(&self) -> Color
-    {
-        Color::LightGray
-    }
-
-    fn get_prompt_multiline_color(&self) -> Color
-    {
-        Color::DarkGray
-    }
+    repl.run()
 }
 
 
-#[derive(Clone)]
-struct ShellyCompleter
+/**
+ * Interpret the source code from the given buffer using the interpreter.
+ */
+fn interpret(buffer: &mut dyn Buffer,
+             startup: Startup,
+             color_mode: TtyColorMode) -> RuntimeResult<()>
 {
-    search_path: Vec<PathBuf>,
-    home: Option<PathBuf>,
-    variables: Vec<String>
+    let mut interpreter = Interpreter::new(startup, Interactive::No, color_mode);
+
+    interpreter.execute_from_buffer(buffer)?;
+
+    Ok(())
 }
 
 
-// Return only the variable reference at the cursor, preserving surrounding text.
-fn completion_variable(line: &str, pos: usize) -> Option<(Span, &str, bool)>
+/**
+ * Run the script file as specified by the command-line arguments.
+ */
+fn run_script(script: &PathBuf,
+              tab_width: usize,
+              color_mode: TtyColorMode,
+              startup: Startup) -> RuntimeResult<()>
 {
-    let before = line.get(..pos)?;
-    let mut start = None;
-    let mut quote = None;
-    let mut escaped = false;
-    let mut comment = false;
+    let file = File::open(script);
 
-    for (index, character) in before.char_indices()
+    if let Err(e) = file
     {
-        if comment
-        {
-            if character == '\n' { comment = false; }
-            continue;
-        }
-        if escaped
-        {
-            escaped = false;
-            continue;
-        }
-        if character == '\\' && quote.is_some()
-        {
-            escaped = true;
-            continue;
-        }
-        if let Some(delimiter) = quote
-        {
-            if character == delimiter
-            {
-                quote = None;
-                start = None;
-                continue;
-            }
-            if delimiter == '\'' { continue; }
-        }
-        else if matches!(character, '\'' | '"')
-        {
-            quote = Some(character);
-            start = None;
-            continue;
-        }
-        else if character == '#'
-        {
-            comment = true;
-            start = None;
-            continue;
-        }
-
-        if character == '$' { start = Some(index); }
+        return Err(RuntimeError::FileOpenError(script.clone(), e));
     }
 
-    if comment || escaped || quote == Some('\'') { return None; }
-    let start = start?;
-    let reference = &before[start + 1..];
-    let braced = reference.starts_with('{');
-    let prefix = if braced { &reference[1..] } else { reference };
-    let name_character = |c: char| c.is_alphanumeric() || c == '_';
-    if !prefix.chars().all(name_character) { return None; }
+    let file = file.unwrap();
+    let script = script.to_str().unwrap_or("input script");
+    let mut file_buffer = BufReader::new(file);
+    let mut buffer = ReadBuffer::new(&script, &mut file_buffer, Some(tab_width));
 
-    let mut end = pos;
-    for character in line[pos..].chars().take_while(|c| name_character(*c))
-    {
-        end += character.len_utf8();
-    }
-    if braced && line[end..].starts_with('}') { end += 1; }
-
-    Some((Span::new(start, end), prefix, braced))
+    interpret(&mut buffer, startup, color_mode)
 }
 
 
-// Find the word at the cursor without treating spaces inside quotes as separators.
-fn completion_word(line: &str, pos: usize) -> Option<(Span, String, bool)>
+/**
+ * Run the code as specified in the command line arguments.
+ */
+fn run_code(code: &String,
+            tab_width: usize,
+            color_mode: TtyColorMode,
+            startup: Startup) -> RuntimeResult<()>
 {
-    let before = line.get(..pos)?;
-    let mut start = 0;
-    let mut word = String::new();
-    let mut quote = None;
-    let mut escaped = false;
-    let mut command = true;
-    let mut comment = false;
+    let mut buffer = SimpleBuffer::new("command line", &code, Some(tab_width));
 
-    for (index, character) in before.char_indices()
-    {
-        if comment && character != '\n' { continue; }
-        if escaped
+    interpret(&mut buffer, startup, color_mode)
+}
+
+
+/**
+ * Run the code that's streaming in from stdin.
+ */
+fn run_stdin(tab_width: usize,
+             color_mode: TtyColorMode,
+             startup: Startup) -> RuntimeResult<()>
+{
+    let mut buffer = BufReader::new(stdin());
+    let mut buffer = ReadBuffer::new("standard input", &mut buffer, Some(tab_width));
+
+    interpret(&mut buffer, startup, color_mode)
+}
+
+
+/**
+ * Process the command line arguments and determine the mode we are running in.
+ */
+fn main() -> RuntimeResult<()>
+{
+    let args = CommandArguments::parse();
+    let color_mode = determine_color_mode(&args);
+    let startup = if args.login
         {
-            word.push(match character { 'n' => '\n', 'r' => '\r', 't' => '\t', _ => character });
-            escaped = false;
-        }
-        else if let Some(delimiter) = quote
-        {
-            if character == '\\' { escaped = true; }
-            else if character == delimiter { quote = None; }
-            else { word.push(character); }
-        }
-        else if matches!(character, '\'' | '"')
-        {
-            quote = Some(character);
-        }
-        else if character == '#'
-        {
-            comment = true;
-        }
-        else if matches!(character, ';' | '|' | '\n' | '{' | '}')
-        {
-            start = index + character.len_utf8();
-            word.clear();
-            command = true;
-            comment = false;
-        }
-        else if character.is_whitespace()
-        {
-            if start < index { command = false; }
-            start = index + character.len_utf8();
-            word.clear();
+            Startup::Login
         }
         else
         {
-            word.push(character);
-        }
-    }
-
-    if comment || escaped { return None; }
-
-    // Replace the rest of the word too when completing in the middle of a line.
-    let mut end = pos;
-    for character in line[pos..].chars()
-    {
-        if escaped { escaped = false; }
-        else if let Some(delimiter) = quote
-        {
-            if character == '\\' { escaped = true; }
-            else if character == delimiter { quote = None; }
-        }
-        else if matches!(character, '\'' | '"') { quote = Some(character); }
-        else if character.is_whitespace() || matches!(character, ';' | '|' | '{' | '}' | '#')
-        {
-            break;
-        }
-        end += character.len_utf8();
-    }
-
-    Some((Span::new(start, end), word, command))
-}
-
-
-fn completion_text(path: &str, directory: bool) -> String
-{
-    // Single quotes protect literal dollars and glob characters in filenames.
-    if !path.is_empty() && path.chars().all(|c| c.is_alphanumeric() || "_./-".contains(c))
-    {
-        return path.to_string();
-    }
-
-    let escaped = path.replace('\\', "\\\\").replace('\'', "\\'")
-        .replace('\n', "\\n").replace('\r', "\\r").replace('\t', "\\t");
-    // Leave directory quotes open so the next component can be typed inside them.
-    format!("'{}{}", escaped, if directory { "" } else { "'" })
-}
-
-
-fn is_executable(path: &Path) -> bool
-{
-    let Ok(metadata) = path.metadata() else { return false; };
-    if !metadata.is_file() { return false; }
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        metadata.permissions().mode() & 0o111 != 0
-    }
-    #[cfg(not(unix))]
-    {
-        true
-    }
-}
-
-
-impl Completer for ShellyCompleter
-{
-    fn complete(&mut self, line: &str, pos: usize) -> CompletionResult
-    {
-        if let Some((span, prefix, braced)) = completion_variable(line, pos)
-        {
-            return CompletionResult::fresh(self.variables.iter().filter_map(|variable|
-                {
-                    let name = variable.strip_prefix('$')?;
-                    if !name.starts_with(prefix) { return None; }
-                    if !braced && !name.chars().all(|c| c.is_alphanumeric() || c == '_')
-                    {
-                        return None;
-                    }
-                    Some(Suggestion
-                        {
-                            value: if braced { format!("${{{}}}", name) } else { variable.clone() },
-                            span,
-                            append_whitespace: false,
-                            ..Suggestion::default()
-                        })
-                }).collect::<Vec<_>>());
-        }
-
-        let Some((span, word, command)) = completion_word(line, pos) else
-        {
-            return CompletionResult::fresh(Vec::new());
+            Startup::NonLogin
         };
 
-        let mut matches = BTreeMap::new();
+    let tab_width = args.tab_width.unwrap_or(4);
 
-        if command && !word.contains('/')
-        {
-            for directory in &self.search_path
-            {
-                let directory = if directory.as_os_str().is_empty() { Path::new(".") } else { directory };
-                let Ok(entries) = fs::read_dir(directory) else { continue; };
-                for entry in entries.flatten()
-                {
-                    let Ok(name) = entry.file_name().into_string() else { continue; };
-                    if name.starts_with(&word) && is_executable(&entry.path())
-                    {
-                        matches.insert(name, false);
-                    }
-                }
-            }
-        }
-
-        // Expand home paths into actual paths; Shelly does not expand '~' at execution.
-        let path = if word == "~" || word.starts_with("~/")
-            || word == "$HOME" || word.starts_with("$HOME/")
-        {
-            let Some(home) = &self.home else { return CompletionResult::fresh(Vec::new()); };
-            let suffix = word.strip_prefix('~').unwrap_or_else(|| word.strip_prefix("$HOME").unwrap());
-            format!("{}/{}", home.display(), suffix.trim_start_matches('/'))
-        }
-        else { word.clone() };
-
-        let (prefix, filename) = path.rfind('/').map_or(("", path.as_str()),
-            |index| (&path[..=index], &path[index + 1..]));
-        let directory = if prefix.is_empty() { Path::new(".") } else { Path::new(prefix) };
-
-        if let Ok(entries) = fs::read_dir(directory)
-        {
-            for entry in entries.flatten()
-            {
-                let Ok(name) = entry.file_name().into_string() else { continue; };
-                if !name.starts_with(filename) || (name.starts_with('.') && !filename.starts_with('.'))
-                {
-                    continue;
-                }
-
-                let directory = entry.path().is_dir();
-                let local_prefix = if command && prefix.is_empty() { "./" } else { prefix };
-                let value = format!("{}{}{}", local_prefix, name, if directory { "/" } else { "" });
-                matches.insert(value, directory);
-            }
-        }
-
-        CompletionResult::fresh(matches.into_iter().map(|(path, directory)| Suggestion
-            {
-                value: completion_text(&path, directory),
-                display_override: Some(path),
-                span,
-                append_whitespace: !directory,
-                ..Suggestion::default()
-            }).collect::<Vec<_>>())
-    }
-}
-
-
-struct FirstTabCompleter(ShellyCompleter);
-
-impl Completer for FirstTabCompleter
-{
-    fn complete(&mut self, line: &str, pos: usize) -> CompletionResult
+    match determine_running_mode(&args)
     {
-        let result = self.0.complete(line, pos);
-        let suggestions = result.suggestions();
-        if suggestions.len() == 1 { return result; }
+        RunningMode::Interactive => run_as_repl(tab_width, color_mode, startup, args.no_banner),
 
-        // A single suggestion is accepted silently by Reedline's quick completion.
-        // With no extension to offer, accept a no-op rather than opening a menu.
-        let mut suggestion = Suggestion
-            {
-                span: Span::new(pos, pos),
-                ..Suggestion::default()
-            };
+        RunningMode::Script      => run_script(&args.script.unwrap(),
+                                               tab_width,
+                                               color_mode,
+                                               startup),
 
-        if let Some(first) = suggestions.first()
-        {
-            let mut prefix = first.display_value().to_string();
-            for other in &suggestions[1..]
-            {
-                let shared_bytes = prefix.chars().zip(other.display_value().chars())
-                    .take_while(|(left, right)| left == right)
-                    .map(|(character, _)| character.len_utf8()).sum();
-                prefix.truncate(shared_bytes);
-            }
+        RunningMode::Code        => run_code(&args.code.unwrap(), tab_width, color_mode, startup),
 
-            if !prefix.is_empty()
-            {
-                suggestion.span = first.span;
-                if let Some((_, _, braced)) = completion_variable(line, pos)
-                {
-                    // Keep an existing closing brace beyond the cursor on partial completion.
-                    if braced && line[..first.span.end].ends_with('}') && !prefix.ends_with('}')
-                    {
-                        suggestion.span.end -= 1;
-                    }
-                    suggestion.value = prefix;
-                }
-                else
-                {
-                    // A partial path may still need more characters inside its quotes.
-                    suggestion.value = completion_text(&prefix, true);
-                }
-            }
-        }
-
-        CompletionResult::fresh(vec![suggestion])
-    }
-}
-
-
-struct ShellyEditMode
-{
-    emacs: Emacs,
-    previous_tab: bool
-}
-
-impl EditMode for ShellyEditMode
-{
-    fn parse_event(&mut self, event: ReedlineRawEvent) -> ReedlineEvent
-    {
-        let event = self.emacs.parse_event(event);
-        let tab = matches!(&event, ReedlineEvent::UntilFound(events)
-            if matches!(events.first(), Some(ReedlineEvent::Menu(name))
-                if name == "completion_menu"));
-        let first_tab = tab && !self.previous_tab;
-        self.previous_tab = tab;
-
-        if first_tab
-        {
-            ReedlineEvent::UntilFound(vec![
-                ReedlineEvent::Menu("first_tab".to_string()),
-                ReedlineEvent::MenuNext
-            ])
-        }
-        else { event }
-    }
-
-    fn edit_mode(&self) -> PromptEditMode
-    {
-        self.emacs.edit_mode()
-    }
-}
-
-
-fn apply_keybindings(keybindings: &mut Keybindings)
-{
-    fn simple(command: EditCommand) -> ReedlineEvent
-    {
-        ReedlineEvent::Edit(vec![command])
-    }
-
-    fn binding(keybindings: &mut Keybindings, key_code: KeyCode, event: ReedlineEvent)
-    {
-        keybindings.add_binding(KeyModifiers::NONE, key_code, event);
-    }
-
-    fn ctrl_binding(keybindings: &mut Keybindings, key_code: KeyCode, event: ReedlineEvent)
-    {
-        keybindings.add_binding(KeyModifiers::CONTROL, key_code, event);
-    }
-
-    fn shift_binding(keybindings: &mut Keybindings, key_code: KeyCode, event: ReedlineEvent)
-    {
-        keybindings.add_binding(KeyModifiers::SHIFT, key_code, event);
-    }
-
-    binding(keybindings, KeyCode::Enter, ReedlineEvent::Enter);
-    binding(keybindings, KeyCode::Tab, ReedlineEvent::UntilFound(vec![
-        ReedlineEvent::Menu("completion_menu".to_string()),
-        ReedlineEvent::MenuNext
-    ]));
-    shift_binding(keybindings, KeyCode::BackTab, ReedlineEvent::MenuPrevious);
-
-    binding(keybindings, KeyCode::Left, ReedlineEvent::UntilFound(vec![
-        ReedlineEvent::MenuLeft, ReedlineEvent::Left
-    ]));
-    binding(keybindings, KeyCode::Right, ReedlineEvent::UntilFound(vec![
-        ReedlineEvent::MenuRight, ReedlineEvent::Right
-    ]));
-    binding(keybindings, KeyCode::Up, ReedlineEvent::UntilFound(vec![
-        ReedlineEvent::MenuUp, ReedlineEvent::Up
-    ]));
-    binding(keybindings, KeyCode::Down, ReedlineEvent::UntilFound(vec![
-        ReedlineEvent::MenuDown, ReedlineEvent::Down
-    ]));
-
-    binding(keybindings, KeyCode::Backspace, simple(EditCommand::Backspace));
-    binding(keybindings, KeyCode::Delete, simple(EditCommand::Delete));
-    binding(keybindings, KeyCode::Home, simple(EditCommand::MoveToLineStart { select: false }));
-    binding(keybindings, KeyCode::End, simple(EditCommand::MoveToLineEnd { select: false }));
-
-    ctrl_binding(keybindings, KeyCode::Char('c'), ReedlineEvent::CtrlC);
-    ctrl_binding(keybindings, KeyCode::Char('d'), ReedlineEvent::CtrlD);
-    ctrl_binding(keybindings, KeyCode::Char('z'), simple(EditCommand::Undo));
-    ctrl_binding(keybindings, KeyCode::Char('y'), simple(EditCommand::Redo));
-    ctrl_binding(keybindings, KeyCode::Left, simple(EditCommand::MoveWordLeft { select: false }));
-    ctrl_binding(keybindings, KeyCode::Right, simple(EditCommand::MoveWordRight { select: false }));
-    ctrl_binding(keybindings, KeyCode::Backspace, simple(EditCommand::BackspaceWord));
-    ctrl_binding(keybindings, KeyCode::Delete, simple(EditCommand::DeleteWord));
-
-    ctrl_binding(keybindings, KeyCode::Enter, simple(EditCommand::InsertNewline));
-    shift_binding(keybindings, KeyCode::Enter, simple(EditCommand::InsertNewline));
-}
-
-
-fn default_prompt() -> String
-{
-    let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
-
-    let formatted = format!("\n{} [{}]\n",
-                            Color::Yellow.bold().paint("<shelly>"),
-                            Color::Cyan.paint(cwd.display().to_string()));
-
-    formatted
-}
-
-
-
-const BANNER_TRUECOLOR: &str = include_str!("../banner_truecolor.txt");
-const BANNER_256: &str = include_str!("../banner_256.txt");
-const BANNER_MONO: &str = include_str!("../banner_mono.txt");
-
-
-/*
-  TODO: Use std::io::IsTerminal (stable since 1.70), so stdout().is_terminal() and
-        stdin().is_terminal() to help determine how we should run.
-*/
-
-
-fn main()
-{
-    if !stdout().is_terminal()
-    {
-        return;
-    }
-
-    let banner = match color_mode(Stream::Stdout)
-        {
-              ColorMode::TrueColor => BANNER_TRUECOLOR,
-              ColorMode::Ansi256   => BANNER_256,
-              ColorMode::Basic
-            | ColorMode::Plain     => BANNER_MONO
-        };
-
-    let mut interpreter = Interpreter::new();
-
-    interpreter.set_variable("$banner",     Value::String(banner.to_string()));
-    interpreter.set_variable("$build_date", Value::String(env!("SHELLY_BUILD_DATE").to_string()));
-    interpreter.set_variable("$build_time", Value::String(env!("SHELLY_BUILD_TIME").to_string()));
-    interpreter.set_variable("$version",    Value::String(env!("CARGO_PKG_VERSION").to_string()));
-
-    // Set the the path to the shelly executable as $shelly
-    interpreter.set_variable("$shelly", Value::String(std::env::current_exe()
-                                                        .unwrap_or_else(|_| ".".into())
-                                                        .display()
-                                                        .to_string()));
-
-
-    let mut prompt = ShellyPrompt { prompt_text: String::new() };
-    let mut keybindings = Keybindings::empty();
-
-    apply_keybindings(&mut keybindings);
-
-
-    if let Some(home) = std::env::home_dir()
-    {
-        let init_path = home.join(".shelly_init.shy");
-
-        if init_path.exists()
-        {
-            // Load the file to a string.
-            if let Ok(contents) = std::fs::read_to_string(&init_path)
-            {
-                let result = interpreter.execute_code(init_path.to_str()
-                                        .unwrap_or("<init>"), &contents);
-
-                if let Err(error) = result
-                {
-                    println!("Error processing init file: {}", error);
-                }
-            }
-        }
-    }
-
-    match interpreter.evaluate_variable("$banner")
-    {
-        Ok(filtered_banner) => println!("{}", filtered_banner),
-
-        Err(error) =>
-            {
-                interpreter.set_variable("$banner", Value::String(banner.to_string()));
-                let banner = interpreter.evaluate_variable("$banner").unwrap();
-
-                println!("{}", banner);
-                eprintln!("Error evaluating banner: {}", error)
-            }
-    }
-
-    let mut editor = Reedline::create()
-        .use_kitty_keyboard_enhancement(true)
-        .with_quick_completions(true)
-        .with_edit_mode(Box::new(ShellyEditMode
-            {
-                emacs: Emacs::new(keybindings),
-                previous_tab: false
-            }));
-
-    loop
-    {
-        let prompt_text = if interpreter.has_command("prompt")
-            {
-                let (result, bytes) = interpreter.capture_stdout(|interpreter|
-                    {
-                        interpreter.execute_command(location_here!(),
-                                                    "prompt",
-                                                    vec![])
-                    });
-
-                if result.is_err()
-                {
-                    default_prompt()
-                }
-                else
-                {
-                    String::from_utf8_lossy(&bytes).to_string()
-                }
-            }
-            else
-            {
-                default_prompt()
-            };
-
-        prompt.prompt_text = prompt_text;
-
-        // Refresh after each command so changes to PATH, HOME, and cwd are respected.
-        let search_path = interpreter.evaluate_variable("$PATH").unwrap_or_default();
-        let home = interpreter.evaluate_variable("$HOME").ok()
-            .filter(|home| !home.is_empty()).map(PathBuf::from).or_else(std::env::home_dir);
-        let completer = ShellyCompleter
-            {
-                search_path: std::env::split_paths(&search_path).collect(),
-                home,
-                variables: interpreter.variable_names()
-            };
-        editor = editor.clear_menus()
-            .with_completer(Box::new(completer.clone()))
-            .with_menu(ReedlineMenu::EngineCompleter(Box::new(
-                ColumnarMenu::default().with_name("completion_menu")
-                    .with_input_mode(InputMode::FullBuffer))))
-            .with_menu(ReedlineMenu::WithCompleter
-                {
-                    menu: Box::new(ColumnarMenu::default().with_name("first_tab")
-                        .with_input_mode(InputMode::FullBuffer)),
-                    completer: Box::new(FirstTabCompleter(completer))
-                });
-
-        match editor.read_line(&prompt)
-        {
-            Ok(Signal::Success(text)) =>
-                {
-                    let result = interpreter.execute_code("<repl>", &text);
-
-                    if let Err(error) = result
-                    {
-                        println!("Error processing text: {}", error);
-                        continue;
-                    }
-
-                    if interpreter.halted
-                    {
-                        break;
-                    }
-                },
-
-            Ok(Signal::CtrlC) =>
-                {
-                    println!("Ctrl+C pressed.");
-                }
-
-            Ok(Signal::CtrlD) =>
-                {
-                    println!("Ctrl+D pressed. Exiting.");
-                    break;
-                }
-
-            Ok(_) =>
-                {
-                    println!("Unhandled signal received.");
-                }
-
-            Err(error) =>
-                {
-                    println!("Error reading line: {:?}.", error);
-                }
-        }
+        RunningMode::Stdin       => run_stdin(tab_width, color_mode, startup)
     }
 }

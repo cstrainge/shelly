@@ -6,19 +6,20 @@ use std::{ cell::RefCell,
            process::{ Command, Stdio },
            rc::Rc };
 
-use crate::language::{ bytecode::{ Code,
-                                   Instruction,
-                                   FunctionBlockRef,
-                                   FunctionRef,
-                                   FunctionBlock },
-                       compiler::{ CompileError, compile_ast },
-                       data::{ value::Value,
-                               scoped_variables::{ ScopedValue,
-                                                   ScopedVariables,
-                                                   ValueVisibility } },
-                       parser::{ ParserError, parse_text },
-                       tokenizer::Tokenizer,
-                       text::{ buffer::SimpleBuffer,location::Location } };
+use crate::{ language::{ bytecode::{ Code,
+                                     Instruction,
+                                     FunctionBlockRef,
+                                     FunctionRef,
+                                     FunctionBlock },
+                         compiler::{ CompileError, compile_ast },
+                         data::{ value::Value,
+                                 scoped_variables::{ ScopedValue,
+                                                     ScopedVariables,
+                                                     ValueVisibility } },
+                         parser::{ ParserError, parse_text },
+                         tokenizer::Tokenizer,
+                         text::{ buffer::{ Buffer, SimpleBuffer }, location::Location } },
+             runtime::{ color::TtyColorMode } };
 
 
 
@@ -132,6 +133,21 @@ type ReadFunction = Rc<dyn Fn(&Interpreter) -> InterpreterResult<Value>>;
 type SpecialVars = HashMap<&'static str, ReadFunction>;
 
 
+pub enum Startup
+{
+    Login,
+    NonLogin
+}
+
+
+pub enum Interactive
+{
+    Yes,
+    YesWithoutBanner,
+    No
+}
+
+
 pub struct Alias
 {
     pub name: String,
@@ -154,7 +170,7 @@ pub struct Interpreter
 
 impl Interpreter
 {
-    pub fn new() -> Self
+    pub fn new(_startup: Startup, _interactive: Interactive, _color_mode: TtyColorMode) -> Self
     {
         let variables = ScopedVariables::new_from_environment();
 
@@ -192,7 +208,7 @@ impl Interpreter
                 )
             ]);
 
-        Self
+        let new_self = Self
             {
                 variables,
                 special_vars,
@@ -206,7 +222,9 @@ impl Interpreter
                 built_ins,
                 captured_stdout: None,
                 halted: false
-            }
+            };
+
+        new_self
     }
 
     pub fn write_stdout(&mut self, bytes: &[u8]) -> io::Result<()>
@@ -278,6 +296,15 @@ impl Interpreter
     {
         let mut buffer = SimpleBuffer::new(source, code, None);
         let mut tokenizer = Tokenizer::new(&mut buffer);
+        let statements = parse_text(&mut tokenizer)?;
+        let instructions = compile_ast(&self.base_function_block, &statements)?;
+
+        self.execute_instructions(&instructions)
+    }
+
+    pub fn execute_from_buffer(&mut self, buffer: &mut dyn Buffer) -> InterpreterResult<()>
+    {
+        let mut tokenizer = Tokenizer::new(buffer);
         let statements = parse_text(&mut tokenizer)?;
         let instructions = compile_ast(&self.base_function_block, &statements)?;
 
