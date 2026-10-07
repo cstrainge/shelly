@@ -29,16 +29,10 @@ use reedline::{ Color,
                 ReedlineEvent,
                 EditCommand };
 
-use crate::{ language::{ data::value::Value,
-                         interpreter::{ Interpreter, Startup, Interactive },
+use crate::{ language::{ interpreter::{ Interpreter, Startup, Interactive },
                          text::buffer::SimpleBuffer },
              runtime::{ color::TtyColorMode, result::RuntimeResult } };
 
-
-
-const BANNER_TRUECOLOR: &str = include_str!("../../banner_truecolor.txt");
-const BANNER_256: &str = include_str!("../../banner_256.txt");
-const BANNER_MONO: &str = include_str!("../../banner_mono.txt");
 
 
 struct ShellyPrompt
@@ -498,62 +492,7 @@ impl Repl
                 Interactive::Yes
             };
 
-        let banner = match color_mode
-            {
-                TtyColorMode::TtyTrueColor => BANNER_TRUECOLOR,
-                TtyColorMode::Tty256 => BANNER_256,
-                TtyColorMode::TtyBasic | TtyColorMode::TtyMonochrome => BANNER_MONO
-            };
-
-        let mut interpreter = Interpreter::new(startup, interactive_mode, color_mode);
-
-        interpreter.set_variable("$banner", Value::String(banner.to_string()));
-        interpreter.set_variable("$build_date", Value::String(env!("SHELLY_BUILD_DATE").to_string()));
-        interpreter.set_variable("$build_time", Value::String(env!("SHELLY_BUILD_TIME").to_string()));
-        interpreter.set_variable("$version", Value::String(env!("CARGO_PKG_VERSION").to_string()));
-        interpreter.set_variable("$shelly", Value::String(std::env::current_exe()
-                                                            .unwrap_or_else(|_| ".".into())
-                                                            .display()
-                                                            .to_string()));
-
-        if let Some(home) = std::env::home_dir()
-        {
-            let init_path = home.join(".shelly_init.shy");
-
-            if init_path.exists()
-            {
-                // Load the file to a string.
-                if let Ok(contents) = std::fs::read_to_string(&init_path)
-                {
-                    let mut buffer = SimpleBuffer::new(init_path.to_str().unwrap_or("<init>"),
-                                                        &contents,
-                                                        Some(tab_width));
-                    let result = interpreter.execute_from_buffer(&mut buffer);
-
-                    if let Err(error) = result
-                    {
-                        println!("Error processing init file: {}", error);
-                    }
-                }
-            }
-        }
-
-        if !suppress_banner
-        {
-            match interpreter.evaluate_variable("$banner")
-            {
-                Ok(filtered_banner) => println!("{}", filtered_banner),
-
-                Err(error) =>
-                    {
-                        interpreter.set_variable("$banner", Value::String(banner.to_string()));
-                        let banner = interpreter.evaluate_variable("$banner").unwrap();
-
-                        println!("{}", banner);
-                        eprintln!("Error evaluating banner: {}", error)
-                    }
-            }
-        }
+        let interpreter = Interpreter::new(startup, interactive_mode, color_mode, tab_width);
 
         Self
             {

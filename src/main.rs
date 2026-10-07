@@ -176,9 +176,10 @@ fn run_as_repl(tab_width: usize,
  */
 fn interpret(buffer: &mut dyn Buffer,
              startup: Startup,
-             color_mode: TtyColorMode) -> RuntimeResult<()>
+             color_mode: TtyColorMode,
+             tab_width: usize) -> RuntimeResult<()>
 {
-    let mut interpreter = Interpreter::new(startup, Interactive::No, color_mode);
+    let mut interpreter = Interpreter::new(startup, Interactive::No, color_mode, tab_width);
 
     interpreter.execute_from_buffer(buffer)?;
 
@@ -206,7 +207,7 @@ fn run_script(script: &PathBuf,
     let mut file_buffer = BufReader::new(file);
     let mut buffer = ReadBuffer::new(&script, &mut file_buffer, Some(tab_width));
 
-    interpret(&mut buffer, startup, color_mode)
+    interpret(&mut buffer, startup, color_mode, tab_width)
 }
 
 
@@ -220,7 +221,7 @@ fn run_code(code: &String,
 {
     let mut buffer = SimpleBuffer::new("command line", &code, Some(tab_width));
 
-    interpret(&mut buffer, startup, color_mode)
+    interpret(&mut buffer, startup, color_mode, tab_width)
 }
 
 
@@ -234,7 +235,7 @@ fn run_stdin(tab_width: usize,
     let mut buffer = BufReader::new(stdin());
     let mut buffer = ReadBuffer::new("standard input", &mut buffer, Some(tab_width));
 
-    interpret(&mut buffer, startup, color_mode)
+    interpret(&mut buffer, startup, color_mode, tab_width)
 }
 
 

@@ -2,7 +2,9 @@
 use std::{ cell::RefCell,
            collections::{ HashMap, HashSet, VecDeque },
            fmt::{ self, Debug, Display, Formatter },
-           io::{ self, Write },
+           fs::File,
+           io::{ self, BufReader, Write },
+           path::Path,
            process::{ Command, Stdio },
            rc::Rc };
 
@@ -18,9 +20,16 @@ use crate::{ language::{ bytecode::{ Code,
                                                      ValueVisibility } },
                          parser::{ ParserError, parse_text },
                          tokenizer::Tokenizer,
-                         text::{ buffer::{ Buffer, SimpleBuffer }, location::Location } },
+                         text::{ buffer::{ Buffer, SimpleBuffer },
+                                 location::Location,
+                                 read_buffer::ReadBuffer } },
              runtime::{ color::TtyColorMode } };
 
+
+
+const BANNER_TRUECOLOR: &str = include_str!("../../../banner_truecolor.txt");
+const BANNER_256: &str = include_str!("../../../banner_256.txt");
+const BANNER_MONO: &str = include_str!("../../../banner_mono.txt");
 
 
 pub enum ErrorWhat
@@ -170,7 +179,10 @@ pub struct Interpreter
 
 impl Interpreter
 {
-    pub fn new(_startup: Startup, _interactive: Interactive, _color_mode: TtyColorMode) -> Self
+    pub fn new(startup: Startup,
+               interactive: Interactive,
+               color_mode: TtyColorMode,
+               tab_width: usize) -> Self
     {
         let variables = ScopedVariables::new_from_environment();
 
@@ -208,7 +220,7 @@ impl Interpreter
                 )
             ]);
 
-        let new_self = Self
+        let mut new_self = Self
             {
                 variables,
                 special_vars,
@@ -224,7 +236,106 @@ impl Interpreter
                 halted: false
             };
 
+        new_self.initialize_startup(startup, interactive, color_mode, tab_width);
+
         new_self
+    }
+
+    /**
+     * Load login profiles before interactive initialization and banner display.
+     */
+    fn initialize_startup(&mut self,
+                          startup: Startup,
+                          interactive: Interactive,
+                          color_mode: TtyColorMode,
+                          tab_width: usize)
+    {
+        let banner = match color_mode
+            {
+                TtyColorMode::TtyTrueColor => BANNER_TRUECOLOR,
+                TtyColorMode::Tty256 => BANNER_256,
+                TtyColorMode::TtyBasic | TtyColorMode::TtyMonochrome => BANNER_MONO
+            };
+
+        let is_interactive = matches!(interactive, Interactive::Yes | Interactive::YesWithoutBanner);
+
+        if is_interactive
+        {
+            self.set_variable("$banner", Value::String(banner.to_string()));
+            self.set_variable("$build_date", Value::String(env!("SHELLY_BUILD_DATE").to_string()));
+            self.set_variable("$build_time", Value::String(env!("SHELLY_BUILD_TIME").to_string()));
+            self.set_variable("$version", Value::String(env!("CARGO_PKG_VERSION").to_string()));
+            self.set_variable("$shelly", Value::String(std::env::current_exe()
+                                                                .unwrap_or_else(|_| ".".into())
+                                                                .display()
+                                                                .to_string()));
+        }
+
+        if matches!(startup, Startup::Login)
+        {
+            self.load_startup_script(Path::new("/etc/shelly/profile.shy"), tab_width);
+
+            if let Some(home) = std::env::home_dir()
+            {
+                self.load_startup_script(&home.join(".shelly_profile.shy"), tab_width);
+            }
+        }
+
+        if is_interactive
+        {
+            if let Some(home) = std::env::home_dir()
+            {
+                self.load_startup_script(&home.join(".shelly_init.shy"), tab_width);
+            }
+        }
+
+        if matches!(interactive, Interactive::Yes) && !self.halted
+        {
+            match self.evaluate_variable("$banner")
+            {
+                Ok(filtered_banner) => println!("{}", filtered_banner),
+
+                Err(error) =>
+                    {
+                        self.set_variable("$banner", Value::String(banner.to_string()));
+                        let banner = self.evaluate_variable("$banner").unwrap();
+
+                        println!("{}", banner);
+                        eprintln!("Error evaluating banner: {}", error)
+                    }
+            }
+        }
+    }
+
+    /**
+     * Execute an optional startup script, preserving its path in diagnostics.
+     */
+    fn load_startup_script(&mut self, path: &Path, tab_width: usize)
+    {
+        if self.halted
+        {
+            return;
+        }
+
+        let file = match File::open(path)
+        {
+            Ok(file) => file,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return,
+            Err(error) =>
+                {
+                    eprintln!("Error opening startup file {}: {}", path.display(), error);
+                    return;
+                }
+        };
+
+        let origin = path.to_string_lossy();
+        let mut file_buffer = BufReader::new(file);
+        let mut buffer = ReadBuffer::new(&origin, &mut file_buffer, Some(tab_width));
+
+        if let Err(error) = self.execute_from_buffer(&mut buffer)
+        {
+            eprintln!("Error processing startup file {}: {}", path.display(), error);
+        }
     }
 
     pub fn write_stdout(&mut self, bytes: &[u8]) -> io::Result<()>
