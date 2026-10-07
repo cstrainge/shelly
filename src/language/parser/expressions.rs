@@ -5,7 +5,8 @@ use crate::language::{ ast::{ * },
                        parser::{ base_utils::{ expect_token,
                                                match_one_of,
                                                Lookahead,
-                                               try_expect_token },
+                                               try_expect_token,
+                                               try_expect_one_of_tokens },
                        results::{ ParseResult, ParserError, ParserErrorKind } } };
 
 
@@ -321,6 +322,44 @@ fn parse_lonely_glob_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult
 }
 
 
+fn parse_operator_to_symbol(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
+{
+    let allowed_operators = [ TokenKind::Let,
+                              TokenKind::Export,
+                              TokenKind::Alias,
+                              TokenKind::Comma,
+                              TokenKind::Sub,
+                              TokenKind::If,
+                              TokenKind::Else,
+                              TokenKind::While,
+                              TokenKind::Loop,
+                              TokenKind::Match,
+                              TokenKind::Return,
+                              TokenKind::Function,
+                              TokenKind::Struct,
+                              TokenKind::Enum,
+                              TokenKind::Import,
+                              TokenKind::TypeDelimiter,
+                              TokenKind::Assign,
+                              TokenKind::Minus,
+                              TokenKind::Plus,
+                              TokenKind::Slash,
+                              TokenKind::Percent,
+                              TokenKind::Scope,
+                              TokenKind::ErrorSource ];
+
+    // Attempt to match one of the allowed operators
+    if let Some(operator) = try_expect_one_of_tokens(buffer, &allowed_operators)?
+    {
+        let location = operator.location.clone();
+
+        return Ok(Some(new_ast_symbol(location, operator.token_value_text(), None)));
+    }
+
+    Ok(None)
+}
+
+
 pub fn parse_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
     // The math rule itself decides when to fall back. Once it reports malformed
@@ -333,7 +372,8 @@ pub fn parse_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
     match_one_of(buffer, &[parse_variable_expression,
                            parse_symbol_expression,
                            parse_literal_expression,
-                           parse_lonely_glob_expression])
+                           parse_lonely_glob_expression,
+                           parse_operator_to_symbol])
 }
 
 
@@ -341,5 +381,6 @@ pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
 {
     match_one_of(buffer, &[parse_variable_expression,
                            parse_symbol_expression,
-                           parse_literal_expression])
+                           parse_literal_expression,
+                           parse_operator_to_symbol])
 }

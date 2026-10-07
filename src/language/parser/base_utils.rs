@@ -97,6 +97,21 @@ pub fn try_expect_token(buffer: &mut TokenBuffer<'_, '_>,
 }
 
 
+pub fn try_expect_one_of_tokens(buffer: &mut TokenBuffer<'_, '_>,
+                                kinds: &[TokenKind]) -> ParseResult<Option<Token>>
+{
+    for kind in kinds
+    {
+        if let Some(token) = try_expect_token(buffer, *kind)?
+        {
+            return Ok(Some(token));
+        }
+    }
+
+    Ok(None)
+}
+
+
 pub fn match_one_of<T>(buffer: &mut TokenBuffer<'_, '_>,
                        parsers: &[ParserFunction<T>]) -> ParseResult<Option<T>>
 {

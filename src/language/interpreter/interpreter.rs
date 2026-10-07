@@ -1,6 +1,7 @@
 
 use std::{ cell::RefCell,
            collections::{ HashMap, HashSet, VecDeque },
+           env::consts::OS,
            fmt::{ self, Debug, Display, Formatter },
            fs::File,
            io::{ self, BufReader, Write },
@@ -259,16 +260,18 @@ impl Interpreter
 
         let is_interactive = matches!(interactive, Interactive::Yes | Interactive::YesWithoutBanner);
 
+        self.set_variable("$build_date", Value::String(env!("SHELLY_BUILD_DATE").to_string()));
+        self.set_variable("$build_time", Value::String(env!("SHELLY_BUILD_TIME").to_string()));
+        self.set_variable("$version", Value::String(env!("CARGO_PKG_VERSION").to_string()));
+        self.set_variable("$shelly", Value::String(std::env::current_exe()
+                                                            .unwrap_or_else(|_| ".".into())
+                                                            .display()
+                                                            .to_string()));
+        self.set_variable("$OS",  Value::String(OS.to_string()));
+
         if is_interactive
         {
             self.set_variable("$banner", Value::String(banner.to_string()));
-            self.set_variable("$build_date", Value::String(env!("SHELLY_BUILD_DATE").to_string()));
-            self.set_variable("$build_time", Value::String(env!("SHELLY_BUILD_TIME").to_string()));
-            self.set_variable("$version", Value::String(env!("CARGO_PKG_VERSION").to_string()));
-            self.set_variable("$shelly", Value::String(std::env::current_exe()
-                                                                .unwrap_or_else(|_| ".".into())
-                                                                .display()
-                                                                .to_string()));
         }
 
         if matches!(startup, Startup::Login)

@@ -9,7 +9,7 @@ use crate::language::text::{ buffer::Buffer, location::Location };
  * Represents all the different types of tokens that can be recognized in the Shelly script
  * language.
  */
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TokenKind
 {
     /**
