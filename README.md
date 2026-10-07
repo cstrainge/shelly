@@ -13,7 +13,7 @@ using development tools, and trying new features from Shelly's own prompt.
 
 ## Running Shelly
 
-Use a Rust toolchain that supports edition 2024, on Linux or WSL:
+Use a Rust toolchain that supports edition 2024, on Linux, WSL or macOS:
 
 ```sh
 git clone https://github.com/cstrainge/shelly.git
