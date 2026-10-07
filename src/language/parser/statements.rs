@@ -246,8 +246,7 @@ fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
                                    &(parse_statement as fn(&mut TokenBuffer<'_, '_>)
                                      -> ParseResult<Option<AstStatement>>))?;
 
-    Ok(new_ast_function_statement(name.location.clone(),
-                                  name.token_value_text(),
+    Ok(new_ast_function_statement(name.token_value_text(),
                                   parameter_names,
                                   code))
 }

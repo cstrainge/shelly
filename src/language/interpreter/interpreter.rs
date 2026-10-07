@@ -4,7 +4,7 @@ use std::{ cell::RefCell,
            env::consts::OS,
            fmt::{ self, Debug, Display, Formatter },
            fs::File,
-           io::{ self, BufReader, Write },
+           io::{ self, BufReader },
            path::{ Path, PathBuf },
            process::{ Command, Stdio },
            rc::Rc };
@@ -21,7 +21,7 @@ use crate::{ language::{ bytecode::{ Code,
                                                      ValueVisibility } },
                          parser::{ ParserError, parse_text },
                          tokenizer::Tokenizer,
-                         text::{ buffer::{ Buffer, SimpleBuffer },
+                         text::{ buffer::Buffer,
                                  location::Location,
                                  read_buffer::ReadBuffer } },
              runtime::{ color::TtyColorMode } };
@@ -400,21 +400,6 @@ impl Interpreter
         }
     }
 
-    pub fn write_stdout(&mut self, bytes: &[u8]) -> io::Result<()>
-    {
-        if let Some(buffer) = &mut self.captured_stdout
-        {
-            buffer.extend_from_slice(bytes);
-            Ok(())
-        }
-        else
-        {
-            let mut stdout = io::stdout().lock();
-            stdout.write_all(bytes)?;
-            stdout.flush()
-        }
-    }
-
     pub fn capture_stdout<T>(&mut self,
                              run: impl FnOnce(&mut Self) -> InterpreterResult<T>)
                              -> (InterpreterResult<T>, Vec<u8>)
@@ -463,16 +448,6 @@ impl Interpreter
         }
 
         Ok(())
-    }
-
-    pub fn execute_code(&mut self, source: &str, code: &str) -> InterpreterResult<()>
-    {
-        let mut buffer = SimpleBuffer::new(source, code, None);
-        let mut tokenizer = Tokenizer::new(&mut buffer);
-        let statements = parse_text(&mut tokenizer)?;
-        let instructions = compile_ast(&self.base_function_block, &statements)?;
-
-        self.execute_instructions(&instructions)
     }
 
     pub fn execute_from_buffer(&mut self, buffer: &mut dyn Buffer) -> InterpreterResult<()>
@@ -784,12 +759,12 @@ impl Interpreter
                         self.handle_string_interpolation(&location, &mut stack)?;
                     },
 
-                Code::EnterScope =>
+                Code::_EnterScope =>
                     {
                         self.variables.push_scope();
                     },
 
-                Code::ExitScope =>
+                Code::_ExitScope =>
                     {
                         if self.variables.current_scope() == initial_scope
                         {

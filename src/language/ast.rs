@@ -183,7 +183,7 @@ pub struct AstAliasStatement
 
 pub struct AstFunctionStatement
 {
-    pub location: Location,
+    //pub location: Location,
     pub name: String,
     pub parameters: Vec<String>,
     pub body: AstTopLevel
@@ -233,14 +233,12 @@ pub fn new_ast_execute_statement(location: Location,
 }
 
 
-pub fn new_ast_function_statement(location: Location,
-                                  name: String,
+pub fn new_ast_function_statement(name: String,
                                   parameters: Vec<String>,
                                   body: Vec<AstStatement>) -> Option<AstStatement>
 {
     Some(AstStatement::FunctionDefinition(Box::new(AstFunctionStatement
         {
-            location,
             name,
             parameters,
             body,
