@@ -5,7 +5,7 @@ use std::{ cell::RefCell,
            fmt::{ self, Debug, Display, Formatter },
            fs::File,
            io::{ self, BufReader, Write },
-           path::Path,
+           path::{ Path, PathBuf },
            process::{ Command, Stdio },
            rc::Rc };
 
@@ -178,12 +178,23 @@ pub struct Interpreter
 }
 
 
+#[derive(Clone, PartialEq, Eq)]
+pub enum RcFile
+{
+    None,
+    Default,
+    Custom(PathBuf)
+}
+
+
 impl Interpreter
 {
     pub fn new(startup: Startup,
                interactive: Interactive,
                color_mode: TtyColorMode,
-               tab_width: usize) -> Self
+               tab_width: usize,
+               rc_file: RcFile,
+               script_args: &Vec<String>) -> Self
     {
         let variables = ScopedVariables::new_from_environment();
 
@@ -237,7 +248,12 @@ impl Interpreter
                 halted: false
             };
 
-        new_self.initialize_startup(startup, interactive, color_mode, tab_width);
+        new_self.initialize_startup(startup,
+                                    interactive,
+                                    color_mode,
+                                    tab_width,
+                                    rc_file,
+                                    script_args);
 
         new_self
     }
@@ -249,7 +265,9 @@ impl Interpreter
                           startup: Startup,
                           interactive: Interactive,
                           color_mode: TtyColorMode,
-                          tab_width: usize)
+                          tab_width: usize,
+                          rc_file: RcFile,
+                          script_args: &Vec<String>)
     {
         let banner = match color_mode
             {
@@ -268,6 +286,13 @@ impl Interpreter
                                                             .display()
                                                             .to_string()));
         self.set_variable("$OS",  Value::String(OS.to_string()));
+
+        self.set_variable("$script_args",
+            Value::Array(script_args.iter().map(|arg|
+                {
+                    Value::String(arg.clone())
+                })
+                .collect()));
 
         if is_interactive
         {
@@ -294,11 +319,28 @@ impl Interpreter
             self.set_variable("$login", Value::Boolean(false));
         }
 
-        if is_interactive
+        if    is_interactive
+           && rc_file != RcFile::None
         {
-            if let Some(home) = std::env::home_dir()
+            let file = if let RcFile::Custom(file_path)= rc_file
+                {
+                    Some(file_path)
+                }
+                else
+                {
+                    if let Some(home) = std::env::home_dir()
+                    {
+                        Some(home.join(".shelly_init.shy"))
+                    }
+                    else
+                    {
+                        None
+                    }
+                };
+
+            if let Some(file) = file
             {
-                self.load_startup_script(&home.join(".shelly_init.shy"), tab_width);
+                self.load_startup_script(&file, tab_width);
             }
         }
 

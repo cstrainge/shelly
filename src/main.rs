@@ -7,7 +7,7 @@ use supports_color::Stream;
 mod language;
 mod runtime;
 
-use crate::{ language::{ interpreter::{ Interpreter, Startup, Interactive },
+use crate::{ language::{ interpreter::{ Interpreter, Startup, Interactive, RcFile },
                          text::{ buffer::{ Buffer, SimpleBuffer }, read_buffer::ReadBuffer } },
              runtime::{ color::TtyColorMode,
                         repl::Repl,
@@ -163,9 +163,11 @@ fn determine_color_mode(args: &CommandArguments) -> TtyColorMode
 fn run_as_repl(tab_width: usize,
                color_mode: TtyColorMode,
                startup: Startup,
-               suppress_banner: bool) -> RuntimeResult<()>
+               suppress_banner: bool,
+               rc_file: RcFile,
+               script_args: &Vec<String>) -> RuntimeResult<()>
 {
-    let mut repl = Repl::new(color_mode, tab_width, startup, suppress_banner);
+    let mut repl = Repl::new(color_mode, tab_width, startup, suppress_banner, rc_file, script_args);
 
     repl.run()
 }
@@ -177,9 +179,15 @@ fn run_as_repl(tab_width: usize,
 fn interpret(buffer: &mut dyn Buffer,
              startup: Startup,
              color_mode: TtyColorMode,
-             tab_width: usize) -> RuntimeResult<()>
+             tab_width: usize,
+             script_args: &Vec<String>) -> RuntimeResult<()>
 {
-    let mut interpreter = Interpreter::new(startup, Interactive::No, color_mode, tab_width);
+    let mut interpreter = Interpreter::new(startup,
+                                           Interactive::No,
+                                           color_mode,
+                                           tab_width,
+                                           RcFile::None,
+                                           script_args);
 
     interpreter.execute_from_buffer(buffer)?;
 
@@ -193,7 +201,8 @@ fn interpret(buffer: &mut dyn Buffer,
 fn run_script(script: &PathBuf,
               tab_width: usize,
               color_mode: TtyColorMode,
-              startup: Startup) -> RuntimeResult<()>
+              startup: Startup,
+              script_args: &Vec<String>) -> RuntimeResult<()>
 {
     let file = File::open(script);
 
@@ -207,7 +216,7 @@ fn run_script(script: &PathBuf,
     let mut file_buffer = BufReader::new(file);
     let mut buffer = ReadBuffer::new(&script, &mut file_buffer, Some(tab_width));
 
-    interpret(&mut buffer, startup, color_mode, tab_width)
+    interpret(&mut buffer, startup, color_mode, tab_width, script_args)
 }
 
 
@@ -217,11 +226,12 @@ fn run_script(script: &PathBuf,
 fn run_code(code: &String,
             tab_width: usize,
             color_mode: TtyColorMode,
-            startup: Startup) -> RuntimeResult<()>
+            startup: Startup,
+            script_args: &Vec<String>) -> RuntimeResult<()>
 {
     let mut buffer = SimpleBuffer::new("command line", &code, Some(tab_width));
 
-    interpret(&mut buffer, startup, color_mode, tab_width)
+    interpret(&mut buffer, startup, color_mode, tab_width, script_args)
 }
 
 
@@ -230,12 +240,13 @@ fn run_code(code: &String,
  */
 fn run_stdin(tab_width: usize,
              color_mode: TtyColorMode,
-             startup: Startup) -> RuntimeResult<()>
+             startup: Startup,
+             script_args: &Vec<String>) -> RuntimeResult<()>
 {
     let mut buffer = BufReader::new(stdin());
     let mut buffer = ReadBuffer::new("standard input", &mut buffer, Some(tab_width));
 
-    interpret(&mut buffer, startup, color_mode, tab_width)
+    interpret(&mut buffer, startup, color_mode, tab_width, script_args)
 }
 
 
@@ -245,11 +256,30 @@ fn run_stdin(tab_width: usize,
 fn main() -> RuntimeResult<()>
 {
     let args = CommandArguments::parse();
+
+    if let Some(tab_width) = args.tab_width && tab_width == 0
+    {
+        return Err(RuntimeError::InvalidTabWidth);
+    }
+
     let color_mode = determine_color_mode(&args);
 
     let invoked_as_login = std::env::args_os()
         .next()
         .is_some_and(|name| name.as_encoded_bytes().starts_with(b"-"));
+
+    let rc_file = if let Some(custom_rc) = &args.rcfile
+        {
+            RcFile::Custom(custom_rc.clone())
+        }
+        else if args.norc
+        {
+            RcFile::None
+        }
+        else
+        {
+            RcFile::Default
+        };
 
     let startup = if args.login || invoked_as_login
         {
@@ -264,15 +294,28 @@ fn main() -> RuntimeResult<()>
 
     match determine_running_mode(&args)
     {
-        RunningMode::Interactive => run_as_repl(tab_width, color_mode, startup, args.no_banner),
+        RunningMode::Interactive => run_as_repl(tab_width,
+                                                color_mode,
+                                                startup,
+                                                args.no_banner,
+                                                rc_file,
+                                                &args.script_arguments),
 
         RunningMode::Script      => run_script(&args.script.unwrap(),
                                                tab_width,
                                                color_mode,
-                                               startup),
+                                               startup,
+                                               &args.script_arguments),
 
-        RunningMode::Code        => run_code(&args.code.unwrap(), tab_width, color_mode, startup),
+        RunningMode::Code        => run_code(&args.code.unwrap(),
+                                             tab_width,
+                                             color_mode,
+                                             startup,
+                                             &args.script_arguments),
 
-        RunningMode::Stdin       => run_stdin(tab_width, color_mode, startup)
+        RunningMode::Stdin       => run_stdin(tab_width,
+                                              color_mode,
+                                              startup,
+                                              &args.script_arguments)
     }
 }

@@ -29,7 +29,7 @@ use reedline::{ Color,
                 ReedlineEvent,
                 EditCommand };
 
-use crate::{ language::{ interpreter::{ Interpreter, Startup, Interactive },
+use crate::{ language::{ interpreter::{ Interpreter, Interactive, RcFile, Startup },
                          text::buffer::SimpleBuffer },
              runtime::{ color::TtyColorMode, result::RuntimeResult } };
 
@@ -481,7 +481,9 @@ impl Repl
     pub fn new(color_mode: TtyColorMode,
                tab_width: usize,
                startup: Startup,
-               suppress_banner: bool) -> Self
+               suppress_banner: bool,
+               rc_file: RcFile,
+               script_args: &Vec<String>) -> Self
     {
         let interactive_mode = if suppress_banner
             {
@@ -492,7 +494,12 @@ impl Repl
                 Interactive::Yes
             };
 
-        let interpreter = Interpreter::new(startup, interactive_mode, color_mode, tab_width);
+        let interpreter = Interpreter::new(startup,
+                                           interactive_mode,
+                                           color_mode,
+                                           tab_width,
+                                           rc_file,
+                                           script_args);
 
         Self
             {

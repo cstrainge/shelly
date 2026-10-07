@@ -7,6 +7,7 @@ use crate::language::interpreter::InterpreterError;
 
 pub enum RuntimeError
 {
+    InvalidTabWidth,
     FileOpenError(PathBuf, Error),
     InterpreterError(InterpreterError)
 }
@@ -30,9 +31,14 @@ impl Debug for RuntimeError
     {
         match self
         {
+            RuntimeError::InvalidTabWidth =>
+            {
+                write!(f, "Invalid tab width of 0 specified.")
+            }
+
             RuntimeError::FileOpenError(path, err) =>
             {
-                write!(f, "Failed to open file {:?}: {}", path, err)
+                write!(f, "Failed to open file {:?}: {}.", path, err)
             }
 
             RuntimeError::InterpreterError(err) =>
