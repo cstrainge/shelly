@@ -6,6 +6,8 @@
 
 \x1b[38;2;49;216;224mPath:\x1b[0m  \x1b[38;2;107;144;255m${pwd}\x1b[0m
 
+\x1b[38;2;49;216;224mInit:\x1b[0m  \x1b[38;2;107;144;255m${rc_path}\x1b[0m
+
 \x1b[38;2;49;216;224mBuild:\x1b[0m \x1b[38;2;107;144;255m${shelly}\x1b[0m
        \x1b[38;2;107;144;255m${build_date} - ${build_time}\x1b[0m
        \x1b[38;2;107;144;255m${version}\x1b[0m

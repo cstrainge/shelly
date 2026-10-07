@@ -338,10 +338,17 @@ impl Interpreter
                     }
                 };
 
+            self.set_variable("$rc_path", Value::String(file.as_ref().map_or("".to_string(),
+                |f| f.display().to_string())));
+
             if let Some(file) = file
             {
                 self.load_startup_script(&file, tab_width);
             }
+        }
+        else
+        {
+            self.set_variable("$rc_path", Value::String("".to_string()));
         }
 
         if matches!(interactive, Interactive::Yes) && !self.halted

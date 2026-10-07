@@ -6,6 +6,8 @@ User:  ${USER}
 
 Path:  ${pwd}
 
+Init:  ${rc_path}
+
 Build: ${shelly}
        ${build_date} - ${build_time}
        ${version}
