@@ -272,16 +272,26 @@ impl Interpreter
         if is_interactive
         {
             self.set_variable("$banner", Value::String(banner.to_string()));
+            self.set_variable("$interactive", Value::Boolean(true));
+        }
+        else
+        {
+            self.set_variable("$interactive", Value::Boolean(false));
         }
 
         if matches!(startup, Startup::Login)
         {
+            self.set_variable("$login", Value::Boolean(true));
             self.load_startup_script(Path::new("/etc/shelly/profile.shy"), tab_width);
 
             if let Some(home) = std::env::home_dir()
             {
                 self.load_startup_script(&home.join(".shelly_profile.shy"), tab_width);
             }
+        }
+        else
+        {
+            self.set_variable("$login", Value::Boolean(false));
         }
 
         if is_interactive
