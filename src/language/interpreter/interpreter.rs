@@ -287,7 +287,7 @@ impl Interpreter
                                                             .to_string()));
         self.set_variable("$OS",  Value::String(OS.to_string()));
 
-        self.set_variable("$script_args",
+        self.set_variable("$args",
             Value::Array(script_args.iter().map(|arg|
                 {
                     Value::String(arg.clone())
