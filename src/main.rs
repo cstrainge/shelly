@@ -1,5 +1,5 @@
 
-use std::{ fs::File, io::{ BufReader, IsTerminal, stdin, stderr }, path::PathBuf };
+use std::{ fs::File, io::{ BufReader, IsTerminal, stdin, stdout, stderr }, path::PathBuf };
 
 use clap::Parser;
 use supports_color::Stream;
@@ -126,7 +126,7 @@ fn determine_running_mode(args: &CommandArguments) -> RunningMode
 
     // Now determine if we're running in an interactive tty.
     if    stdin().is_terminal()
-       && stdin().is_terminal()
+       && stdout().is_terminal()
        && stderr().is_terminal()
     {
         return RunningMode::Interactive;
