@@ -115,7 +115,12 @@ fn parse_alias_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
                 _ => Value::String(token.token_value_text())
             };
 
-        arguments.push(value);
+        arguments.push(AstAliasArgument
+            {
+                expand_path: token.kind != TokenKind::Literal
+                    && token.token_value_text().starts_with('~'),
+                value
+            });
     }
 
     Ok(new_ast_alias_statement(alias.location.clone(),
@@ -176,8 +181,10 @@ fn parse_execute_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
     }
 
     Ok(new_ast_execute_statement(location,
-                                 exec_expression.resolve_as_text()?,
-                                 parameter_expressions))
+                            exec_expression.resolve_as_text()?,
+                            matches!(&exec_expression.kind,
+                                AstExpressionKind::Symbol(symbol) if symbol.name.starts_with('~')),
+                            parameter_expressions))
 }
 
 

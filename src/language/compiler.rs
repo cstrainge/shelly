@@ -158,6 +158,20 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                 });
         }
     }
+
+    // Only an unquoted source word can request home expansion. Variable values and quoted literals
+    // retain their spelling. GlobFiles expands its own prefix.
+    if    let AstExpressionKind::Symbol(symbol) = &expression.kind
+       && (symbol.name == "~" || symbol.name.starts_with("~/"))
+       && !symbol.name.contains('*')
+    {
+        instructions.push(Instruction
+            {
+                location: Some(expression.location.clone()),
+                code: Code::ExpandPath,
+                operand: None
+            });
+    }
 }
 
 
@@ -205,16 +219,46 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>, set_statement: &As
 
 fn compile_alias_statement(instructions: &mut Vec<Instruction>, alias_statement: &AstAliasStatement)
 {
-    let mut definition = Vec::with_capacity(alias_statement.arguments.len() + 2);
-    definition.push(Value::String(alias_statement.alias.clone()));
-    definition.push(Value::String(alias_statement.target.clone()));
-    definition.extend(alias_statement.arguments.iter().cloned());
+    // Alias targets are unquoted symbols. Arguments retain their quoting and
+    // otherwise remain stored values, without interpolation or glob expansion.
+    instructions.push(Instruction
+        {
+            location: Some(alias_statement.location.clone()),
+            code: Code::Push,
+            operand: Some(Value::String(alias_statement.target.clone()))
+        });
+    instructions.push(Instruction
+        {
+            location: Some(alias_statement.location.clone()),
+            code: Code::ExpandPath,
+            operand: None
+        });
+
+    for argument in &alias_statement.arguments
+    {
+        instructions.push(Instruction
+            {
+                location: Some(alias_statement.location.clone()),
+                code: Code::Push,
+                operand: Some(argument.value.clone())
+            });
+        if argument.expand_path
+        {
+            instructions.push(Instruction
+                {
+                    location: Some(alias_statement.location.clone()),
+                    code: Code::ExpandPath,
+                    operand: None
+                });
+        }
+    }
 
     instructions.push(Instruction
         {
             location: Some(alias_statement.location.clone()),
             code: Code::NewAlias,
-            operand: Some(Value::Array(definition))
+            operand: Some(Value::Array(vec![Value::String(alias_statement.alias.clone()),
+                                           Value::Integer(alias_statement.arguments.len() as i64)]))
         });
 }
 
@@ -228,6 +272,16 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
             code: Code::Push,
             operand: Some(Value::String(execute_statement.executable_name.clone()))
         });
+
+    if execute_statement.expand_path
+    {
+        instructions.push(Instruction
+            {
+                location: Some(execute_statement.location.clone()),
+                code: Code::ExpandPath,
+                operand: None
+            });
+    }
 
     for argument in &execute_statement.arguments
     {

@@ -379,24 +379,24 @@ impl Interpreter
             return;
         }
 
+        let origin = self.eval_path_to(&path.to_string_lossy());
         let file = match File::open(path)
         {
             Ok(file) => file,
             Err(error) if error.kind() == io::ErrorKind::NotFound => return,
             Err(error) =>
                 {
-                    eprintln!("Error opening startup file {}: {}", path.display(), error);
+                    eprintln!("Error opening startup file {}: {}", origin, error);
                     return;
                 }
         };
 
-        let origin = path.to_string_lossy();
         let mut file_buffer = BufReader::new(file);
         let mut buffer = ReadBuffer::new(&origin, &mut file_buffer, Some(tab_width));
 
         if let Err(error) = self.execute_from_buffer(&mut buffer)
         {
-            eprintln!("Error processing startup file {}: {}", path.display(), error);
+            eprintln!("Error processing startup file {}: {}", origin, error);
         }
     }
 
@@ -591,7 +591,7 @@ impl Interpreter
                             }
                             else
                             {
-                                let value = self.read_variable(&executable, &location)?.as_text();
+                                let value = self.read_raw_variable(&executable, &location)?.as_text();
                                 executable = value;
                             }
                         }
@@ -605,30 +605,33 @@ impl Interpreter
                             {
                                 Some(Value::Array(values)) => match values.as_slice()
                                     {
-                                        [Value::String(alias), Value::String(target), arguments @ ..]
-                                            if !alias.is_empty() && !target.is_empty() =>
-                                                Some((alias, target, arguments)),
+                                        [Value::String(alias), Value::Integer(count)]
+                                            if !alias.is_empty() && *count >= 0 => Some((alias, *count)),
                                         _ => None
                                     },
                                 _ => None
                             };
 
-                        let Some((alias, target, arguments)) = definition else
+                        let Some((alias, count)) = definition else
                         {
                             return Err(InterpreterError
                                 {
                                     location: location.clone(),
                                     what: ErrorWhat::InvalidOperand(
-                                        "NewAlias requires an array containing a nonempty alias name, target command, and optional arguments."
+                                        "NewAlias requires a nonempty alias name and a nonnegative argument count."
                                             .to_string())
                                 });
                         };
 
-                        self.aliases.insert(alias.clone(), Alias
-                            {
-                                name: target.clone(),
-                                arguments: arguments.iter().map(Value::as_text).collect()
-                            });
+                        let mut arguments = Vec::new();
+                        for _ in 0..count
+                        {
+                            arguments.push(Self::pop_as_text(&location, &mut stack)?);
+                        }
+                        arguments.reverse();
+                        let target = Self::pop_as_text(&location, &mut stack)?;
+
+                        self.aliases.insert(alias.clone(), Alias { name: target, arguments });
                     },
 
                 Code::NewVariable =>
@@ -751,6 +754,12 @@ impl Interpreter
                             })?);
                     },
 
+                Code::ExpandPath =>
+                    {
+                        let path = Self::pop_as_text(&location, &mut stack)?;
+                        Self::push(&mut stack, Value::String(self.eval_path_from(&path)));
+                    },
+
                 Code::ExpandArray =>
                     {
                         let mut value = Self::pop(&location, &mut stack)?;
@@ -867,7 +876,46 @@ impl Interpreter
         self.interpolate_string(&location, &value.as_text())
     }
 
+    /**
+     * Read a filesystem setting for use by the runtime, expanding its display form.
+     */
+    pub fn evaluate_path_variable(&self, name: &str) -> InterpreterResult<String>
+    {
+        let value = self.evaluate_variable(name)?;
+
+        Ok(if name == "$PATH"
+            {
+                self.eval_path_list_from(&value)
+            }
+            else
+            {
+                self.eval_path_from(&value)
+            })
+    }
+
+    /**
+     * Preserve value types while shortening path strings, including array entries.
+     */
+    fn eval_value_paths_to(&self, value: Value) -> Value
+    {
+        match value
+        {
+            Value::String(path) => Value::String(self.eval_path_to(&path)),
+            Value::Array(values) =>
+                Value::Array(values.into_iter().map(|value| self.eval_value_paths_to(value)).collect()),
+            Value::ArgumentExpansion(values) =>
+                Value::ArgumentExpansion(values.into_iter()
+                    .map(|value| self.eval_value_paths_to(value)).collect()),
+            value => value
+        }
+    }
+
     fn read_variable(&self, name: &str, location: &Location) -> InterpreterResult<Value>
+    {
+        Ok(self.eval_value_paths_to(self.read_raw_variable(name, location)?))
+    }
+
+    fn read_raw_variable(&self, name: &str, location: &Location) -> InterpreterResult<Value>
     {
         if let Some(value) = self.variables.get(&name).cloned()
         {
@@ -1002,8 +1050,19 @@ impl Interpreter
             .iter()
             .filter(|(_, value)| value.exported == ValueVisibility::Exported)
             .map(|(key, value)|
-                (key.strip_prefix('$').unwrap_or(key.as_str()).to_string(),
-                 value.value.as_text()))
+                {
+                    let text = value.value.as_text();
+                    let text = if key == "$PATH"
+                        {
+                            self.eval_path_list_from(&text)
+                        }
+                        else
+                        {
+                            text
+                        };
+
+                    (key.strip_prefix('$').unwrap_or(key.as_str()).to_string(), text)
+                })
             .collect();
 
 
@@ -1040,10 +1099,10 @@ impl Interpreter
                     what: match error.kind()
                     {
                         std::io::ErrorKind::NotFound =>
-                            ErrorWhat::ExecutableNotFound(executable.clone()),
+                            ErrorWhat::ExecutableNotFound(self.eval_path_to(&executable)),
 
                         _ => ErrorWhat::ExecutableIoError(
-                            format!("'{}': {}", executable, error))
+                            format!("'{}': {}", self.eval_path_to(&executable), error))
                     }
                 })?;
 
@@ -1174,6 +1233,91 @@ impl Interpreter
         Ok(interpolated)
     }
 
+    /**
+     * Resolve the current shell's home directory without interpolating its contents.
+     */
+    fn home_path(&self) -> Option<String>
+    {
+        self.variables.get("$HOME")
+            .map(|home| home.value.as_text())
+            .filter(|home| !home.is_empty())
+            .or_else(|| std::env::home_dir().map(|home| home.to_string_lossy().into_owned()))
+            .filter(|home| Path::new(home).is_absolute())
+    }
+
+    /**
+     * Shorten a leading home directory for display, matching complete path segments.
+     */
+    fn eval_path_to(&self, path: &str) -> String
+    {
+        let Some(home) = self.home_path() else { return path.to_string(); };
+        let home = home.trim_end_matches(std::path::is_separator);
+
+        // A root home must not become an empty prefix that matches relative paths.
+        if home.is_empty()
+        {
+            return if path == std::path::MAIN_SEPARATOR_STR
+                {
+                    "~".to_string()
+                }
+                else if path.starts_with(std::path::is_separator)
+                {
+                    format!("~{}", path)
+                }
+                else
+                {
+                    path.to_string()
+                };
+        }
+
+        if path == home
+        {
+            return "~".to_string();
+        }
+
+        if let Some(suffix) = path.strip_prefix(home)
+           && suffix.starts_with(std::path::is_separator)
+        {
+            return format!("~{}", suffix);
+        }
+
+        path.to_string()
+    }
+
+    /**
+     * Expand only the current user's leading ~ or ~/ prefix. Callers decide
+     * whether the source word is eligible; quoted words and variables are literal.
+     */
+    fn eval_path_from(&self, path: &str) -> String
+    {
+        let Some(suffix) = path.strip_prefix('~') else { return path.to_string(); };
+        if !suffix.is_empty() && !suffix.starts_with(std::path::is_separator)
+        {
+            return path.to_string();
+        }
+
+        let Some(home) = self.home_path() else { return path.to_string(); };
+        if suffix.is_empty()
+        {
+            return home;
+        }
+
+        format!("{}{}", home.trim_end_matches(std::path::is_separator), suffix)
+    }
+
+    /**
+     * PATH entries must be real paths when searching for or launching programs.
+     */
+    fn eval_path_list_from(&self, paths: &str) -> String
+    {
+        let expanded = std::env::split_paths(paths)
+            .map(|path| PathBuf::from(self.eval_path_from(&path.to_string_lossy())));
+
+        std::env::join_paths(expanded)
+            .map(|paths| paths.to_string_lossy().into_owned())
+            .unwrap_or_else(|_| paths.to_string())
+    }
+
     fn handle_file_glob(&self, operand: &Option<Value>) -> InterpreterResult<Value>
     {
         // Glob results may omit an explicit "./" prefix or normalize separators.
@@ -1196,6 +1340,19 @@ impl Interpreter
                     })
             };
 
+        let display_pattern = self.eval_path_to(pattern);
+        let expanded = self.eval_path_from(pattern);
+        let pattern = if expanded != *pattern
+            {
+                let suffix = pattern.strip_prefix('~').unwrap();
+                let home = expanded.strip_suffix(suffix).unwrap();
+                format!("{}{}", glob::Pattern::escape(home), suffix)
+            }
+            else
+            {
+                expanded
+            };
+
         let options = glob::MatchOptions
             {
                 require_literal_separator: true,
@@ -1207,16 +1364,16 @@ impl Interpreter
             {
                 location: Location::default(),
                 what: ErrorWhat::InvalidOperand(
-                    format!("Invalid glob pattern '{}': {}", pattern, error))
+                    format!("Invalid glob pattern '{}': {}", display_pattern, error))
             };
 
         let matcher = glob::Pattern::new(
-            &normalized_path(std::path::Path::new(pattern)).to_string_lossy())
+            &normalized_path(std::path::Path::new(&pattern)).to_string_lossy())
             .map_err(&invalid_pattern)?;
 
         // glob_with's leading-dot option prunes even explicitly requested hidden
         // entries. Enumerate normally, then enforce that rule with Pattern instead.
-        let paths = glob::glob(pattern).map_err(invalid_pattern)?;
+        let paths = glob::glob(&pattern).map_err(invalid_pattern)?;
 
         let mut arguments = Vec::new();
 
@@ -1226,7 +1383,7 @@ impl Interpreter
                 {
                     location: Location::default(),
                     what: ErrorWhat::FileGlobError(
-                        format!("Failed to expand '{}': {}", pattern, error))
+                        format!("Failed to expand '{}': {}", display_pattern, error))
                 })?;
 
             let path_text = path.to_string_lossy();
@@ -1255,7 +1412,7 @@ impl Interpreter
                 {
                     location: Location::default(),
                     what: ErrorWhat::FileGlobError(
-                        format!("No paths matched glob pattern '{}'.", pattern))
+                        format!("No paths matched glob pattern '{}'.", display_pattern))
                 });
         }
 
@@ -1316,7 +1473,7 @@ impl Interpreter
 
         if let Err(error) = std::env::set_current_dir(&args[0])
         {
-            println!("Failed to change directory: {}", error);
+            println!("Failed to change directory to {}: {}", self.eval_path_to(&args[0]), error);
             return Err(InterpreterError
                 {
                     location: location.clone(),

@@ -326,15 +326,20 @@ impl Completer for ShellyCompleter
             }
         }
 
-        // Expand home paths into actual paths; Shelly does not expand '~' at execution.
-        let path = if word == "~" || word.starts_with("~/")
-            || word == "$HOME" || word.starts_with("$HOME/")
-        {
-            let Some(home) = &self.home else { return CompletionResult::fresh(Vec::new()); };
-            let suffix = word.strip_prefix('~').unwrap_or_else(|| word.strip_prefix("$HOME").unwrap());
-            format!("{}/{}", home.display(), suffix.trim_start_matches('/'))
-        }
-        else { word.clone() };
+        // Expand home prefixes while resolving completion candidates.
+        let path = if    word == "~"
+                      || word.starts_with("~/")
+                      || word == "$HOME"
+                      || word.starts_with("$HOME/")
+            {
+                let Some(home) = &self.home else { return CompletionResult::fresh(Vec::new()); };
+                let suffix = word.strip_prefix('~').unwrap_or_else(|| word.strip_prefix("$HOME").unwrap());
+                format!("{}/{}", home.display(), suffix.trim_start_matches('/'))
+            }
+            else
+            {
+                word.clone()
+            };
 
         let (prefix, filename) = path.rfind('/').map_or(("", path.as_str()),
             |index| (&path[..=index], &path[index + 1..]));
@@ -457,13 +462,14 @@ impl EditMode for ShellyEditMode
 }
 
 
-fn default_prompt() -> String
+fn default_prompt(interpreter: &Interpreter) -> String
 {
-    let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
+    let cwd = interpreter.evaluate_variable("$pwd").unwrap_or_else(|_|
+        std::env::current_dir().unwrap_or_else(|_| ".".into()).display().to_string());
 
     let formatted = format!("\n{} [{}]\n",
                             Color::Yellow.bold().paint("<shelly>"),
-                            Color::Cyan.paint(cwd.display().to_string()));
+                            Color::Cyan.paint(cwd));
 
     formatted
 }
@@ -537,7 +543,7 @@ impl Repl
 
                     if result.is_err()
                     {
-                        default_prompt()
+                        default_prompt(&self.interpreter)
                     }
                     else
                     {
@@ -546,14 +552,14 @@ impl Repl
                 }
                 else
                 {
-                    default_prompt()
+                    default_prompt(&self.interpreter)
                 };
 
             prompt.prompt_text = prompt_text;
 
             // Refresh after each command so changes to PATH, HOME, and cwd are respected.
-            let search_path = self.interpreter.evaluate_variable("$PATH").unwrap_or_default();
-            let home = self.interpreter.evaluate_variable("$HOME").ok()
+            let search_path = self.interpreter.evaluate_path_variable("$PATH").unwrap_or_default();
+            let home = self.interpreter.evaluate_path_variable("$HOME").ok()
                 .filter(|home| !home.is_empty()).map(PathBuf::from).or_else(std::env::home_dir);
             let completer = ShellyCompleter
                 {

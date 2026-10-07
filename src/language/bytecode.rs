@@ -12,11 +12,12 @@ pub enum Code
     NewVariable,
     SetVariable,
     GetVariable,
-    // Operand: [alias name, target command, arguments...]. Names are strings.
+    // Operand: [alias name, argument count]. Target and arguments are on the stack.
     NewAlias,
     ExportVariable,
     GlobFiles,
     ExpandArray,
+    ExpandPath,
     InterpolateString,
     EnterScope,
     ExitScope,

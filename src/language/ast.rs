@@ -152,6 +152,7 @@ pub struct AstExecuteStatement
 {
     pub location: Location,
     pub executable_name: String,
+    pub expand_path: bool,
     pub arguments: Vec<AstExpression>
 }
 
@@ -164,12 +165,19 @@ pub struct AstSetStatement
 }
 
 
+pub struct AstAliasArgument
+{
+    pub value: Value,
+    pub expand_path: bool
+}
+
+
 pub struct AstAliasStatement
 {
     pub location: Location,
     pub alias: String,
     pub target: String,
-    pub arguments: Vec<Value>
+    pub arguments: Vec<AstAliasArgument>
 }
 
 
@@ -212,12 +220,14 @@ pub fn new_ast_set_statement(location: Location,
 
 pub fn new_ast_execute_statement(location: Location,
                                  executable_name: String,
+                                 expand_path: bool,
                                  arguments: Vec<AstExpression>) -> Option<AstStatement>
 {
     Some(AstStatement::ExecuteStatement(Box::new(AstExecuteStatement
         {
             location,
             executable_name,
+            expand_path,
             arguments,
         })))
 }
@@ -241,7 +251,7 @@ pub fn new_ast_function_statement(location: Location,
 pub fn new_ast_alias_statement(location: Location,
                                alias: String,
                                target: String,
-                               arguments: Vec<Value>) -> Option<AstStatement>
+                               arguments: Vec<AstAliasArgument>) -> Option<AstStatement>
 {
     Some(AstStatement::AliasStatement(Box::new(AstAliasStatement
         {
