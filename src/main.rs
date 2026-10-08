@@ -16,7 +16,9 @@ use crate::{ language::{ interpreter::{ Interpreter, Startup, Interactive, RcFil
 
 
 #[derive(Parser, Debug)]
-#[command(version, about = "The Shelly interactive shell and scripting language.")]
+#[command(name = env!("CARGO_BIN_NAME"),
+          version,
+          about = "The Shelly interactive shell and scripting language.")]
 struct CommandArguments
 {
     /// Force interactive mode.
