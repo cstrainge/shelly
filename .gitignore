@@ -25,3 +25,8 @@ target
 
 # Ignore the AGENTS.md file for now too.
 AGENTS.md
+
+
+audit/
+
+temp/
