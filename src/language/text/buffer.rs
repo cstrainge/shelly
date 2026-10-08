@@ -12,6 +12,11 @@ use super::location::Location;
 pub trait Buffer
 {
     /**
+     * A persistent read/decoding error, distinct from normal end of input.
+     */
+    fn read_error(&self) -> Option<&str> { None }
+
+    /**
      * Read the buffer's current logical location in the text.
      */
     fn location(&self) -> &Location;

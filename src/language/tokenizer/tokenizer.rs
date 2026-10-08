@@ -307,7 +307,8 @@ pub enum TokenLiteral
     /**
      * A string literal value.
      */
-    String(String, StringFlag)
+    // Byte offsets of escaped dollars retain literal/interpolated boundaries after decoding.
+    String(String, StringFlag, Vec<usize>)
 }
 
 
@@ -320,7 +321,7 @@ impl Display for TokenLiteral
             TokenLiteral::Integer(value, text) => write!(f, "{}:{}", value, text),
             TokenLiteral::Float(value, text)   => write!(f, "{}:{}", value, text),
             TokenLiteral::Boolean(value)       => write!(f, "{}", value),
-            TokenLiteral::String(text, _)      => write!(f, "{:?}", text)
+            TokenLiteral::String(text, _, _)   => write!(f, "{:?}", text)
         }
     }
 }
@@ -396,7 +397,7 @@ impl Token
                             TokenLiteral::Integer(_, text) => return text.clone(),
                             TokenLiteral::Float(_, text)   => return text.clone(),
                             TokenLiteral::Boolean(value)   => return value.to_string(),
-                            TokenLiteral::String(text, _)  => return text.clone()
+                            TokenLiteral::String(text, _, _) => return text.clone()
                         }
                     }
                     else
@@ -577,8 +578,37 @@ impl<'a> Tokenizer<'a>
      */
     pub fn next_token(&mut self) -> Result<Option<Token>, TokenizerError>
     {
+        let result = self.read_token();
+        if let Some(message) = self.input.read_error()
+        {
+            return Err(TokenizerError
+                {
+                    location: self.input.location().clone(),
+                    message: message.to_string()
+                });
+        }
+        result
+    }
+
+    fn read_token(&mut self) -> Result<Option<Token>, TokenizerError>
+    {
         // Skip past any whitespace and comments.
-        self.skip_whitespace(SkipComments::Yes, SkipNewlines::No);
+        loop
+        {
+            self.skip_whitespace(SkipComments::Yes, SkipNewlines::No);
+            if self.input.peek_next() != Some('\\') { break; }
+            let location = self.input.location().clone();
+            self.input.next();
+            if self.input.peek_next() != Some('\n')
+            {
+                return Err(TokenizerError
+                    {
+                        location,
+                        message: "Expected a newline after line continuation.".to_string()
+                    });
+            }
+            self.input.next();
+        }
 
         // Check to see what the next character is, if any.
         let next = self.input.peek_next();
@@ -594,7 +624,7 @@ impl<'a> Tokenizer<'a>
 
         match next
         {
-            '_' | 'a'..='z' | 'A'..='Z' => Ok(Some(self.parse_symbol())),
+            '_' | 'a'..='z' | 'A'..='Z' | '[' => Ok(Some(self.parse_symbol())),
             '$'                         => self.parse_identifier().map(Some),
             '0'..='9'                   => Ok(Some(self.try_parse_number())),
             '"'                         => self.parse_string(StringFlag::Interpolated),
@@ -759,6 +789,17 @@ impl<'a> Tokenizer<'a>
 
         while let Some(next) = self.input.peek_next()
         {
+            // Braces delimit blocks, except inside an interpolated word's ${name} reference.
+            if next == '{' && result.ends_with('$') && additional_separators.is_none()
+            {
+                result.push(self.input.next().unwrap());
+                while let Some(character) = self.input.next()
+                {
+                    result.push(character);
+                    if character == '}' { break; }
+                }
+                continue;
+            }
             if    !Self::is_separator_char(&next)
                && !additional_separators.map_or(false, |separators| separators.contains(&next))
             {
@@ -797,6 +838,7 @@ impl<'a> Tokenizer<'a>
         else
         {
             let mut literal_string = String::new();
+            let mut escaped_dollars = Vec::new();
             let mut closed = false;
 
             while let Some(next) = self.input.next()
@@ -825,7 +867,12 @@ impl<'a> Tokenizer<'a>
                                 });
                         },
 
-                    '\\' => literal_string.push(self.process_string_escape()?),
+                    '\\' =>
+                        {
+                            let escaped = self.process_string_escape()?;
+                            if escaped == '$' { escaped_dollars.push(literal_string.len()); }
+                            literal_string.push(escaped);
+                        },
 
                     _    => literal_string.push(next)
                 }
@@ -844,7 +891,7 @@ impl<'a> Tokenizer<'a>
                 {
                     location,
                     kind: TokenKind::Literal,
-                    value: TokenValue::Literal(TokenLiteral::String(literal_string, flag))
+                    value: TokenValue::Literal(TokenLiteral::String(literal_string, flag, escaped_dollars))
                 }))
         }
     }
@@ -905,6 +952,7 @@ impl<'a> Tokenizer<'a>
 
         let mut closed = false;
         let mut text = String::new();
+        let mut escaped_dollars = Vec::new();
 
         // Keep going until we either hit the end of the buffer or the closing *" pair.
         while let Some(next) = self.input.next()
@@ -941,7 +989,12 @@ impl<'a> Tokenizer<'a>
                 }
 
                 // Process the escape sequence.
-                '\\' => text.push(self.process_string_escape()?),
+                '\\' =>
+                    {
+                        let escaped = self.process_string_escape()?;
+                        if escaped == '$' { escaped_dollars.push(text.len()); }
+                        text.push(escaped);
+                    },
 
                 // Process the new line skipping any extra whitespace until we hit the target column.
                 '\n' =>
@@ -985,7 +1038,7 @@ impl<'a> Tokenizer<'a>
             {
                 location,
                 kind: TokenKind::Literal,
-                value: TokenValue::Literal(TokenLiteral::String(text, flag))
+                value: TokenValue::Literal(TokenLiteral::String(text, flag, escaped_dollars))
             }))
     }
 
@@ -1104,6 +1157,8 @@ impl<'a> Tokenizer<'a>
             ';'  => return operator_token(location, TokenKind::StatementBreak),
             '('  => return operator_token(location, TokenKind::ParenOpen),
             ')'  => return operator_token(location, TokenKind::ParenClose),
+            '{'  => return operator_token(location, TokenKind::BlockOpen),
+            '}'  => return operator_token(location, TokenKind::BlockClose),
             '['  => return operator_token(location, TokenKind::SquareOpen),
             ']'  => return operator_token(location, TokenKind::SquareClose),
             '`'  => return operator_token(location, TokenKind::ExecEscape),
@@ -1131,6 +1186,24 @@ impl<'a> Tokenizer<'a>
 
         operator_str.push(next);
         operator_str += &self.extract_to_separator(None);
+
+        // Negative numbers are values; options such as -f and --flag remain words.
+        if operator_str.starts_with('-') && operator_str.len() > 1
+        {
+            let number = operator_str.parse::<i64>().ok()
+                .map(|value| TokenLiteral::Integer(value, operator_str.clone()))
+                .or_else(|| operator_str.parse::<f64>().ok()
+                    .map(|value| TokenLiteral::Float(value, operator_str.clone())));
+            if let Some(number) = number
+            {
+                return Ok(Some(Token
+                    {
+                        location,
+                        kind: TokenKind::Literal,
+                        value: TokenValue::Literal(number)
+                    }));
+            }
+        }
 
         match operator_str.as_str()
         {
@@ -1210,8 +1283,8 @@ impl<'a> Tokenizer<'a>
         || *next == ';'
         || *next == '('
         || *next == ')'
-        || *next == '['
-        || *next == ']'
+        || *next == '{'
+        || *next == '}'
         || *next == ':'
         || *next == '#'
         || *next == '`'

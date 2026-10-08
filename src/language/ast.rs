@@ -15,6 +15,15 @@ pub struct AstSymbol
 }
 
 
+impl AstSymbol
+{
+    pub fn is_glob(&self) -> bool
+    {
+        self.name.contains(['*', '?', '['])
+    }
+}
+
+
 pub struct AstLiteral
 {
     pub value: Value
@@ -37,13 +46,18 @@ pub enum AstExpressionKind
     VariableSplat(AstSymbol),
     Symbol(AstSymbol),
     Literal(AstLiteral),
+    Grouped(Box<AstExpression>),
+    // Preserve the referenced value without implicitly invoking it as an argument.
+    ExecutableReference(Box<AstExpression>),
+    Execute(Box<AstExecuteStatement>),
+    TryExecute(Box<AstExpression>),
     MathExpression(AstMathOperator, Box<AstExpression>, Box<AstExpression>)
 }
 
 
 pub enum AstStringFlag
 {
-    Interpolated,
+    Interpolated(Vec<usize>),
     NonInterpolated,
 }
 
@@ -124,7 +138,11 @@ impl AstExpression
             AstExpressionKind::Variable(variable) => Ok(variable.name.clone()),
             AstExpressionKind::VariableSplat(variable) => Ok(variable.name.clone()),
             AstExpressionKind::Literal(literal) => Ok(literal.value.as_text()),
-            AstExpressionKind::MathExpression(_, _, _) =>
+            AstExpressionKind::Grouped(_)
+            | AstExpressionKind::ExecutableReference(_)
+            | AstExpressionKind::Execute(_)
+            | AstExpressionKind::TryExecute(_)
+            | AstExpressionKind::MathExpression(_, _, _) =>
                 Err(AstError::ExpressionNotString(self.location.clone()))
         }
     }
@@ -187,6 +205,13 @@ pub struct AstFunctionStatement
     pub name: String,
     pub parameters: Vec<String>,
     pub body: AstTopLevel
+}
+
+
+pub struct AstReturnStatement
+{
+    pub location: Location,
+    pub expression: Option<AstExpression>
 }
 
 
@@ -267,6 +292,8 @@ pub enum AstStatement
     SetStatement(Box<AstSetStatement>),
     AliasStatement(Box<AstAliasStatement>),
     ExecuteStatement(Box<AstExecuteStatement>),
+    ExpressionStatement(AstExpression),
+    ReturnStatement(Box<AstReturnStatement>),
     FunctionDefinition(Box<AstFunctionStatement>),
     NullStatement
 }

@@ -2,6 +2,7 @@
 use std::{ borrow::Cow,
            collections::BTreeMap,
            fs,
+           process::ExitCode,
            path::{ Path, PathBuf } };
 
 use rustix::process::geteuid;
@@ -514,7 +515,7 @@ impl Repl
             }
     }
 
-    pub fn run(&mut self) -> RuntimeResult<()>
+    pub fn run(&mut self) -> RuntimeResult<ExitCode>
     {
         let mut prompt = ShellyPrompt { prompt_text: String::new() };
         let mut keybindings = Keybindings::empty();
@@ -621,7 +622,7 @@ impl Repl
             }
         }
 
-        Ok(())
+        Ok(ExitCode::from(self.interpreter.exit_code))
     }
 
     fn apply_keybindings(keybindings: &mut Keybindings)

@@ -14,8 +14,8 @@ use crate::{ language::{ bytecode::{ Code,
                                      FunctionBlockRef,
                                      FunctionRef,
                                      FunctionBlock },
-                         compiler::{ CompileError, compile_ast },
-                         data::{ value::Value,
+                         compiler::{ compile_ast, CompileError, CompileTarget },
+                         data::{ value::{ ExecResult, Executable, Value },
                                  scoped_variables::{ ScopedValue,
                                                      ScopedVariables,
                                                      ValueVisibility } },
@@ -38,13 +38,17 @@ pub enum ErrorWhat
     ParserError(ParserError),
     CompileError(CompileError),
     InvalidOperand(String),
+    ArithmeticError(String),
     CommandNotFound(String, Location),
     ArgumentMismatch(String),
     FileGlobError(String),
     StackUnderflow,
+    NoResult,
+    ReturnOutsideFunction,
     ExecutableNotFound(String),
     ExecutableIoError(String),
     ExecutableBadReturn(u8),
+    ExecutableSignaled,
     InitialScopePopAttempt
 }
 
@@ -55,21 +59,29 @@ impl Display for ErrorWhat
     {
         match self
         {
-            ErrorWhat::ParserError(error) => write!(f, "Parser error: {}", error),
-            ErrorWhat::CompileError(error) => write!(f, "Compile error: {}", error),
-            ErrorWhat::InvalidOperand(message) => write!(f, "Invalid operand: {}", message),
-            ErrorWhat::CommandNotFound(command, location) => write!(f, "Command not found: {} at {}", command, location),
-            ErrorWhat::FileGlobError(message) => write!(f, "File glob error: {}", message),
+            ErrorWhat::ParserError(error) => write!(f, "Parser error: {}.", error),
+            ErrorWhat::CompileError(error) => write!(f, "Compile error: {}.", error),
+            ErrorWhat::InvalidOperand(message) => write!(f, "Invalid operand: {}.", message),
+            ErrorWhat::ArithmeticError(message) => write!(f, "Arithmetic error: {}.", message),
+            ErrorWhat::CommandNotFound(command, location) => write!(f, "Command not found: {} at {}.", command, location),
+            ErrorWhat::FileGlobError(message) => write!(f, "File glob error: {}.", message),
             ErrorWhat::StackUnderflow => write!(f, "Stack underflow"),
-            ErrorWhat::ExecutableNotFound(name) => write!(f, "Executable not found: {}", name),
-            ErrorWhat::ExecutableIoError(message) => write!(f, "Executable I/O error: {}", message),
+            ErrorWhat::NoResult => write!(f, "Attempted to access the last result, but there was none."),
+            ErrorWhat::ReturnOutsideFunction => write!(f, "Cannot return outside a function."),
+            ErrorWhat::ExecutableNotFound(name) => write!(f, "Executable not found: {}.", name),
+            ErrorWhat::ExecutableIoError(message) => write!(f, "Executable I/O error: {}.", message),
             ErrorWhat::ExecutableBadReturn(code) =>
                 {
-                    write!(f, "Executable returned error code: {}", code)
+                    write!(f, "Executable returned error code: {}.", code)
+                },
+
+            ErrorWhat::ExecutableSignaled =>
+                {
+                    write!(f, "Executable was terminated by a signal.")
                 },
 
             ErrorWhat::ArgumentMismatch(message) => write!(f, "{}", message),
-            ErrorWhat::InitialScopePopAttempt => write!(f, "Attempted to pop the initial scope")
+            ErrorWhat::InitialScopePopAttempt => write!(f, "Attempted to pop the initial scope.")
         }
     }
 }
@@ -174,6 +186,8 @@ pub struct Interpreter
     current_function_block: Option<FunctionBlockRef>,
     built_ins: BuiltIns<'static>,
     captured_stdout: Option<Vec<u8>>,
+    pub last_result: Option<Value>,
+    pub exit_code: u8,
     pub halted: bool
 }
 
@@ -216,7 +230,7 @@ impl Interpreter
                     Rc::new(|_interpreter: &Interpreter|
                         {
                             let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
-                            Ok(Value::String(cwd.display().to_string()))
+                            Ok(Value::from_string(cwd.display().to_string()))
                         }) as ReadFunction
                 ),
                 (
@@ -227,7 +241,7 @@ impl Interpreter
                                 .map(|name| name.to_string_lossy().into_owned())
                                 .unwrap_or_else(|_| "unknown".to_string());
 
-                            Ok(Value::String(name))
+                            Ok(Value::from_string(name))
                         }) as ReadFunction
                 )
             ]);
@@ -245,6 +259,8 @@ impl Interpreter
                 current_function_block: None,
                 built_ins,
                 captured_stdout: None,
+                last_result: None,
+                exit_code: 0,
                 halted: false
             };
 
@@ -278,25 +294,24 @@ impl Interpreter
 
         let is_interactive = matches!(interactive, Interactive::Yes | Interactive::YesWithoutBanner);
 
-        self.set_variable("$build_date", Value::String(env!("SHELLY_BUILD_DATE").to_string()));
-        self.set_variable("$build_time", Value::String(env!("SHELLY_BUILD_TIME").to_string()));
-        self.set_variable("$version", Value::String(env!("CARGO_PKG_VERSION").to_string()));
-        self.set_variable("$shelly", Value::String(std::env::current_exe()
-                                                            .unwrap_or_else(|_| ".".into())
-                                                            .display()
-                                                            .to_string()));
-        self.set_variable("$OS",  Value::String(OS.to_string()));
+        self.set_variable("$build_date", Value::from_string(env!("SHELLY_BUILD_DATE").to_string()));
+        self.set_variable("$build_time", Value::from_string(env!("SHELLY_BUILD_TIME").to_string()));
+        self.set_variable("$version", Value::from_string(env!("CARGO_PKG_VERSION").to_string()));
+        self.set_variable("$shelly", std::env::current_exe()
+            .map(|path| Value::from_executable_string(path.display().to_string()))
+            .unwrap_or_else(|_| Value::from_string(".".to_string())));
+        self.set_variable("$OS",  Value::from_string(OS.to_string()));
 
         self.set_variable("$args",
             Value::Array(script_args.iter().map(|arg|
                 {
-                    Value::String(arg.clone())
+                    Value::from_string(arg.clone())
                 })
                 .collect()));
 
         if is_interactive
         {
-            self.set_variable("$banner", Value::String(banner.to_string()));
+            self.set_variable("$banner", Value::from_string(banner.to_string()));
             self.set_variable("$interactive", Value::Boolean(true));
         }
         else
@@ -338,7 +353,7 @@ impl Interpreter
                     }
                 };
 
-            self.set_variable("$rc_path", Value::String(file.as_ref().map_or("".to_string(),
+            self.set_variable("$rc_path", Value::from_string(file.as_ref().map_or("".to_string(),
                 |f| f.display().to_string())));
 
             if    let Some(file) = file
@@ -348,12 +363,12 @@ impl Interpreter
             }
             else
             {
-                self.set_variable("$rc_path", Value::String("<not found>".to_string()));
+                self.set_variable("$rc_path", Value::from_string("<not found>".to_string()));
             }
         }
         else
         {
-            self.set_variable("$rc_path", Value::String("<unloaded>".to_string()));
+            self.set_variable("$rc_path", Value::from_string("<unloaded>".to_string()));
         }
 
         if matches!(interactive, Interactive::Yes) && !self.halted
@@ -364,7 +379,7 @@ impl Interpreter
 
                 Err(error) =>
                     {
-                        self.set_variable("$banner", Value::String(banner.to_string()));
+                        self.set_variable("$banner", Value::from_string(banner.to_string()));
                         let banner = self.evaluate_variable("$banner").unwrap();
 
                         println!("{}", banner);
@@ -459,7 +474,9 @@ impl Interpreter
     {
         let mut tokenizer = Tokenizer::new(buffer);
         let statements = parse_text(&mut tokenizer)?;
-        let instructions = compile_ast(&self.base_function_block, &statements)?;
+        let instructions = compile_ast(&self.base_function_block,
+                                       &statements,
+                                       CompileTarget::Toplevel)?;
 
         self.execute_instructions(&instructions)
     }
@@ -470,6 +487,7 @@ impl Interpreter
         let result = self.execute_instructions_scoped(instructions, initial_scope);
 
         self.variables.reset_to_scope(initial_scope);
+        if result.is_err() { self.last_result = None; }
 
         result
     }
@@ -509,6 +527,64 @@ impl Interpreter
                                     location: location.clone(),
                                     what: ErrorWhat::InvalidOperand(message)
                                 });
+                        }
+                    },
+
+                Code::ExitFunction =>
+                    {
+                        if self.current_function_block.is_none()
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::ReturnOutsideFunction
+                                });
+                        }
+
+                        return Ok(());
+                    },
+
+                Code::TryExecute =>
+                    {
+                        let executable = Self::pop_as_text(&location, &mut stack)?;
+
+                        if self.can_execute(&executable)
+                        {
+                            self.execute(&location, executable, Vec::new())?;
+                        }
+                        else
+                        {
+                            self.last_result = Some(Value::from_string(executable));
+                        }
+                    },
+
+                Code::MakeExecutable =>
+                    {
+                        let value = self.last_result.take().ok_or_else(|| InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::NoResult
+                            })?;
+                        self.last_result = Some(Value::from_executable_string(value.as_text()));
+                    },
+
+                Code::ExecuteIfExecutable =>
+                    {
+                        match self.last_result.take()
+                        {
+                            Some(Value::String(executable, Executable::Yes)) =>
+                                {
+                                    let executable = self.eval_path_from(&executable);
+                                    self.execute(&location, executable, Vec::new())?;
+                                },
+
+                            Some(value) => self.last_result = Some(value),
+
+                            None => return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::NoResult
+                                })
                         }
                     },
 
@@ -585,7 +661,7 @@ impl Interpreter
                             {
                                 Some(Value::Array(values)) => match values.as_slice()
                                     {
-                                        [Value::String(alias), Value::Integer(count)]
+                                        [Value::String(alias, _), Value::Integer(count)]
                                             if !alias.is_empty() && *count >= 0 => Some((alias, *count)),
                                         _ => None
                                     },
@@ -618,7 +694,7 @@ impl Interpreter
                     {
                         let variable_name = match &instruction.operand
                             {
-                                Some(Value::String(name)) => name.clone(),
+                                Some(Value::String(name, _)) => name.clone(),
                                 _ => return Err(InterpreterError
                                     {
                                         location: location.clone(),
@@ -647,7 +723,7 @@ impl Interpreter
                     {
                         let variable_name = match &instruction.operand
                             {
-                                Some(Value::String(name)) => name.clone(),
+                                Some(Value::String(name, _)) => name.clone(),
                                 _ => return Err(InterpreterError
                                     {
                                         location: location.clone(),
@@ -683,7 +759,7 @@ impl Interpreter
                     {
                         let variable_name = match &instruction.operand
                             {
-                                Some(Value::String(name)) => name.clone(),
+                                Some(Value::String(name, _)) => name.clone(),
                                 _ => return Err(InterpreterError
                                     {
                                         location: location.clone(),
@@ -692,15 +768,81 @@ impl Interpreter
                                     })
                             };
 
-                        let value = self.read_variable(&variable_name, &location)?;
+                        let value = self.read_raw_variable(&variable_name, &location)?;
                         Self::push(&mut stack, value);
+                    },
+
+                Code::PushResult =>
+                    {
+                        let result = self.last_result.take();
+
+                        if let Some(result) = result
+                        {
+                            Self::push(&mut stack, result);
+                        }
+                        else
+                        {
+                            // Something was really wrong in the bytecode; we expected a result but
+                            // found none. Error out hard.
+                            self.halted = true;
+
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::NoResult
+                                });
+                        }
+                    },
+
+                Code::PopResult =>
+                    {
+                        // Attempt to pop a value from the stack and then store it as the last
+                        // result.
+                        let result = Self::pop(&location, &mut stack)?;
+                        self.last_result = Some(result);
+                    },
+
+                Code::CheckResult =>
+                    {
+                        // Extract and clear the last result.
+                        let result = self.last_result.take();
+
+                        // If there was an actual value stored in the last result, check it. If the
+                        // value was an execution result, check its return code. If it's bad, halt
+                        // script execution.
+                        if    let Some(result) = result
+                           && let Value::ExecResult(result) = result
+                        {
+                            match result
+                            {
+                                ExecResult::Value(0) => {},
+
+                                ExecResult::Value(code) =>
+                                    {
+                                        return Err(InterpreterError
+                                            {
+                                                location: location.clone(),
+                                                what: ErrorWhat::ExecutableBadReturn(code)
+                                            });
+                                    },
+
+                                ExecResult::Signaled =>
+                                    {
+                                        return Err(InterpreterError
+                                            {
+                                                location: location.clone(),
+                                                what: ErrorWhat::ExecutableSignaled
+                                            });
+                                    }
+                            }
+                        }
                     },
 
                 Code::ExportVariable =>
                     {
                         let variable_name = match &instruction.operand
                             {
-                                Some(Value::String(name)) => name.clone(),
+                                Some(Value::String(name, _)) => name.clone(),
                                 _ => return Err(InterpreterError
                                     {
                                         location: location.clone(),
@@ -726,7 +868,9 @@ impl Interpreter
 
                 Code::GlobFiles =>
                     {
-                        stack.push_back(self.handle_file_glob(&instruction.operand)
+                        let pattern = Self::pop_as_text(&location, &mut stack)?;
+                        let expand_tilde = matches!(instruction.operand, Some(Value::Boolean(true)));
+                        stack.push_back(self.handle_file_glob(&pattern, expand_tilde)
                             .map_err(|mut error|
                             {
                                 error.location = location.clone();
@@ -736,8 +880,14 @@ impl Interpreter
 
                 Code::ExpandPath =>
                     {
-                        let path = Self::pop_as_text(&location, &mut stack)?;
-                        Self::push(&mut stack, Value::String(self.eval_path_from(&path)));
+                        let value = Self::pop(&location, &mut stack)?;
+                        let path = self.eval_path_from(&value.as_text());
+                        let expanded = match value
+                            {
+                                Value::String(_, executable) => Value::String(path, executable),
+                                _ => Value::from_string(path)
+                            };
+                        Self::push(&mut stack, expanded);
                     },
 
                 Code::ExpandArray =>
@@ -759,9 +909,16 @@ impl Interpreter
                         Self::push(&mut stack, value);
                     },
 
-                Code::InterpolateString =>
+                Code::InterpolateString | Code::InterpolateGlob =>
                     {
-                        self.handle_string_interpolation(&location, &mut stack)?;
+                        let escaped_dollars = match &instruction.operand
+                            {
+                                Some(Value::Array(offsets)) => offsets.iter()
+                                    .map(|offset| offset.as_integer() as usize).collect(),
+                                _ => Vec::new()
+                            };
+                        self.handle_string_interpolation(&location, &mut stack, &escaped_dollars,
+                            matches!(instruction.code, Code::InterpolateGlob))?;
                     },
 
                 Code::_EnterScope =>
@@ -783,39 +940,32 @@ impl Interpreter
                         self.variables.pop_scope();
                     },
 
-                Code::MathAdd =>
+                Code::MathAdd | Code::MathSubtract | Code::MathMultiply
+                | Code::MathDivide | Code::MathModulo =>
                     {
+                        let error = |message: &str| InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::ArithmeticError(message.to_string())
+                            };
                         let rhs = Self::pop(&location, &mut stack)?;
                         let lhs = Self::pop(&location, &mut stack)?;
-                        Self::push(&mut stack, Value::Integer(lhs.as_integer() + rhs.as_integer()));
-                    },
-
-                Code::MathSubtract =>
-                    {
-                        let rhs = Self::pop(&location, &mut stack)?;
-                        let lhs = Self::pop(&location, &mut stack)?;
-                        Self::push(&mut stack, Value::Integer(lhs.as_integer() - rhs.as_integer()));
-                    },
-
-                Code::MathMultiply =>
-                    {
-                        let rhs = Self::pop(&location, &mut stack)?;
-                        let lhs = Self::pop(&location, &mut stack)?;
-                        Self::push(&mut stack, Value::Integer(lhs.as_integer() * rhs.as_integer()));
-                    },
-
-                Code::MathDivide =>
-                    {
-                        let rhs = Self::pop(&location, &mut stack)?;
-                        let lhs = Self::pop(&location, &mut stack)?;
-                        Self::push(&mut stack, Value::Integer(lhs.as_integer() / rhs.as_integer()));
-                    },
-
-                Code::MathModulo =>
-                    {
-                        let rhs = Self::pop(&location, &mut stack)?;
-                        let lhs = Self::pop(&location, &mut stack)?;
-                        Self::push(&mut stack, Value::Integer(lhs.as_integer() % rhs.as_integer()));
+                        let rhs = rhs.checked_integer().ok_or_else(|| error("Integer overflow"))?;
+                        let lhs = lhs.checked_integer().ok_or_else(|| error("Integer overflow"))?;
+                        if rhs == 0 && matches!(instruction.code, Code::MathDivide | Code::MathModulo)
+                        {
+                            return Err(error("Division or remainder by zero"));
+                        }
+                        let result = match instruction.code
+                            {
+                                Code::MathAdd => lhs.checked_add(rhs),
+                                Code::MathSubtract => lhs.checked_sub(rhs),
+                                Code::MathMultiply => lhs.checked_mul(rhs),
+                                Code::MathDivide => lhs.checked_div(rhs),
+                                Code::MathModulo => lhs.checked_rem(rhs),
+                                _ => unreachable!()
+                            }.ok_or_else(|| error("Integer overflow"))?;
+                        Self::push(&mut stack, Value::Integer(result));
                     }
             }
 
@@ -851,17 +1001,21 @@ impl Interpreter
         }
 
         let location = Location::new(name, 1, 1);
-        let value = self.read_variable(name, &location)?;
+        let value = self.eval_value_paths_to(self.read_raw_variable(name, &location)?);
 
-        self.interpolate_string(&location, &value.as_text())
+        self.interpolate_string_at(&location, &value.as_text(), &[], true, false)
     }
 
     /**
-     * Read a filesystem setting for use by the runtime, expanding its display form.
+     * Read a filesystem setting without converting it to its display form.
      */
     pub fn evaluate_path_variable(&self, name: &str) -> InterpreterResult<String>
     {
-        let value = self.evaluate_variable(name)?;
+        if self.variables.get(name).is_none() && !self.special_vars.contains_key(name)
+        {
+            return Ok(String::new());
+        }
+        let value = self.read_raw_variable(name, &Location::new(name, 1, 1))?.as_text();
 
         Ok(if name == "$PATH"
             {
@@ -869,7 +1023,7 @@ impl Interpreter
             }
             else
             {
-                self.eval_path_from(&value)
+                value
             })
     }
 
@@ -880,7 +1034,7 @@ impl Interpreter
     {
         match value
         {
-            Value::String(path) => Value::String(self.eval_path_to(&path)),
+            Value::String(path, executable) => Value::String(self.eval_path_to(&path), executable),
             Value::Array(values) =>
                 Value::Array(values.into_iter().map(|value| self.eval_value_paths_to(value)).collect()),
             Value::ArgumentExpansion(values) =>
@@ -888,11 +1042,6 @@ impl Interpreter
                     .map(|value| self.eval_value_paths_to(value)).collect()),
             value => value
         }
-    }
-
-    fn read_variable(&self, name: &str, location: &Location) -> InterpreterResult<Value>
-    {
-        Ok(self.eval_value_paths_to(self.read_raw_variable(name, location)?))
     }
 
     fn read_raw_variable(&self, name: &str, location: &Location) -> InterpreterResult<Value>
@@ -933,14 +1082,57 @@ impl Interpreter
         None
     }
 
+    fn can_execute(&self, executable: &str) -> bool
+    {
+        if    self.built_ins.contains_key(executable)
+           || self.aliases.contains_key(executable)
+           || self.get_function(executable, &self.base_function_block).is_some()
+           || self.current_function_block.as_ref()
+                .is_some_and(|block| self.get_function(executable, block).is_some())
+        {
+            return true;
+        }
+
+        let is_executable = |path: &Path|
+            {
+                let Ok(metadata) = path.metadata() else { return false; };
+                if !metadata.is_file()
+                {
+                    return false;
+                }
+
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    metadata.permissions().mode() & 0o111 != 0
+                }
+
+                #[cfg(not(unix))]
+                {
+                    true
+                }
+            };
+
+        if executable.contains('/')
+        {
+            return is_executable(Path::new(executable));
+        }
+
+        // Command uses the child's exported PATH, or the system default when it is absent.
+        let path = self.variables.get("$PATH")
+            .filter(|value| value.exported == ValueVisibility::Exported)
+            .map(|value| self.eval_path_list_from(&value.value.as_text()))
+            .unwrap_or_else(|| "/bin:/usr/bin".to_string());
+
+        std::env::split_paths(&path).any(|directory| is_executable(&directory.join(executable)))
+    }
+
     fn execute_function(&mut self,
                         location: &Location,
                         name: &str,
                         function: &FunctionRef,
                         args: &Vec<String>) -> InterpreterResult<()>
     {
-        self.variables.push_scope();
-
         if function.arguments.len() != args.len()
         {
             let message = format!("Function {} expected {} arguments, but got {}.",
@@ -955,12 +1147,14 @@ impl Interpreter
                 });
         }
 
+        self.variables.push_scope();
+
         for index in 0..function.arguments.len()
         {
             let result = self.variables.create(function.arguments[index].clone(),
                 ScopedValue
                 {
-                    value: Value::String(args[index].clone()),
+                    value: Value::from_string(args[index].clone()),
                     exported: ValueVisibility::Private
                 });
 
@@ -974,11 +1168,11 @@ impl Interpreter
             }
         }
 
-        self.current_function_block = Some(function.functions.clone());
+        let caller_function_block = self.current_function_block.replace(function.functions.clone());
 
         let call_result = self.execute_instructions(&function.code);
 
-        self.current_function_block = function.functions.borrow().parent.clone();
+        self.current_function_block = caller_function_block;
 
         self.variables.pop_scope();
 
@@ -1022,6 +1216,16 @@ impl Interpreter
 
         if self.find_and_execute_function(location, &executable, &args)?
         {
+            // Make sure `last_result` as been updated by the executed function.
+            if self.last_result.is_none()
+            {
+                return Err(InterpreterError
+                    {
+                        location: location.clone(),
+                        what: ErrorWhat::NoResult
+                    });
+            }
+
             return Ok(());
         }
 
@@ -1086,14 +1290,9 @@ impl Interpreter
                     }
                 })?;
 
-        if !status.success()
-        {
-            return Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::ExecutableBadReturn(status.code().unwrap_or(1) as u8)
-                });
-        }
+        // Set the `last_result` to indicate the result of the executed command.
+        let value = Value::from_status_code(status.code());
+        self.last_result = Some(value);
 
         Ok(())
     }
@@ -1120,7 +1319,8 @@ impl Interpreter
 
     fn handle_string_interpolation(&self,
                                    location: &Location,
-                                   stack: &mut VecDeque<Value>) -> InterpreterResult<()>
+                                   stack: &mut VecDeque<Value>,
+                                   escaped_dollars: &[usize], escape_glob: bool) -> InterpreterResult<()>
     {
         let invalid_operand = |message| InterpreterError
             {
@@ -1128,18 +1328,25 @@ impl Interpreter
                 what: ErrorWhat::InvalidOperand(message)
             };
 
-        let Value::String(text) = Self::pop(location, stack)? else
+        let Value::String(text, executable) = Self::pop(location, stack)? else
         {
             return Err(invalid_operand(
                 "Expected a string for InterpolateString instruction.".to_string()));
         };
 
-        let interpolated = self.interpolate_string(location, &text)?;
-        Self::push(stack, Value::String(interpolated));
+        let interpolated = self.interpolate_string_at(location, &text, escaped_dollars, false, escape_glob)?;
+        Self::push(stack, Value::String(interpolated, executable));
         Ok(())
     }
 
     fn interpolate_string(&self, location: &Location, text: &str) -> InterpreterResult<String>
+    {
+        self.interpolate_string_at(location, text, &[], false, false)
+    }
+
+    fn interpolate_string_at(&self, location: &Location, text: &str,
+                             escaped_dollars: &[usize], display_paths: bool,
+                             escape_glob: bool) -> InterpreterResult<String>
     {
         let invalid_operand = |message| InterpreterError
             {
@@ -1148,11 +1355,11 @@ impl Interpreter
             };
 
         let mut interpolated = String::with_capacity(text.len());
-        let mut characters = text.chars().peekable();
+        let mut characters = text.char_indices().peekable();
 
-        while let Some(character) = characters.next()
+        while let Some((offset, character)) = characters.next()
         {
-            if character != '$'
+            if character != '$' || escaped_dollars.binary_search(&offset).is_ok()
             {
                 interpolated.push(character);
                 continue;
@@ -1160,12 +1367,12 @@ impl Interpreter
 
             let mut variable_name = String::from("$");
 
-            if characters.peek() == Some(&'{')
+            if characters.peek().is_some_and(|(_, character)| *character == '{')
             {
                 characters.next();
                 let mut closed = false;
 
-                for character in characters.by_ref()
+                for (_, character) in characters.by_ref()
                 {
                     if character == '}'
                     {
@@ -1186,7 +1393,7 @@ impl Interpreter
             else
             {
                 // Braces delimit names explicitly; bare names end at punctuation.
-                while let Some(&character) = characters.peek()
+                while let Some(&(_, character)) = characters.peek()
                 {
                     if !character.is_alphanumeric() && character != '_'
                     {
@@ -1204,10 +1411,12 @@ impl Interpreter
                 }
             }
 
-            let value = self.read_variable(&variable_name, &location)?;
+            let value = self.read_raw_variable(&variable_name, &location)?;
+            let value = if display_paths { self.eval_value_paths_to(value) } else { value };
 
             // Append values directly so their contents are not interpolated again.
-            interpolated.push_str(&value.as_text());
+            let text = value.as_text();
+            interpolated.push_str(&if escape_glob { glob::Pattern::escape(&text) } else { text });
         }
 
         Ok(interpolated)
@@ -1298,7 +1507,7 @@ impl Interpreter
             .unwrap_or_else(|_| paths.to_string())
     }
 
-    fn handle_file_glob(&self, operand: &Option<Value>) -> InterpreterResult<Value>
+    fn handle_file_glob(&self, pattern: &str, expand_tilde: bool) -> InterpreterResult<Value>
     {
         // Glob results may omit an explicit "./" prefix or normalize separators.
         // Normalize both sides for matching without resolving parent directories.
@@ -1309,20 +1518,9 @@ impl Interpreter
                 .collect()
         }
 
-        let pattern = match operand
-            {
-                Some(Value::String(pattern)) => pattern,
-                _ => return Err(InterpreterError
-                    {
-                        location: Location::default(),
-                        what: ErrorWhat::InvalidOperand(
-                            "Missing or invalid operand for GlobFiles instruction.".to_string())
-                    })
-            };
-
         let display_pattern = self.eval_path_to(pattern);
-        let expanded = self.eval_path_from(pattern);
-        let pattern = if expanded != *pattern
+        let expanded = if expand_tilde { self.eval_path_from(pattern) } else { pattern.to_string() };
+        let pattern = if expanded != pattern
             {
                 let suffix = pattern.strip_prefix('~').unwrap();
                 let home = expanded.strip_suffix(suffix).unwrap();
@@ -1383,7 +1581,7 @@ impl Interpreter
                 continue;
             }
 
-            arguments.push(Value::String(path_text.into_owned()));
+            arguments.push(Value::from_string(path_text.into_owned()));
         }
 
         if arguments.is_empty()
@@ -1439,34 +1637,44 @@ impl Interpreter
         Ok((name.to_string(), arguments.into_iter().collect()))
     }
 
-    fn handle_cd(&mut self, location: &Location, args: &[String]) -> InterpreterResult<()>
+    fn handle_cd(&mut self, _location: &Location, args: &[String]) -> InterpreterResult<()>
     {
         if args.len() != 1
         {
-            println!("Usage: cd <directory>");
-            return Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::ExecutableBadReturn(1)
-                });
+            eprintln!("Usage: cd <directory>");
+            self.last_result = Some(Value::ExecResult(ExecResult::Value(1)));
+            return Ok(());
         }
 
         if let Err(error) = std::env::set_current_dir(&args[0])
         {
-            println!("Failed to change directory to {}: {}", self.eval_path_to(&args[0]), error);
-            return Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::ExecutableBadReturn(1)
-                });
+            eprintln!("Failed to change directory to {}: {}", self.eval_path_to(&args[0]), error);
+            self.last_result = Some(Value::ExecResult(ExecResult::Value(1)));
+            return Ok(());
         }
 
+        self.last_result = Some(Value::None);
         Ok(())
     }
 
-    fn handle_exit(&mut self, _location: &Location, _args: &[String]) -> InterpreterResult<()>
+    fn handle_exit(&mut self, location: &Location, args: &[String]) -> InterpreterResult<()>
     {
+        self.exit_code = match args
+            {
+                [] => 0,
+                [code] => code.parse::<u8>().map_err(|_| InterpreterError
+                    {
+                        location: location.clone(),
+                        what: ErrorWhat::ArgumentMismatch("exit expects a status from 0 to 255.".to_string())
+                    })?,
+                _ => return Err(InterpreterError
+                    {
+                        location: location.clone(),
+                        what: ErrorWhat::ArgumentMismatch("exit expects at most one argument.".to_string())
+                    })
+            };
         self.halted = true;
+        self.last_result = Some(Value::None);
 
         Ok(())
     }

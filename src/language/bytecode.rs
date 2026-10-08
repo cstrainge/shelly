@@ -9,16 +9,25 @@ pub enum Code
 {
     Push,
     Execute,
+    // Pop a command name; leave its result, or the unresolved string, in last_result.
+    TryExecute,
+    // Execute last_result only when it is a string marked executable; preserve other values.
+    ExecuteIfExecutable,
+    MakeExecutable,
+    ExitFunction,
     NewVariable,
     SetVariable,
     GetVariable,
-    // Operand: [alias name, argument count]. Target and arguments are on the stack.
+    PushResult,
+    PopResult,
+    CheckResult,
     NewAlias,
     ExportVariable,
     GlobFiles,
     ExpandArray,
     ExpandPath,
     InterpolateString,
+    InterpolateGlob,
     _EnterScope,
     _ExitScope,
     MathAdd,

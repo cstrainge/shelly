@@ -9,6 +9,15 @@ use crate::language::{ ast::*,
                        parser::ParserError };
 
 
+
+#[derive(PartialEq, Eq)]
+pub enum CompileTarget
+{
+    Toplevel,
+    Function
+}
+
+
 pub enum ErrorWhat
 {
     ParserError(ParserError),
@@ -64,27 +73,72 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
 {
     match &expression.kind
     {
+        AstExpressionKind::Grouped(inner) =>
+            {
+                compile_expression(instructions, inner);
+
+                // Calls already execute, and nested groups handle their own value. Only a
+                // variable or string literal can supply an unevaluated executable reference.
+                if matches!(&inner.kind,
+                    AstExpressionKind::Variable(_)
+                    | AstExpressionKind::ExecutableReference(_)
+                    | AstExpressionKind::Literal(AstLiteral { value: Value::String(_, _), .. }))
+                {
+                    instructions.push(Instruction
+                        {
+                            location: Some(expression.location.clone()),
+                            code: Code::ExecuteIfExecutable,
+                            operand: None
+                        });
+                }
+
+                return;
+            },
+
+        AstExpressionKind::Execute(execute) =>
+            {
+                compile_execute_statement(instructions, execute);
+                return;
+            },
+
+        AstExpressionKind::ExecutableReference(inner) =>
+            {
+                compile_expression(instructions, inner);
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()),
+                        code: Code::MakeExecutable,
+                        operand: None
+                    });
+                return;
+            },
+
+        AstExpressionKind::TryExecute(command) =>
+            {
+                compile_expression(instructions, command);
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()),
+                        code: Code::PushResult,
+                        operand: None
+                    });
+                instructions.push(Instruction
+                    {
+                        location: None,
+                        code: Code::TryExecute,
+                        operand: None
+                    });
+                return;
+            },
+
         AstExpressionKind::Symbol(symbol) =>
             {
-                // If the string contains a * then we need to handle it as a file glob.
-                if symbol.name.contains('*')
-                {
-                    instructions.push(Instruction
-                        {
-                            location: Some(expression.location.clone()),
-                            code: Code::GlobFiles,
-                            operand: Some(Value::String(symbol.name.clone()))
-                        });
-                }
-                else
-                {
-                    instructions.push(Instruction
-                        {
-                            location: Some(expression.location.clone()),
-                            code: Code::Push,
-                            operand: Some(Value::String(symbol.name.clone()))
-                        });
-                }
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()),
+                        code: Code::Push,
+                        operand: Some(Value::from_string(symbol.name.clone()))
+                    });
             },
 
         AstExpressionKind::Literal(value) =>
@@ -103,7 +157,7 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                     {
                         location: Some(expression.location.clone()),
                         code: Code::GetVariable,
-                        operand: Some(Value::String(variable.name.clone()))
+                        operand: Some(Value::from_string(variable.name.clone()))
                     });
             }
 
@@ -113,7 +167,7 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                         {
                             location: Some(expression.location.clone()),
                             code: Code::GetVariable,
-                            operand: Some(Value::String(variable.name.clone()))
+                            operand: Some(Value::from_string(variable.name.clone()))
                         });
 
                     instructions.push(Instruction
@@ -127,7 +181,22 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
         AstExpressionKind::MathExpression(operator, lhs, rhs) =>
             {
                 compile_expression(instructions, lhs);
+
+                instructions.push(Instruction
+                    {
+                        location: None,
+                        code: Code::PushResult,
+                        operand: None
+                    });
+
                 compile_expression(instructions, rhs);
+
+                instructions.push(Instruction
+                    {
+                        location: None,
+                        code: Code::PushResult,
+                        operand: None
+                    });
 
                 instructions.push(Instruction
                     {
@@ -143,18 +212,19 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                         operand: None
                     });
             }
-
     }
 
     if let Some(string_flag) = &expression.string_flag
     {
-        if let AstStringFlag::Interpolated = string_flag
+        if let AstStringFlag::Interpolated(escaped_dollars) = string_flag
         {
             instructions.push(Instruction
                 {
                     location: Some(expression.location.clone()),
-                    code: Code::InterpolateString,
-                    operand: None
+                    code: if matches!(&expression.kind, AstExpressionKind::Symbol(symbol) if symbol.is_glob())
+                        { Code::InterpolateGlob } else { Code::InterpolateString },
+                    operand: Some(Value::Array(escaped_dollars.iter()
+                        .map(|offset| Value::Integer(*offset as i64)).collect()))
                 });
         }
     }
@@ -163,7 +233,7 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
     // retain their spelling. GlobFiles expands its own prefix.
     if    let AstExpressionKind::Symbol(symbol) = &expression.kind
        && (symbol.name == "~" || symbol.name.starts_with("~/"))
-       && !symbol.name.contains('*')
+       && !symbol.is_glob()
     {
         instructions.push(Instruction
             {
@@ -172,16 +242,73 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                 operand: None
             });
     }
+
+    if let AstExpressionKind::Symbol(symbol) = &expression.kind && symbol.is_glob()
+    {
+        instructions.push(Instruction
+            {
+                location: Some(expression.location.clone()),
+                code: Code::GlobFiles,
+                operand: Some(Value::Boolean(symbol.name.starts_with('~')))
+            });
+    }
+
+    instructions.push(Instruction
+        {
+            location: None,
+            code: Code::PopResult,
+            operand: None
+        });
+}
+
+
+fn compile_return_statement(instructions: &mut Vec<Instruction>, return_statement: &AstReturnStatement)
+{
+    if let Some(expression) = &return_statement.expression
+    {
+        compile_expression(instructions, expression);
+    }
+    else
+    {
+        instructions.push(Instruction
+            {
+                location: Some(return_statement.location.clone()),
+                code: Code::Push,
+                operand: Some(Value::None)
+            });
+        instructions.push(Instruction
+            {
+                location: None,
+                code: Code::PopResult,
+                operand: None
+            });
+    }
+
+    instructions.push(Instruction
+        {
+            location: Some(return_statement.location.clone()),
+            code: Code::ExitFunction,
+            operand: None
+        });
 }
 
 
 fn compile_let_statement(instructions: &mut Vec<Instruction>, let_statement: &AstLetStatement)
 {
+    // Evaluate before changing the binding so self-reference and failed initializers are safe.
+    compile_expression(instructions, &let_statement.expression);
+    instructions.push(Instruction
+        {
+            location: None,
+            code: Code::PushResult,
+            operand: None
+        });
+
     instructions.push(Instruction
         {
             location: Some(let_statement.location.clone()),
             code: Code::NewVariable,
-            operand: Some(Value::String(let_statement.identifier.clone()))
+            operand: Some(Value::from_string(let_statement.identifier.clone()))
         });
 
     if let_statement.export_flag == AstExportFlag::Exported
@@ -190,17 +317,15 @@ fn compile_let_statement(instructions: &mut Vec<Instruction>, let_statement: &As
             {
                 location: None,
                 code: Code::ExportVariable,
-                operand: Some(Value::String(let_statement.identifier.clone()))
+                operand: Some(Value::from_string(let_statement.identifier.clone()))
             });
     }
-
-    compile_expression(instructions, &let_statement.expression);
 
     instructions.push(Instruction
         {
             location: Some(let_statement.location.clone()),
             code: Code::SetVariable,
-            operand: Some(Value::String(let_statement.identifier.clone()))
+            operand: Some(Value::from_string(let_statement.identifier.clone()))
         });
 }
 
@@ -210,9 +335,16 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>, set_statement: &As
 
     instructions.push(Instruction
         {
+            location: None,
+            code: Code::PushResult,
+            operand: None
+        });
+
+    instructions.push(Instruction
+        {
             location: Some(set_statement.location.clone()),
             code: Code::SetVariable,
-            operand: Some(Value::String(set_statement.identifier.clone()))
+            operand: Some(Value::from_string(set_statement.identifier.clone()))
         });
 }
 
@@ -225,7 +357,7 @@ fn compile_alias_statement(instructions: &mut Vec<Instruction>, alias_statement:
         {
             location: Some(alias_statement.location.clone()),
             code: Code::Push,
-            operand: Some(Value::String(alias_statement.target.clone()))
+            operand: Some(Value::from_executable_string(alias_statement.target.clone()))
         });
     instructions.push(Instruction
         {
@@ -257,7 +389,7 @@ fn compile_alias_statement(instructions: &mut Vec<Instruction>, alias_statement:
         {
             location: Some(alias_statement.location.clone()),
             code: Code::NewAlias,
-            operand: Some(Value::Array(vec![Value::String(alias_statement.alias.clone()),
+            operand: Some(Value::Array(vec![Value::from_string(alias_statement.alias.clone()),
                                            Value::Integer(alias_statement.arguments.len() as i64)]))
         });
 }
@@ -270,7 +402,7 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
         {
             location: None,
             code: Code::Push,
-            operand: Some(Value::String(execute_statement.executable_name.clone()))
+            operand: Some(Value::from_executable_string(execute_statement.executable_name.clone()))
         });
 
     if execute_statement.expand_path
@@ -286,6 +418,46 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
     for argument in &execute_statement.arguments
     {
         compile_expression(instructions, argument);
+
+        match &argument.kind
+        {
+            AstExpressionKind::Symbol(symbol) if !symbol.is_glob() =>
+                {
+                    instructions.push(Instruction
+                        {
+                            location: Some(argument.location.clone()),
+                            code: Code::PushResult,
+                            operand: None
+                        });
+                    instructions.push(Instruction
+                        {
+                            location: None,
+                            code: Code::TryExecute,
+                            operand: None
+                        });
+                },
+
+            AstExpressionKind::Variable(_) =>
+                {
+                    instructions.push(Instruction
+                        {
+                            location: Some(argument.location.clone()),
+                            code: Code::ExecuteIfExecutable,
+                            operand: None
+                        });
+                },
+
+            // Backtick references are literals: pass their values without calling them.
+            // Grouped expressions and explicit calls already supplied their result.
+            _ => {}
+        }
+
+        instructions.push(Instruction
+            {
+                location: None,
+                code: Code::PushResult,
+                operand: None
+            });
     }
 
     instructions.push(Instruction
@@ -306,7 +478,9 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
             functions: HashMap::new()
         }));
 
-    let instructions = compile_ast(&function_block, &function_statement.body)?;
+    let instructions = compile_ast(&function_block,
+                                   &function_statement.body,
+                                   CompileTarget::Function)?;
 
     let new_function = Rc::new(Function
         {
@@ -322,29 +496,37 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
 
 
 pub fn compile_ast(function_block: &FunctionBlockRef,
-                   ast: &AstTopLevel) -> CompileResult<Vec<Instruction>>
+                   ast: &AstTopLevel,
+                   target: CompileTarget) -> CompileResult<Vec<Instruction>>
 {
     let mut instructions = Vec::new();
+    let last_statement = ast.iter()
+        .rposition(|statement| !matches!(statement, AstStatement::NullStatement));
 
-    for ast_item in ast
+    for (index, ast_item) in ast.iter().enumerate()
     {
+        let mut add_check = true;
+
         match ast_item
         {
-            AstStatement::NullStatement => {},
+            AstStatement::NullStatement => { add_check = false; },
 
             AstStatement::LetStatement(let_statement) =>
                 {
                     compile_let_statement(&mut instructions, let_statement);
+                    add_check = false;
                 },
 
             AstStatement::SetStatement(set_statement) =>
                 {
                     compile_set_statement(&mut instructions, set_statement);
+                    add_check = false;
                 },
 
             AstStatement::AliasStatement(alias_statement) =>
                 {
                     compile_alias_statement(&mut instructions, alias_statement);
+                    add_check = false;
                 },
 
             AstStatement::ExecuteStatement(execute_statement) =>
@@ -352,11 +534,59 @@ pub fn compile_ast(function_block: &FunctionBlockRef,
                     compile_execute_statement(&mut instructions, execute_statement);
                 }
 
+            AstStatement::ExpressionStatement(expression) =>
+                {
+                    compile_expression(&mut instructions, expression);
+
+                    if matches!(&expression.kind, AstExpressionKind::Variable(_))
+                    {
+                        instructions.push(Instruction
+                            {
+                                location: Some(expression.location.clone()),
+                                code: Code::ExecuteIfExecutable,
+                                operand: None
+                            });
+                    }
+                }
+
+            AstStatement::ReturnStatement(return_statement) =>
+                {
+                    compile_return_statement(&mut instructions, return_statement);
+                    add_check = false;
+                }
+
             AstStatement::FunctionDefinition(function_statement) =>
                 {
                     compile_function_definition(&function_block, function_statement)?;
+                    add_check = false;
                 }
         }
+
+        let implicit_return =    target == CompileTarget::Function
+                              && last_statement == Some(index);
+
+        if add_check && !implicit_return
+        {
+            instructions.push(Instruction
+                {
+                    location: None,
+                    code: Code::CheckResult,
+                    operand: None
+                });
+        }
+    }
+
+    if target == CompileTarget::Function && last_statement.is_none_or(|index|
+        !matches!(ast[index], AstStatement::ExpressionStatement(_)
+            | AstStatement::ExecuteStatement(_) | AstStatement::ReturnStatement(_)))
+    {
+        instructions.push(Instruction
+            {
+                location: None,
+                code: Code::Push,
+                operand: Some(Value::None)
+            });
+        instructions.push(Instruction { location: None, code: Code::PopResult, operand: None });
     }
 
     Ok(instructions)

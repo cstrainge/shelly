@@ -25,28 +25,9 @@ fn math_operator(kind: TokenKind) -> Option<(AstMathOperator, u8)>
 }
 
 
-fn parse_math_binary_expression(buffer: &mut TokenBuffer<'_, '_>,
-                                min_precedence: u8) -> ParseResult<AstExpression>
-{
-    let location =
-        {
-            let peek = Lookahead::new(buffer);
-            peek.buffer.next()?.map(|token| token.location)
-        };
-
-    let left = parse_math_primary(buffer)?.ok_or(ParserError
-        {
-            location,
-            kind: ParserErrorKind::ExpectedExpression
-        })?;
-
-    parse_math_binary_tail(buffer, left, min_precedence, false)
-}
-
-
 /**
- * Parse one arithmetic operand. A mismatch consumes nothing. Parentheses only
- * group math here; general command grouping is left to a future grammar rule.
+ * Parse one arithmetic operand. A mismatch consumes nothing. Parentheses accept
+ * any value expression, including a command whose result is used as the operand.
  */
 fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
@@ -71,24 +52,44 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                                     Value::Float(value, Some(text))
                                 },
 
-                            TokenValue::Literal(TokenLiteral::String(value, flag)) =>
+                            TokenValue::Literal(TokenLiteral::Boolean(value)) => Value::Boolean(value),
+
+                            TokenValue::Literal(TokenLiteral::String(value, flag, escaped_dollars)) =>
                                 {
                                     string_flag = Some(match flag
                                         {
                                             StringFlag::Interpolated =>
-                                                AstStringFlag::Interpolated,
+                                                AstStringFlag::Interpolated(escaped_dollars),
 
                                             StringFlag::NonInterpolated =>
                                                 AstStringFlag::NonInterpolated,
                                         });
 
-                                    Value::String(value)
+                                    Value::from_string(value)
                                 },
 
                             _ => return Ok(None)
                         };
 
                     new_ast_literal(token.location, value, string_flag)
+                },
+
+            TokenKind::Minus =>
+                {
+                    // A standalone '-' remains a command argument. With an operand it is unary
+                    // negation, expressed as subtraction so normal checked arithmetic applies.
+                    let Some(operand) = parse_math_primary(&mut *lookahead.buffer)? else
+                    {
+                        return Ok(None);
+                    };
+                    AstExpression
+                        {
+                            location: token.location.clone(),
+                            kind: AstExpressionKind::MathExpression(AstMathOperator::Subtract,
+                                Box::new(new_ast_literal(token.location, Value::Integer(0), None)),
+                                Box::new(operand)),
+                            string_flag: None
+                        }
                 },
 
             TokenKind::Identifier =>
@@ -106,9 +107,19 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
 
             TokenKind::ParenOpen =>
                 {
-                    let expression = parse_math_binary_expression(&mut *lookahead.buffer, 0)?;
+                    let expression = parse_value_expression(&mut *lookahead.buffer)?
+                        .ok_or_else(|| ParserError
+                            {
+                                location: Some(token.location.clone()),
+                                kind: ParserErrorKind::ExpectedExpression
+                            })?;
                     expect_token(&mut *lookahead.buffer, TokenKind::ParenClose)?;
-                    expression
+                    AstExpression
+                        {
+                            location: token.location,
+                            kind: AstExpressionKind::Grouped(Box::new(expression)),
+                            string_flag: None
+                        }
                 },
 
             _ => return Ok(None)
@@ -258,7 +269,7 @@ fn parse_symbol_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
     // Does the symbol have any $s in it?
     let string_flag = if symbol_value.contains('$')
         {
-            Some(AstStringFlag::Interpolated)
+            Some(AstStringFlag::Interpolated(Vec::new()))
         }
         else
         {
@@ -291,14 +302,14 @@ fn parse_literal_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
             TokenLiteral::Integer(value, _) => Value::Integer(value),
             TokenLiteral::Float(value, text) => Value::Float(value, Some(text)),
             TokenLiteral::Boolean(value) => Value::Boolean(value),
-            TokenLiteral::String(value, flag) =>
+            TokenLiteral::String(value, flag, escaped_dollars) =>
                 {
                     string_flag = match flag
                         {
-                            StringFlag::Interpolated => Some(AstStringFlag::Interpolated),
+                            StringFlag::Interpolated => Some(AstStringFlag::Interpolated(escaped_dollars)),
                             StringFlag::NonInterpolated => Some(AstStringFlag::NonInterpolated),
                         };
-                    Value::String(value)
+                    Value::from_string(value)
                 }
         };
 
@@ -361,6 +372,31 @@ fn parse_operator_to_symbol(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
 
 pub fn parse_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
+    // An executable reference currently stores only its name. Use a literal so that value
+    // parsing does not turn the name into a call or apply symbol expansion.
+    if let Some(escape) = try_expect_token(buffer, TokenKind::ExecEscape)?
+    {
+        let executable = parse_exec_expression(buffer)?.ok_or_else(|| ParserError
+            {
+                location: Some(escape.location.clone()),
+                kind: ParserErrorKind::ExpectedExpression
+            })?;
+
+        if matches!(executable.kind, AstExpressionKind::Variable(_))
+        {
+            return Ok(Some(AstExpression
+                {
+                    location: escape.location,
+                    kind: AstExpressionKind::ExecutableReference(Box::new(executable)),
+                    string_flag: None
+                }));
+        }
+
+        return Ok(Some(new_ast_literal(escape.location,
+                                       Value::from_executable_string(executable.resolve_as_text()?),
+                                       None)));
+    }
+
     // The math rule itself decides when to fall back. Once it reports malformed
     // arithmetic, do not retry it as separate literal/variable/glob arguments.
     if let Some(expression) = parse_math_expression(buffer)?
@@ -373,6 +409,92 @@ pub fn parse_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
                            parse_literal_expression,
                            parse_lonely_glob_expression,
                            parse_operator_to_symbol])
+}
+
+
+/**
+ * Parse a value with the command-call rules shared by assignments, returns, and parentheses.
+ */
+pub fn parse_value_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
+{
+    let Some(expression) = parse_expression(buffer)? else { return Ok(None); };
+
+    if matches!(&expression.kind, AstExpressionKind::Symbol(_) | AstExpressionKind::Variable(_))
+    {
+        let arguments = parse_command_arguments(buffer)?;
+        let location = expression.location.clone();
+
+        if !arguments.is_empty()
+        {
+            return Ok(Some(AstExpression
+                {
+                    location: location.clone(),
+                    kind: AstExpressionKind::Execute(Box::new(AstExecuteStatement
+                        {
+                            location,
+                            executable_name: expression.resolve_as_text()?,
+                            expand_path: matches!(&expression.kind,
+                                AstExpressionKind::Symbol(symbol) if symbol.name.starts_with('~')),
+                            arguments
+                        })),
+                    string_flag: None
+                }));
+        }
+
+        // Globs remain collection values. Only a lone command word is ambiguous.
+        if matches!(&expression.kind, AstExpressionKind::Symbol(symbol) if !symbol.is_glob())
+        {
+            return Ok(Some(AstExpression
+                {
+                    location,
+                    kind: AstExpressionKind::TryExecute(Box::new(expression)),
+                    string_flag: None
+                }));
+        }
+    }
+
+    Ok(Some(expression))
+}
+
+
+pub fn parse_command_arguments(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Vec<AstExpression>>
+{
+    let mut parameter_expressions = Vec::new();
+
+    loop
+    {
+        let next =
+            {
+                let mut lookahead = Lookahead::new(buffer);
+                let Some(token) = lookahead.buffer.next()? else { break; };
+
+                match token.kind
+                {
+                    TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockClose
+                    | TokenKind::ParenClose => break,
+
+                    TokenKind::LineContinue =>
+                        {
+                            expect_token(lookahead.buffer, TokenKind::LineBreak)?;
+                            lookahead.commit();
+                            continue;
+                        },
+
+                    _ => token
+                }
+            };
+
+        // The lookahead rewound this token so the full expression can consume it.
+        let expression = parse_expression(buffer)?.ok_or_else(|| ParserError
+            {
+                location: Some(next.location),
+                kind: ParserErrorKind::ExpectedExpression
+            })?;
+
+        parameter_expressions.push(expression);
+    }
+
+    Ok(parameter_expressions)
 }
 
 

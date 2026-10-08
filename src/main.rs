@@ -1,5 +1,5 @@
 
-use std::{ fs::File, io::{ BufReader, IsTerminal, stdin, stderr }, path::PathBuf };
+use std::{ fs::File, io::{ BufReader, IsTerminal, stdin, stderr }, path::PathBuf, process::ExitCode };
 
 use clap::Parser;
 use supports_color::Stream;
@@ -168,7 +168,7 @@ fn run_as_repl(tab_width: usize,
                startup: Startup,
                suppress_banner: bool,
                rc_file: RcFile,
-               script_args: Vec<String>) -> RuntimeResult<()>
+               script_args: Vec<String>) -> RuntimeResult<ExitCode>
 {
     let mut repl = Repl::new(color_mode, tab_width, startup, suppress_banner, rc_file, script_args);
 
@@ -183,7 +183,7 @@ fn interpret(buffer: &mut dyn Buffer,
              startup: Startup,
              color_mode: TtyColorMode,
              tab_width: usize,
-             script_args: Vec<String>) -> RuntimeResult<()>
+             script_args: Vec<String>) -> RuntimeResult<ExitCode>
 {
     let mut interpreter = Interpreter::new(startup,
                                            Interactive::No,
@@ -194,7 +194,7 @@ fn interpret(buffer: &mut dyn Buffer,
 
     interpreter.execute_from_buffer(buffer)?;
 
-    Ok(())
+    Ok(ExitCode::from(interpreter.exit_code))
 }
 
 
@@ -205,7 +205,7 @@ fn run_script(script: &PathBuf,
               tab_width: usize,
               color_mode: TtyColorMode,
               startup: Startup,
-              script_args: Vec<String>) -> RuntimeResult<()>
+              script_args: Vec<String>) -> RuntimeResult<ExitCode>
 {
     let file = File::open(script);
 
@@ -230,7 +230,7 @@ fn run_code(code: &String,
             tab_width: usize,
             color_mode: TtyColorMode,
             startup: Startup,
-            script_args: Vec<String>) -> RuntimeResult<()>
+            script_args: Vec<String>) -> RuntimeResult<ExitCode>
 {
     let mut buffer = SimpleBuffer::new("command line", &code, Some(tab_width));
 
@@ -244,7 +244,7 @@ fn run_code(code: &String,
 fn run_stdin(tab_width: usize,
              color_mode: TtyColorMode,
              startup: Startup,
-             script_args: Vec<String>) -> RuntimeResult<()>
+             script_args: Vec<String>) -> RuntimeResult<ExitCode>
 {
     let mut buffer = BufReader::new(stdin());
     let mut buffer = ReadBuffer::new("standard input", &mut buffer, Some(tab_width));
@@ -256,7 +256,7 @@ fn run_stdin(tab_width: usize,
 /**
  * Process the command line arguments and determine the mode we are running in.
  */
-fn main() -> RuntimeResult<()>
+fn main() -> RuntimeResult<ExitCode>
 {
     let args = CommandArguments::parse();
 

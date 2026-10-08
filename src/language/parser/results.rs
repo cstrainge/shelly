@@ -15,6 +15,7 @@ pub enum ParserErrorKind
     ExpectedToken(TokenKind, Option<TokenKind>),
     ExpectedExpression,
     ExpressionNotString,
+    DuplicateParameter(String),
     NoProgress,
 }
 
@@ -51,6 +52,9 @@ impl Display for ParserErrorKind
                 {
                     write!(f, "Expression does not resolve to a string.")
                 },
+
+            ParserErrorKind::DuplicateParameter(name) =>
+                write!(f, "Duplicate function parameter: {}.", name),
 
             ParserErrorKind::NoProgress =>
                 write!(f, "Repeated parser succeeded without consuming a token.")

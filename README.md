@@ -7,34 +7,57 @@ commands, structured data, and network services in the same place.
   <img src="./Shelly.png" alt="Shelly" width="50%">
 </p>
 
-Shelly is early work. The language and its implementation are still taking shape,
-but development of the shell is already being done in the shell: running builds,
-using development tools, and trying new features from Shelly's own prompt.
+Shelly is early work. Development of the shell is already being done in the shell:
+running builds, using development tools, and trying new features from its prompt.
+The examples below describe the current implementation. The
+[language audit](audit/language/REPORT.md) records working features, known defects,
+and the results of the repairs following that audit.
 
-## Running Shelly
+## Build and run
 
-Use a Rust toolchain that supports edition 2024, on Linux, WSL or macOS:
+Use a Rust toolchain supporting edition 2024. The current audit was run on Linux.
 
 ```sh
 git clone https://github.com/cstrainge/shelly.git
 cd shelly
+cargo build --locked
 cargo run --locked
 ```
 
-The binary currently launches the interactive shell; it does not yet accept a
-script file to execute. Use Ctrl+Enter or Shift+Enter to insert a newline for
-multiline input. Leave with `exit` or Ctrl+D.
+Shelly supports interactive use, script files, command-line source, and stdin:
 
-## The language today
+```sh
+./target/debug/shelly                         # Interactive when attached to a terminal
+./target/debug/shelly example.shy one two     # Execute a file
+./target/debug/shelly -c 'echo $args...' one two
+printf 'echo "hello"\n' | ./target/debug/shelly -s
+```
 
-Shelly has an interactive prompt, runs external programs, and includes `cd` and
-`exit` built-ins. Commands use familiar shell syntax, with arguments separated by
-spaces. Newlines and semicolons separate statements, and `#` starts a comment.
+Without a file or `-c`, noninteractive input is read from stdin. `-i` forces the
+REPL. `$args` is an array of the supplied arguments, excluding the script filename;
+`$args...` passes its elements as separate arguments. Shell options go before the
+script filename or script arguments. Use `--help` for all options.
 
-Variables are declared with `let` and referenced with `$`. Values include strings,
-integers, floating-point numbers, booleans, and arrays. Variables can be reassigned;
-arithmetic currently uses integer conversion and supports `+`, `-`, `*`, `/`, `%`,
-precedence, and parentheses. Use spaces around arithmetic operators.
+In the REPL, Ctrl+Enter or Shift+Enter inserts a newline for multiline input;
+Enter submits the buffer. Definitions and variables persist between submissions.
+Leave with `exit` or Ctrl+D. Tab completes a unique name or common prefix; a
+second Tab opens the completion menu. Arrow keys navigate an open menu.
+
+Interactive startup loads `~/.shelly_init.shy`. `--rcfile PATH` selects another init
+file; `--norc` skips it. `-l` enables login startup, which loads
+`/etc/shelly/profile.shy`, then `~/.shelly_profile.shy`, before interactive init.
+`--norc` does not disable login profiles. Script, `-c`, and stdin modes skip
+interactive init. `-b` suppresses the banner; `-m` requests monochrome output.
+
+## Statements, values, and arithmetic
+
+Commands use space-separated arguments. Newlines and semicolons separate
+statements; `#` starts a comment. A backslash followed by a newline continues a
+logical source line, including inside arithmetic and return expressions. Put spaces
+around binary arithmetic operators; braces may touch the expressions they enclose.
+
+Declare variables with `let`, reference them with `$name` or `${name}`, and assign
+an existing variable with `$name = expression`:
 
 ```text
 let $x = 1024 + 2 * 2
@@ -43,8 +66,33 @@ $x = ($x - 4) / 2
 echo $x                     # 512
 ```
 
+Values include signed 64-bit integers, floating-point values, booleans, strings,
+arrays, the no-value result displayed as `()`, and external command statuses such
+as `ExecResult(0)`. Arrays currently come from `$args` and file globs; array
+literals and indexing are not implemented. Without `...`, an array becomes
+colon-separated text when passed to a command. `()` is a result's display form,
+not an accepted empty expression literal.
+
+Arithmetic supports `+`, `-`, `*`, `/`, and `%`, with normal precedence,
+left associativity, and parentheses. **Operations currently convert operands to
+integers**: `7 / 2` produces `3`, and `2.9 + 1.9` produces `3`. Numeric strings
+convert to integers; a string that cannot be parsed as an integer converts to
+zero. Boolean operands convert to `1` or `0`. This is not floating-point arithmetic.
+Signed numbers and unary minus work: `-2 + 3` produces `1`, and `-(2 + 3)` produces
+`-5`. Division/remainder by zero and integer overflow produce language errors,
+including in release builds.
+
+Expressions can stand alone, including inside functions. A top-level expression
+is evaluated without automatically printing its value; use `echo` to display it.
+
+## Strings and paths
+
 Double-quoted strings interpolate `$name` and `${name}`. Single-quoted strings
-keep those references literal. Missing variables produce an error.
+keep variable references literal. Missing variables are errors. Both quote forms
+process backslash escapes, including `\n`, `\r`, `\t`, hexadecimal `\x41`, octal
+`\o101`, and decimal `\065` (the last three produce `A`). Use `\$` inside double
+quotes to keep a dollar sign literal: `"\$name"` produces `$name`. This also works
+in multiline strings.
 
 ```text
 let $name = 'Shelly'
@@ -54,9 +102,9 @@ echo '$name stays literal here'
 ```
 
 Multiline strings use `"* ... *"` or `'* ... *'`. Leading whitespace before the
-first text is skipped, and that first line establishes the indentation removed
-from subsequent lines. Extra indentation is preserved, so the source can stay
-neatly indented without adding that indentation to the output.
+first text is skipped, and the first line establishes the indentation removed
+from subsequent lines. Extra indentation and embedded newlines are preserved,
+including the newline before a closing delimiter on its own line.
 
 ```text
 let $project = 'Shelly'
@@ -67,136 +115,240 @@ echo "*
     *"
 ```
 
-Prints:
-
-```text
-Building Shelly
-  Source: src/
-  Mode: development
-```
-
 The double-quoted form interpolates variables; the single-quoted form keeps them
-literal:
+literal. Ordinary single-line quotes cannot contain a raw newline.
 
-```text
-echo '*
-    Variables such as $project and ${project}
-    stay literal in this string.
-    *'
-```
+An unquoted source word beginning with `~` or `~/` expands to the home directory.
+Quoted tildes and tildes obtained from variables remain literal. Variables,
+interpolated strings, and command arguments retain real filesystem paths, so both
+`cd $p` and `cat "$p/file"` work with a stored absolute path. Shelly shortens home
+paths to `~/` in its own display formatting, such as the prompt; an external
+command like `echo $p` receives and prints the real path.
 
-Newlines inside the string are retained, including the one before a closing
-delimiter on its own line.
-
-Unquoted paths can start with a variable. The expanded value and the path suffix
-stay together as one argument, including when the variable contains spaces.
+Unquoted paths can begin with a variable. Its value and the suffix remain one
+argument, including spaces in the value:
 
 ```text
 let $root = '/tmp'
 echo $root/project/file.txt
-# Prints: /tmp/project/file.txt
 ```
 
-This also works in assignments, function arguments, and executable paths such as
-`$tools/echo`. Write `$a / $b` for division; `$a/file` is a path.
+Variable-prefixed executable paths such as `$tools/echo` also work. Write
+`$a / $b` for division; `$a/file` is a path. Variable-prefixed glob patterns
+such as `$root/*.txt` interpolate the prefix before expanding the pattern.
+Characters from the variable's value remain literal, including `[` or `*` in a
+directory name.
 
-File globs expand into arguments. Hidden entries require an explicit leading dot,
-`.` and `..` are excluded, and a pattern with no matches is an error. A glob can
-also be stored in a variable and expanded later with `...`:
+Unquoted `*`, `?`, and bracket patterns such as `[ab]` expand matching paths in
+sorted order; `**` supports recursive matching. Hidden entries require an explicit
+leading dot, `.` and `..` are excluded, and no matches is an error. Quotes preserve
+a glob as text.
 
 ```text
 let $sources = src/language/*.rs
 echo $sources...
 ```
 
-Functions have named parameters and local variable scopes. Call them like other
-commands; arguments currently arrive as text. Function return values and early
-return are not supported yet.
+## Functions, calls, and return values
+
+Functions have named parameters and local variable scopes. Call them like
+commands. Arguments are evaluated left to right, then **converted to text** for
+the callee; numeric types and executable markers do not survive parameter binding.
 
 ```text
-fn greet($name) {
-    echo "Hello, $name!"
+fn foo($a)
+{
+    2048 * $a
 }
 
-greet 'world'
+let $y = foo 3
+echo $y                     # 6144
+echo (foo 3)                # 6144
+echo (foo 3) + 1            # 6145
 ```
 
-Functions can also contain helper functions. A nested function can use the outer
-function's variables when called from it:
+The final expression or command supplies the function's result. A trailing
+semicolon or newline does not discard it. `return expression` exits the current
+function immediately with that value; bare `return` returns `()`.
 
 ```text
-fn welcome($name) {
-    fn say_hello() {
+fn answer()
+{
+    return 2048
+    echo "unreachable"
+}
+
+fn greet($name)
+{
+    echo "Hello, $name!"
+    return
+}
+```
+
+`return` outside a function is an error. Empty functions, including `fn f() {}`,
+and functions ending in a declaration, assignment, alias, or nested function
+definition return `()`. Duplicate parameter names are rejected.
+
+Parentheses evaluate one expression and preserve its result. They support nested
+calls and arithmetic, but do not contain statement sequences. Missing or extra
+closing parentheses are errors, including `echo foo 3)`.
+
+A bare name has different behavior depending on its context:
+
+| Form | Current behavior |
+| --- | --- |
+| `foo` as a statement | Call `foo` with no arguments; an unknown command errors. |
+| `let $x = foo` | Call it if it resolves to a function, builtin, alias, or executable; otherwise store the word as text. |
+| `let $x = foo a b` | Call it with arguments; an unknown command errors. |
+| `echo foo` | Call `foo` with no arguments if it resolves, then pass its result to `echo`; otherwise pass the word. |
+| `echo (foo 3)` | Call `foo` with `3`, then pass its result directly to `echo`. |
+| `echo "foo"` | Pass literal text. |
+
+A backtick prefix creates a string marked executable and stores the name without
+calling it. There is no closing backtick. The name is resolved when invoked; it
+is not a captured function object.
+
+```text
+fn answer() { 2048 }
+let $call = `answer
+let $copy = $call            # Copy the reference without calling it
+$call                       # Call it; top-level values are not printed
+echo "$call"                # answer
+echo $call                  # 2048
+echo ($call)                # 2048
+echo `answer                # answer
+```
+
+A standalone variable, a variable command argument, or a variable/string inside
+parentheses is called with no arguments when its value is marked executable.
+Ordinary string values stay text. Direct call results and nested groups do not
+cause the returned value to be called a second time.
+
+A backtick argument suppresses the automatic call for that argument. Grouping
+changes this: ``echo (`answer)`` calls `answer`. A backtick-prefixed name cannot
+be the head of a grouped call with arguments: ``echo (`foo 3)`` is an error.
+To pass a stored reference's name without calling it, use `"$call"` or
+`` `$call ``. The backtick-variable form reads the value and marks its name
+executable, so it can also create a reference from a stored ordinary string.
+
+Calls through variables with arguments work as statements, in assignments and
+returns, and inside parentheses:
+
+```text
+let $call = `foo
+let $result = $call 3
+echo ($call 4)              # 8192
+```
+
+An explicit call with arguments also accepts an ordinary string variable as its
+command name. The executable marker controls implicit zero-argument calls; an
+explicit call does not require that check.
+
+Function definitions are registered before executing the submitted source, so
+forward calls work. The last definition of a name in that source wins even for
+earlier calls. Functions can contain helper functions:
+
+```text
+fn welcome($name)
+{
+    fn say_hello()
+    {
         echo "Welcome to Shelly, $name!"
     }
-
     say_hello
 }
-
 welcome 'world'
-# Prints: Welcome to Shelly, world!
 ```
 
-Shelly imports the environment when it starts. Use `let export` to make a new
-variable available to child processes:
+Variable lookup searches active call scopes; assignment updates the nearest
+visible binding. This currently gives variables dynamic caller scope. Nested
+function names follow their containing function blocks. `let` creates or replaces
+a binding in the current scope. The initializer runs before the binding is
+replaced, so `let $x = $x + 1` can read the old value. An initializer error does
+not overwrite the binding with an empty value.
+
+## Processes, aliases, and environment
+
+`cd PATH` changes directory. `exit` stops execution with status zero;
+`exit 7` stops it with status 7. An explicit exit status must be an integer from
+0 to 255. `echo` and the other Unix
+commands in these examples are external programs found through `PATH`.
+
+External commands return an `ExecResult` status. Their stdout is inherited by
+Shelly; assigning a command result does **not** capture its printed output.
+
+```text
+let $status = /usr/bin/false
+echo $status                # ExecResult(1)
+```
+
+Assignment can retain a failed status as a value. An uncaptured failing command
+stops the remaining submitted source; an intermediate failing command also stops
+a function. The interactive REPL reports the error and accepts another input.
+A failing noninteractive script exits unsuccessfully.
+
+Aliases prepend fixed arguments. Alias arguments are stored literally, without
+variable interpolation or automatic calls. Aliases are global even when declared
+inside a function. A newline, semicolon, or closing function brace ends an alias
+definition.
+
+```text
+alias say = echo "prefix"
+say 'hello'                 # prefix hello
+```
+
+Resolution expands aliases, then checks builtins, functions, and external
+programs, in that order. An alias can add defaults to its own command name;
+indirect alias cycles produce an error.
+
+Shelly imports the environment. New variables are private unless declared with
+`let export`; only exported variables reach child processes.
 
 ```text
 let export $SHELLY_PROJECT = 'shelly'
 ```
 
+Useful predefined variables include `$args`, `$pwd`, `$HOSTNAME`, `$HOME`, `$PATH`,
+`$shelly` (an executable reference to this binary), `$version`, `$OS`,
+`$build_date`, `$build_time`, `$interactive`, `$login`, and `$rc_path`.
+`$rc_path` is the configured init path, `<not found>` when missing, or
+`<unloaded>` when init loading is disabled.
+
+## Current limitations
+
+The [audit report](audit/language/REPORT.md) records the repaired defects and
+reproducible checks. The language still has deliberate limits:
+
+- Arithmetic converts operands to integers rather than preserving floating-point values.
+- Function arguments become text, losing their original types and executable markers.
+- Variables use dynamic caller scope; function definitions are hoisted within each input.
+- Arrays come from arguments and globs; literal collections and indexing are still planned.
+- Command results are statuses, not captured stdout. Shell errors in noninteractive
+  execution return a general failure status; only explicit `exit N` selects a specific status.
+- Some parser diagnostics still contain verbose lists of attempted alternatives.
+
+Malformed declarations, missing statement separators, duplicate parameters, and
+invalid UTF-8 source now produce errors. Arithmetic errors no longer panic the
+shell. The audit covers language behavior on Linux; it is not exhaustive testing
+of terminal editing or other operating systems.
+
 ## Where Shelly is going
 
 The aim is to keep the immediacy of a shell while giving larger scripts a clear
-path to structure. A command that is convenient to type at the prompt should also
-be useful inside a function or a longer program.
+path to structure. A command that is convenient at the prompt should also be
+useful inside a function or a longer program.
 
-- **Optional typing.** Start with values and simple commands, then add type
-  annotations and contracts where they help document intent and catch mistakes.
-  Small interactive tasks should stay lightweight.
-- **Full network and JSON support.** Working with remote services, making
-  requests, and reading or producing JSON should be natural parts of the language.
-  Network responses should be available as structured values that commands and
-  functions can work with directly.
-- **Pipelines that connect text and structs.** Pipelines should automatically
-  convert between text and structured values as data crosses command boundaries.
-  Existing Unix tools should participate alongside commands that consume and
-  produce structs. Formats and types should guide conversion, with clear errors
-  when the data cannot be converted.
+- **Optional typing.** Add annotations and contracts where they help document
+  intent and catch mistakes while keeping small interactive tasks lightweight.
+- **Network and JSON support.** Work with remote services and structured values
+  directly from commands and functions.
+- **Pipelines for text and structured data.** Connect Unix tools with commands
+  that consume and produce structs, with conversions at command boundaries.
+- **Control flow and collections.** Conditionals, loops, comparisons, boolean
+  operators, array literals, and indexing are not yet implemented.
 
-These are design goals, not implemented features yet. Optional type annotations,
-structs, native network and JSON facilities, and pipelines are still ahead. The
-current shell provides the foundation and a place to try the language as it grows.
-
-The draft test runner in [test.shy](test.shy) makes that direction concrete: Shelly
-should be able to test itself with scripts written in its own language. It sketches
-collecting and sorting test files, counting them, looping over them, checking
-execution results with `if` / `else`, and reporting successes and failures.
-
-For example, this excerpt shows the intended flow from file discovery to execution
-and a readable result:
-
-```text
-let $must_succeed = sort ./tests/must_succeed/*.shy
-let $success_count = 0
-
-for $file in $must_succeed
-{
-    let $result = $file
-
-    if $result
-    {
-        $success_count = $success_count + 1
-    }
-    else
-    {
-        echo "$file failed."
-    }
-}
-```
-
-This is a design sketch, not a runnable example in the current shell. Command
-results used as values, script execution, loops, and conditionals are part of the
-intended language. The full draft also brings together comparisons, boolean logic,
-multiline status messages, and an exit status for the test run. It is the kind of
-everyday automation that should remain easy to read as Shelly gains richer data
-and types.
+The draft [test.shy](test.shy) sketches how Shelly could test itself by discovering
+scripts, looping over them, inspecting results, and reporting failures. It is a
+design sketch, not a runnable test suite. Script execution and command results as
+values already work; the draft's control flow and richer data operations remain
+future work.

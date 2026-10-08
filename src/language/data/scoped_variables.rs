@@ -36,7 +36,7 @@ impl ScopedVariables
         {
             let scoped_value = ScopedValue
                 {
-                    value: Value::String(value),
+                    value: Value::from_string(value),
                     exported: ValueVisibility::Exported
                 };
 
