@@ -341,14 +341,19 @@ impl Interpreter
             self.set_variable("$rc_path", Value::String(file.as_ref().map_or("".to_string(),
                 |f| f.display().to_string())));
 
-            if let Some(file) = file
+            if    let Some(file) = file
+               && file.exists()
             {
                 self.load_startup_script(&file, tab_width);
+            }
+            else
+            {
+                self.set_variable("$rc_path", Value::String("<not found>".to_string()));
             }
         }
         else
         {
-            self.set_variable("$rc_path", Value::String("".to_string()));
+            self.set_variable("$rc_path", Value::String("<unloaded>".to_string()));
         }
 
         if matches!(interactive, Interactive::Yes) && !self.halted
