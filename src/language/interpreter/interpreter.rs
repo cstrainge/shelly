@@ -194,7 +194,7 @@ impl Interpreter
                color_mode: TtyColorMode,
                tab_width: usize,
                rc_file: RcFile,
-               script_args: &Vec<String>) -> Self
+               script_args: Vec<String>) -> Self
     {
         let variables = ScopedVariables::new_from_environment();
 
@@ -267,7 +267,7 @@ impl Interpreter
                           color_mode: TtyColorMode,
                           tab_width: usize,
                           rc_file: RcFile,
-                          script_args: &Vec<String>)
+                          script_args: Vec<String>)
     {
         let banner = match color_mode
             {

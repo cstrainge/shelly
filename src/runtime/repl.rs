@@ -489,7 +489,7 @@ impl Repl
                startup: Startup,
                suppress_banner: bool,
                rc_file: RcFile,
-               script_args: &Vec<String>) -> Self
+               script_args: Vec<String>) -> Self
     {
         let interactive_mode = if suppress_banner
             {

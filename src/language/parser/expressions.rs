@@ -327,7 +327,6 @@ fn parse_operator_to_symbol(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
     let allowed_operators = [ TokenKind::Let,
                               TokenKind::Export,
                               TokenKind::Alias,
-                              TokenKind::Comma,
                               TokenKind::Sub,
                               TokenKind::If,
                               TokenKind::Else,

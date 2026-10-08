@@ -1,5 +1,5 @@
 
-use std::{ fs::File, io::{ BufReader, IsTerminal, stdin, stdout, stderr }, path::PathBuf };
+use std::{ fs::File, io::{ BufReader, IsTerminal, stdin, stderr }, path::PathBuf };
 
 use clap::Parser;
 use supports_color::Stream;
@@ -22,7 +22,7 @@ use crate::{ language::{ interpreter::{ Interpreter, Startup, Interactive, RcFil
 struct CommandArguments
 {
     /// Force interactive mode.
-    #[arg(short = 'i', conflicts_with_all = ["script", "stdin_code"])]
+    #[arg(short = 'i', conflicts_with_all = ["stdin_code"])]
     interactive: bool,
 
     /// Start as a login shell.
@@ -59,12 +59,8 @@ struct CommandArguments
     #[arg(long, conflicts_with = "norc")]
     rcfile: Option<PathBuf>,
 
-    /// Execute the specified script.
-    #[arg(value_name = "SCRIPT", conflicts_with_all = ["code", "stdin_code"])]
-    script: Option<PathBuf>,
-
     /// Arguments passed to the script, ignored by the shell itself.
-    #[arg(value_name = "script arguments", last = true)]
+    #[arg(value_name = "script & arguments", trailing_var_arg = true, allow_hyphen_values = true)]
      script_arguments: Vec<String>,
 }
 
@@ -82,12 +78,12 @@ enum RunningMode
     /**
      * Are we executing a script and then exiting?
      */
-    Script,
+    Script(PathBuf),
 
     /**
      * Are we executing code passed via the command line and then exiting?
      */
-    Code,
+    Code(String),
 
     /**
      * Are we reading source code from standard input and then exiting?
@@ -100,42 +96,47 @@ enum RunningMode
  * Based on the command line arguments and the terminal, (if any,) we're attached to determine how
  * the shell should run.
  */
-fn determine_running_mode(args: &CommandArguments) -> RunningMode
+fn determine_running_mode(args: &CommandArguments) -> (RunningMode, Vec<String>)
 {
     // Did the user force interactive mode?
     if args.interactive
     {
-        return RunningMode::Interactive;
+        return (RunningMode::Interactive, args.script_arguments.clone());
     }
 
     // Or are we reading the source code for a script from standard input?
     if args.stdin_code
     {
-        return RunningMode::Stdin;
+        return (RunningMode::Stdin, args.script_arguments.clone());
     }
 
     // Or are we executing code passed via the command line?
     if args.code.is_some()
     {
-        return RunningMode::Code;
+        return (RunningMode::Code(args.code.as_ref().unwrap().clone()), args.script_arguments.clone());
     }
 
     // Or are we executing a script?
-    if args.script.is_some()
+    //if args.script.is_some()
+    //{
+    //    return RunningMode::Script(args.script.as_ref().unwrap().clone());
+    //}
+
+    if args.script_arguments.len() >= 1
     {
-        return RunningMode::Script;
+        return (RunningMode::Script(PathBuf::from(&args.script_arguments[0])),
+                args.script_arguments[1..].to_vec());
     }
 
     // Now determine if we're running in an interactive tty.
     if    stdin().is_terminal()
-       && stdout().is_terminal()
        && stderr().is_terminal()
     {
-        return RunningMode::Interactive;
+        return (RunningMode::Interactive, args.script_arguments.clone());
     }
 
     // Default to reading from standard input.
-    RunningMode::Stdin
+    (RunningMode::Stdin, args.script_arguments.clone())
 }
 
 
@@ -167,7 +168,7 @@ fn run_as_repl(tab_width: usize,
                startup: Startup,
                suppress_banner: bool,
                rc_file: RcFile,
-               script_args: &Vec<String>) -> RuntimeResult<()>
+               script_args: Vec<String>) -> RuntimeResult<()>
 {
     let mut repl = Repl::new(color_mode, tab_width, startup, suppress_banner, rc_file, script_args);
 
@@ -182,7 +183,7 @@ fn interpret(buffer: &mut dyn Buffer,
              startup: Startup,
              color_mode: TtyColorMode,
              tab_width: usize,
-             script_args: &Vec<String>) -> RuntimeResult<()>
+             script_args: Vec<String>) -> RuntimeResult<()>
 {
     let mut interpreter = Interpreter::new(startup,
                                            Interactive::No,
@@ -204,7 +205,7 @@ fn run_script(script: &PathBuf,
               tab_width: usize,
               color_mode: TtyColorMode,
               startup: Startup,
-              script_args: &Vec<String>) -> RuntimeResult<()>
+              script_args: Vec<String>) -> RuntimeResult<()>
 {
     let file = File::open(script);
 
@@ -229,7 +230,7 @@ fn run_code(code: &String,
             tab_width: usize,
             color_mode: TtyColorMode,
             startup: Startup,
-            script_args: &Vec<String>) -> RuntimeResult<()>
+            script_args: Vec<String>) -> RuntimeResult<()>
 {
     let mut buffer = SimpleBuffer::new("command line", &code, Some(tab_width));
 
@@ -243,7 +244,7 @@ fn run_code(code: &String,
 fn run_stdin(tab_width: usize,
              color_mode: TtyColorMode,
              startup: Startup,
-             script_args: &Vec<String>) -> RuntimeResult<()>
+             script_args: Vec<String>) -> RuntimeResult<()>
 {
     let mut buffer = BufReader::new(stdin());
     let mut buffer = ReadBuffer::new("standard input", &mut buffer, Some(tab_width));
@@ -293,31 +294,32 @@ fn main() -> RuntimeResult<()>
         };
 
     let tab_width = args.tab_width.unwrap_or(4);
+    let (mode, script_args) = determine_running_mode(&args);
 
-    match determine_running_mode(&args)
+    match mode
     {
         RunningMode::Interactive => run_as_repl(tab_width,
                                                 color_mode,
                                                 startup,
                                                 args.no_banner,
                                                 rc_file,
-                                                &args.script_arguments),
+                                                script_args),
 
-        RunningMode::Script      => run_script(&args.script.unwrap(),
-                                               tab_width,
-                                               color_mode,
-                                               startup,
-                                               &args.script_arguments),
+        RunningMode::Script(path) => run_script(&path,
+                                                tab_width,
+                                                color_mode,
+                                                startup,
+                                                script_args),
 
-        RunningMode::Code        => run_code(&args.code.unwrap(),
-                                             tab_width,
-                                             color_mode,
-                                             startup,
-                                             &args.script_arguments),
-
-        RunningMode::Stdin       => run_stdin(tab_width,
+        RunningMode::Code(code)   => run_code(&code,
+                                              tab_width,
                                               color_mode,
                                               startup,
-                                              &args.script_arguments)
+                                              script_args),
+
+        RunningMode::Stdin        => run_stdin(tab_width,
+                                               color_mode,
+                                               startup,
+                                               script_args)
     }
 }
