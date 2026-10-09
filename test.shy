@@ -1,12 +1,15 @@
-
-let $must_succeed    = sort ./tests/must_succeed/*.shy
-let $succeed_outputs = sort ./tests/must_succeed/*.txt
-
-let $must_fail       = sort ./tests/must_fail/*.shy
-let $fail_outputs    = sort ./tests/must_fail/*.txt
+#!/usr/bin/env shelly
 
 
-if (($must_succeed != $succeed_outputs) || ($must_fail != $fail_outputs))
+let $must_succeed    = (./tests/must_succeed/*.shy).sort
+let $succeed_outputs = (./tests/must_succeed/*.txt).sort
+
+let $must_fail       = (./tests/must_fail/*.shy).sort
+let $fail_outputs    = (./tests/must_fail/*.txt).sort
+
+
+if    ($must_succeed != $succeed_outputs)
+   || ($must_fail != $fail_outputs)
 {
     echo "* Missing expected output files for tests. Each test must have an expected output .txt
             If the output doesn't matter include an empty .txt file for that test.
@@ -14,8 +17,8 @@ if (($must_succeed != $succeed_outputs) || ($must_fail != $fail_outputs))
 }
 
 
-let $total_succeed = count $must_succeed
-let $total_fail    = count $must_fail
+let $total_succeed = $must_succeed.count
+let $total_fail    = $must_fail.count
 
 let $total = $total_succeed + $total_fail
 
@@ -33,11 +36,16 @@ echo "*
 
 let $success_count = 0
 
-for $file in $must_succeed
+for ($test_file, $output_file) in $must_succeed.map($succeed_outputs)
 {
-    let $result = $file
+    let $output
+    let $result = $test_file ~+-> $output
+    let $expected_output
 
-    if $result
+    $output_file -> $output
+
+    if    $result
+       && ($output == $expected_output)
     {
         $success_count = $success_count + 1
     }
@@ -49,9 +57,14 @@ for $file in $must_succeed
 
 for $file in $must_fail
 {
-    let $result = $file
+    let $output
+    let $result = $test_file ~+-> $output
+    let $expected_output
 
-    if not $result
+    $output_file -> $output
+
+    if    ! $result
+       && ($output == $expected_output)
     {
         $success_count = $success_count + 1
     }
@@ -66,7 +79,7 @@ for $file in $must_fail
 echo ${success_count} '/' ${total} tests passed.
 
 
-if (($total - $success_count) != 0)
+if ($total - $success_count) != 0
 {
     exit 1
 }
