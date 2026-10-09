@@ -229,8 +229,17 @@ Empty arrays are valid. Sorting strings does not execute them.
 Zip preserves element types and value semantics, including nested collections.
 Its argument must be an array; explicitly expanded arguments still follow normal
 command expansion rules. Use `Array($expansion)` to pass an argument expansion as
-one array. Iterate over zipped pairs with `for $pair in $items.zip $other`, then
-read `$pair[0]` and `$pair[1]`.
+one array. For example, `[1, 2].zip ["a", "b"]` produces
+`[[1, "a"], [2, "b"]]`. Iterate over those arrays with a destructuring pattern:
+
+```text
+for ($number, $letter) in $items.zip ["a", "b"]
+{
+    echo $number $letter
+}
+```
+
+Use `for $pair in ...` to keep each two-element array as a single value.
 
 Backtick access retains a callable method bound to its live receiver:
 
@@ -688,6 +697,18 @@ Logical operators always return a boolean. `&&` skips its right operand when
 the left is false; `||` skips it when the left is true. Skipped operands have no
 side effects and cannot cause runtime errors, but must still be valid syntax.
 
+Newlines, blank lines, and comments may appear before or after `&&`, `||`, `==`,
+and `!=`. A newline before an operator continues the expression; otherwise it
+still ends the statement. Precedence and short-circuit behavior are unchanged:
+
+```text
+if    ($expected != "")
+   && ($actual != $expected)
+{
+    echo "Output differs"
+}
+```
+
 Precedence, highest first: parentheses and indexing; unary `!` and unary minus;
 `* / %`; `+ -`; `.. ..=`; `== !=`; `&&`; `||`. Range operators cannot be chained;
 other binary operators at the same precedence associate left to right. Boolean
@@ -1099,6 +1120,25 @@ for $key, $value in $settings { echo $key $value }
 for $key, $value in ["answer": 42] { echo $key $value }
 ```
 
+A parenthesized binding list destructures each array element. This works with
+the arrays returned by `.zip` and with any array of arrays:
+
+```text
+for ($test_file, $output_file) in $tests.zip $outputs
+{
+    echo $test_file $output_file
+}
+
+for ($x, $y, $z) in [[1, 2, 3], [4, 5, 6]] { echo $x $y $z }
+```
+
+Each element must be an array with exactly as many elements as the pattern has
+bindings. The check happens before binding any values or entering the loop body;
+a mismatch reports the loop's source location. Patterns are flat lists of one
+or more distinct variables; trailing commas, newlines, and comments are allowed.
+`for ($value,) in [[1], [2]]` unwraps each one-element array. An empty iterable
+skips the body without attempting to destructure an element.
+
 The iterable is evaluated once, before any loop bindings are created. Array
 elements retain their types and are visited in array order. Maps visit each
 key/value pair once in unspecified order; keys use the map's canonical value
@@ -1108,8 +1148,9 @@ a collection held by a loop binding also leaves the original element unchanged.
 
 Range iteration is lazy and requires both integer bounds. `..` excludes the end,
 `..=` includes it, and reversed ranges are empty. Empty arrays, maps, and ranges
-skip the body. Other iterable types, two bindings for arrays/ranges, one binding
-for maps, and duplicate binding names produce errors.
+skip the body. Other iterable types, unparenthesized pairs of bindings for
+arrays/ranges, one binding for maps, and duplicate binding names produce errors.
+Map key/value iteration continues to use the unparenthesized `$key, $value` form.
 
 ### Unbounded loop
 
@@ -1324,12 +1365,12 @@ up on returns and errors.
 Build with `cargo build --locked` and check behavior through command-line source,
 scripts, or the REPL. `cargo clippy --locked --all-targets` runs the Rust lints.
 
-The draft [test.shy](test.shy) is a sketch for a future Shelly-native test runner,
-not a working test suite. Collection methods `sort`, `zip`, and `count` now work.
-Redirection now supports its file reads and command captures. Its referenced
-test directories are still absent.
-The plan is to update this runner and write the suite in Shelly as the language
-stabilizes.
+[test.shy](test.shy) can run with its multiline conditions, zipped-array
+destructuring, file reads, and command captures. Run it from the repository root
+with `./target/debug/shelly test.shy`. Add matching `.shy`/`.txt` fixture pairs
+under `tests/must_succeed` and `tests/must_fail`; those directories are currently
+empty. Both categories need fixtures because unmatched globs still raise an
+error. An empty expected-output file disables output comparison for that test.
 
 ## Direction
 

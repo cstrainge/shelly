@@ -1187,6 +1187,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     | Code::ExpandPath
                     | Code::InterpolateString
                     | Code::MakeArray
+                    | Code::UnpackArray
                     | Code::MakeHashMap
                     | Code::MakeStruct
                     | Code::GetField
@@ -1313,7 +1314,8 @@ fn compile_for_statement(instructions: &mut Vec<Instruction>,
         {
             location: location.clone(),
             code: Code::StartIteration,
-            operand: Some(Value::Integer(statement.bindings.len() as i64))
+            operand: Some(Value::Integer(if statement.destructure
+                { 1 } else { statement.bindings.len() as i64 }))
         });
 
     // Register once. Continue targets the next iteration, not EnterLoop itself.
@@ -1352,13 +1354,22 @@ fn compile_for_statement(instructions: &mut Vec<Instruction>,
             code: Code::CheckResult,
             operand: None,
         });
+    if statement.destructure
+    {
+        instructions.push(Instruction
+            {
+                location: location.clone(),
+                code: Code::UnpackArray,
+                operand: Some(Value::Integer(statement.bindings.len() as i64)),
+            });
+    }
     instructions.push(Instruction
         {
             location: location.clone(),
             code: Code::EnterScope,
             operand: None,
         });
-    // NextIteration pushes key before value; bind in reverse stack order.
+    // Iteration and unpacking push values in source order; bind in reverse stack order.
     for name in statement.bindings.iter().rev()
     {
         instructions.push(Instruction

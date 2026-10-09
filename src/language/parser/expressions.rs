@@ -914,6 +914,9 @@ fn parse_boolean_tail(buffer: &mut TokenBuffer<'_, '_>,
     loop
     {
         let mut lookahead = Lookahead::new(buffer);
+        // Newlines belong to this expression only if an operator follows. Otherwise
+        // dropping the lookahead preserves the next statement or block boundary.
+        skip_array_newlines(&mut *lookahead.buffer)?;
         let Some(token) = lookahead.buffer.next()? else { break; };
         let (operator, precedence) = match token.kind
             {
@@ -925,7 +928,12 @@ fn parse_boolean_tail(buffer: &mut TokenBuffer<'_, '_>,
             };
         if precedence < min_precedence { break; }
 
-        let right = parse_range_expression(&mut *lookahead.buffer)?
+        skip_array_newlines(&mut *lookahead.buffer)?;
+        let right = parse_range_expression(&mut *lookahead.buffer).map_err(|mut error|
+            {
+                if error.location.is_none() { error.location = Some(token.location.clone()); }
+                error
+            })?
             .ok_or_else(|| ParserError
                 {
                     location: Some(token.location.clone()),

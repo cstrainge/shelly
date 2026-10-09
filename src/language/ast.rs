@@ -399,6 +399,7 @@ pub struct AstForStatement
 {
     pub location: Location,
     pub bindings: Vec<String>,
+    pub destructure: bool,
     pub iterable: AstExpression,
     pub body: AstBlockStatement
 }

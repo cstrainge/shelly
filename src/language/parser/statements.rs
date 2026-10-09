@@ -467,17 +467,34 @@ pub(super) fn parse_if_expression(buffer: &mut TokenBuffer<'_, '_>,
 fn parse_for_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     let keyword = expect_token(buffer, TokenKind::For)?;
+    let destructure = try_expect_token(buffer, TokenKind::ParenOpen)?.is_some();
+    if destructure
+    {
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+    }
     let first = expect_token(buffer, TokenKind::Identifier)?;
     let mut bindings = vec![first.token_value_text()];
-    if try_expect_token(buffer, TokenKind::Comma)?.is_some()
+    loop
     {
-        let second = expect_token(buffer, TokenKind::Identifier)?;
-        let name = second.token_value_text();
-        if name == bindings[0]
+        if destructure
+        {
+            while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+            if try_expect_token(buffer, TokenKind::ParenClose)?.is_some() { break; }
+            expect_token(buffer, TokenKind::Comma)?;
+            while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+            if try_expect_token(buffer, TokenKind::ParenClose)?.is_some() { break; }
+        }
+        else if bindings.len() == 2 || try_expect_token(buffer, TokenKind::Comma)?.is_none()
+        {
+            break;
+        }
+        let binding = expect_token(buffer, TokenKind::Identifier)?;
+        let name = binding.token_value_text();
+        if bindings.contains(&name)
         {
             return Err(ParserError
                 {
-                    location: Some(second.location),
+                    location: Some(binding.location),
                     kind: ParserErrorKind::DuplicateLoopBinding(name)
                 });
         }
@@ -496,6 +513,7 @@ fn parse_for_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
         {
             location: keyword.location,
             bindings,
+            destructure,
             iterable,
             body
         }))))

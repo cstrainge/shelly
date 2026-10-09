@@ -38,6 +38,8 @@ pub enum Code
     ExpandArray,
     // Stack operations: collect values, read an element, or update a variable's element.
     MakeArray,
+    // Pop one array, validate its exact length, then push its elements in source order.
+    UnpackArray,
     MakeHashMap,
     // Operand is [type ID, field indexes in evaluation order].
     MakeStruct,

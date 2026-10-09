@@ -1165,6 +1165,41 @@ impl Interpreter
                         );
                     },
 
+                Code::UnpackArray =>
+                    {
+                        let Some(Value::Integer(count)) = instruction.operand else
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(
+                                        "Missing array destructuring length".to_string()),
+                                });
+                        };
+                        let value = Self::pop(&location, &mut stack)?;
+                        let values = match value
+                            {
+                                Value::Array(values) | Value::ArgumentExpansion(values) => values,
+                                _ => return Err(InterpreterError
+                                    {
+                                        location: location.clone(),
+                                        what: ErrorWhat::ArrayError(
+                                            "Array destructuring requires an array".to_string()),
+                                    })
+                            };
+                        if usize::try_from(count).ok() != Some(values.len())
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::ArrayError(format!(
+                                        "Array destructuring expected {} elements, got {}",
+                                        count, values.len())),
+                                });
+                        }
+                        for value in values.iter() { Self::push(&mut stack, value.clone()); }
+                    },
+
                 Code::MakeArray =>
                     {
                         let count = match instruction.operand
