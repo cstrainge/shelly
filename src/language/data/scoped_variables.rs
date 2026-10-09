@@ -1,5 +1,6 @@
 
-use std::{ collections::{ HashMap, VecDeque }, env::vars };
+use std::{ cell::{ Ref, RefCell, RefMut }, collections::{ HashMap, VecDeque },
+           env::vars, rc::Rc };
 
 use crate::language::data::{ value::Value, types::TypeId };
 
@@ -16,13 +17,46 @@ pub struct ScopedValue
 {
     pub value: Value,
     pub type_id: Option<TypeId>,
-    pub exported: ValueVisibility
+    pub exported: ValueVisibility,
+    pub reference: Option<ValueReference>,
+}
+
+
+// A stable binding and an evaluated path into it. Capturing a receiver does not turn
+// ordinary Value copies into aliases. References can outlive their declaring scope.
+#[derive(Clone)]
+pub struct ValueReference
+{
+    pub root: Rc<RefCell<ScopedValue>>,
+    pub indexes: Vec<Value>,
+    pub fields: Vec<Value>,
+    pub constraints: Vec<(usize, TypeId)>,
+}
+
+impl ValueReference
+{
+    pub fn temporary(value: Value) -> Self
+    {
+        Self
+            {
+                root: Rc::new(RefCell::new(ScopedValue
+                    {
+                        value,
+                        type_id: None,
+                        exported: ValueVisibility::Private,
+                        reference: None,
+                    })),
+                indexes: Vec::new(),
+                fields: Vec::new(),
+                constraints: Vec::new(),
+            }
+    }
 }
 
 
 pub struct ScopedVariables
 {
-    scopes: VecDeque<HashMap<String, ScopedValue>>,
+    scopes: VecDeque<HashMap<String, Rc<RefCell<ScopedValue>>>>,
 }
 
 
@@ -38,10 +72,11 @@ impl ScopedVariables
                 {
                     value: Value::from_string(value),
                     type_id: None,
-                    exported: ValueVisibility::Exported
+                    exported: ValueVisibility::Exported,
+                    reference: None,
                 };
 
-            variables.insert(format!("${}", name), scoped_value);
+            variables.insert(format!("${}", name), Rc::new(RefCell::new(scoped_value)));
         }
 
         let mut scopes = VecDeque::new();
@@ -73,7 +108,7 @@ impl ScopedVariables
     {
         if let Some(scope) = self.scopes.back_mut()
         {
-            scope.insert(name, value);
+            scope.insert(name, Rc::new(RefCell::new(value)));
             Ok(())
         }
         else
@@ -82,29 +117,49 @@ impl ScopedVariables
         }
     }
 
-    pub fn get(&self, name: &str) -> Option<&ScopedValue>
+    pub fn get(&self, name: &str) -> Option<Ref<'_, ScopedValue>>
     {
         for scope in self.scopes.iter().rev()
         {
             if let Some(value) = scope.get(name)
             {
-                return Some(value);
+                return Some(value.borrow());
             }
         }
 
         None
     }
 
-    pub fn get_mut(&mut self, name: &str) -> Option<&mut ScopedValue>
+    pub fn get_mut(&mut self, name: &str) -> Option<RefMut<'_, ScopedValue>>
     {
         for scope in self.scopes.iter_mut().rev()
         {
             if let Some(value) = scope.get_mut(name)
             {
-                return Some(value);
+                return Some(value.borrow_mut());
             }
         }
 
+        None
+    }
+
+    pub fn reference(&self, name: &str) -> Option<ValueReference>
+    {
+        for scope in self.scopes.iter().rev()
+        {
+            if let Some(root) = scope.get(name)
+            {
+                if let Some(reference) = &root.borrow().reference
+                { return Some(reference.clone()); }
+                return Some(ValueReference
+                    {
+                        root: root.clone(),
+                        indexes: Vec::new(),
+                        fields: Vec::new(),
+                        constraints: Vec::new(),
+                    });
+            }
+        }
         None
     }
 
@@ -121,7 +176,7 @@ impl ScopedVariables
         {
             for (name, value) in scope.iter()
             {
-                flattened.insert(name.clone(), value.clone());
+                flattened.insert(name.clone(), value.borrow().clone());
             }
         }
 

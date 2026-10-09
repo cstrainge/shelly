@@ -6,7 +6,9 @@ use std::{ collections::{ HashMap, HashSet },
            hash::{ Hash, Hasher } };
 
 use crate::language::{ text::location::Location,
-                       data::{ value::{ Value, ExecResult }, map_key::MapKey, range::Range } };
+                       data::{ conversion::convert_builtin,
+                               methods::{ BuiltinMethod, register_methods },
+                               value::{ Value, ExecResult }, map_key::MapKey, range::Range } };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypeId(pub usize);
@@ -152,21 +154,107 @@ impl Display for EnumValue
 pub struct TypeRegistry
 {
     definitions: Vec<Rc<TypeDefinition>>,
+    methods: HashMap<TypeId, HashMap<&'static str, Rc<BuiltinMethod>>>,
+    extensions: HashSet<(TypeId, String)>,
     pub names: HashMap<String, TypeId>
 }
 
 
 impl TypeRegistry
 {
+    pub fn declare_extension(&mut self, receiver: TypeId, name: &str)
+    {
+        self.extensions.insert((receiver, name.to_string()));
+    }
+
+    pub fn method_types(&self, receiver: TypeId) -> Vec<TypeId>
+    {
+        let definition = self.get(receiver);
+        let receiver = match definition.kind
+            {
+                TypeKind::Array(_) => self.builtin_id("Array").unwrap(),
+                TypeKind::Map(_, _) => self.builtin_id("HashMap").unwrap(),
+                _ => receiver,
+            };
+        let mut types = vec![receiver];
+        if    matches!(definition.kind, TypeKind::Builtin)
+           && matches!(definition.name.as_str(), "Integer" | "Float")
+        { types.push(self.builtin_id("Number").unwrap()); }
+        let any = self.builtin_id("any").unwrap();
+        if receiver != any { types.push(any); }
+        types
+    }
+
+    pub fn value_type(&self, value: &Value) -> TypeId
+    {
+        match value
+        {
+            Value::Enum(item) => item.definition.id,
+            Value::Struct(item) => item.definition.id,
+            value => self.builtin_id(&value.type_name()).unwrap(),
+        }
+    }
+
+    pub fn has_extension(&self, receiver: TypeId, name: &str) -> bool
+    {
+        self.method_types(receiver).into_iter()
+            .any(|id| self.extensions.contains(&(id, name.to_string())))
+    }
+
+    pub fn register_method(&mut self, receiver: TypeId, method: BuiltinMethod)
+    {
+        self.methods.entry(receiver).or_default().insert(method.name, Rc::new(method));
+    }
+
+    pub fn method(&self, receiver: TypeId, name: &str) -> Option<Rc<BuiltinMethod>>
+    {
+        let receiver = match self.get(receiver).kind
+            {
+                TypeKind::Array(_) => self.builtin_id("Array")?,
+                TypeKind::Map(_, _) => self.builtin_id("HashMap")?,
+                _ => receiver,
+            };
+        self.methods.get(&receiver)?.get(name).cloned()
+    }
+
+    const BUILTIN_NAMES: [&'static str; 12] = [
+            "None", "ExecResult", "Integer", "Float", "Boolean", "String",
+            "Array", "HashMap", "Range", "ArgumentExpansion", "Number", "any",
+        ];
+
+    pub fn is_builtin_name(name: &str) -> bool
+    {
+        Self::BUILTIN_NAMES.contains(&name)
+    }
+
+    pub fn builtin_id(&self, name: &str) -> Option<TypeId>
+    {
+        self.definitions.iter()
+            .find(|item| item.name == name && matches!(item.kind, TypeKind::Builtin))
+            .map(|item| item.id)
+    }
+
+    pub fn convert(&self, target: TypeId, value: &Value) -> Result<Value, String>
+    {
+        let definition = self.get(target);
+        if !matches!(definition.kind, TypeKind::Builtin)
+        {
+            return Err(format!("Type '{}' has no conversion defined", definition.name));
+        }
+        convert_builtin(&definition.name, value)
+    }
+
     pub fn new() -> Self
     {
-        let mut registry = Self { definitions: Vec::new(), names: HashMap::new() };
-        for name in ["None", "ExecResult", "Integer", "Float", "Boolean", "String",
-                     "Array", "HashMap", "Range", "ArgumentExpansion", "Number", "any"]
+        let mut registry = Self { definitions: Vec::new(), methods: HashMap::new(),
+            extensions: HashSet::new(),
+            names: HashMap::new() };
+        for name in Self::BUILTIN_NAMES
         {
             let id = registry.register(name.to_string(), TypeKind::Builtin, None);
             registry.names.insert(name.to_string(), id);
         }
+        register_methods(&mut registry);
         registry
     }
 

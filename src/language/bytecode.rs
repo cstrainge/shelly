@@ -36,8 +36,18 @@ pub enum Code
     MakeHashMap,
     // Operand is [type ID, field indexes in evaluation order].
     MakeStruct,
-    // Operand is a checked field index or a dynamic field name.
+    // Operand is [checked field index or dynamic name, visible method versions].
+    // Consume a receiver reference; read data or invoke a method without explicit arguments.
     GetField,
+    // Receiver references use a separate VM stack and never become language values.
+    ReferenceVariable,
+    ReferenceValue,
+    ReferenceField,
+    ReferenceIndex,
+    // Boolean operands enable/disable implicit calls; integer 1 enables data-field calls only.
+    ReferenceGroup,
+    // Like GetField, but preserve a bound method without invoking it.
+    BindField,
     // Operand bits indicate a supplied start (1), end (2), and inclusive end (4).
     MakeRange,
     // Start consumes the iterable; operand is the binding count. Next pushes
@@ -69,6 +79,8 @@ pub enum Code
     CompareNotEqual,
     // Convert last_result in place; these instructions do not touch the value stack.
     ToBoolean,
+    // Convert last_result using the resolved target TypeId operand.
+    ConvertType,
     BooleanNot,
     // Before linking: label IDs local to this code vector. After linking: direct
     // instruction indexes pointing at JumpTarget. Preserve last_result and the stack.

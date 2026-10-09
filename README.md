@@ -158,7 +158,7 @@ value: `$a[0]` is an element, while `$a [0]` supplies a separate array argument.
 Negative, out-of-range, or non-integer indexes (including `"0"` and `1.0`)
 produce errors for arrays. Only arrays and maps support indexing. Array writes
 replace existing elements; they do not append or grow an array. Numeric function
-arguments retain their types; use `$index + 0` to convert an explicitly textual
+arguments retain their types; use `Integer($index)` to convert an explicitly textual
 index, such as one read from `$args`.
 
 Indexed assignment must start with a variable, as in `$a[0] = value` or
@@ -191,6 +191,130 @@ values, conditional results, and arguments (`echo $a` or `echo $a...`).
 
 A leading `[` starts an array or map literal. For bracket globs use a path prefix,
 such as `./[ab].txt` or `fixtures/[ab].txt`; quote brackets to pass literal text.
+
+## Builtin type methods
+
+Methods use member access and ordinary shell-style arguments. Arrays and argument
+expansions (including glob results) provide these methods:
+
+| Method | Result |
+| --- | --- |
+| `$items.sort` | A new array sorted in ascending order; the receiver is unchanged |
+| `$items.zip $other` | An array of two-element arrays, stopping at the shorter input |
+| `$items.count` | The number of elements as an `Integer` |
+
+```text
+let $items = [3, 1, 2]
+let $sorted = $items.sort
+echo $sorted...                         # 1 2 3
+echo $items.count                       # 3
+let $pairs = $sorted.zip ["a", "b"]
+echo $pairs[0][0] $pairs[0][1]           # 1 a
+echo ($items.zip [4, 5]).count           # 2
+let $files = (./src/*.rs).sort
+```
+
+Methods with no arguments run when accessed, including in assignments and chained
+expressions such as `$items.sort.count`. Calls with arguments use spaces;
+parenthesize a nested call as in `echo ($items.zip $other)`. Empty parentheses
+are still a `None` argument, so use `.sort`, not `.sort()`.
+
+Sorting is stable: equal values retain their relative order. Numbers sort
+numerically, including mixed integers and floats without rounding large integers
+before comparison. Strings sort lexicographically by their text, booleans put
+`false` first, and variants of one enum sort by `.index`. Mixed categories,
+different enum types, nonfinite numbers, and structured elements are rejected.
+Empty arrays are valid. Sorting strings does not execute them.
+
+Zip preserves element types and value semantics, including nested collections.
+Its argument must be an array; explicitly expanded arguments still follow normal
+command expansion rules. Use `Array($expansion)` to pass an argument expansion as
+one array. Iterate over zipped pairs with `for $pair in $items.zip $other`, then
+read `$pair[0]` and `$pair[1]`.
+
+Backtick access retains a callable method bound to its live receiver:
+
+```text
+let $sort = `$items.sort
+$items[0] = 9
+echo ($sort)...                         # 1 2 9, using the updated receiver
+```
+
+Methods are registered per type in the type registry. Adding a builtin method
+does not require a new parser rule or a separate opcode for each method. Struct
+fields and enum `.index` retain their existing behavior.
+
+## User-defined type methods
+
+Use `fn TypeName::method(...)` to extend any visible type, including builtin types,
+structs, and enums. The method does not have to be declared alongside the type.
+An implicit, typed `$self` parameter receives the value before the explicit
+parameters. Do not declare `$self` in the parameter list.
+
+```text
+struct Item { quantity: Integer }
+
+fn Item::add($amount: Integer): Item
+{
+    $self.quantity = $self.quantity + $amount
+    $self
+}
+
+let $item = Item(quantity: 2)
+let $updated = $item.add 3
+echo $item.quantity $updated.quantity   # 5 5
+
+fn Array::first($fallback: optional any): any
+{
+    if $self.count == 0 { $fallback } else { $self[0] }
+}
+
+echo [4, 5].first                       # 4
+echo ([].first "empty")                 # empty
+
+fn Integer::sum($rest: Integer...): Integer
+{
+    for $value in $rest { $self = $self + $value }
+    $self
+}
+
+let $start = 10
+echo ($start.sum 1 2 3)                 # 16
+```
+
+Methods use the same parameter annotations, trailing optional parameters, final
+variadic parameter, return annotations, explicit `return`, and implicit final
+result as ordinary functions. Calls use the same dot syntax as builtin methods.
+`$self` is a mutable alias to the receiver. Assigning `$self` or updating its
+members changes the caller's variable immediately; returning or reassigning the
+result is not required. This also works through nested fields and array or map
+indexes, such as `$items[0].add 3`. Receiver indexes are evaluated once.
+
+Ordinary value copies and explicit function parameters remain independent.
+Methods on literals, constructor results, or other temporary values mutate only
+that temporary. Returned values are ordinary values, so chaining a method onto
+a returned value operates on that result. Existing type constraints still apply
+to mutations, including constraints on containing fields and collections.
+Successful mutations remain visible if a later statement in the method fails.
+
+Extensions on `Number` apply to both integers and floats; extensions on `any`
+provide a fallback for all values. Methods on the concrete type take precedence,
+followed by `Number` for numeric receivers, then `any`. A user method may replace
+a builtin method on that type. Struct fields and enum `.index` take precedence
+over fallback methods, and declaring a method directly on a type with the same
+name as one of its data members is an error.
+
+Methods follow ordinary function scoping and forward-declaration rules. Different
+types may use the same method name, and method names do not occupy the namespace
+of bare function calls. Already compiled calls retain their visible method
+versions when a method is redefined. Backtick references such as
+``let $add = `$item.add`` keep a live reference to the receiver binding and pin
+the method version; `$add 3` updates `$item`. Reassigning the same binding is
+visible through the reference, while declaring a new variable with `let` creates
+a separate binding. Captured bindings remain alive after their scope exits.
+References to collection elements retain their evaluated index or key; an invalid
+path or incompatible receiver type produces an error when called. Redefining a
+type creates a distinct type, so old values retain their original methods.
 
 ## Hash maps
 
@@ -270,7 +394,7 @@ not consume the range. Parenthesize a literal before expanding it: `(1..4)...`.
 Without expansion, a command receives the range's text, such as `1..4`.
 
 Bounds must be integers; floats, numeric strings, and other types produce an
-error. Use `$start + 0` to explicitly convert a numeric string; integer function
+error. Use `Integer($start)` to explicitly convert a numeric string; integer function
 arguments already retain their type. Inclusive ranges require an end bound, and chained
 ranges such as `1..2..3` are rejected. Omitted bounds remain unspecified;
 expanding such a range is an error. Range indexing and array slicing are not
@@ -279,7 +403,8 @@ implemented yet.
 Ranges compare by their bounds and inclusivity: `1..3` differs from `1..=2`
 even though they expand to the same elements. They can be map keys and function
 return values, but cannot be commands. Boolean conversion is false for an empty
-bounded range and true otherwise; integer conversion yields zero.
+bounded range and true otherwise. Explicit numeric conversion of a range is an error;
+the existing arithmetic coercion still treats it as zero.
 
 Arithmetic binds more tightly than range operators, which bind more tightly than
 comparisons. Spaces around `..` and `..=` are optional. Parenthesize open ranges
@@ -304,6 +429,8 @@ echo $color                       # Color::Green
 echo ($color == Color::Green)      # true
 let $labels = [Color::Red: "stop", Color::Green: "go"]
 echo $labels[$color]               # go
+let $index: Integer = $color.index # 1
+echo Color::Blue.index             # 2
 
 fn is_green($value) { $value == Color::Green }
 echo (is_green $color)             # true
@@ -329,6 +456,12 @@ convert to true, even if a variant is named `False` or `Error`. Arithmetic,
 indexing, iteration, and using an enum as a command are errors. Expansion with
 `...` passes one value; enum text such as `Color::Green` is display output, not
 serialized source.
+
+Every enum value has a read-only `.index` member: an `Integer` starting at zero
+in declaration order. It works on variables, literal variants, and enum values
+inside collections or struct fields. The index belongs to the value's original
+declaration, so redeclaring an enum does not change existing values' indexes.
+Use `.index` for numeric access; `Integer($color)` does not convert an enum directly.
 
 The shared type registry persists across REPL submissions. Redeclaring a type in
 a later submission creates a new identity; existing values and previously compiled
@@ -424,7 +557,8 @@ Read and update members with `$item.field`, including mixed paths such as
 `$item.groups["name"][0].field`. An assignment must start with a variable.
 Fields cannot be added or removed, and unknown members are errors. Accessing a
 field through `()` is an error; an optional field containing a struct permits
-normal member access. Methods and optional-chaining syntax are not implemented.
+normal member access. User-defined methods use `fn TypeName::method(...)` declarations;
+optional-chaining syntax is not implemented.
 
 Member syntax preserves word interpolation: `$item.field` accesses a field,
 `${name}.txt` concatenates text, and `(${item}).field` accesses a field using a
@@ -433,7 +567,8 @@ member expressions. Literal paths such as `file.txt` retain their meaning.
 
 Structs have value semantics and share reference-counted storage. Assignment,
 function calls, and collection insertion preserve their type; writes copy shared
-values along the modified path. All nested writes must satisfy the containing
+values along the modified path. A method's implicit `$self` instead aliases its
+receiver binding, so its mutations update that binding. All nested writes must satisfy the containing
 field's constraints. An invalid update leaves the target unchanged, although
 side effects from evaluating its indexes and right-hand expression remain.
 
@@ -462,6 +597,60 @@ source. Dynamic values are checked during construction and updates. A failed
 check or compilation does not publish new types or functions; runtime failures
 occur after declarations have been committed.
 
+## Explicit type conversions
+
+Use `Type(value)` to request conversion. All builtin types support this syntax;
+annotations still check values without converting them. `Integer` and `Float`
+are concrete numeric types; `Number` accepts either (`Integer | Float`).
+
+| Target | Accepted input and behavior |
+| --- | --- |
+| `Integer` | Integers, integral floats, decimal integer text, booleans, numeric exit statuses |
+| `Float` | Numbers, numeric text, booleans, and numeric exit statuses |
+| `Number` | Preserves numbers; converts numeric text, booleans, and numeric exit statuses |
+| `Boolean` | Uses the truth rules below |
+| `String` | Display text for any value, with executable flags removed |
+| `Array` | Arrays, argument expansions, and bounded ranges |
+| `ArgumentExpansion` | Arrays, argument expansions, and bounded ranges |
+| `HashMap` | Existing hash maps |
+| `Range` | Existing ranges, including unbounded ranges |
+| `ExecResult` | Existing statuses, integer-valued numbers, decimal integer text, or booleans |
+| `None` | Evaluates its input, then produces `()` |
+| `any` | Preserves the input value and its concrete type |
+
+Numeric conversions map booleans to 0 or 1 and numeric command statuses to their
+exit code. `ExecResult` requires a code in 0..=255; it maps `true` to status 0 and
+`false` to status 1. `Number` parses text as an integer when it fits, otherwise as
+a finite float; booleans and numeric command statuses become integers.
+
+Numeric text may have surrounding whitespace. `Integer("2.0")` is rejected;
+`Integer(Float("2.0"))` succeeds. Fractional float-to-integer conversions, overflow,
+invalid text, and nonfinite numeric conversions are errors. Floating-point
+conversion has normal `f64` precision limits. A status caused by a signal has no
+numeric code, so it cannot convert to an integer or float.
+
+Collection conversions preserve elements without converting them. Arrays and
+argument expansions share their reference-counted storage; writes retain value
+semantics. Bounded ranges materialize their integer elements. Other collection
+conversions, including arrays of pairs to maps, are errors.
+
+```text
+let $count: Integer = Integer("42")
+let $ratio: Float = Float("2.5")
+let $items: Array = Array(1..4)
+echo ArgumentExpansion($items)      # 1 2 3
+let $status: ExecResult = ExecResult(false)
+echo Boolean($status) Integer($status)  # false 1
+```
+
+Conversions require one expression. Spaces before `(`, newlines inside the
+parentheses, and a trailing comma are allowed; a newline before `(` starts a
+separate statement. Use `None(())`, for example, rather than an empty `None()`.
+Type names take precedence over function names in this syntax. A struct or enum
+declaration with a builtin name shadows that conversion. Resolved conversion
+targets remain fixed in previously compiled functions. User-defined conversions
+are not implemented yet.
+
 ## Boolean expressions
 
 `==` and `!=` compare values and produce booleans. Numbers compare numerically,
@@ -471,7 +660,8 @@ elements in order. Unrelated types are unequal: `"1" == 1` and `true == 1` are
 false. `()` equals `()`. Command statuses compare as statuses, not as integers
 or booleans.
 
-`!`, `&&`, and `||` convert their operands to booleans:
+`Boolean(value)` explicitly converts a value to a boolean. `!`, `&&`, and `||`
+use the same conversion rules:
 
 | Value | Boolean conversion |
 | --- | --- |
@@ -483,6 +673,16 @@ or booleans.
 | Range | False for an empty bounded range; true otherwise |
 | Enum or struct | Always true, including empty structs |
 | External command result | True for exit status 0; false for nonzero status or termination by signal |
+
+```text
+let $result = /bin/true
+let $succeeded: Boolean = Boolean($result)  # true
+echo Boolean(0) Boolean("false") Boolean([1])  # false false true
+```
+
+Type annotations check values without converting them: `let $flag: Boolean = 1`
+is an error. `!!value` remains a shorthand for boolean conversion.
+`Boolean(value)` requires one expression; use `Boolean(())` to convert `None`.
 
 Logical operators always return a boolean. `&&` skips its right operand when
 the left is false; `||` skips it when the left is true. Skipped operands have no
@@ -1076,9 +1276,10 @@ Build with `cargo build --locked` and check behavior through command-line source
 scripts, or the REPL. `cargo clippy --locked --all-targets` runs the Rust lints.
 
 The draft [test.shy](test.shy) is a sketch for a future Shelly-native test runner,
-not a working test suite. Its `for` and `if` constructs now exist, but the runner
-still needs updating: the proposed collection members `sort` and `count` are not
-implemented, and the referenced test directories are absent.
+not a working test suite. Collection methods `sort`, `zip`, and `count` now work.
+The runner still requires redirection, tuple destructuring in `for` bindings,
+and transparent newlines in boolean conditions. Its referenced test directories
+are also absent.
 The plan is to update this runner and write the suite in Shelly as the language
 stabilizes.
 

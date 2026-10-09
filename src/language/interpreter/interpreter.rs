@@ -28,8 +28,9 @@ use crate::{ language::{ bytecode::{ Code,
                          compiler::{ compile_ast, CompileError, CompileTarget },
                          data::{ value::{ ExecResult, Executable, Value },
                                  map_key::MapKey,
+                                 methods::{ BoundMethod, MethodDefinition, method_key },
                                  range::Range,
-                                 scoped_variables::{ ScopedValue,
+                                 scoped_variables::{ ScopedValue, ValueReference,
                                                      ScopedVariables,
                                                      ValueVisibility },
                                  types::{ StructValue, TypeId, TypeKind, TypeRegistry } },
@@ -50,7 +51,8 @@ struct LoopFrame
     break_target: usize,
     scope: usize,
     stack_depth: usize,
-    iteration_depth: usize
+    iteration_depth: usize,
+    reference_depth: usize,
 }
 
 
@@ -529,14 +531,17 @@ impl Interpreter
 
     pub fn execute_instructions(&mut self, instructions: &Vec<Instruction>) -> InterpreterResult<()>
     {
-        self.execute_instructions_with_arguments(instructions, &[])
+        self.execute_instructions_with_arguments(instructions, &[], None)
     }
 
     fn execute_instructions_with_arguments(&mut self, instructions: &Vec<Instruction>,
-                                           arguments: &[Value]) -> InterpreterResult<()>
+                                           arguments: &[Value],
+                                           receiver: Option<&ValueReference>)
+                                           -> InterpreterResult<()>
     {
         let initial_scope = self.variables.current_scope();
-        let result = self.execute_instructions_scoped(instructions, initial_scope, arguments);
+        let result =
+            self.execute_instructions_scoped(instructions, initial_scope, arguments, receiver);
 
         self.variables.reset_to_scope(initial_scope);
         if result.is_err() { self.last_result = None; }
@@ -547,9 +552,11 @@ impl Interpreter
     fn execute_instructions_scoped(&mut self,
                                    instructions: &Vec<Instruction>,
                                    initial_scope: usize,
-                                   function_arguments: &[Value]) -> InterpreterResult<()>
+                                   function_arguments: &[Value],
+                                   receiver: Option<&ValueReference>) -> InterpreterResult<()>
     {
         let mut stack: VecDeque<Value> = VecDeque::new();
+        let mut references: Vec<ValueReference> = Vec::new();
         let mut iterations: Vec<Iteration> = Vec::new();
         let mut loops: Vec<LoopFrame> = Vec::new();
         let mut instruction_pointer: usize = 0;
@@ -602,7 +609,8 @@ impl Interpreter
                 Code::TryExecute =>
                     {
                         let value = Self::pop(&location, &mut stack)?;
-                        if matches!(value, Value::String(_, Executable::Function(_)))
+                        if matches!(value,
+                            Value::String(_, Executable::Function(_) | Executable::Method(_)))
                         {
                             self.execute_value(&location, value, Vec::new())?;
                             instruction_pointer += 1;
@@ -649,7 +657,8 @@ impl Interpreter
                         }
                         self.last_result = Some(match value
                             {
-                                value @ Value::String(_, Executable::Function(_)) => value,
+                                value @ Value::String(_,
+                                    Executable::Function(_) | Executable::Method(_)) => value,
                                 value =>
                                     self.bind_executable(
                                         Value::from_executable_string(value.as_text()))
@@ -662,7 +671,8 @@ impl Interpreter
                         {
                             Some(value @ Value::String(_,
                                                        Executable::Yes
-                                                           | Executable::Function(_))) =>
+                                                           | Executable::Function(_)
+                                                           | Executable::Method(_))) =>
                                 {
                                     self.execute_value(&location, value, Vec::new())?;
                                 },
@@ -838,6 +848,19 @@ impl Interpreter
                                 invalid(format!("Type error for parameter '{}': {}", name,
                                                 message)))?;
                         }
+                        let reference = if *index == 0 && name == "$self"
+                            {
+                                receiver.cloned().map(|mut reference|
+                                    {
+                                        if let Some(id) = type_id
+                                        {
+                                            reference.constraints
+                                                .push((reference.indexes.len(), id));
+                                        }
+                                        reference
+                                    })
+                            }
+                            else { None };
                         self.variables
                             .create(
                                 name.clone(),
@@ -846,6 +869,7 @@ impl Interpreter
                                         value,
                                         type_id,
                                         exported: ValueVisibility::Private,
+                                        reference,
                                     },
                             )
                             .map_err(invalid)?;
@@ -895,7 +919,8 @@ impl Interpreter
                                 {
                                     value,
                                     type_id,
-                                    exported: ValueVisibility::Private
+                                    exported: ValueVisibility::Private,
+                                    reference: None,
                                 })
                         {
                             return Err(InterpreterError
@@ -973,32 +998,7 @@ impl Interpreter
                             *path = self.eval_path_from(path);
                         }
 
-                        if let Some(variable) = self.variables.get_mut(&variable_name)
-                        {
-                            if let Some(id) = variable.type_id
-                            {
-                                self.types.validate(id,
-                                                    &value).map_err(|message
-                                                        | InterpreterError
-                                                            {
-                                                                location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand(
-                                            format!("Type error for '{}': {}", variable_name,
-                                                    message)) })?;
-                            }
-                            variable.value = value;
-                        }
-                        else
-                        {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        "Variable not found for SetVariable instruction."
-                                            .to_string(),
-                                    )
-                                });
-                        }
+                        self.write_variable(&location, &variable_name, value)?;
                     },
 
                 Code::StartIteration =>
@@ -1190,35 +1190,117 @@ impl Interpreter
                         Self::push(&mut stack, value);
                     },
 
-                Code::GetField =>
+                Code::ReferenceVariable =>
+                    {
+                        let Some(Value::String(name, _)) = &instruction.operand
+                        else { unreachable!("ReferenceVariable requires a variable name"); };
+                        let reference = if let Some(reference) = self.variables.reference(name)
+                            { reference }
+                            else
+                            { ValueReference::temporary(self.read_variable(name, &location)?) };
+                        self.read_reference(&location, &reference)?;
+                        references.push(reference);
+                    },
+
+                Code::ReferenceValue =>
                     {
                         let value = Self::pop(&location, &mut stack)?;
-                        let Value::Struct(item) = value else
+                        references.push(ValueReference::temporary(value));
+                    },
+
+                Code::ReferenceIndex =>
+                    {
+                        let index = Self::pop(&location, &mut stack)?;
+                        let mut reference = references.pop().expect("Missing receiver reference");
+                        Self::get_element(&location,
+                            &self.read_reference(&location, &reference)?, &index)?;
+                        reference.indexes.push(index);
+                        reference.fields.push(Value::Boolean(false));
+                        references.push(reference);
+                    },
+
+                Code::ReferenceGroup =>
+                    {
+                        let mut reference = references.pop().expect("Missing receiver reference");
+                        let value = self.read_reference(&location, &reference)?;
+                        // Field mode executes a callable data member. An intermediate method
+                        // already ran and produced a temporary reference with an empty path.
+                        let execute = matches!(instruction.operand, Some(Value::Boolean(true)))
+                            || matches!(instruction.operand, Some(Value::Integer(1)))
+                                && !reference.indexes.is_empty();
+                        if    execute
+                           && matches!(value, Value::String(_, Executable::Yes
+                                | Executable::Function(_) | Executable::Method(_)))
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(format!(
-                                        "Cannot access a field on {}",
-                                        value.type_name()
-                                    )),
-                                });
+                            let previous = self.last_result.take();
+                            let result = self.execute_value(&location, value, Vec::new());
+                            let value = self.last_result.take().unwrap_or(Value::None);
+                            self.last_result = previous;
+                            result?;
+                            reference = ValueReference::temporary(value);
+                        }
+                        references.push(reference);
+                    },
+
+                Code::GetField | Code::BindField | Code::ReferenceField =>
+                    {
+                        let mut reference = references.pop().expect("Missing receiver reference");
+                        let value = self.eval_value_paths_to(
+                            self.read_reference(&location, &reference)?);
+                        let Some(Value::Array(operands)) = &instruction.operand else
+                        {
+                            return Err(InterpreterError { location: location.clone(),
+                                what: ErrorWhat::InvalidOperand(
+                                    "Missing field operand".to_string()) });
                         };
-                        let index = Self::struct_field_index(
-                            &location,
-                            &item,
-                            instruction
-                                .operand
-                                .as_ref()
-                                .ok_or_else(|| InterpreterError
-                                    {
-                                        location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand(
-                                            "Missing field operand".to_string(),
-                                        ),
-                                    })?,
-                        )?;
-                        Self::push(&mut stack, item.fields[index].clone());
+                        let field = &operands[0];
+                        let enum_index =
+                            matches!(field, Value::String(name, _) if name == "index");
+                        let result = if let Value::Enum(item) = &value && enum_index
+                            {
+                                reference.indexes.push(field.clone());
+                                reference.fields.push(Value::Boolean(true));
+                                Value::Integer(item.variant as i64)
+                            }
+                            else if let Value::Struct(item) = &value
+                                && let Ok(index) = Self::struct_field_index(&location, item, field)
+                            {
+                                reference.indexes.push(field.clone());
+                                reference.fields.push(Value::Boolean(true));
+                                item.fields[index].clone()
+                            }
+                            else if let Value::String(name, _) = field
+                                && let Some(method) = self.resolve_method(
+                                    &value, reference.clone(), name, &operands[1])
+                            {
+                                if matches!(instruction.code, Code::BindField)
+                                {
+                                    Value::String(format!("{}.{}", value.type_name(), name),
+                                        Executable::Method(Rc::new(method)))
+                                }
+                                else
+                                {
+                                    // Receiver and field operations preserve last_result.
+                                    let previous = self.last_result.take();
+                                    let result = self.execute_method(&location, &method, &[]);
+                                    let value = self.last_result.take().unwrap_or(Value::None);
+                                    self.last_result = previous;
+                                    result?;
+                                    reference = ValueReference::temporary(value.clone());
+                                    value
+                                }
+                            }
+                            else
+                            {
+                                if let Value::Struct(item) = &value
+                                { Self::struct_field_index(&location, item, field)?; }
+                                return Err(InterpreterError { location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(format!(
+                                        "Cannot access a field on {}", value.type_name())) });
+                            };
+                        if matches!(instruction.code, Code::ReferenceField)
+                        { references.push(reference); }
+                        else { Self::push(&mut stack, result); }
                     },
 
                 Code::GetElement =>
@@ -1260,14 +1342,6 @@ impl Interpreter
                         {
                             indexes.push(Self::pop(&location, &mut stack)?);
                         }
-                        let variable = self.variables.get_mut(name).ok_or_else(|| InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::InvalidOperand(format!(
-                                    "Variable {} not found",
-                                    name
-                                )),
-                            })?;
                         let value = match value
                             {
                                 Value::ArgumentExpansion(values) if !matches!(fields.last(),
@@ -1275,7 +1349,7 @@ impl Interpreter
                                 value => value
                             };
                         indexes.reverse();
-                        let mut updated = variable.value.clone();
+                        let mut updated = self.read_raw_variable(name, &location)?;
                         Self::set_element(&location, &mut updated, &indexes, fields, value)?;
                         self.types
                             .validate_value(&updated)
@@ -1285,20 +1359,7 @@ impl Interpreter
                                     what: ErrorWhat::InvalidOperand(
                                         format!("Type error: {}", message)),
                                 })?;
-                        if let Some(id) = variable.type_id
-                        {
-                            self.types
-                                .validate(id, &updated)
-                                .map_err(|message| InterpreterError
-                                    {
-                                        location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand(format!(
-                                            "Type error for '{}': {}",
-                                            name, message
-                                        )),
-                                    })?;
-                        }
-                        variable.value = updated;
+                        self.write_variable(&location, name, updated)?;
                     },
 
                 Code::GetVariable =>
@@ -1403,7 +1464,7 @@ impl Interpreter
                                     })
                             };
 
-                        if let Some(value) = self.variables.get_mut(&variable_name)
+                        if let Some(mut value) = self.variables.get_mut(&variable_name)
                         {
                             value.exported = ValueVisibility::Exported;
                         }
@@ -1549,6 +1610,7 @@ impl Interpreter
                                 scope: self.variables.current_scope(),
                                 stack_depth: stack.len(),
                                 iteration_depth: iterations.len(),
+                                reference_depth: references.len(),
                             });
                     },
 
@@ -1584,6 +1646,7 @@ impl Interpreter
                         self.variables.reset_to_scope(frame.scope);
                         stack.truncate(frame.stack_depth);
                         iterations.truncate(frame.iteration_depth);
+                        references.truncate(frame.reference_depth);
                         self.last_result = None;
                         instruction_pointer = if matches!(instruction.code, Code::Break)
                             { frame.break_target } else { frame.continue_target };
@@ -1620,6 +1683,28 @@ impl Interpreter
                             instruction_pointer = target;
                             continue;
                         }
+                    },
+
+                Code::ConvertType =>
+                    {
+                        let Some(Value::Integer(id)) = instruction.operand else
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(
+                                        "Missing conversion target".to_string()),
+                                });
+                        };
+                        let value = self.last_result.take().ok_or_else(|| InterpreterError
+                            { location: location.clone(), what: ErrorWhat::NoResult })?;
+                        self.last_result = Some(self.types.convert(TypeId(id as usize), &value)
+                            .map_err(|message| InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(
+                                        format!("Type conversion error: {}", message)),
+                                })?);
                     },
 
                 Code::ToBoolean | Code::BooleanNot =>
@@ -1710,7 +1795,8 @@ impl Interpreter
             {
                 value,
                 type_id: None,
-                exported: ValueVisibility::Private
+                exported: ValueVisibility::Private,
+                reference: None,
             });
     }
 
@@ -1793,11 +1879,87 @@ impl Interpreter
         Ok(self.eval_value_paths_to(self.read_raw_variable(name, location)?))
     }
 
+    fn read_projection(location: &Location, mut value: Value, indexes: &[Value],
+                       fields: &[Value]) -> InterpreterResult<Value>
+    {
+        for (index, field) in indexes.iter().zip(fields)
+        {
+            value = if matches!(field, Value::Boolean(true))
+                {
+                    match &value
+                    {
+                        Value::Enum(item) if index.as_text() == "index" =>
+                            Value::Integer(item.variant as i64),
+                        Value::Struct(item) =>
+                            item.fields[Self::struct_field_index(location, item, index)?].clone(),
+                        _ => return Err(InterpreterError { location: location.clone(),
+                            what: ErrorWhat::InvalidOperand(format!(
+                                "Cannot access a field on {}", value.type_name())) }),
+                    }
+                }
+                else { Self::get_element(location, &value, index)? };
+        }
+        Ok(value)
+    }
+
+    fn read_reference(&self, location: &Location,
+                      reference: &ValueReference) -> InterpreterResult<Value>
+    {
+        let root = reference.root.borrow().value.clone();
+        for (depth, id) in &reference.constraints
+        {
+            let value = Self::read_projection(location, root.clone(),
+                &reference.indexes[..*depth], &reference.fields[..*depth])?;
+            self.types.validate(*id, &value).map_err(|message| InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::InvalidOperand(
+                        format!("Type error for receiver: {}", message)),
+                })?;
+        }
+        Self::read_projection(location, root, &reference.indexes, &reference.fields)
+    }
+
+    fn write_variable(&mut self, location: &Location, name: &str,
+                      value: Value) -> InterpreterResult<()>
+    {
+        let invalid = |message| InterpreterError { location: location.clone(),
+            what: ErrorWhat::InvalidOperand(message) };
+        let variable = self.variables.get(name)
+            .ok_or_else(|| invalid("Variable not found for SetVariable instruction.".to_string()))?;
+        if let Some(id) = variable.type_id
+        {
+            self.types.validate(id, &value).map_err(|message|
+                invalid(format!("Type error for '{}': {}", name, message)))?;
+        }
+        drop(variable);
+        let reference = self.variables.reference(name).unwrap();
+        let mut root = reference.root.borrow_mut();
+        let mut updated = root.value.clone();
+        Self::set_element(location, &mut updated, &reference.indexes, &reference.fields, value)?;
+        self.types.validate_value(&updated)
+            .map_err(|message| invalid(format!("Type error: {}", message)))?;
+        if let Some(id) = root.type_id
+        {
+            self.types.validate(id, &updated)
+                .map_err(|message| invalid(format!("Type error for '{}': {}", name, message)))?;
+        }
+        for (depth, id) in &reference.constraints
+        {
+            let value = Self::read_projection(location, updated.clone(),
+                &reference.indexes[..*depth], &reference.fields[..*depth])?;
+            self.types.validate(*id, &value)
+                .map_err(|message| invalid(format!("Type error for receiver: {}", message)))?;
+        }
+        root.value = updated;
+        Ok(())
+    }
+
     fn read_raw_variable(&self, name: &str, location: &Location) -> InterpreterResult<Value>
     {
-        if let Some(value) = self.variables.get(&name).cloned()
+        if let Some(reference) = self.variables.reference(name)
         {
-            Ok(value.value)
+            self.read_reference(location, &reference)
         }
         else if let Some(value) = self.special_vars.get(name).cloned()
         {
@@ -1851,7 +2013,80 @@ impl Interpreter
     {
         if let Value::String(name, Executable::Function(function)) = value
         { return self.execute_function(location, &name, &function, &args); }
+        if let Value::String(_, Executable::Method(method)) = value
+        { return self.execute_method(location, &method, &args); }
         self.execute(location, Self::command_name(location, value)?, args)
+    }
+
+    fn resolve_method(&self, value: &Value, receiver: ValueReference,
+                      name: &str, snapshot: &Value) -> Option<BoundMethod>
+    {
+        let scope = self.current_function_block.as_ref().unwrap_or(&self.base_function_block);
+        for id in self.types.method_types(self.types.value_type(value))
+        {
+            let key = method_key(id, name);
+            let bound = match snapshot
+                {
+                    Value::HashMap(methods) => methods.get(&MapKey::String(key.clone())),
+                    _ => None,
+                };
+            let function = if let Some(Value::String(_, Executable::Function(function))) = bound
+                { Some(function.clone()) } else { self.get_function(&key, scope) };
+            let definition = if let Some(function) = function
+                { MethodDefinition::User(function) }
+                else if let Some(method) = self.types.method(id, name)
+                { MethodDefinition::Builtin(method) }
+                else { continue; };
+            return Some(BoundMethod
+                { receiver, name: name.to_string(), definition });
+        }
+        None
+    }
+
+    fn execute_method(&mut self, location: &Location, method: &BoundMethod,
+                      arguments: &[Value]) -> InterpreterResult<()>
+    {
+        let receiver = self.eval_value_paths_to(self.read_reference(location, &method.receiver)?);
+        let (minimum, maximum) = match &method.definition
+            {
+                MethodDefinition::Builtin(definition) =>
+                    (definition.argument_count, Some(definition.argument_count)),
+                MethodDefinition::User(function) =>
+                    (function.minimum_arguments.saturating_sub(1),
+                     (!function.variadic).then_some(function.arguments.len() - 1)),
+            };
+        if arguments.len() < minimum || maximum.is_some_and(|max| arguments.len() > max)
+        {
+            let expected = match maximum
+                {
+                    None => format!("at least {}", minimum),
+                    Some(max) if max != minimum => format!("{} to {}", minimum, max),
+                    Some(max) => max.to_string(),
+                };
+            return Err(InterpreterError { location: location.clone(),
+                what: ErrorWhat::ArgumentMismatch(format!(
+                    "Method '{}.{}' expected {} arguments, but got {}", receiver.type_name(),
+                    method.name, expected, arguments.len())) });
+        }
+        match &method.definition
+        {
+            MethodDefinition::Builtin(definition) =>
+                {
+                    self.last_result = Some((definition.body)(&receiver, arguments)
+                        .map_err(|message| InterpreterError { location: location.clone(),
+                            what: ErrorWhat::InvalidOperand(message) })?);
+                    Ok(())
+                },
+            MethodDefinition::User(function) =>
+                {
+                    let mut values = Vec::with_capacity(arguments.len() + 1);
+                    values.push(receiver.clone());
+                    values.extend_from_slice(arguments);
+                    self.execute_function_with_receiver(location,
+                        &format!("{}::{}", receiver.type_name(), method.name),
+                        function, &values, Some(&method.receiver))
+                },
+        }
     }
 
     fn can_execute(&self, executable: &str) -> bool
@@ -1905,6 +2140,13 @@ impl Interpreter
                         function: &FunctionRef,
                         args: &[Value]) -> InterpreterResult<()>
     {
+        self.execute_function_with_receiver(location, name, function, args, None)
+    }
+
+    fn execute_function_with_receiver(&mut self, location: &Location, name: &str,
+                                      function: &FunctionRef, args: &[Value],
+                                      receiver: Option<&ValueReference>) -> InterpreterResult<()>
+    {
         if    args.len() < function.minimum_arguments
            || !function.variadic
            && args.len() > function.arguments.len()
@@ -1941,7 +2183,7 @@ impl Interpreter
 
         let caller_function_block = self.current_function_block.replace(function.functions.clone());
 
-        let call_result = self.execute_instructions_with_arguments(&function.code, args);
+        let call_result = self.execute_instructions_with_arguments(&function.code, args, receiver);
 
         self.current_function_block = caller_function_block;
 
@@ -2025,9 +2267,9 @@ impl Interpreter
         let env_vars: Vec<(String, String)> = self.variables.get_all_flattened()
             .iter()
             .filter(|(_, value)| value.exported == ValueVisibility::Exported)
-            .map(|(key, value)|
+            .map(|(key, _)|
                 {
-                    let text = value.value.as_text();
+                    let text = self.read_raw_variable(key, location)?.as_text();
                     let text = if key == "$PATH"
                         {
                             self.eval_path_list_from(&text)
@@ -2037,9 +2279,9 @@ impl Interpreter
                             self.eval_path_from(&text)
                         };
 
-                    (key.strip_prefix('$').unwrap_or(key.as_str()).to_string(), text)
+                    Ok((key.strip_prefix('$').unwrap_or(key.as_str()).to_string(), text))
                 })
-            .collect();
+            .collect::<InterpreterResult<_>>()?;
 
 
         let mut command = Command::new(&executable);
@@ -2244,6 +2486,15 @@ impl Interpreter
         };
         if matches!(fields.first(), Some(Value::Boolean(true)))
         {
+            if    matches!(collection, Value::Enum(_))
+               && matches!(index, Value::String(name, _) if name == "index")
+            {
+                return Err(InterpreterError
+                    {
+                        location: location.clone(),
+                        what: ErrorWhat::InvalidOperand("Enum index is read-only".to_string()),
+                    });
+            }
             let Value::Struct(item) = collection else
             {
                 return Err(InterpreterError

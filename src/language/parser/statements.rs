@@ -258,9 +258,13 @@ fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
 {
     expect_token(buffer, TokenKind::Function)?;
     let name = expect_token(buffer, TokenKind::Symbol)?;
+    let (receiver, name) = if try_expect_token(buffer, TokenKind::Scope)?.is_some()
+        { (Some(name.token_value_text()), expect_field_label(buffer)?) }
+        else { (None, name) };
     expect_token(buffer, TokenKind::ParenOpen)?;
     let mut parameters = Vec::new();
     let mut names = HashSet::new();
+    if receiver.is_some() { names.insert("$self".to_string()); }
     loop
     {
         while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
@@ -321,10 +325,27 @@ fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
                                    &(parse_statement as fn(&mut TokenBuffer<'_, '_>)
                                      -> ParseResult<Option<AstStatement>>))?;
 
-    Ok(new_ast_function_statement(name.location.clone(), name.token_value_text(),
+    let mut statement = new_ast_function_statement(name.location.clone(), name.token_value_text(),
                                   parameters,
                                   return_annotation,
-                                  code))
+                                  code);
+    if let Some(AstStatement::FunctionDefinition(function)) = &mut statement
+    {
+        function.receiver = receiver;
+        if let Some(receiver) = &function.receiver
+        {
+            function.parameters.insert(0, AstParameter
+                {
+                    location: name.location,
+                    name: "$self".to_string(),
+                    annotation: Some(AstType::Named(receiver.clone())),
+                    optional: false,
+                    variadic: false,
+                    type_id: None,
+                });
+        }
+    }
+    Ok(statement)
 }
 
 

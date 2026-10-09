@@ -3,7 +3,8 @@ use std::{ cell::RefCell, collections::HashMap, fmt::{ self, Display, Formatter 
 
 use crate::language::{ ast::*,
                        bytecode::{ Code, Instruction, Function, FunctionBlock, FunctionBlockRef },
-                       data::{ value::{ Value, Executable }, types::TypeRegistry },
+                       data::{ value::{ Value, Executable }, types::TypeRegistry,
+                               methods::method_key, map_key::MapKey },
                        text::location::Location,
                        parser::ParserError,
                        typecheck::check_ast };
@@ -116,6 +117,94 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
                       function_block: &FunctionBlockRef,
                       expression: &AstExpression) -> CompileResult<()>
 {
+    compile_expression_mode(instructions, function_block, expression, false)
+}
+
+fn function_binding(function: &AstFunctionStatement) -> String
+{
+    function.receiver_type.map_or_else(|| function.name.clone(),
+        |id| method_key(id, &function.name))
+}
+
+// Preserve visible versions for every possible receiver. Unresolved local declarations
+// mask outer versions and resolve through the frozen function scope at execution time.
+fn method_snapshot(block: &FunctionBlockRef, name: &str) -> Value
+{
+    let mut methods = HashMap::new();
+    let suffix = format!(":{}", name);
+    let mut scope = Some(block.clone());
+    while let Some(current) = scope
+    {
+        let current = current.borrow();
+        for (key, function) in &current.functions
+        {
+            if key.starts_with("\0method:") && key.ends_with(&suffix)
+            {
+                methods.entry(MapKey::String(key.clone())).or_insert_with(||
+                    Value::String(name.to_string(), Executable::Function(function.clone())));
+            }
+        }
+        for key in current.declared_functions.iter().chain(current.function_name.iter())
+        {
+            if key.starts_with("\0method:") && key.ends_with(&suffix)
+            { methods.entry(MapKey::String(key.clone())).or_insert(Value::None); }
+        }
+        scope = current.parent.clone();
+    }
+    Value::from_hash_map(methods)
+}
+
+// Preserve addressable receivers while evaluating each index and intermediate method once.
+fn compile_receiver(instructions: &mut Vec<Instruction>, block: &FunctionBlockRef,
+                    expression: &AstExpression) -> CompileResult<()>
+{
+    let (code, operand) = match &expression.kind
+        {
+            AstExpressionKind::Variable(variable) =>
+                (Code::ReferenceVariable, Some(Value::from_string(variable.name.clone()))),
+            AstExpressionKind::Field(object, name, _) =>
+                {
+                    compile_receiver(instructions, block, object)?;
+                    (Code::ReferenceField, Some(Value::from_array(vec![
+                            Value::from_string(name.clone()), method_snapshot(block, name),
+                        ])))
+                },
+            AstExpressionKind::Index(object, index) =>
+                {
+                    compile_receiver(instructions, block, object)?;
+                    compile_expression(instructions, block, index)?;
+                    instructions.push(Instruction
+                        { location: None, code: Code::PushResult, operand: None });
+                    (Code::ReferenceIndex, None)
+                },
+            AstExpressionKind::Grouped(inner) =>
+                {
+                    compile_receiver(instructions, block, inner)?;
+                    let mode = if matches!(inner.kind, AstExpressionKind::Field(_, _, _))
+                        { Value::Integer(1) }
+                        else { Value::Boolean(matches!(inner.kind,
+                            AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _)
+                            | AstExpressionKind::ExecutableReference(_)
+                            | AstExpressionKind::Literal(AstLiteral
+                                { value: Value::String(_, _), .. }))) };
+                    (Code::ReferenceGroup, Some(mode))
+                },
+            _ =>
+                {
+                    compile_expression(instructions, block, expression)?;
+                    instructions.push(Instruction
+                        { location: None, code: Code::PushResult, operand: None });
+                    (Code::ReferenceValue, None)
+                },
+        };
+    instructions.push(Instruction { location: Some(expression.location.clone()), code, operand });
+    Ok(())
+}
+
+fn compile_expression_mode(instructions: &mut Vec<Instruction>,
+                           function_block: &FunctionBlockRef,
+                           expression: &AstExpression, bind_method: bool) -> CompileResult<()>
+{
     match &expression.kind
     {
         AstExpressionKind::SpacedEmptyCall(_) => return Err(CompileError
@@ -156,21 +245,17 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
             },
         AstExpressionKind::Field(object, name, index) =>
             {
-                compile_expression(instructions, function_block, object)?;
-                instructions.push(Instruction
-                    {
-                        location: None,
-                        code: Code::PushResult,
-                        operand: None,
-                    });
+                compile_receiver(instructions, function_block, object)?;
                 instructions.push(Instruction
                     {
                         location: Some(expression.location.clone()),
-                        code: Code::GetField,
-                        operand: Some(index.map_or_else(
-                            || Value::from_string(name.clone()),
-                            |index| Value::Integer(index as i64),
-                        )),
+                        code: if bind_method { Code::BindField } else { Code::GetField },
+                        operand: Some(Value::from_array(vec![
+                                index.map_or_else(
+                                    || Value::from_string(name.clone()),
+                                    |index| Value::Integer(index as i64)),
+                                method_snapshot(function_block, name),
+                            ])),
                     });
             },
         AstExpressionKind::EnumVariant(_, _) => return Err(CompileError
@@ -294,7 +379,8 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
 
         AstExpressionKind::Grouped(inner) =>
             {
-                compile_expression(instructions, function_block, inner)?;
+                compile_expression_mode(instructions, function_block, inner,
+                    matches!(inner.kind, AstExpressionKind::Field(_, _, _)))?;
 
                 // Calls already execute, and nested groups handle their own value. Only a
                 // variable or string literal can supply an unevaluated executable reference.
@@ -323,7 +409,7 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
 
         AstExpressionKind::ExecutableReference(inner) =>
             {
-                compile_expression(instructions, function_block, inner)?;
+                compile_expression_mode(instructions, function_block, inner, true)?;
                 instructions.push(Instruction
                     {
                         location: Some(expression.location.clone()),
@@ -401,6 +487,23 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
                             code: Code::ExpandArray,
                             operand: None
                         });
+            },
+
+        AstExpressionKind::TypeConversion(_, inner, type_id) =>
+            {
+                let id = type_id.ok_or_else(|| CompileError
+                    {
+                        location: Some(expression.location.clone()),
+                        what: ErrorWhat::TypeError("Unresolved conversion target".to_string()),
+                    })?;
+                compile_expression(instructions, function_block, inner)?;
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()),
+                        code: Code::ConvertType,
+                        operand: Some(Value::Integer(id.0 as i64)),
+                    });
+                return Ok(());
             },
 
         AstExpressionKind::BooleanNot(inner) =>
@@ -769,7 +872,7 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
         AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _)
     )
     {
-        compile_expression(instructions, function_block, &execute_statement.executable)?;
+        compile_expression_mode(instructions, function_block, &execute_statement.executable, true)?;
         instructions.push(Instruction
             {
                 location: None,
@@ -807,7 +910,10 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
 
     for argument in &execute_statement.arguments
     {
-        compile_expression(instructions, function_block, argument)?;
+        // Bind a member before the implicit argument call, so a method result is
+        // never executed a second time. Callable data fields follow the same path.
+        compile_expression_mode(instructions, function_block, argument,
+            matches!(argument.kind, AstExpressionKind::Field(_, _, _)))?;
 
         match &argument.kind
         {
@@ -864,6 +970,7 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
 fn compile_function_definition(parent_block: &FunctionBlockRef,
                                function_statement: &AstFunctionStatement) -> CompileResult<()>
 {
+    let binding = function_binding(function_statement);
     // Keep versions already visible at this definition. The submission scope
     // remains a fallback for forward declarations and is frozen at publication.
     let captured = Rc::new(RefCell::new(FunctionBlock
@@ -877,7 +984,7 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
     let function_block = Rc::new(RefCell::new(FunctionBlock
         {
             parent: Some(captured.clone()),
-            function_name: Some(function_statement.name.clone()),
+            function_name: Some(binding.clone()),
             declared_functions: Default::default(),
             builtins: parent_block.borrow().builtins.clone(),
             functions: HashMap::new()
@@ -922,8 +1029,8 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
             code: instructions,
         });
 
-    captured.borrow_mut().functions.insert(function_statement.name.clone(), new_function.clone());
-    parent_block.borrow_mut().functions.insert(function_statement.name.clone(), new_function);
+    captured.borrow_mut().functions.insert(binding.clone(), new_function.clone());
+    parent_block.borrow_mut().functions.insert(binding, new_function);
 
     Ok(())
 }
@@ -980,7 +1087,8 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
 
                     Code::PopResult | Code::Execute | Code::TryExecute
                     | Code::ExecuteIfExecutable | Code::MakeExecutable
-                    | Code::ToBoolean | Code::BooleanNot | Code::NextIteration => false,
+                    | Code::ToBoolean | Code::ConvertType | Code::BooleanNot
+                    | Code::NextIteration => false,
 
                     // Do not carry a proof across control-flow boundaries.
                     Code::Jump | Code::JumpIfFalse | Code::JumpIfTrue
@@ -1007,6 +1115,12 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     | Code::MakeHashMap
                     | Code::MakeStruct
                     | Code::GetField
+                    | Code::BindField
+                    | Code::ReferenceVariable
+                    | Code::ReferenceValue
+                    | Code::ReferenceField
+                    | Code::ReferenceIndex
+                    | Code::ReferenceGroup
                     | Code::MakeRange
                     | Code::GetElement
                     | Code::SetElement
@@ -1399,7 +1513,7 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
     // A forward local declaration shadows an outer function even before its
     // body is compiled. Once a local version exists, calls bind that version.
     function_block.borrow_mut().declared_functions.extend(ast.iter().filter_map(|statement|
-        if let AstStatement::FunctionDefinition(item) = statement { Some(item.name.clone()) }
+        if let AstStatement::FunctionDefinition(item) = statement { Some(function_binding(item)) }
         else { None }));
     let last_statement = ast.iter()
         .rposition(|statement| !matches!(statement, AstStatement::NullStatement));
@@ -1439,7 +1553,8 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
 
             AstStatement::ExpressionStatement(expression) =>
                 {
-                    compile_expression(instructions, function_block, expression)?;
+                    compile_expression_mode(instructions, function_block, expression,
+                        matches!(expression.kind, AstExpressionKind::Field(_, _, _)))?;
 
                     if matches!(
                         &expression.kind,

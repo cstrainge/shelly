@@ -1,6 +1,6 @@
 
 use crate::language::{ ast::*,
-                       data::value::Value,
+                       data::{ value::Value, types::TypeRegistry },
                        tokenizer::{ TokenBuffer,
                                     TokenKind,
                                     TokenLiteral,
@@ -58,6 +58,7 @@ fn math_operator(kind: TokenKind) -> Option<(AstMathOperator, u8)>
 enum ConstructorStart
 {
     Fields,
+    TypeConversion,
     SpacedEmpty
 }
 
@@ -74,6 +75,20 @@ fn constructor_follows(
     {
         return Ok(None);
     };
+    if !multiline && TypeRegistry::is_builtin_name(&name.token_value_text())
+    {
+        let argument = Lookahead::new(&mut *peek.buffer);
+        skip_array_newlines(&mut *argument.buffer)?;
+        if let Some(first) = argument.buffer.next()?
+        {
+            let named_field = valid_type_name(&first.token_value_text())
+                && try_expect_token(&mut *argument.buffer, TokenKind::TypeDelimiter)?.is_some();
+            if first.kind != TokenKind::ParenClose && !named_field
+            {
+                return Ok(Some(ConstructorStart::TypeConversion));
+            }
+        }
+    }
     if    !multiline
        && open.location.line == name.location.line
        && open.location.column == name.location.column + name.token_value_text().chars().count()
@@ -127,6 +142,25 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                         }
                         skip_array_newlines(&mut *lookahead.buffer)?;
                         expect_token(&mut *lookahead.buffer, TokenKind::ParenOpen)?;
+                        if matches!(start, ConstructorStart::TypeConversion)
+                        {
+                            skip_array_newlines(&mut *lookahead.buffer)?;
+                            let value = parse_collection_value(&mut *lookahead.buffer)?;
+                            skip_array_newlines(&mut *lookahead.buffer)?;
+                            try_expect_token(&mut *lookahead.buffer, TokenKind::Comma)?;
+                            skip_array_newlines(&mut *lookahead.buffer)?;
+                            expect_token(&mut *lookahead.buffer, TokenKind::ParenClose)?;
+                            let expression = AstExpression
+                                {
+                                    location: token.location,
+                                    kind: AstExpressionKind::TypeConversion(
+                                        name, Box::new(value), None),
+                                    string_flag: None,
+                                };
+                            let expression = parse_postfix(&mut *lookahead.buffer, expression)?;
+                            lookahead.commit();
+                            return Ok(Some(expression));
+                        }
                         let mut fields = Vec::new();
                         loop
                         {
@@ -156,7 +190,8 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                                 ConstructorStart::Fields =>
                                     AstExpressionKind::StructConstructor(
                                         Box::new(AstStructConstructor
-                                    { name, fields, type_id: None, field_indexes: Vec::new() }))
+                                    { name, fields, type_id: None, field_indexes: Vec::new() })),
+                                ConstructorStart::TypeConversion => unreachable!(),
                             };
                         let expression = AstExpression
                             {
@@ -635,6 +670,7 @@ fn parse_math_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
             | AstExpressionKind::EnumVariant(_, _)
             | AstExpressionKind::MathExpression(_, _, _)
             | AstExpressionKind::BooleanNot(_)
+            | AstExpressionKind::TypeConversion(_, _, _)
             | AstExpressionKind::IfExpression(_)
             | AstExpressionKind::Array(_)
             | AstExpressionKind::HashMap(_)
@@ -1100,6 +1136,7 @@ pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
                     | AstExpressionKind::Field(_, _, _)
                     | AstExpressionKind::EnumVariant(_, _)
                     | AstExpressionKind::StructConstructor(_)
+                    | AstExpressionKind::TypeConversion(_, _, _)
                     | AstExpressionKind::SpacedEmptyCall(_)
             )
         {

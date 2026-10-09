@@ -72,6 +72,7 @@ pub enum AstExpressionKind
     MathExpression(AstMathOperator, Box<AstExpression>, Box<AstExpression>),
     BooleanExpression(AstBooleanOperator, Box<AstExpression>, Box<AstExpression>),
     BooleanNot(Box<AstExpression>),
+    TypeConversion(String, Box<AstExpression>, Option<TypeId>),
     IfExpression(Box<AstIfExpression>)
 }
 
@@ -177,6 +178,7 @@ impl AstExpression
             | AstExpressionKind::MathExpression(_, _, _)
             | AstExpressionKind::BooleanExpression(_, _, _)
             | AstExpressionKind::BooleanNot(_)
+            | AstExpressionKind::TypeConversion(_, _, _)
             | AstExpressionKind::IfExpression(_) =>
                 Err(AstError::ExpressionNotString(self.location.clone()))
         }
@@ -253,6 +255,8 @@ pub struct AstFunctionStatement
 {
     pub location: Location,
     pub name: String,
+    pub receiver: Option<String>,
+    pub receiver_type: Option<TypeId>,
     pub parameters: Vec<AstParameter>,
     pub return_annotation: Option<AstType>,
     pub return_type: Option<TypeId>,
@@ -325,6 +329,8 @@ pub fn new_ast_function_statement(location: Location,
         {
             location,
             name,
+            receiver: None,
+            receiver_type: None,
             parameters,
             return_annotation,
             return_type: None,

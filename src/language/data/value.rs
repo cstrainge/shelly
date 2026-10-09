@@ -3,6 +3,7 @@ use std::{ collections::HashMap, rc::Rc, fmt::{ self, Debug, Formatter } };
 
 use crate::language::{ data::{ map_key::MapKey,
                                range::Range,
+                               methods::BoundMethod,
                                types::{ EnumValue, StructValue, TypeKind } },
                        bytecode::FunctionRef };
 
@@ -19,7 +20,8 @@ pub enum Executable
 {
     Yes,
     No,
-    Function(FunctionRef)
+    Function(FunctionRef),
+    Method(Rc<BoundMethod>)
 }
 
 impl Debug for Executable
@@ -30,7 +32,8 @@ impl Debug for Executable
         {
             Self::Yes => write!(f, "Yes"),
             Self::No => write!(f, "No"),
-            Self::Function(function) => write!(f, "Function({:p})", Rc::as_ptr(function))
+            Self::Function(function) => write!(f, "Function({:p})", Rc::as_ptr(function)),
+            Self::Method(method) => write!(f, "Method({:p})", Rc::as_ptr(method))
         }
     }
 }
@@ -43,6 +46,7 @@ impl PartialEq for Executable
         {
             (Self::Yes, Self::Yes) | (Self::No, Self::No) => true,
             (Self::Function(left), Self::Function(right)) => Rc::ptr_eq(left, right),
+            (Self::Method(left), Self::Method(right)) => Rc::ptr_eq(left, right),
             _ => false
         }
     }

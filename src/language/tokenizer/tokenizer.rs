@@ -589,7 +589,8 @@ pub struct Tokenizer<'a>
     // Reading a word can consume the following two-character boolean operator.
     pending_operator: Option<Token>,
     index_follows: bool,
-    member_follows: bool
+    member_follows: bool,
+    enum_variant_follows: bool
 }
 
 
@@ -600,7 +601,8 @@ impl<'a> Tokenizer<'a>
      */
     pub fn new(input: &'a mut dyn Buffer) -> Self
     {
-        Self { input, pending_operator: None, index_follows: false, member_follows: false }
+        Self { input, pending_operator: None, index_follows: false, member_follows: false,
+            enum_variant_follows: false }
     }
 
     /**
@@ -617,14 +619,16 @@ impl<'a> Tokenizer<'a>
             {
                 token.kind = TokenKind::IndexOpen;
             }
+            let enum_variant = self.enum_variant_follows && token.kind == TokenKind::Symbol;
             self.index_follows = self.pending_operator.is_none()
                 && self.input.peek_next() == Some('[')
-                && matches!(token.kind, TokenKind::Identifier | TokenKind::Literal
-                    | TokenKind::SquareClose | TokenKind::ParenClose | TokenKind::Member);
+                && (enum_variant || matches!(token.kind, TokenKind::Identifier | TokenKind::Literal
+                    | TokenKind::SquareClose | TokenKind::ParenClose | TokenKind::Member));
             self.member_follows = self.pending_operator.is_none()
                 && self.input.peek_next() == Some('.')
-                && matches!(token.kind, TokenKind::Identifier | TokenKind::Literal
-                    | TokenKind::SquareClose | TokenKind::ParenClose | TokenKind::Member);
+                && (enum_variant || matches!(token.kind, TokenKind::Identifier | TokenKind::Literal
+                    | TokenKind::SquareClose | TokenKind::ParenClose | TokenKind::Member));
+            self.enum_variant_follows = token.kind == TokenKind::Scope;
         }
         if let Some(message) = self.input.read_error()
         {
@@ -739,7 +743,8 @@ impl<'a> Tokenizer<'a>
     fn parse_symbol(&mut self) -> Token
     {
         let location = self.input.location().clone();
-        let symbol = self.extract_to_separator(None);
+        let symbol = self.extract_to_separator(
+            if self.enum_variant_follows { Some(&['.', '[']) } else { None });
 
         Self::symbol_str_to_token(location, symbol)
     }
