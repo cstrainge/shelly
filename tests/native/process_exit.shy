@@ -1,0 +1,27 @@
+# A completed child still owns an unreaped PID when group cleanup runs.
+# On macOS a group containing only zombies reports EPERM from kill(-pgid).
+for $attempt in 0..8
+{
+    for $code in [0, 7]
+    {
+        let $result = run_process [`$shelly, "-m", "-c", "exit $code"] ["timeout_ms": 1000]
+        require ($result["exit_code"] == $code) "completed child lost its exit code"
+        require ($result["signal"] == ()) "completed child became signal termination"
+        require (!$result["timed_out"]) "completed child timed out"
+        require ($result["error"] == ()) "completed child cleanup failed"
+    }
+}
+
+# Cover the same cleanup path through a PTY, including repeated close after reap.
+let $terminal = open_terminal [`$shelly, "-m", "-c", "exit 7"] [:]
+let $eof = false
+for $attempt in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    if $reply["eof"] { $eof = true; break }
+}
+require $eof "completed terminal child did not reach EOF"
+let $result = terminal_close $terminal
+require ($result["exit_code"] == 7) "terminal cleanup lost its exit code"
+require ($result["error"] == ()) "completed terminal cleanup failed"
+require ((terminal_close $terminal) == $result) "repeated terminal close changed status"
