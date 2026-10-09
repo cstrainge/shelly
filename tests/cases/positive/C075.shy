@@ -1,0 +1,13 @@
+# C075: Direct call result is not called again
+check ["id": "C075",
+    "name": "Direct call result is not called again",
+    "source": "fn target() { echo \"bad\" }\nfn f(\$x) { return `target }\necho (f 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "target\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

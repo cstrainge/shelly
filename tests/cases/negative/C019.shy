@@ -1,0 +1,13 @@
+# C019: Missing arithmetic operand
+check ["id": "C019",
+    "name": "Missing arithmetic operand",
+    "source": "echo (2 +)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

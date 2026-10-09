@@ -1,0 +1,13 @@
+# CONVERT-309: signaled status String
+check ["id": "CONVERT-309",
+    "name": "signaled status String",
+    "source": "let \$r = audit_signal; echo String(\$r)",
+    "mode": "code",
+    "args": [],
+    "stdout": "ExecResult(Signaled)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

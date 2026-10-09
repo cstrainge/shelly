@@ -1,0 +1,13 @@
+# BLOCKS-030: non-tail function block failure
+check ["id": "BLOCKS-030",
+    "name": "non-tail function block failure",
+    "source": "fn f() { { /usr/bin/false }; 7 }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable returned error code:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

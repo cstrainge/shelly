@@ -1,0 +1,13 @@
+# ANNOTATION-153: bad empty function
+check ["id": "ANNOTATION-153",
+    "name": "bad empty function",
+    "source": "fn f(): Number {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

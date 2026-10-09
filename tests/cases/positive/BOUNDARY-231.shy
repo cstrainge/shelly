@@ -1,0 +1,13 @@
+# BOUNDARY-231: builtin failure as condition
+check ["id": "BOUNDARY-231",
+    "name": "builtin failure as condition",
+    "source": "if (cd missing_boundary_directory) { echo \"bad\" } else { echo \"failure\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "failure\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": ["Failed to change directory"],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

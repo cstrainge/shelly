@@ -1,0 +1,5 @@
+# Arithmetic error recovery
+check_repl ["id": "R008",
+    "name": "Arithmetic error recovery",
+    "steps": [["echo 1 / 0", "error", ""], ["echo \"recovered\"", "output", "recovered"]],
+    "exit": 0]

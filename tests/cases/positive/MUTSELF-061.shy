@@ -1,0 +1,13 @@
+# MUTSELF-061: early return retains mutation
+check ["id": "MUTSELF-061",
+    "name": "early return retains mutation",
+    "source": "fn Integer::update() { \$self = 7; return; \$self = 9 }; let \$n = 1; \$n.update; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

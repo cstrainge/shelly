@@ -1,0 +1,13 @@
+# BLOCKS-011: empty tail block
+check ["id": "BLOCKS-011",
+    "name": "empty tail block",
+    "source": "fn f() { 9; {} }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

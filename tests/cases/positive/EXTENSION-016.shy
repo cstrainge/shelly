@@ -1,0 +1,13 @@
+# EXTENSION-016: any receiver String
+check ["id": "EXTENSION-016",
+    "name": "any receiver String",
+    "source": "fn any::tag(): String { \"tag\" }; let \$v = \"hi\"; echo \$v.tag",
+    "mode": "code",
+    "args": [],
+    "stdout": "tag\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

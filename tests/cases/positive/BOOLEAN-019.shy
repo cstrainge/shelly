@@ -1,0 +1,13 @@
+# BOOLEAN-019: echo hello! --flag=value a&b a=b "==" "!"
+check ["id": "BOOLEAN-019",
+    "name": "echo hello! --flag=value a&b a=b \"==\" \"!\"",
+    "source": "echo hello! --flag=value a&b a=b \"==\" \"!\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "hello! --flag=value a&b a=b == !\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

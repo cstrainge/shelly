@@ -1,0 +1,13 @@
+# ARRAY-001: empty literal
+check ["id": "ARRAY-001",
+    "name": "empty literal",
+    "source": "let \$a = []; echo (\$a == []) !\$a; audit_args \$a...",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true\n[]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONDLOOP-069: while malformed file
+check ["id": "CONDLOOP-069",
+    "name": "while malformed file",
+    "source": "echo \"PARSE_SENTINEL\"; while",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-288: value pair / 1.0 and true
+check ["id": "BOUNDARY-288",
+    "name": "value pair / 1.0 and true",
+    "source": "echo (1.0 == true) (1.0 != true) (1.0 && true) (1.0 || true)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

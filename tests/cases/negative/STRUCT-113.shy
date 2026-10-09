@@ -1,0 +1,13 @@
+# STRUCT-113: runtime wrong nested array write
+check ["id": "STRUCT-113",
+    "name": "runtime wrong nested array write",
+    "source": "struct S { n: [Number] }; let \$s = S(n: [1]); \$s.n[0] = \"x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": ["Expected Number"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

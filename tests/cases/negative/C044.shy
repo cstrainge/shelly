@@ -1,0 +1,13 @@
+# C044: Invalid Unicode numeric escape
+check ["id": "C044",
+    "name": "Invalid Unicode numeric escape",
+    "source": "echo \"\\x110000\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

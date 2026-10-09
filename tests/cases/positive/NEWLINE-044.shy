@@ -1,0 +1,13 @@
+# NEWLINE-044: spaced empty arrays
+check ["id": "NEWLINE-044",
+    "name": "spaced empty arrays",
+    "source": "struct E {}; let \$a = [E (), E ()]; echo \$a...",
+    "mode": "code",
+    "args": [],
+    "stdout": "E() E()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# REDIRECTION-003: combined capture order
+check ["id": "REDIRECTION-003",
+    "name": "combined capture order",
+    "source": "let \$out: String; audit_streams out err 0 ~+-> \$out; printf \"<%s>\" \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "<outerr>",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

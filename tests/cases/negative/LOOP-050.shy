@@ -1,0 +1,13 @@
+# LOOP-050: runtime rejection / loop { 1 / 0 }
+check ["id": "LOOP-050",
+    "name": "runtime rejection / loop { 1 / 0 }",
+    "source": "loop { 1 / 0 }; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MUTSELF-062: root replacement visible to bound element
+check ["id": "MUTSELF-062",
+    "name": "root replacement visible to bound element",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$a = [1]; let \$r = `\$a[0].inc; \$a = [5]; \$r; echo \$a[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "6\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

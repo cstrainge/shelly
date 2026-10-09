@@ -1,0 +1,13 @@
+# REDIRECTION-009: file write and truncate
+check ["id": "REDIRECTION-009",
+    "name": "file write and truncate",
+    "source": "echo \"long value\" -> result.txt; printf \"x\" -> result.txt; cat result.txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "x",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C149: Boolean conjunction
+check ["id": "C149",
+    "name": "Boolean conjunction",
+    "source": "echo (true && false)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

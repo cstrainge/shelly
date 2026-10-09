@@ -1,0 +1,13 @@
+# ENUM-034: typed maps
+check ["id": "ENUM-034",
+    "name": "typed maps",
+    "source": "fn f(\$m) { \$m[\"x\"] }; echo (f [\"x\": 42])",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

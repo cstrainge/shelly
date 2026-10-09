@@ -1,0 +1,13 @@
+# EXTENSION-063: explicit self
+check ["id": "EXTENSION-063",
+    "name": "explicit self",
+    "source": "fn Integer::f(\$self) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

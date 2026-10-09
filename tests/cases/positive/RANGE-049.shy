@@ -1,0 +1,13 @@
+# RANGE-049: max ending expansion
+check ["id": "RANGE-049",
+    "name": "max ending expansion",
+    "source": "let \$r = 9223372036854775806..=9223372036854775807; echo \$r...",
+    "mode": "code",
+    "args": [],
+    "stdout": "9223372036854775806 9223372036854775807\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

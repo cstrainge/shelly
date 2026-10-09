@@ -1,0 +1,13 @@
+# ARRAY-030: shadowed binding updated locally
+check ["id": "ARRAY-030",
+    "name": "shadowed binding updated locally",
+    "source": "let \$a = [1]; { let \$a = [2]; \$a[0] = 3; echo \$a[0] }; echo \$a[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

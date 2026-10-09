@@ -1,0 +1,13 @@
+# ARRAY-018: nested literal preserves arrays
+check ["id": "ARRAY-018",
+    "name": "nested literal preserves arrays",
+    "source": "let \$a = [2,3]; echo ([1,\$a,4] == [1,[2,3],4])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# STRUCT-004: untyped and any
+check ["id": "STRUCT-004",
+    "name": "untyped and any",
+    "source": "struct S { x, y: any, z: optional, w: optional any }; echo S(x: (), y: [1]).z",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

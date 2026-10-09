@@ -1,0 +1,13 @@
+# ANNOTATION-127: optional explicit None return
+check ["id": "ANNOTATION-127",
+    "name": "optional explicit None return",
+    "source": "fn f(): optional Number { return }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C205: Checked signed remainder overflow
+check ["id": "C205",
+    "name": "Checked signed remainder overflow",
+    "source": "echo -9223372036854775808 % -1",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

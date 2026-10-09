@@ -1,0 +1,13 @@
+# CONVERT-282: unused body checked
+check ["id": "CONVERT-282",
+    "name": "unused body checked",
+    "source": "fn f() { Integer(Missing::Value) }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown type"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

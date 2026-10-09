@@ -1,0 +1,13 @@
+# MULTILINE-102: missing operand || / 'let $x = true\n ||'
+check ["id": "MULTILINE-102",
+    "name": "missing operand || / 'let \$x = true\\n ||'",
+    "source": "echo \"PARSE_SENTINEL\"; let \$x = true\n ||",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# NEWLINE-006: empty parentheses separate from type name
+check ["id": "NEWLINE-006",
+    "name": "empty parentheses separate from type name",
+    "source": "struct E {}; let \$x = E\n()\necho \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "E\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

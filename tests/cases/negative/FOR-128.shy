@@ -1,0 +1,13 @@
+# FOR-128: unsupported iterable / "abc"
+check ["id": "FOR-128",
+    "name": "unsupported iterable / \"abc\"",
+    "source": "for \$v in \"abc\" {}; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Iteration error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONDITIONALS-039: if true {} else echo "bad"
+check ["id": "CONDITIONALS-039",
+    "name": "if true {} else echo \"bad\"",
+    "source": "if true {} else echo \"bad\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

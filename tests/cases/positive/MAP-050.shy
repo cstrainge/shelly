@@ -1,0 +1,13 @@
+# MAP-050: backtick map value suppresses call
+check ["id": "MAP-050",
+    "name": "backtick map value suppresses call",
+    "source": "fn f() { 7 }; let \$m = [\"f\":`f]; audit_args `\$m[\"f\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"f\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

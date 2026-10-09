@@ -1,0 +1,13 @@
+# ANNOTATION-143: enum default
+check ["id": "ANNOTATION-143",
+    "name": "enum default",
+    "source": "enum E { A }; let \$x: E",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

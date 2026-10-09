@@ -1,0 +1,13 @@
+# PATH-014: PATH searches shortened entries
+check ["id": "PATH-014",
+    "name": "PATH searches shortened entries",
+    "source": "let \$HOME = \"<FIXTURE>\"; \$PATH = \"\${HOME}/bin:/usr/bin:/bin\"; audit_say",
+    "mode": "code",
+    "args": [],
+    "stdout": "fixture-called\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-147: numeric and syntax Integer(-2.0)
+check ["id": "CONVERT-147",
+    "name": "numeric and syntax Integer(-2.0)",
+    "source": "echo Integer(-2.0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "-2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

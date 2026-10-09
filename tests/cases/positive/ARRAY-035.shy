@@ -1,0 +1,13 @@
+# ARRAY-035: skipped array errors
+check ["id": "ARRAY-035",
+    "name": "skipped array errors",
+    "source": "if false { let \$a = [1 / 0]; \$missing[4] = 1 }; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

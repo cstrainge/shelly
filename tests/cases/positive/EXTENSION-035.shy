@@ -1,0 +1,13 @@
+# EXTENSION-035: chaining
+check ["id": "EXTENSION-035",
+    "name": "chaining",
+    "source": "fn Integer::twice(): Integer { \$self * 2 }; let \$v = 2; echo \$v.twice.twice",
+    "mode": "code",
+    "args": [],
+    "stdout": "8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

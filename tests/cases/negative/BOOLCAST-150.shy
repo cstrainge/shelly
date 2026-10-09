@@ -1,0 +1,13 @@
+# BOOLCAST-150: named
+check ["id": "BOOLCAST-150",
+    "name": "named",
+    "source": "echo Boolean(value: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["exactly one positional value"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

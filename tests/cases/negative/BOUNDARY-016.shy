@@ -1,0 +1,13 @@
+# BOUNDARY-016: fn missing comma
+check ["id": "BOUNDARY-016",
+    "name": "fn missing comma",
+    "source": "echo \"PARSE_SENTINEL\"; fn f(\$a \$b) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

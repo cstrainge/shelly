@@ -1,0 +1,17 @@
+let $suite = $args[1]
+let $inventory: String
+"${suite}/tests/INVENTORY.tsv" -> $inventory
+let $seen = [:]
+let $count = 0
+for $line in $inventory.split "\n"
+{
+    if ($line == "") || ($line.starts_with "id\t") { continue }
+    let $columns = $line.split "\t"
+    require ($columns.count == 4) "invalid inventory row"
+    require ($seen[$columns[0]] == ()) "duplicate test ID"
+    $seen[$columns[0]] = true
+    let $file = $columns[3]
+    require (Boolean(test -f "${suite}/${file}")) "missing case file"
+    $count = $count + 1
+}
+require ($count == 3804) "missing migrated process cases"

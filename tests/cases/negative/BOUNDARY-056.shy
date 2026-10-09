@@ -1,0 +1,13 @@
+# BOUNDARY-056: condition / if {}
+check ["id": "BOUNDARY-056",
+    "name": "condition / if {}",
+    "source": "echo \"PARSE_SENTINEL\"; if (if {}) { 1 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

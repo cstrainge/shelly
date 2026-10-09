@@ -1,0 +1,13 @@
+# BOUNDARY-089: argument / if false {} else if true
+check ["id": "BOUNDARY-089",
+    "name": "argument / if false {} else if true",
+    "source": "echo \"PARSE_SENTINEL\"; echo (if false {} else if true)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

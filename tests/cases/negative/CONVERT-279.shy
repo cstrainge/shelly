@@ -1,0 +1,13 @@
+# CONVERT-279: annotations not casts
+check ["id": "CONVERT-279",
+    "name": "annotations not casts",
+    "source": "let \$v: Integer = \"2\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected Integer"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

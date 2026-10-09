@@ -1,0 +1,13 @@
+# DESTRUCTURING-084: literal binding
+check ["id": "DESTRUCTURING-084",
+    "name": "literal binding",
+    "source": "echo \"PARSE_SENTINEL\"; for (1, \$b) in [] {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

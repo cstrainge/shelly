@@ -1,0 +1,13 @@
+# C123: Variable tilde expands at external command boundary
+check ["id": "C123",
+    "name": "Variable tilde expands at external command boundary",
+    "source": "let \$x = \"~\" ; echo \"\$x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "<FIXTURE>/home\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

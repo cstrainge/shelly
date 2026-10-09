@@ -1,0 +1,13 @@
+# CONDLOOP-109: until / partial body expression cleanup
+check ["id": "CONDLOOP-109",
+    "name": "until / partial body expression cleanup",
+    "source": "let \$n = 0; let \$old = 9; until \$n == 3 { \$n = \$n + 1; let \$old = [1,if true { continue }] }; echo \$old",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

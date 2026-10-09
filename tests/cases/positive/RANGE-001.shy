@@ -1,0 +1,13 @@
+# RANGE-001: definition / 1..5
+check ["id": "RANGE-001",
+    "name": "definition / 1..5",
+    "source": "let \$r = 1..5; echo \$r",
+    "mode": "code",
+    "args": [],
+    "stdout": "1..5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# EXTENSION-011: builtin receiver ArgumentExpansionArgumentExpansion([1, 2])
+check ["id": "EXTENSION-011",
+    "name": "builtin receiver ArgumentExpansionArgumentExpansion([1, 2])",
+    "source": "fn ArgumentExpansion::copy(): ArgumentExpansion { \$self }; let \$v: ArgumentExpansion = ArgumentExpansion([1, 2]); let \$copy = \$v.copy; echo String(\$copy)",
+    "mode": "code",
+    "args": [],
+    "stdout": "1:2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C178: Continuation after return
+check ["id": "C178",
+    "name": "Continuation after return",
+    "source": "fn f() { return \\\n 7 }\necho (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

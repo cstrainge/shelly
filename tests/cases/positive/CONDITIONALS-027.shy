@@ -1,0 +1,13 @@
+# CONDITIONALS-027: echo (if true { if false { 1 } else { 2 } } else { 3 })
+check ["id": "CONDITIONALS-027",
+    "name": "echo (if true { if false { 1 } else { 2 } } else { 3 })",
+    "source": "echo (if true { if false { 1 } else { 2 } } else { 3 })",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,5 @@
+# Enum identities survive REPL redefinition
+check_repl ["id": "R037",
+    "name": "Enum identities survive REPL redefinition",
+    "steps": [["enum Color { Red, Green }", "quiet", ""], ["let \$old = Color::Red; fn original() { Color::Red }; let \$m = [\$old: \"old\"]", "quiet", ""], ["enum Color { Red, Blue }", "quiet", ""], ["echo (\$old == Color::Red) ((original) == \$old) \$m[\$old] \$m[Color::Red]", "output", "false true old ()"], ["fn identity(\$x) { return \$x }; echo ((identity \$old) == \$old)", "output", "true"], ["enum Color { Broken, Broken }", "error", ""], ["echo Color::Blue", "output", "Color::Blue"]],
+    "exit": 0]

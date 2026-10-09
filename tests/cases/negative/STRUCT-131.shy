@@ -1,0 +1,13 @@
+# STRUCT-131: legacy typed dollar field
+check ["id": "STRUCT-131",
+    "name": "legacy typed dollar field",
+    "source": "struct S { \$n Number }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

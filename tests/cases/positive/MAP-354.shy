@@ -1,0 +1,13 @@
+# MAP-354: key equality / [1.0] / false
+check ["id": "MAP-354",
+    "name": "key equality / [1.0] / false",
+    "source": "let \$m = [[1.0]:7]; echo \$m[false]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

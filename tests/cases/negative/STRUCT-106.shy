@@ -1,0 +1,13 @@
+# STRUCT-106: unclosed declaration
+check ["id": "STRUCT-106",
+    "name": "unclosed declaration",
+    "source": "struct S { n",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

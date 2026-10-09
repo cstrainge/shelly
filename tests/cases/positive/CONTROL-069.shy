@@ -1,0 +1,13 @@
+# CONTROL-069: continue abandoned map value
+check ["id": "CONTROL-069",
+    "name": "continue abandoned map value",
+    "source": "let \$x = 9; for \$i in 0..3 { let \$x = [1:2, 3:(if true { continue })]; echo \"bad\" }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

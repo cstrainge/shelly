@@ -1,0 +1,13 @@
+# ARRAY-006: nested read and write
+check ["id": "ARRAY-006",
+    "name": "nested read and write",
+    "source": "let \$a = [[1,2],[3,4]]; \$a[1][0] = 9; echo (\$a == [[1,2],[9,4]])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

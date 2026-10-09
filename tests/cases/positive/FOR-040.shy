@@ -1,0 +1,13 @@
+# FOR-040: lazy huge range
+check ["id": "FOR-040",
+    "name": "lazy huge range",
+    "source": "fn f() { for \$i in -9223372036854775808..=9223372036854775807 { return \$i } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "-9223372036854775808\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

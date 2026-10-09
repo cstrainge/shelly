@@ -1,0 +1,13 @@
+# ANNOTATION-128: optional empty function
+check ["id": "ANNOTATION-128",
+    "name": "optional empty function",
+    "source": "fn f(): optional Number {}; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

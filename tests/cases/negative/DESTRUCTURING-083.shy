@@ -1,0 +1,13 @@
+# DESTRUCTURING-083: empty pattern
+check ["id": "DESTRUCTURING-083",
+    "name": "empty pattern",
+    "source": "echo \"PARSE_SENTINEL\"; for () in [] {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

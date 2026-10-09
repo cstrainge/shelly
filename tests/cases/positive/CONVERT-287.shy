@@ -1,0 +1,13 @@
+# CONVERT-287: array member
+check ["id": "CONVERT-287",
+    "name": "array member",
+    "source": "enum E { A, B, C }; let \$a = [E::C]; echo \$a[0].index",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

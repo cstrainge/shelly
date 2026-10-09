@@ -1,0 +1,13 @@
+# BLOCKS-023: return outside function
+check ["id": "BLOCKS-023",
+    "name": "return outside function",
+    "source": "{ return 7 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Cannot return outside a function",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

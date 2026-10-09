@@ -1,0 +1,13 @@
+# RANGE-141: bound evaluation failure / let $r = (1 / 0)..3
+check ["id": "RANGE-141",
+    "name": "bound evaluation failure / let \$r = (1 / 0)..3",
+    "source": "let \$r = (1 / 0)..3; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# STRUCT-093: dollar field name
+check ["id": "STRUCT-093",
+    "name": "dollar field name",
+    "source": "struct S { \$n: Number }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

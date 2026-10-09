@@ -1,0 +1,13 @@
+# CONVERT-004: matrix Boolean to None
+check ["id": "CONVERT-004",
+    "name": "matrix Boolean to None",
+    "source": "let \$v = true; let \$converted: None = None(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

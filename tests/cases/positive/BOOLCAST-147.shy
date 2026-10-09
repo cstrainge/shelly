@@ -1,0 +1,13 @@
+# BOOLCAST-147: unused expression
+check ["id": "BOOLCAST-147",
+    "name": "unused expression",
+    "source": "Boolean(1); echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

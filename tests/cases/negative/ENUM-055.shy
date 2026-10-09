@@ -1,0 +1,13 @@
+# ENUM-055: if condition outside branch
+check ["id": "ENUM-055",
+    "name": "if condition outside branch",
+    "source": "if C::A { enum C { A } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown type"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# METHOD-075: count [[], [1]]
+check ["id": "METHOD-075",
+    "name": "count [[], [1]]",
+    "source": "echo [[], [1]].count",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-008: set missing value
+check ["id": "BOUNDARY-008",
+    "name": "set missing value",
+    "source": "echo \"PARSE_SENTINEL\"; let \$x = 1; \$x =",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

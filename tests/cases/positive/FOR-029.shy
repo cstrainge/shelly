@@ -1,0 +1,13 @@
+# FOR-029: map any-value keys
+check ["id": "FOR-029",
+    "name": "map any-value keys",
+    "source": "let \$m = [():1,true:2,[1]:3,[\"k\":1]:4,1..3:5]; let \$copy = [:]; for \$k,\$v in \$m { \$copy[\$k] = \$v }; echo (\$copy == \$m)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

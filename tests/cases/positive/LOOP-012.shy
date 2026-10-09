@@ -1,0 +1,13 @@
+# LOOP-012: continue unwinds nested scopes
+check ["id": "LOOP-012",
+    "name": "continue unwinds nested scopes",
+    "source": "let \$n = 0; let \$x = 9; loop { \$n = \$n + 1; if \$n == 3 { break }; { let \$x = 1; continue } }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

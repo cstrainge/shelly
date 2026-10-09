@@ -1,0 +1,5 @@
+# Output capture persists and failed status restores output
+check_repl ["id": "R081",
+    "name": "Output capture persists and failed status restores output",
+    "steps": [["let \$out: String", "quiet", ""], ["printf \"kept\" -> \$out", "quiet", ""], ["printf \"<%s>\\n\" \$out", "output", "<kept>"], ["audit_streams failed \"\" 7 -> \$out", "error", "Executable returned error code: 7"], ["printf \"<%s>\\n\" \$out", "output", "<failed>"], ["echo \"restored\"", "output", "restored"]],
+    "exit": 0]

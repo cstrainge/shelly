@@ -1,0 +1,13 @@
+# METHOD-034: sort [-9223372036854775808, -9223372036854777856.0].sort
+check ["id": "METHOD-034",
+    "name": "sort [-9223372036854775808, -9223372036854777856.0].sort",
+    "source": "echo [-9223372036854775808, -9223372036854777856.0].sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "-9223372036854777856.0 -9223372036854775808\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

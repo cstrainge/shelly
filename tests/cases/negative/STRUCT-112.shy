@@ -1,0 +1,13 @@
+# STRUCT-112: runtime wrong field write
+check ["id": "STRUCT-112",
+    "name": "runtime wrong field write",
+    "source": "struct S { n: Number }; let \$s = S(n: 1); \$s.n = \"x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": ["Expected Number"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

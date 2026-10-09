@@ -1,0 +1,13 @@
+# REDIRECTION-030: directory source
+check ["id": "REDIRECTION-030",
+    "name": "directory source",
+    "source": "let \$out: String; fixtures -> \$out; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Redirection error:",
+    "stderr_contains": ["fixtures"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

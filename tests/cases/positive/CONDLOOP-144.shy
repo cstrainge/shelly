@@ -1,0 +1,13 @@
+# CONDLOOP-144: conditions short circuit
+check ["id": "CONDLOOP-144",
+    "name": "conditions short circuit",
+    "source": "while (false && (1 / 0)) {}; until (true || (1 / 0)) {}; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

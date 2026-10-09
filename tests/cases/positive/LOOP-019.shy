@@ -1,0 +1,13 @@
+# LOOP-019: inner iterable transfer controls loop
+check ["id": "LOOP-019",
+    "name": "inner iterable transfer controls loop",
+    "source": "let \$n = 0; loop { \$n = \$n + 1; if \$n == 3 { break }; for \$i in (if true { continue }) {} }; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

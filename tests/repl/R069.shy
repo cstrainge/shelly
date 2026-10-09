@@ -1,0 +1,5 @@
+# Mutable self updates live receiver across inputs
+check_repl ["id": "R069",
+    "name": "Mutable self updates live receiver across inputs",
+    "steps": [["struct S { a: [Integer] }; fn S::inc() { \$self.a[0] = \$self.a[0] + 1 }; let \$s = S(a: [1]); let \$copy = \$s", "quiet", ""], ["let \$ref = `\$s.inc; \$ref; echo \$s.a[0] \$copy.a[0]", "output", "2 1"], ["\$s.a[0] = 4; \$ref; echo \$s.a[0]", "output", "5"], ["fn S::inc() { \$self.a[0] = \$self.a[0] + 10 }; \$ref; \$s.inc; echo \$s.a[0]", "output", "16"]],
+    "exit": 0]

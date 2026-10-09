@@ -1,0 +1,13 @@
+# ENUM-009: typed function argument
+check ["id": "ENUM-009",
+    "name": "typed function argument",
+    "source": "enum Color { Red, Green, Blue }; fn f(\$c) { \$c == Color::Red }; echo (f Color::Red)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

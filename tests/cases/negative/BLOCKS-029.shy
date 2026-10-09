@@ -1,0 +1,13 @@
+# BLOCKS-029: early failure inside block
+check ["id": "BLOCKS-029",
+    "name": "early failure inside block",
+    "source": "{ /usr/bin/false; echo \"bad\" }; echo \"bad\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable returned error code:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

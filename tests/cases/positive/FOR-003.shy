@@ -1,0 +1,13 @@
+# FOR-003: literal array
+check ["id": "FOR-003",
+    "name": "literal array",
+    "source": "for \$v in [1,2,3] { echo \$v }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

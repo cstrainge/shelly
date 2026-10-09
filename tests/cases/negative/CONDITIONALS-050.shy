@@ -1,0 +1,13 @@
+# CONDITIONALS-050: if false {} else if (1 / 0) {}
+check ["id": "CONDITIONALS-050",
+    "name": "if false {} else if (1 / 0) {}",
+    "source": "if false {} else if (1 / 0) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

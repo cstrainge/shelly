@@ -1,0 +1,13 @@
+# ENUM-022: escaping value
+check ["id": "ENUM-022",
+    "name": "escaping value",
+    "source": "enum Color { Red, Green, Blue }; let \$x = (); { enum Color { Red }; \$x = Color::Red }; echo \$x (\$x == Color::Red)",
+    "mode": "code",
+    "args": [],
+    "stdout": "Color::Red false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

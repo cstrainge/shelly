@@ -1,0 +1,13 @@
+# EXTENSION-091: keyword method name
+check ["id": "EXTENSION-091",
+    "name": "keyword method name",
+    "source": "fn Integer::if() { \$self }; let \$n = 3; echo \$n.if",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

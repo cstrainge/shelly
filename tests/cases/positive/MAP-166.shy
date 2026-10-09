@@ -1,0 +1,13 @@
+# MAP-166: key equality / true / ()
+check ["id": "MAP-166",
+    "name": "key equality / true / ()",
+    "source": "let \$m = [true:7]; echo \$m[()]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

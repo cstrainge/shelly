@@ -1,0 +1,13 @@
+# METHOD-118: none sort
+check ["id": "METHOD-118",
+    "name": "none sort",
+    "source": "echo [()].sort",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Method .* expected|Array methods require|sort requires)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

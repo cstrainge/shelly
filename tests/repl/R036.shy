@@ -1,0 +1,5 @@
+# Conditional loops condition errors returns and frame cleanup
+check_repl ["id": "R036",
+    "name": "Conditional loops condition errors returns and frame cleanup",
+    "steps": [["let \$x = 9", "quiet", ""], ["while true { let \$x = 1; until (1 / 0) {} }", "error", ""], ["echo \$x", "output", "9"], ["break", "error", ""], ["fn f() { until (if true { return 7 }) {} }", "quiet", ""], ["echo (f) \$x", "output", "7 9"], ["while true { return 1 }", "error", ""], ["while false { let \$x = 1 + }", "error", ""], ["for \$i in [1,2] { until false { while true { echo \$i; break }; break } }", "output", "1\n2"]],
+    "exit": 0]

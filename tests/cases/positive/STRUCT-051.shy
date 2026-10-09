@@ -1,0 +1,13 @@
+# STRUCT-051: braced member grouping
+check ["id": "STRUCT-051",
+    "name": "braced member grouping",
+    "source": "struct S { n: Number, text: String, extra: optional }; let \$s = S(n: 2, text: \"x\"); echo (\${s}).n",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

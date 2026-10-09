@@ -1,0 +1,13 @@
+# CONVERT-143: matrix Enum to any
+check ["id": "CONVERT-143",
+    "name": "matrix Enum to any",
+    "source": "enum E { A, B }; let \$v = E::B; let \$converted: any = any(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "E::B\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

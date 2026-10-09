@@ -1,0 +1,13 @@
+# BOUNDARY-619: equals in interpolated variable name / echo prefix${bad=name}
+check ["id": "BOUNDARY-619",
+    "name": "equals in interpolated variable name / echo prefix\${bad=name}",
+    "source": "echo prefix\${bad=name}; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Invalid variable name:",
+    "stderr_contains": ["Invalid variable name: '=' is not allowed."],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

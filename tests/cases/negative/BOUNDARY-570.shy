@@ -1,0 +1,13 @@
+# BOUNDARY-570: file / missing branch block
+check ["id": "BOUNDARY-570",
+    "name": "file / missing branch block",
+    "source": "echo \"PARSE_SENTINEL\"; if true 7",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

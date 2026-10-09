@@ -1,0 +1,13 @@
+# RANGE-010: open variable bounds
+check ["id": "RANGE-010",
+    "name": "open variable bounds",
+    "source": "let \$n = 3; echo (\$n..) (..\$n) (..=\$n)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.. ..3 ..=3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

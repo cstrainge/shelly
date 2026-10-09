@@ -1,0 +1,13 @@
+# MAP-200: key equality / false / (/usr/bin/false)
+check ["id": "MAP-200",
+    "name": "key equality / false / (/usr/bin/false)",
+    "source": "let \$m = [false:7]; echo \$m[(/usr/bin/false)]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C064: Executable variable with args in group
+check ["id": "C064",
+    "name": "Executable variable with args in group",
+    "source": "fn foo(\$a)\n{\n 2048 * \$a\n}\nlet \$r = `foo ; echo (\$r 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "6144\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

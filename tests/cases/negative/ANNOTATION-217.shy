@@ -1,0 +1,13 @@
+# ANNOTATION-217: typed variadic not last
+check ["id": "ANNOTATION-217",
+    "name": "typed variadic not last",
+    "source": "fn f(\$xs: Number..., \$a) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

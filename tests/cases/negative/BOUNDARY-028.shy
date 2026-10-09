@@ -1,0 +1,13 @@
+# BOUNDARY-028: unmatched group close
+check ["id": "BOUNDARY-028",
+    "name": "unmatched group close",
+    "source": "echo \"PARSE_SENTINEL\"; echo 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

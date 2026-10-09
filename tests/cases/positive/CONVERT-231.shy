@@ -1,0 +1,13 @@
+# CONVERT-231: nested conversions
+check ["id": "CONVERT-231",
+    "name": "nested conversions",
+    "source": "echo Integer(Float(\"3.0\")) String(Boolean(0))",
+    "mode": "code",
+    "args": [],
+    "stdout": "3 false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

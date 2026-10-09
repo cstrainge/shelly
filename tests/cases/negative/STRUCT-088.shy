@@ -1,0 +1,13 @@
+# STRUCT-088: skipped branch checked
+check ["id": "STRUCT-088",
+    "name": "skipped branch checked",
+    "source": "if false { struct S { n: Missing } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown type"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-013: matrix None to Integer
+check ["id": "CONVERT-013",
+    "name": "matrix None to Integer",
+    "source": "let \$v = (); let \$converted: Integer = Integer(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

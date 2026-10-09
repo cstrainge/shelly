@@ -1,0 +1,13 @@
+# ENUM-069: missing variant
+check ["id": "ENUM-069",
+    "name": "missing variant",
+    "source": "enum Color { Red, Green, Blue }; echo Color::",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

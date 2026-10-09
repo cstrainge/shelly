@@ -1,0 +1,13 @@
+# ENUM-057: nested namespace
+check ["id": "ENUM-057",
+    "name": "nested namespace",
+    "source": "enum Color { Red, Green, Blue }; echo Color::Red::Blue",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

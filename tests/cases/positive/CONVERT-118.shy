@@ -1,0 +1,13 @@
+# CONVERT-118: matrix ExecResult to ExecResult
+check ["id": "CONVERT-118",
+    "name": "matrix ExecResult to ExecResult",
+    "source": "let \$v = /bin/true; let \$converted: ExecResult = ExecResult(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "ExecResult(0)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

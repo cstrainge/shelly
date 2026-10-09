@@ -1,0 +1,13 @@
+# ANNOTATION-154: bad branch return
+check ["id": "ANNOTATION-154",
+    "name": "bad branch return",
+    "source": "fn f(\$x): Number { if \$x { 1 } else { \"bad\" } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ENUM-074: reserved variant
+check ["id": "ENUM-074",
+    "name": "reserved variant",
+    "source": "enum C { true }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MAP-197: key equality / false / ["a":1.0]
+check ["id": "MAP-197",
+    "name": "key equality / false / [\"a\":1.0]",
+    "source": "let \$m = [false:7]; echo \$m[[\"a\":1.0]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

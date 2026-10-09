@@ -1,0 +1,13 @@
+# METHOD-024: sort let $a = [9007199254740993, 9007199254740992.0]; let $g: ArgumentExpansion = $a...; $g.sort
+check ["id": "METHOD-024",
+    "name": "sort let \$a = [9007199254740993, 9007199254740992.0]; let \$g: ArgumentExpansion = \$a...; \$g.sort",
+    "source": "let \$a = [9007199254740993, 9007199254740992.0]; let \$g: ArgumentExpansion = \$a...; echo \$g.sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "9007199254740992.0 9007199254740993\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

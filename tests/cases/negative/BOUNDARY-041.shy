@@ -1,0 +1,13 @@
+# BOUNDARY-041: empty braced variable
+check ["id": "BOUNDARY-041",
+    "name": "empty braced variable",
+    "source": "echo \"PARSE_SENTINEL\"; echo \${}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

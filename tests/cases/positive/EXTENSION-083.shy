@@ -1,0 +1,13 @@
+# EXTENSION-083: same submission signature versions
+check ["id": "EXTENSION-083",
+    "name": "same submission signature versions",
+    "source": "fn Integer::f(\$n: Integer): Integer { \$self + \$n }; let \$v = 2; let \$r = `\$v.f; fn old(\$v: Integer) { \$v.f 3 }; fn Integer::f(): String { \"new\" }; echo (\$r 3) (old \$v) \$v.f",
+    "mode": "code",
+    "args": [],
+    "stdout": "5 5 new\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

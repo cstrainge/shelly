@@ -1,0 +1,13 @@
+# BOUNDARY-517: value pair / (/usr/bin/false) and `word
+check ["id": "BOUNDARY-517",
+    "name": "value pair / (/usr/bin/false) and `word",
+    "source": "echo ((/usr/bin/false) == `word) ((/usr/bin/false) != `word) ((/usr/bin/false) && `word) ((/usr/bin/false) || `word)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

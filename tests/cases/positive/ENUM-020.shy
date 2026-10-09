@@ -1,0 +1,13 @@
+# ENUM-020: forward function
+check ["id": "ENUM-020",
+    "name": "forward function",
+    "source": "fn f() { Color::Red }; enum Color { Red }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "Color::Red\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

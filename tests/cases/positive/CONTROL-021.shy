@@ -1,0 +1,13 @@
+# CONTROL-021: break abandoned array
+check ["id": "CONTROL-021",
+    "name": "break abandoned array",
+    "source": "let \$x = 9; for \$i in 0..3 { let \$x = [1, if true { break }, 3]; echo \"bad\" }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

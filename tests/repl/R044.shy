@@ -1,0 +1,5 @@
+# Struct failed writes keep side effects but not invalid values
+check_repl ["id": "R044",
+    "name": "Struct failed writes keep side effects but not invalid values",
+    "steps": [["struct S { xs: [Number] }; let \$s = S(xs: [1]); let \$order = 0; fn index() { \$order = \$order * 10 + 1; return 0 }; fn value() { \$order = \$order * 10 + 2; return \"bad\" }", "quiet", ""], ["\$s.xs[(index)] = value", "error", ""], ["echo \$order \$s.xs[0]", "output", "12 1"], ["let \$n = \"bad\"; let \$s = S(xs: [\$n])", "error", ""], ["echo \$s.xs[0]", "output", "1"]],
+    "exit": 0]

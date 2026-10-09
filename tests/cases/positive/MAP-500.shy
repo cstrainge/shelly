@@ -1,0 +1,13 @@
+# MAP-500: argument expansion key
+check ["id": "MAP-500",
+    "name": "argument expansion key",
+    "source": "let \$a = [1]; let \$m = [\$a...:7]; echo \$m[\$a...] \$m[[1]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7 ()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

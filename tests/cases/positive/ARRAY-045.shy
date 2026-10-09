@@ -1,0 +1,13 @@
+# ARRAY-045: quoted bracket text
+check ["id": "ARRAY-045",
+    "name": "quoted bracket text",
+    "source": "audit_args \"[ab].txt\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"[ab].txt\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

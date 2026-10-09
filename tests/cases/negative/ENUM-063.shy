@@ -1,0 +1,13 @@
+# ENUM-063: payload constructor
+check ["id": "ENUM-063",
+    "name": "payload constructor",
+    "source": "enum Color { Red, Green, Blue }; echo Color::Red(1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

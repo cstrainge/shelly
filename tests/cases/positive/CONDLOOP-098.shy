@@ -1,0 +1,13 @@
+# CONDLOOP-098: until / parameterized condition call
+check ["id": "CONDLOOP-098",
+    "name": "until / parameterized condition call",
+    "source": "let \$n = 0; fn probe(\$limit) { \$n = \$n + 1; \$n == 3 }; until probe 3 { continue }; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

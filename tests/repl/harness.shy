@@ -1,0 +1,15 @@
+# Seven REPL false-pass controls from the original harness audit.
+for ($kind, $expected, $output, $passes) in [
+    ["output", "42", "input repaint\n42\n$ ", true],
+    ["error", "not found", "echo \"not found\"\nnot found\n$ ", false],
+    ["output", "42", "\n42\nError processing text: bad\n$ ", false],
+    ["error", "wrong arity", "\nError processing text: wrong arity\n$ ", true],
+    ["error", "wrong arity", "\nError processing text: wrong type\n$ ", false],
+    ["error", "wrong arity", "echo \"wrong arity\"\nError processing text: wrong type\n$ ", false],
+    ["quiet", "", "thread main panicked at source.rs", false],
+    ["error", "wrong arity", "echo \"Error processing text: wrong arity\"\n$ ", false],
+    ["quiet", "", "echo \"Error processing text: wrong arity\"\n$ ", true],
+]
+{
+    require ((repl_matches $kind $expected $output) == $passes) "REPL matcher false pass"
+}

@@ -1,0 +1,13 @@
+# C005: Left associative subtraction
+check ["id": "C005",
+    "name": "Left associative subtraction",
+    "source": "echo 20 - 5 - 3",
+    "mode": "code",
+    "args": [],
+    "stdout": "12\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

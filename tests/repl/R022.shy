@@ -1,0 +1,5 @@
+# Map reads writes and missing lookup across inputs
+check_repl ["id": "R022",
+    "name": "Map reads writes and missing lookup across inputs",
+    "steps": [["let \$m = [\"key\":7]", "quiet", ""], ["let \$x = \$m[\"missing\"]", "quiet", ""], ["echo \$x", "output", "()"], ["\$m[\"new\"] = [1,2]", "quiet", ""], ["\$m[\"new\"][0] = 9", "quiet", ""], ["echo \$m[\"key\"] \$m[\"new\"]...", "output", "7 9 2"], ["\$m", "error", ""], ["echo \$m[\"key\"]", "output", "7"]],
+    "exit": 0]

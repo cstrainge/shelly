@@ -1,0 +1,13 @@
+# BOUNDARY-003: let literal binding
+check ["id": "BOUNDARY-003",
+    "name": "let literal binding",
+    "source": "echo \"PARSE_SENTINEL\"; let 1 = 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

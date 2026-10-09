@@ -19,6 +19,7 @@ reedline = "0.52.1"
 supports-color = "3.0.2"
 
 [target.'cfg(unix)'.dependencies]
+libc = "0.2"
 rustix = { version = "1.1.5", features = ["process"] }
 
 [build-dependencies]

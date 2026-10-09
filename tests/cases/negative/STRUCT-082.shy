@@ -1,0 +1,13 @@
+# STRUCT-082: nominal field types
+check ["id": "STRUCT-082",
+    "name": "nominal field types",
+    "source": "struct A {}; struct B {}; struct S { n: A }; echo S(n: B())",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected A"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BLOCKS-016: calls see locals
+check ["id": "BLOCKS-016",
+    "name": "calls see locals",
+    "source": "fn read() { \$x }; { let \$x = 8; echo (read) }",
+    "mode": "code",
+    "args": [],
+    "stdout": "8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

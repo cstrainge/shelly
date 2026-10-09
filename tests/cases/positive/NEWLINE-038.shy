@@ -1,0 +1,13 @@
+# NEWLINE-038: spaced empty function result
+check ["id": "NEWLINE-038",
+    "name": "spaced empty function result",
+    "source": "struct E {}; fn f() { E () }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "E()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

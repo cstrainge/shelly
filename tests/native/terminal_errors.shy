@@ -1,0 +1,21 @@
+let $fixture = $args[0]
+for ($source, $message) in [
+    ["let \$t = open_terminal [\"/usr/bin/sleep\", \"30\"] [:]; echo \$t + 1", "Terminals cannot be used in arithmetic"],
+    ["let \$t = open_terminal [\"/usr/bin/sleep\", \"30\"] [:]; \$t", "Cannot execute a terminal"],
+    ["open_terminal [\"__missing_terminal_program__\"] [:]", "No such file"],
+    ["let \$t = open_terminal [\"/usr/bin/sleep\", \"30\"] [:]; terminal_read \$t -1", "nonnegative Integer"],
+    ["let \$t = open_terminal [\"/usr/bin/sleep\", \"30\"] [:]; terminal_write \$t 1", "Expected a String"],
+    ["let \$t = open_terminal [\"/usr/bin/sleep\", \"30\"] [:]; terminal_close \$t; terminal_read \$t 0", "Terminal is closed"],
+    ["let \$t = open_terminal [\"/usr/bin/sleep\", \"30\"] [:]; terminal_close \$t; terminal_write \$t \"x\"", "Terminal is closed"],
+    ["let \$t = open_terminal [\"/usr/bin/cat\", \"${fixture}/data/invalid-utf8\"] [:]; terminal_read \$t 1000", "not UTF-8"],
+    ["let \$t = open_terminal [\"/usr/bin/printf\", \"\\\\303\"] [:]; terminal_read \$t 1000; terminal_read \$t 1000", "not UTF-8"],
+]
+{
+    let $result = run_process [`$shelly, "-m", "-c", $source] [
+        "timeout_ms": 2000, "stdout_file": "${fixture}/invalid.out", "stderr_file": "${fixture}/invalid.err",
+    ]
+    require (($result["exit_code"] == 1) && (!$result["timed_out"])) "invalid terminal operation accepted"
+    let $error: String
+    "${fixture}/invalid.err" -> $error
+    require ($error.contains $message) "wrong terminal diagnostic"
+}

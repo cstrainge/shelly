@@ -1,0 +1,13 @@
+# CONDLOOP-032: while / function break result
+check ["id": "CONDLOOP-032",
+    "name": "while / function break result",
+    "source": "fn f() { while true { break } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

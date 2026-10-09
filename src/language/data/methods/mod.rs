@@ -1,12 +1,15 @@
 
 mod array;
+mod string;
 
 use std::rc::Rc;
 
 use crate::language::{ bytecode::FunctionRef,
                        data::{ value::Value, scoped_variables::ValueReference,
                                types::{ TypeId, TypeRegistry },
-                               methods::array::{ sort, zip, count } } };
+                               methods::{ array::{ sort, zip, count },
+                                          string::{ chars, contains, starts_with, ends_with,
+                                                    replace, split, trim, trim_start, trim_end } } } };
 
 pub fn method_key(receiver: TypeId, name: &str) -> String
 {
@@ -41,6 +44,23 @@ pub fn register_methods(registry: &mut TypeRegistry)
 {
     let array = registry.builtin_id("Array").unwrap();
     let integer = registry.builtin_id("Integer").unwrap();
+    let string = registry.builtin_id("String").unwrap();
+    let boolean = registry.builtin_id("Boolean").unwrap();
+    for (name, argument_count, return_type, body) in [
+            ("chars", 0, array, chars as MethodBody),
+            ("contains", 1, boolean, contains as MethodBody),
+            ("starts_with", 1, boolean, starts_with as MethodBody),
+            ("ends_with", 1, boolean, ends_with as MethodBody),
+            ("replace", 2, string, replace as MethodBody),
+            ("split", 1, array, split as MethodBody),
+            ("trim", 0, string, trim as MethodBody),
+            ("trim_start", 0, string, trim_start as MethodBody),
+            ("trim_end", 0, string, trim_end as MethodBody),
+        ]
+    {
+        registry.register_method(string,
+            BuiltinMethod { name, argument_count, return_type, body });
+    }
     for receiver in ["Array", "ArgumentExpansion"]
     {
         let receiver = registry.builtin_id(receiver).unwrap();

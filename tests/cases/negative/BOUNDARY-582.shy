@@ -1,0 +1,13 @@
+# BOUNDARY-582: command-head splat / $cmd...
+check ["id": "BOUNDARY-582",
+    "name": "command-head splat / \$cmd...",
+    "source": "echo \"PARSE_SENTINEL\"; let \$cmd = `audit_say; \$cmd...",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

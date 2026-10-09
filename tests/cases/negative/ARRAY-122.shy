@@ -1,0 +1,13 @@
+# ARRAY-122: array used as command / let $a = [1,2,3,4]; $a
+check ["id": "ARRAY-122",
+    "name": "array used as command / let \$a = [1,2,3,4]; \$a",
+    "source": "let \$a = [1,2,3,4]; \$a; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": ["Cannot execute an array as a command"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MAP-025: write map key
+check ["id": "MAP-025",
+    "name": "write map key",
+    "source": "let \$m = [:]; \$m[[\"a\":1]] = 7; echo \$m[[\"a\":1.0]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

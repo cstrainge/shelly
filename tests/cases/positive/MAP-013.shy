@@ -1,0 +1,13 @@
+# MAP-013: newlines comments trailing comma
+check ["id": "MAP-013",
+    "name": "newlines comments trailing comma",
+    "source": "let \$m = [\n \"x\"\n :\n 1, # comment\n \"y\": 2,\n]; echo (\$m == [\"x\":1,\"y\":2])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

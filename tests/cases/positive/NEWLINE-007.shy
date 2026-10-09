@@ -1,0 +1,13 @@
+# NEWLINE-007: empty parentheses separate from function
+check ["id": "NEWLINE-007",
+    "name": "empty parentheses separate from function",
+    "source": "fn f() { echo \"called\" }; f\n()",
+    "mode": "code",
+    "args": [],
+    "stdout": "called\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

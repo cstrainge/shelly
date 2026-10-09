@@ -1,0 +1,13 @@
+# ANNOTATION-196: variadic expansion
+check ["id": "ANNOTATION-196",
+    "name": "variadic expansion",
+    "source": "fn f(\$xs: Number...): [Number] { return \$xs }; let \$a = [1, 2]; echo (f \$a... 3)...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

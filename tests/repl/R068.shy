@@ -1,0 +1,5 @@
+# Later concrete extension does not change old Number calls
+check_repl ["id": "R068",
+    "name": "Later concrete extension does not change old Number calls",
+    "steps": [["fn Number::label() { \"number\" }; fn old(\$n: Integer) { \$n.label }; let \$n = 1", "quiet", ""], ["fn Integer::label() { \"integer\" }", "quiet", ""], ["echo (old \$n) \$n.label", "output", "number integer"]],
+    "exit": 0]

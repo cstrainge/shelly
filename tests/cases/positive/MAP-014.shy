@@ -1,0 +1,13 @@
+# MAP-014: multiline empty map
+check ["id": "MAP-014",
+    "name": "multiline empty map",
+    "source": "echo ([\n:\n] == [:])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

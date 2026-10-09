@@ -1,0 +1,13 @@
+# BOUNDARY-506: value pair / (/usr/bin/false) and -1
+check ["id": "BOUNDARY-506",
+    "name": "value pair / (/usr/bin/false) and -1",
+    "source": "echo ((/usr/bin/false) == -1) ((/usr/bin/false) != -1) ((/usr/bin/false) && -1) ((/usr/bin/false) || -1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

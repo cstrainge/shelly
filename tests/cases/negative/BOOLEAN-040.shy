@@ -1,0 +1,13 @@
+# BOOLEAN-040: echo (false || $missing_boolean)
+check ["id": "BOOLEAN-040",
+    "name": "echo (false || \$missing_boolean)",
+    "source": "echo (false || \$missing_boolean)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

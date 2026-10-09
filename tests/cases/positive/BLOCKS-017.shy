@@ -1,0 +1,13 @@
+# BLOCKS-017: function hoisting
+check ["id": "BLOCKS-017",
+    "name": "function hoisting",
+    "source": "{ fn f() { 7 } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# FOR-109: syntax rejection / for $i,$j,$k in [:] {}
+check ["id": "FOR-109",
+    "name": "syntax rejection / for \$i,\$j,\$k in [:] {}",
+    "source": "echo \"PARSE_SENTINEL\"; for \$i,\$j,\$k in [:] {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

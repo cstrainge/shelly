@@ -1,0 +1,13 @@
+# BOUNDARY-624: nested argument splat
+check ["id": "BOUNDARY-624",
+    "name": "nested argument splat",
+    "source": "echo (audit_args \$args...)",
+    "mode": "code",
+    "args": ["one", "two"],
+    "stdout": "[\"one\", \"two\"]\nExecResult(0)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

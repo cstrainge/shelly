@@ -1,0 +1,13 @@
+# ANNOTATION-209: optional wrong explicit type
+check ["id": "ANNOTATION-209",
+    "name": "optional wrong explicit type",
+    "source": "fn f(\$a: optional Number) {}; f \"bad\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

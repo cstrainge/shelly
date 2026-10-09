@@ -1,0 +1,5 @@
+# Array destructuring error after a successful iteration
+check_repl ["id": "R079",
+    "name": "Array destructuring error after a successful iteration",
+    "steps": [["let \$seen = 0; let \$a = 99", "quiet", ""], ["for (\$a, \$b) in [[1, 2], [3]] { \$seen = \$seen + 1 }", "error", "expected 2 elements, got 1"], ["echo \$a \$seen", "output", "99 1"], ["for (\$a,) in [[4]] { echo \$a }; echo \$a", "output", "4\n99"]],
+    "exit": 0]

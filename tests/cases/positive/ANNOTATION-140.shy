@@ -1,0 +1,13 @@
+# ANNOTATION-140: function reference retains contracts
+check ["id": "ANNOTATION-140",
+    "name": "function reference retains contracts",
+    "source": "fn f(\$x: Number): Number { return \$x }; let \$r = `f; echo (\$r 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

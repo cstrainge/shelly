@@ -1,0 +1,13 @@
+# STRUCT-003: empty struct
+check ["id": "STRUCT-003",
+    "name": "empty struct",
+    "source": "struct Empty {}; echo Empty() !Empty()",
+    "mode": "code",
+    "args": [],
+    "stdout": "Empty() false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# EXTENSION-086: any on custom types
+check ["id": "EXTENSION-086",
+    "name": "any on custom types",
+    "source": "fn any::label() { \"any\" }; struct S {}; enum E { A }; echo S().label E::A.label",
+    "mode": "code",
+    "args": [],
+    "stdout": "any any\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

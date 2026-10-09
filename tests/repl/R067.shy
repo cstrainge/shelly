@@ -1,0 +1,5 @@
+# Method type identity survives type redefinition
+check_repl ["id": "R067",
+    "name": "Method type identity survives type redefinition",
+    "steps": [["struct S { n: Integer }; fn S::read() { \$self.n }; let \$old = S(n: 3)", "quiet", ""], ["struct S { text: String }; fn S::read() { \$self.text }; let \$new = S(text: \"new\")", "quiet", ""], ["echo \$old.read \$new.read", "output", "3 new"]],
+    "exit": 0]

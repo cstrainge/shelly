@@ -1,0 +1,13 @@
+# REDIRECTION-021: loop cleanup
+check ["id": "REDIRECTION-021",
+    "name": "loop cleanup",
+    "source": "let \$out: String; loop { let \$r = (if true { echo \"kept\"; break }) -> \$out }; printf \"%s\" \$out; echo \"normal\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "kept\nnormal\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

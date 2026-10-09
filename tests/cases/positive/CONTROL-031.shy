@@ -1,0 +1,13 @@
+# CONTROL-031: break from inner iterable controls outer loop
+check ["id": "CONTROL-031",
+    "name": "break from inner iterable controls outer loop",
+    "source": "for \$i in [1,2] { for \$j in (if true { break }) { echo \"bad\" }; echo \"bad\" }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# FOR-026: map expansion key retains type
+check ["id": "FOR-026",
+    "name": "map expansion key retains type",
+    "source": "let \$a = [1,2]; let \$m = [\$a...:7]; for \$k,\$v in \$m { echo \$m[\$k] \$v }",
+    "mode": "code",
+    "args": [],
+    "stdout": "7 7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

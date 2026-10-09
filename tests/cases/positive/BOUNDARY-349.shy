@@ -1,0 +1,13 @@
+# BOUNDARY-349: value pair / false and (/usr/bin/true)
+check ["id": "BOUNDARY-349",
+    "name": "value pair / false and (/usr/bin/true)",
+    "source": "echo (false == (/usr/bin/true)) (false != (/usr/bin/true)) (false && (/usr/bin/true)) (false || (/usr/bin/true))",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

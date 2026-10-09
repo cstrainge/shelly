@@ -1,0 +1,13 @@
+# CONVERT-225: invalid ArgumentExpansion(..5)
+check ["id": "CONVERT-225",
+    "name": "invalid ArgumentExpansion(..5)",
+    "source": "echo ArgumentExpansion(..5)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

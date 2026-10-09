@@ -1,0 +1,13 @@
+# REDIRECTION-045: file source
+check ["id": "REDIRECTION-045",
+    "name": "file source",
+    "source": "let \$out: String; echo \"ok\" -> \$out; printf \"%s\" \$out",
+    "mode": "file",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

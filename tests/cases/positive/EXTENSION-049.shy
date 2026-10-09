@@ -1,0 +1,13 @@
+# EXTENSION-049: index before any method
+check ["id": "EXTENSION-049",
+    "name": "index before any method",
+    "source": "fn any::index() { 99 }; enum E { A, B }; echo E::B.index",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

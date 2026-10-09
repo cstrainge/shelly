@@ -1,0 +1,13 @@
+# STRUCT-130: typed keyword fields
+check ["id": "STRUCT-130",
+    "name": "typed keyword fields",
+    "source": "struct S { if: Number, true: Boolean, optional: optional String }; let \$s = S(if: 2, true: false); echo \$s.if \$s.true \$s.optional",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 false ()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

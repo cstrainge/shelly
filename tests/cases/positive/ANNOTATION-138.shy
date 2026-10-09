@@ -1,0 +1,13 @@
+# ANNOTATION-138: default variable in function
+check ["id": "ANNOTATION-138",
+    "name": "default variable in function",
+    "source": "fn f(): Number { let \$x: Number; return \$x }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

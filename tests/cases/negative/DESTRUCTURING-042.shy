@@ -1,0 +1,13 @@
+# DESTRUCTURING-042: wrong arity 3 vs 1
+check ["id": "DESTRUCTURING-042",
+    "name": "wrong arity 3 vs 1",
+    "source": "for (\$v0, \$v1, \$v2,) in [[0]] { echo \"UNREACHABLE\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": ["expected 3 elements, got 1"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

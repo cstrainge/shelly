@@ -1,0 +1,13 @@
+# NEWLINE-014: arithmetic postfix
+check ["id": "NEWLINE-014",
+    "name": "arithmetic postfix",
+    "source": "struct S { n: Number }; echo S\n(n: 6).n + 1",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

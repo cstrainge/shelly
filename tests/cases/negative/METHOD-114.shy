@@ -1,0 +1,13 @@
+# METHOD-114: count argument
+check ["id": "METHOD-114",
+    "name": "count argument",
+    "source": "let \$a = [1]; let \$x = \$a.count 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Method .* expected|Array methods require|sort requires)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

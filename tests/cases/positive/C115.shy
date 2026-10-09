@@ -1,0 +1,13 @@
+# C115: Private variable omitted from child
+check ["id": "C115",
+    "name": "Private variable omitted from child",
+    "source": "let \$AUDIT_FLAG = \"private\" ; let \$x = /usr/bin/printenv AUDIT_FLAG ; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "ExecResult(1)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

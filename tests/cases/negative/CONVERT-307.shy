@@ -1,0 +1,13 @@
+# CONVERT-307: numeric field
+check ["id": "CONVERT-307",
+    "name": "numeric field",
+    "source": "enum E { A, B, C }; echo E::A.123",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

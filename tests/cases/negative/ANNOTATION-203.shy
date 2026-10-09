@@ -1,0 +1,13 @@
+# ANNOTATION-203: required after optional
+check ["id": "ANNOTATION-203",
+    "name": "required after optional",
+    "source": "fn f(\$a: optional Number, \$b: Number) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

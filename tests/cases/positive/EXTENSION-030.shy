@@ -1,0 +1,13 @@
+# EXTENSION-030: untyped variadic
+check ["id": "EXTENSION-030",
+    "name": "untyped variadic",
+    "source": "fn String::collect(\$rest...): Array { \$rest }; let \$s = \"s\"; let \$a = \$s.collect 1 true \"x\"; echo \$a...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 true x\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

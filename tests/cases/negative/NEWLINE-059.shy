@@ -1,0 +1,13 @@
+# NEWLINE-059: spaced enum rejected
+check ["id": "NEWLINE-059",
+    "name": "spaced enum rejected",
+    "source": "enum E { A }; E ()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-030: block used as argument
+check ["id": "BOUNDARY-030",
+    "name": "block used as argument",
+    "source": "echo \"PARSE_SENTINEL\"; echo {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

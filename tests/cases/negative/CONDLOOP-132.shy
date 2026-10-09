@@ -1,0 +1,13 @@
+# CONDLOOP-132: until runtime / until $missing {}
+check ["id": "CONDLOOP-132",
+    "name": "until runtime / until \$missing {}",
+    "source": "until \$missing {}; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

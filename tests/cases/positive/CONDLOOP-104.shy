@@ -1,0 +1,13 @@
+# CONDLOOP-104: until / branch loop result
+check ["id": "CONDLOOP-104",
+    "name": "until / branch loop result",
+    "source": "echo (if true { until true {} } else { 9 })",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

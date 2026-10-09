@@ -1,0 +1,13 @@
+# CONTROL-030: break nested block unwinding
+check ["id": "CONTROL-030",
+    "name": "break nested block unwinding",
+    "source": "let \$i = 9; let \$x = 8; for \$i in 0..3 { { let \$x = 1; { break } }; echo \"bad\" }; echo \$i \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "9 8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

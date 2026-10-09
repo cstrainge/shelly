@@ -1,0 +1,13 @@
+# EXTENSION-027: enum method
+check ["id": "EXTENSION-027",
+    "name": "enum method",
+    "source": "enum E { A, B }; fn E::ordinal(): Integer { \$self.index }; echo E::B.ordinal",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

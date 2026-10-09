@@ -1,0 +1,13 @@
+# NEWLINE-033: unclosed empty constructor
+check ["id": "NEWLINE-033",
+    "name": "unclosed empty constructor",
+    "source": "struct S { n: Number }; S\n(",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

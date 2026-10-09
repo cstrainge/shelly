@@ -1,0 +1,13 @@
+# CONVERT-095: matrix Enum to HashMap
+check ["id": "CONVERT-095",
+    "name": "matrix Enum to HashMap",
+    "source": "enum E { A, B }; let \$v = E::B; let \$converted: HashMap = HashMap(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

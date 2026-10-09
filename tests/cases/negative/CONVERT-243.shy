@@ -1,0 +1,13 @@
+# CONVERT-243: empty None
+check ["id": "CONVERT-243",
+    "name": "empty None",
+    "source": "echo None()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["exactly one positional value"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

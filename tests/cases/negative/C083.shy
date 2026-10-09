@@ -1,0 +1,13 @@
+# C083: Backtick in grouped call target
+check ["id": "C083",
+    "name": "Backtick in grouped call target",
+    "source": "fn foo(\$a)\n{\n 2048 * \$a\n}\necho (`foo 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

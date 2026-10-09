@@ -1,0 +1,13 @@
+# MAP-032: key snapshot before value mutation
+check ["id": "MAP-032",
+    "name": "key snapshot before value mutation",
+    "source": "let \$k = [1]; fn change() { \$k[0] = 2; 9 }; let \$m = [\$k:change]; echo \$m[[1]] \$m[\$k]",
+    "mode": "code",
+    "args": [],
+    "stdout": "9 ()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

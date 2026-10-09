@@ -1,0 +1,5 @@
+# Function command failure restores scope without exiting
+check_repl ["id": "R009",
+    "name": "Function command failure restores scope without exiting",
+    "steps": [["let \$x = 9 ; fn f() { let \$x = 2 ; /usr/bin/false ; echo \"bad\" }", "quiet", ""], ["f", "error", ""], ["echo \$x", "output", "9"]],
+    "exit": 0]

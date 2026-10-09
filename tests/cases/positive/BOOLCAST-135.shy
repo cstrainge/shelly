@@ -1,0 +1,13 @@
+# BOOLCAST-135: nested equality
+check ["id": "BOOLCAST-135",
+    "name": "nested equality",
+    "source": "echo (Boolean(1) == true) !Boolean(0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

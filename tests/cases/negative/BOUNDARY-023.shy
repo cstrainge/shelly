@@ -1,0 +1,13 @@
+# BOUNDARY-023: return malformed initializer
+check ["id": "BOUNDARY-023",
+    "name": "return malformed initializer",
+    "source": "echo \"PARSE_SENTINEL\"; fn f() { return 1 + }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

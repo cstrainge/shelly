@@ -1,0 +1,13 @@
+# C026: Integer multiplication overflow
+check ["id": "C026",
+    "name": "Integer multiplication overflow",
+    "source": "echo 9223372036854775807 * 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

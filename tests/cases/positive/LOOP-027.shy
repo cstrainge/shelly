@@ -1,0 +1,13 @@
+# LOOP-027: exit halts loop
+check ["id": "LOOP-027",
+    "name": "exit halts loop",
+    "source": "loop { exit }; echo \"bad\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

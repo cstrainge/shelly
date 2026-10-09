@@ -1,0 +1,13 @@
+# MAP-006: insert and replace
+check ["id": "MAP-006",
+    "name": "insert and replace",
+    "source": "let \$m = [:]; \$m[\"a\"] = 1; \$m[\"a\"] = 2; \$m[\"b\"] = 3; echo (\$m == [\"a\":2,\"b\":3])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

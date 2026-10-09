@@ -1,0 +1,13 @@
+# ARRAY-055: invalid index / echo $a[INDEX] / 9223372036854775807
+check ["id": "ARRAY-055",
+    "name": "invalid index / echo \$a[INDEX] / 9223372036854775807",
+    "source": "let \$a = [1,2]; echo \$a[9223372036854775807]; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

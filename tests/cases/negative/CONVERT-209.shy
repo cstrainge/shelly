@@ -1,0 +1,13 @@
+# CONVERT-209: invalid Float("1e309")
+check ["id": "CONVERT-209",
+    "name": "invalid Float(\"1e309\")",
+    "source": "echo Float(\"1e309\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MUTSELF-039: captured binding survives shadow
+check ["id": "MUTSELF-039",
+    "name": "captured binding survives shadow",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$n = 1; let \$r = `\$n.inc; { let \$n = 9; \$r; echo \$n }; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

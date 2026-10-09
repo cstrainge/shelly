@@ -1,0 +1,13 @@
+# ANNOTATION-202: typed exit skips return check
+check ["id": "ANNOTATION-202",
+    "name": "typed exit skips return check",
+    "source": "fn f(): Number { exit 0 }; f",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

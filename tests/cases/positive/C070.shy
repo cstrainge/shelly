@@ -1,0 +1,13 @@
+# C070: Backtick variable suppresses call but yields value
+check ["id": "C070",
+    "name": "Backtick variable suppresses call but yields value",
+    "source": "fn f() { 7 }\nlet \$r = `f ; echo `\$r",
+    "mode": "code",
+    "args": [],
+    "stdout": "f\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

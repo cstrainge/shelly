@@ -1,0 +1,13 @@
+# CONVERT-060: matrix Struct to String
+check ["id": "CONVERT-060",
+    "name": "matrix Struct to String",
+    "source": "struct S { n: Integer }; let \$v = S(n: 2); let \$converted: String = String(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "S(n: 2)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

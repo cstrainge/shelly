@@ -1,0 +1,13 @@
+# ANNOTATION-218: multiple variadics
+check ["id": "ANNOTATION-218",
+    "name": "multiple variadics",
+    "source": "fn f(\$xs..., \$ys...) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-110: implicit return [String: Number]
+check ["id": "ANNOTATION-110",
+    "name": "implicit return [String: Number]",
+    "source": "fn f(): [String: Number] { [\"x\": 1] }; let \$x = f; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

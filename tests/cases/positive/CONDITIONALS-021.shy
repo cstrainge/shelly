@@ -1,0 +1,13 @@
+# CONDITIONALS-021: if true { echo "ok" } else { echo (1 / 0) }
+check ["id": "CONDITIONALS-021",
+    "name": "if true { echo \"ok\" } else { echo (1 / 0) }",
+    "source": "if true { echo \"ok\" } else { echo (1 / 0) }",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

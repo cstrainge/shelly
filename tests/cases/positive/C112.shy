@@ -1,0 +1,13 @@
+# C112: Returned failing status can be inspected
+check ["id": "C112",
+    "name": "Returned failing status can be inspected",
+    "source": "fn f() { /usr/bin/false }\nlet \$x = f ; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "ExecResult(1)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

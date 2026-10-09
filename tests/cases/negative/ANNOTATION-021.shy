@@ -1,0 +1,13 @@
+# ANNOTATION-021: initialize Integer from Boolean
+check ["id": "ANNOTATION-021",
+    "name": "initialize Integer from Boolean",
+    "source": "let \$x: Integer = true; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

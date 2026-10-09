@@ -1,0 +1,13 @@
+# ARRAY-113: file invalid array index
+check ["id": "ARRAY-113",
+    "name": "file invalid array index",
+    "source": "let \$a = []; echo \$a[0]; echo \"AFTER_ERROR\"",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

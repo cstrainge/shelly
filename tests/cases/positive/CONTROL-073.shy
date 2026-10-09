@@ -1,0 +1,13 @@
+# CONTROL-073: continue abandoned boolean
+check ["id": "CONTROL-073",
+    "name": "continue abandoned boolean",
+    "source": "let \$x = 9; for \$i in 0..3 { let \$x = true && (if true { continue }); echo \"bad\" }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

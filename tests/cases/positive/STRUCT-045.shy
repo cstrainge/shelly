@@ -1,0 +1,13 @@
+# STRUCT-045: scoped name shadow
+check ["id": "STRUCT-045",
+    "name": "scoped name shadow",
+    "source": "struct S { n }; let \$old = S(n: 1); { struct S { n }; echo (\$old == S(n: 1)) }; echo (\$old == S(n: 1))",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\ntrue\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

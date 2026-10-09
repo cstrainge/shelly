@@ -1,0 +1,13 @@
+# MAP-036: function return
+check ["id": "MAP-036",
+    "name": "function return",
+    "source": "fn f() { [\"a\":1] }; echo (f)[\"a\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

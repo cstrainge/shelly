@@ -1,0 +1,13 @@
+# REDIRECTION-044: malformed let $out: String; echo "x" -> $out ~+-> $out
+check ["id": "REDIRECTION-044",
+    "name": "malformed let \$out: String; echo \"x\" -> \$out ~+-> \$out",
+    "source": "echo \"PARSE_SENTINEL\"; let \$out: String; echo \"x\" -> \$out ~+-> \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

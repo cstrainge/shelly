@@ -1,0 +1,13 @@
+# STRUCT-030: struct key retains float fields
+check ["id": "STRUCT-030",
+    "name": "struct key retains float fields",
+    "source": "struct Key { n: Float }; struct Box { key: Key }; let \$m = [Key(n: 1.0): 42]; for \$k, \$v in \$m { echo Box(key: \$k).key.n }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1.0\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

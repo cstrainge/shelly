@@ -1,0 +1,13 @@
+# CONVERT-248: named arguments ExecResult
+check ["id": "CONVERT-248",
+    "name": "named arguments ExecResult",
+    "source": "echo ExecResult(value: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

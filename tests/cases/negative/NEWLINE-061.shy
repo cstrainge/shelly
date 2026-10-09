@@ -1,0 +1,13 @@
+# NEWLINE-061: spaced empty missing member
+check ["id": "NEWLINE-061",
+    "name": "spaced empty missing member",
+    "source": "struct E {}; echo E ().missing",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

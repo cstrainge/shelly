@@ -1,0 +1,13 @@
+# ANNOTATION-151: bad static explicit return
+check ["id": "ANNOTATION-151",
+    "name": "bad static explicit return",
+    "source": "fn f(): Number { return \"bad\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# METHOD-053: sort let $a = [true, false, true]; $a.sort
+check ["id": "METHOD-053",
+    "name": "sort let \$a = [true, false, true]; \$a.sort",
+    "source": "let \$a = [true, false, true]; echo \$a.sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

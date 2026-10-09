@@ -1,0 +1,13 @@
+# NEWLINE-029: unknown field
+check ["id": "NEWLINE-029",
+    "name": "unknown field",
+    "source": "struct S { n: Number }; S\n(other: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

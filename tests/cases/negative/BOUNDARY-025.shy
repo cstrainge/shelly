@@ -1,0 +1,13 @@
+# BOUNDARY-025: unmatched block close
+check ["id": "BOUNDARY-025",
+    "name": "unmatched block close",
+    "source": "echo \"PARSE_SENTINEL\"; }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

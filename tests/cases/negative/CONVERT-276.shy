@@ -1,0 +1,13 @@
+# CONVERT-276: empty any
+check ["id": "CONVERT-276",
+    "name": "empty any",
+    "source": "echo any()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["exactly one positional value"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MAP-062: key equality / 0 / ""
+check ["id": "MAP-062",
+    "name": "key equality / 0 / \"\"",
+    "source": "let \$m = [0:7]; echo \$m[\"\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

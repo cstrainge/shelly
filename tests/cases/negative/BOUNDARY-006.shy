@@ -1,0 +1,13 @@
+# BOUNDARY-006: let block initializer
+check ["id": "BOUNDARY-006",
+    "name": "let block initializer",
+    "source": "echo \"PARSE_SENTINEL\"; let \$x = {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

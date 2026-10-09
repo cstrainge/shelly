@@ -1,0 +1,13 @@
+# NEWLINE-050: spaced scoped type
+check ["id": "NEWLINE-050",
+    "name": "spaced scoped type",
+    "source": "struct E {}; let \$a = E (); { struct E {}; echo (\$a == E ()) }; echo (\$a == E ())",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\ntrue\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MAP-510: malformed map / echo ["x":1,"y"]
+check ["id": "MAP-510",
+    "name": "malformed map / echo [\"x\":1,\"y\"]",
+    "source": "echo \"PARSE_SENTINEL\"; echo [\"x\":1,\"y\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# METHOD-043: sort ["z", "a", "b"].sort
+check ["id": "METHOD-043",
+    "name": "sort [\"z\", \"a\", \"b\"].sort",
+    "source": "echo [\"z\", \"a\", \"b\"].sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "a b z\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-313: signal has no numeric code Float
+check ["id": "CONVERT-313",
+    "name": "signal has no numeric code Float",
+    "source": "let \$r = audit_signal; echo Float(\$r)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

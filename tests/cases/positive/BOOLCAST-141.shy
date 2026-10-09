@@ -1,0 +1,13 @@
+# BOOLCAST-141: shadowed struct
+check ["id": "BOOLCAST-141",
+    "name": "shadowed struct",
+    "source": "struct Boolean { value: Number }; echo Boolean(value: 4).value",
+    "mode": "code",
+    "args": [],
+    "stdout": "4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

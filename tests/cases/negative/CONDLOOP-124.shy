@@ -1,0 +1,13 @@
+# CONDLOOP-124: until malformed / until false { break 1 }
+check ["id": "CONDLOOP-124",
+    "name": "until malformed / until false { break 1 }",
+    "source": "echo \"PARSE_SENTINEL\"; until false { break 1 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOOLCAST-118: failed status
+check ["id": "BOOLCAST-118",
+    "name": "failed status",
+    "source": "let \$r = /bin/false; echo Boolean(\$r)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-018: initialize Integer from Integer
+check ["id": "ANNOTATION-018",
+    "name": "initialize Integer from Integer",
+    "source": "let \$x: Integer = 1; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

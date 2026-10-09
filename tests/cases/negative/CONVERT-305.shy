@@ -1,0 +1,13 @@
+# CONVERT-305: index member chaining
+check ["id": "CONVERT-305",
+    "name": "index member chaining",
+    "source": "enum E { A, B, C }; echo E::A.index.index",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

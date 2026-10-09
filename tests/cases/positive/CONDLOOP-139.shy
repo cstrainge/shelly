@@ -1,0 +1,13 @@
+# CONDLOOP-139: until file
+check ["id": "CONDLOOP-139",
+    "name": "until file",
+    "source": "let \$n = 0; until \$n == 3 { \$n = \$n + 1 }; echo \$n",
+    "mode": "file",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

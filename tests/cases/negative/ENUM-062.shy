@@ -1,0 +1,13 @@
+# ENUM-062: unit constructor
+check ["id": "ENUM-062",
+    "name": "unit constructor",
+    "source": "enum Color { Red, Green, Blue }; echo Color::Red()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

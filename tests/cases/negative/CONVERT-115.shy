@@ -1,0 +1,13 @@
+# CONVERT-115: matrix ArgumentExpansion to ExecResult
+check ["id": "CONVERT-115",
+    "name": "matrix ArgumentExpansion to ExecResult",
+    "source": "let \$a = [1, 2]; let \$v: ArgumentExpansion = \$a...; let \$converted: ExecResult = ExecResult(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

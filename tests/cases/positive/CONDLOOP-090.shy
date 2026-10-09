@@ -1,0 +1,13 @@
+# CONDLOOP-090: until conversion / ..
+check ["id": "CONDLOOP-090",
+    "name": "until conversion / ..",
+    "source": "until .. { echo \"body\"; break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

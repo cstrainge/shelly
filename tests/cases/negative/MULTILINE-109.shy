@@ -1,0 +1,13 @@
+# MULTILINE-109: missing operand != / 'echo (true\n !=\n)'
+check ["id": "MULTILINE-109",
+    "name": "missing operand != / 'echo (true\\n !=\\n)'",
+    "source": "echo \"PARSE_SENTINEL\"; echo (true\n !=\n)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

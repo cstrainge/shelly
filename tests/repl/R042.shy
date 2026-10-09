@@ -1,0 +1,5 @@
+# Struct declarations and constructors roll back
+check_repl ["id": "R042",
+    "name": "Struct declarations and constructors roll back",
+    "steps": [["struct Stable { n: Number }; let \$s = Stable(n: 1); fn make() { Stable(n: 2) }", "quiet", ""], ["struct Stable { other: Missing }; fn make() { () }", "error", ""], ["echo (make).n \$s.n", "output", "2 1"], ["struct Temp {}; struct Loop { next: Loop }", "error", ""], ["echo Temp()", "error", ""], ["let \$s = Stable(n: \"bad\")", "error", ""], ["echo \$s.n", "output", "1"], ["struct Runtime {}; /usr/bin/false", "error", ""], ["echo Runtime()", "output", "Runtime()"]],
+    "exit": 0]

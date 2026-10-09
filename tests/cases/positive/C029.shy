@@ -1,0 +1,13 @@
+# C029: Single quoted interpolation stays literal
+check ["id": "C029",
+    "name": "Single quoted interpolation stays literal",
+    "source": "echo '\$missing_audit_variable'",
+    "mode": "code",
+    "args": [],
+    "stdout": "\$missing_audit_variable\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

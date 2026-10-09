@@ -1,0 +1,13 @@
+# ANNOTATION-201: variadic COW array argument
+check ["id": "ANNOTATION-201",
+    "name": "variadic COW array argument",
+    "source": "fn f(\$xs: [Number]...): [[Number]] { \$xs[0][0] = 7; return \$xs }; let \$a = [1]; echo (f \$a)[0][0] \$a[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

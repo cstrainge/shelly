@@ -1,0 +1,13 @@
+# STRUCT-054: nested multiline declarations
+check ["id": "STRUCT-054",
+    "name": "nested multiline declarations",
+    "source": "struct S\n{\n n: Number, # comment\n m: [\n String:\n optional [Number]\n ],\n}\necho S(n: 1, m: [:]).n",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

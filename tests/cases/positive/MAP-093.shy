@@ -1,0 +1,13 @@
+# MAP-093: key equality / -0.0 / [[1],[:]]
+check ["id": "MAP-093",
+    "name": "key equality / -0.0 / [[1],[:]]",
+    "source": "let \$m = [-0.0:7]; echo \$m[[[1],[:]]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

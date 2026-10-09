@@ -1,0 +1,13 @@
+# C023: Division by zero
+check ["id": "C023",
+    "name": "Division by zero",
+    "source": "echo 1 / 0",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

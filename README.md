@@ -1319,6 +1319,66 @@ operators are not supported. Input from files or variables into a process will
 use `|` pipelines, which are not implemented yet. Append redirection is also
 not implemented.
 
+## Supervised processes and terminals
+
+`run_process` accepts an argument array and an options map. It returns a result
+map rather than raising a language error for a nonzero exit, signal, timeout, or
+launch failure. Inspect the result explicitly:
+
+```text
+let $result = run_process ["/usr/bin/cat"] [
+    "stdin_file": "input.bin", "stdout_file": "output.bin",
+    "stderr_file": "errors.txt", "timeout_ms": 3000,
+]
+echo $result["exit_code"] $result["signal"] $result["timed_out"] $result["error"]
+```
+
+Options are `cwd`, `env`, `stdin_file`, `stdout_file`, `stderr_file`, and
+`timeout_ms`. Arguments, paths, and environment names/values must be strings.
+An omitted `env` inherits Shelly's exported variables; an explicit map replaces
+the environment, including `[:]` to clear it. File paths are relative to the
+calling shell's directory, independently of the child's `cwd`. Output files are
+truncated; use distinct files for separate streams. Omitted streams inherit the
+current streams, including Shelly's `->`, `~->`, and `~+->` redirections. Explicit
+file options override that inheritance. File I/O preserves arbitrary bytes.
+
+Results always contain `exit_code` (integer or `()`), `signal` (integer or `()`),
+`timed_out` (boolean), and `error` (launch/I/O error text or `()`). Invalid API
+arguments are language errors. Deadlines are nonnegative integer milliseconds;
+omitting `timeout_ms` waits indefinitely. On timeout Shelly sends SIGTERM to the
+child's process group, waits 100 ms, then sends SIGKILL and reaps the child. It
+also stops remaining group members after the direct child exits normally.
+Children that deliberately create a different process group escape this group
+cleanup. This API currently requires Unix.
+
+The native terminal API creates a child with a controlling PTY:
+
+```text
+let $terminal: Terminal = open_terminal ["/usr/bin/cat"] ["rows": 40, "columns": 140]
+terminal_write $terminal "hello\n"
+let $reply = terminal_read $terminal 1000
+echo $reply["text"] $reply["eof"] $reply["timed_out"]
+let $status = terminal_close $terminal
+```
+
+`open_terminal` accepts `cwd`, `env`, `rows`, and `columns`. Dimensions must be
+integers from 1 to 65535; defaults are 40 by 140. `Terminal` is an opaque shared
+handle with identity equality; assigning it shares the same terminal. Reads
+return UTF-8 text, EOF/timeout flags, and the process-result fields above. A read
+timeout does not kill the process or imply EOF. Reads may return partial output;
+UTF-8 sequences split between reads are retained, while invalid or truncated
+UTF-8 raises an error. Writes accept strings and have a five-second deadline if
+the PTY stops accepting input. Closing releases the PTY, stops the process group,
+and reaps the child; repeated closes return the same status. Dropping the last
+handle also cleans up. Writes and reads after explicit close are errors.
+
+Strings provide `$text.chars`, `$text.contains $part`, `$text.starts_with $prefix`,
+`$text.ends_with $suffix`, `$text.replace $old $new`, `$text.split $separator`,
+`$text.trim`, `$text.trim_start`, and `$text.trim_end`. They return new values and
+never mutate the receiver. `chars` returns Unicode scalar strings; `split`
+retains empty fields, including leading/trailing ones. Trimming uses Unicode
+whitespace and is always explicit: captures still preserve trailing newlines.
+
 ## Current limitations and known issues
 
 - Arithmetic converts operands to integers rather than preserving floating-point values.
@@ -1365,12 +1425,35 @@ up on returns and errors.
 Build with `cargo build --locked` and check behavior through command-line source,
 scripts, or the REPL. `cargo clippy --locked --all-targets` runs the Rust lints.
 
-[test.shy](test.shy) can run with its multiline conditions, zipped-array
-destructuring, file reads, and command captures. Run it from the repository root
-with `./target/debug/shelly test.shy`. Add matching `.shy`/`.txt` fixture pairs
-under `tests/must_succeed` and `tests/must_fail`; those directories are currently
-empty. Both categories need fixtures because unmatched globs still raise an
-error. An empty expected-output file disables output comparison for that test.
+[test.shy](test.shy) runs the Shelly test suite from the repository root:
+
+```sh
+./target/debug/shelly -m test.shy
+./target/debug/shelly -m test.shy native
+./target/debug/shelly -m test.shy C001
+```
+
+The suite includes 3,804 process cases, 85 stateful REPL scenarios, prompt/path
+checks, watchdog probes, native API tests, and harness failure controls. All
+orchestration and assertions run in Shelly; no Python, pexpect, or other shell is
+needed. Standard Unix utilities still provide file operations and byte/regex
+comparisons. See [tests/README.md](tests/README.md) for the case format and
+[tests/MIGRATION.md](tests/MIGRATION.md) for coverage mapping.
+
+Each case gets a private temporary fixture, isolated HOME/TMPDIR, an explicit
+child environment, and native process deadlines. The runner continues after
+failures and exits 1 if any test fails or the selection is empty. Normal
+completion removes temporary fixtures; interrupted runs can leave directories
+under `/tmp/shelly-suite.*`.
+
+**Keep validation releases separate from an installed/default-shell binary:**
+
+```sh
+cargo build --locked --release --target-dir target/test-validation
+./target/test-validation/release/shelly -m test.shy
+```
+
+This does not replace `target/release/shelly`.
 
 ## Direction
 

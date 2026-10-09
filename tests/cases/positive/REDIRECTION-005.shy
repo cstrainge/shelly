@@ -1,0 +1,13 @@
+# REDIRECTION-005: empty capture replaces
+check ["id": "REDIRECTION-005",
+    "name": "empty capture replaces",
+    "source": "let \$out = \"old\"; /usr/bin/true -> \$out; printf \"<%s>\" \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "<>",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

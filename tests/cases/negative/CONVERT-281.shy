@@ -1,0 +1,13 @@
+# CONVERT-281: return type inferred
+check ["id": "CONVERT-281",
+    "name": "return type inferred",
+    "source": "fn f(\$s): String { Integer(\$s) }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected String"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-206: runtime rejection / boundary_missing_executable 1
+check ["id": "BOUNDARY-206",
+    "name": "runtime rejection / boundary_missing_executable 1",
+    "source": "boundary_missing_executable 1; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable not found:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-613: equals in variable name / let export $bad_name=other = 1
+check ["id": "BOUNDARY-613",
+    "name": "equals in variable name / let export \$bad_name=other = 1",
+    "source": "echo \"PARSE_SENTINEL\"; let export \$bad_name=other = 1",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": ["Invalid variable name: '=' is not allowed."],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# DESTRUCTURING-077: single binding keeps array
+check ["id": "DESTRUCTURING-077",
+    "name": "single binding keeps array",
+    "source": "for \$pair in [[1, 2]] { echo \$pair[0] \$pair[1] }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

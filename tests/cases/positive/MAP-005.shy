@@ -1,0 +1,13 @@
+# MAP-005: mixed typed values
+check ["id": "MAP-005",
+    "name": "mixed typed values",
+    "source": "let \$m = [\"n\":1,\"b\":true,\"a\":[2],\"m\":[:],\"none\":()]; echo (\$m[\"n\"] == 1) \$m[\"b\"] (\$m[\"a\"] == [2]) (\$m[\"m\"] == [:]) \$m[\"none\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true true true ()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# EXTENSION-082: bound repeated mutation updates live receiver
+check ["id": "EXTENSION-082",
+    "name": "bound repeated mutation updates live receiver",
+    "source": "fn Array::inc() { \$self[0] = \$self[0] + 1; \$self }; let \$a = [1]; let \$r = `\$a.inc; echo (\$r)...; echo (\$r)...; echo \$a...",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n3\n3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

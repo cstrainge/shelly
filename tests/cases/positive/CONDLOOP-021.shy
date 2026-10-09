@@ -1,0 +1,13 @@
+# CONDLOOP-021: while conversion / (/usr/bin/false)
+check ["id": "CONDLOOP-021",
+    "name": "while conversion / (/usr/bin/false)",
+    "source": "while (/usr/bin/false) { echo \"body\"; break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

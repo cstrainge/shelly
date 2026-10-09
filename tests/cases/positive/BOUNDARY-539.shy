@@ -1,0 +1,13 @@
+# BOUNDARY-539: nonempty array compares structurally
+check ["id": "BOUNDARY-539",
+    "name": "nonempty array compares structurally",
+    "source": "let \$copy = \$args; echo (\$copy == \$args)",
+    "mode": "code",
+    "args": ["a", "b"],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

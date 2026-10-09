@@ -1,0 +1,13 @@
+# MAP-520: nested invalid access / echo [:]["missing"][0]
+check ["id": "MAP-520",
+    "name": "nested invalid access / echo [:][\"missing\"][0]",
+    "source": "echo [:][\"missing\"][0]; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

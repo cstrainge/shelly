@@ -1,0 +1,13 @@
+# CONDLOOP-026: while / empty body probe
+check ["id": "CONDLOOP-026",
+    "name": "while / empty body probe",
+    "source": "let \$n = 0; fn probe() { \$n = \$n + 1; \$n != 3 }; while probe {}; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

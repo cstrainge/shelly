@@ -1,0 +1,13 @@
+# ANNOTATION-139: export typed variable
+check ["id": "ANNOTATION-139",
+    "name": "export typed variable",
+    "source": "let export \$ANNOTATION_VALUE: Number = 4; printenv ANNOTATION_VALUE",
+    "mode": "code",
+    "args": [],
+    "stdout": "4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-085: matrix None to HashMap
+check ["id": "CONVERT-085",
+    "name": "matrix None to HashMap",
+    "source": "let \$v = (); let \$converted: HashMap = HashMap(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

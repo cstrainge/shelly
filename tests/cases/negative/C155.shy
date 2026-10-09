@@ -1,0 +1,13 @@
+# C155: Invalid tab width rejected
+check ["id": "C155",
+    "name": "Invalid tab width rejected",
+    "source": "",
+    "mode": "bad_tab",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Invalid tab width",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

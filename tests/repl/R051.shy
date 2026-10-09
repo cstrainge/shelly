@@ -1,0 +1,5 @@
+# Recursive and sibling compiled calls retain their versions
+check_repl ["id": "R051",
+    "name": "Recursive and sibling compiled calls retain their versions",
+    "steps": [["fn count(\$n: Number): Number { if \$n == 0 { return 0 }; 1 + (count (\$n - 1)) }", "quiet", ""], ["let \$old = `count", "quiet", ""], ["fn wrapper(\$n: Number): Number { count \$n }", "quiet", ""], ["fn count(\$n: Number): Number { 99 }", "quiet", ""], ["echo (\$old 3) (wrapper 4) (count 3)", "output", "3 4 99"], ["fn a(): Number { b }; fn b(): Number { 7 }", "quiet", ""], ["fn b(): Number { 8 }", "quiet", ""], ["echo (a) (b)", "output", "7 8"], ["fn a(): Number { b }", "quiet", ""], ["echo (a)", "output", "8"]],
+    "exit": 0]

@@ -1,0 +1,13 @@
+# C129: Explicit hidden glob
+check ["id": "C129",
+    "name": "Explicit hidden glob",
+    "source": "audit_args fixtures/.*",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"fixtures/.hidden\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

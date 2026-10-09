@@ -1,0 +1,13 @@
+# REDIRECTION-032: typed capture mismatch
+check ["id": "REDIRECTION-032",
+    "name": "typed capture mismatch",
+    "source": "let \$out: Integer; echo \"bad\" -> \$out; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Redirection error:",
+    "stderr_contains": ["Expected Integer"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

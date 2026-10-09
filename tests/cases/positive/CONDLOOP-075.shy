@@ -1,0 +1,13 @@
+# CONDLOOP-075: until conversion / 2
+check ["id": "CONDLOOP-075",
+    "name": "until conversion / 2",
+    "source": "until 2 { echo \"body\"; break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

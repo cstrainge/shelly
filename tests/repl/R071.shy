@@ -1,0 +1,5 @@
+# Receiver update type errors are atomic
+check_repl ["id": "R071",
+    "name": "Receiver update type errors are atomic",
+    "steps": [["struct S { n: Integer }; let \$s = S(n: 1); fn any::bad() { \$self = \"bad\" }", "quiet", ""], ["\$s.n.bad", "error", ""], ["echo \$s.n", "output", "1"], ["let \$a: [Integer] = [1]; \$a[0].bad", "error", ""], ["echo \$a[0]", "output", "1"], ["fn Integer::inc() { \$self = \$self + 1 }; \$s.n.inc; \$a[0].inc; echo \$s.n \$a[0]", "output", "2 2"]],
+    "exit": 0]

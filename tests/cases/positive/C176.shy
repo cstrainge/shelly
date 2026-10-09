@@ -1,0 +1,13 @@
+# C176: Signed float retains source spelling
+check ["id": "C176",
+    "name": "Signed float retains source spelling",
+    "source": "audit_args -2.50",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"-2.50\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONDITIONALS-011: echo (if true { 8; let $x = 9 } else { 4 })
+check ["id": "CONDITIONALS-011",
+    "name": "echo (if true { 8; let \$x = 9 } else { 4 })",
+    "source": "echo (if true { 8; let \$x = 9 } else { 4 })",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

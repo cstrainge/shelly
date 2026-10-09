@@ -1,0 +1,13 @@
+# DESTRUCTURING-095: file source
+check ["id": "DESTRUCTURING-095",
+    "name": "file source",
+    "source": "let \$a = [1, 2]; for (\$x, \$y) in \$a.zip [3, 4] { echo \$x \$y }",
+    "mode": "file",
+    "args": [],
+    "stdout": "1 3\n2 4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

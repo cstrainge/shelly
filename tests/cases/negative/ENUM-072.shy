@@ -1,0 +1,13 @@
+# ENUM-072: bad statement separator
+check ["id": "ENUM-072",
+    "name": "bad statement separator",
+    "source": "enum C { A } echo C::A",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

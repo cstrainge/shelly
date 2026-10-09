@@ -1,0 +1,13 @@
+# METHOD-103: array type shadow unaffected
+check ["id": "METHOD-103",
+    "name": "array type shadow unaffected",
+    "source": "struct Array {}; let \$a = [3, 1]; echo \$a.sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

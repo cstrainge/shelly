@@ -1,0 +1,13 @@
+# CONVERT-137: matrix String to any
+check ["id": "CONVERT-137",
+    "name": "matrix String to any",
+    "source": "let \$v = \"2\"; let \$converted: any = any(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

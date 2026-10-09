@@ -1,0 +1,13 @@
+# BOUNDARY-010: fn missing name
+check ["id": "BOUNDARY-010",
+    "name": "fn missing name",
+    "source": "echo \"PARSE_SENTINEL\"; fn",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-181: numeric and syntax Array(3..1)
+check ["id": "CONVERT-181",
+    "name": "numeric and syntax Array(3..1)",
+    "source": "echo Array(3..1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

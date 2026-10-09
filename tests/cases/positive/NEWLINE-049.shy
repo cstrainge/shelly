@@ -1,0 +1,13 @@
+# NEWLINE-049: spaced forward type
+check ["id": "NEWLINE-049",
+    "name": "spaced forward type",
+    "source": "echo E (); struct E {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "E()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

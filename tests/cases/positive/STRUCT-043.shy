@@ -1,0 +1,13 @@
+# STRUCT-043: constructor evaluate source order
+check ["id": "STRUCT-043",
+    "name": "constructor evaluate source order",
+    "source": "let \$order = 0; fn mark(\$n) { \$order = \$order * 10 + \$n; return \$n }; struct S { a: Number, b: Number }; let \$s = S(b: mark 2, a: mark 1); echo \$order \$s.a \$s.b",
+    "mode": "code",
+    "args": [],
+    "stdout": "21 1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

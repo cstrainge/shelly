@@ -1,0 +1,13 @@
+# BOOLEAN-010: fn yes() { true }; fn no() { false }; echo ((yes) && (no)) ((no) || (yes))
+check ["id": "BOOLEAN-010",
+    "name": "fn yes() { true }; fn no() { false }; echo ((yes) && (no)) ((no) || (yes))",
+    "source": "fn yes() { true }; fn no() { false }; echo ((yes) && (no)) ((no) || (yes))",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

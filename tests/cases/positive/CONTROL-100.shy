@@ -1,0 +1,13 @@
+# CONTROL-100: normal inner exit pops frame
+check ["id": "CONTROL-100",
+    "name": "normal inner exit pops frame",
+    "source": "for \$i in [1,2] { for \$j in [] {}; echo \$i; break }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

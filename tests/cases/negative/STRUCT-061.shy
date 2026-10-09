@@ -1,0 +1,13 @@
+# STRUCT-061: constructor is not executable
+check ["id": "STRUCT-061",
+    "name": "constructor is not executable",
+    "source": "struct S {}; S() 1",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Cannot execute a struct"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

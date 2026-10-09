@@ -1,0 +1,13 @@
+# ENUM-050: skipped branch
+check ["id": "ENUM-050",
+    "name": "skipped branch",
+    "source": "if false { echo Missing::A }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown type"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

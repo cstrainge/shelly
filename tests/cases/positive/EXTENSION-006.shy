@@ -1,0 +1,13 @@
+# EXTENSION-006: builtin receiver String"hi"
+check ["id": "EXTENSION-006",
+    "name": "builtin receiver String\"hi\"",
+    "source": "fn String::copy(): String { \$self }; let \$v: String = \"hi\"; let \$copy = \$v.copy; echo String(\$copy)",
+    "mode": "code",
+    "args": [],
+    "stdout": "hi\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# METHOD-077: copy semantics
+check ["id": "METHOD-077",
+    "name": "copy semantics",
+    "source": "let \$a = [3, 1, 2]; let \$b = \$a.sort; \$b[0] = 9; echo \$a...; echo \$b...",
+    "mode": "code",
+    "args": [],
+    "stdout": "3 1 2\n9 2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

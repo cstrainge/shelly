@@ -1,0 +1,13 @@
+# CONVERT-263: named arguments Array
+check ["id": "CONVERT-263",
+    "name": "named arguments Array",
+    "source": "echo Array(value: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

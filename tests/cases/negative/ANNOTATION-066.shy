@@ -1,0 +1,13 @@
+# ANNOTATION-066: initialize [Number] from Integer
+check ["id": "ANNOTATION-066",
+    "name": "initialize [Number] from Integer",
+    "source": "let \$x: [Number] = 1; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

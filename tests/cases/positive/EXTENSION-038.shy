@@ -1,0 +1,13 @@
+# EXTENSION-038: arguments once
+check ["id": "EXTENSION-038",
+    "name": "arguments once",
+    "source": "let \$hits = 0; fn make() { \$hits = \$hits + 1; 2 }; fn Integer::add(\$x: Integer): Integer { \$self + \$x }; let \$v = 1; echo (\$v.add (make)) \$hits",
+    "mode": "code",
+    "args": [],
+    "stdout": "3 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

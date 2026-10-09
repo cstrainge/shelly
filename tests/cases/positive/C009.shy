@@ -1,0 +1,13 @@
+# C009: Negative integer in arithmetic
+check ["id": "C009",
+    "name": "Negative integer in arithmetic",
+    "source": "echo -2 + 3",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

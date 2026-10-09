@@ -1,0 +1,13 @@
+# C020: Missing statement separator
+check ["id": "C020",
+    "name": "Missing statement separator",
+    "source": "let \$x = 1 echo \"should-not-run\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -10,11 +10,12 @@ use std::{ cell::RefCell,
                   split_paths },
            fmt::{ self, Debug, Display, Formatter },
            fs::File,
-           io::{ BufReader, ErrorKind, Write, copy, stdout, stderr },
+           io::{ BufReader, Error, ErrorKind, Read, Write, copy, pipe, stdout, stderr },
            path::{ Path, PathBuf, Component, MAIN_SEPARATOR_STR, is_separator },
            process::{ Command, Stdio },
            rc::Rc,
-           mem::replace };
+           mem::replace,
+           thread::Builder };
 
 use glob::{ MatchOptions, Pattern, glob };
 
@@ -39,7 +40,7 @@ use crate::{ language::{ bytecode::{ Code,
                          text::{ buffer::Buffer, location::Location, read_buffer::ReadBuffer },
                          interpreter::{ iteration::Iteration,
                                         redirection::{ Redirection, Output, configure } } },
-             runtime::color::TtyColorMode };
+             runtime::{ color::TtyColorMode, process::{ COMMANDS, invoke } } };
 
 const BANNER_TRUECOLOR: &str = include_str!("../../../banner_truecolor.txt");
 const BANNER_256: &str = include_str!("../../../banner_256.txt");
@@ -182,7 +183,7 @@ impl Debug for InterpreterError
 
 pub type BuiltIn<'a> = Rc<dyn Fn(&mut Interpreter,
                                  &Location,
-                                 &[String]) -> InterpreterResult<()> + 'a>;
+                                 &[Value]) -> InterpreterResult<()> + 'a>;
 
 pub type BuiltIns<'a> = HashMap<&'static str, BuiltIn<'a>>;
 
@@ -247,6 +248,28 @@ pub enum RcFile
 
 impl Interpreter
 {
+    fn exported_environment(&self, location: &Location) -> InterpreterResult<Vec<(String, String)>>
+    {
+        self.variables.get_all_flattened()
+            .iter()
+            .filter(|(_, value)| value.exported == ValueVisibility::Exported)
+            .map(|(key, _)|
+                {
+                    let text = self.read_raw_variable(key, location)?.as_text();
+                    let text = if key == "$PATH"
+                        {
+                            self.eval_path_list_from(&text)
+                        }
+                        else
+                        {
+                            self.eval_path_from(&text)
+                        };
+
+                    Ok((key.strip_prefix('$').unwrap_or(key.as_str()).to_string(), text))
+                })
+            .collect()
+    }
+
     pub fn new(startup: Startup,
                interactive: Interactive,
                color_mode: TtyColorMode,
@@ -256,7 +279,7 @@ impl Interpreter
     {
         let variables = ScopedVariables::new_from_environment();
 
-        let built_ins: BuiltIns<'static> = HashMap::from([
+        let mut built_ins: BuiltIns<'static> = HashMap::from([
                 (
                     "cd",
                     Rc::new(Interpreter::handle_cd) as BuiltIn<'static>
@@ -267,6 +290,50 @@ impl Interpreter
                     Rc::new(Interpreter::handle_exit) as BuiltIn<'static>
                 )
             ]);
+
+        for &name in COMMANDS
+        {
+            built_ins.insert(name, Rc::new(move |interpreter, location, args|
+                {
+                    let environment = interpreter.exported_environment(location)?;
+                    let mut capture = None;
+                    let result = invoke(name, args, &environment,
+                        |path| interpreter.eval_path_from(path),
+                        |command|
+                            {
+                                let redirected = configure(command, &interpreter.redirections)?;
+                                if interpreter.captured_stdout.is_some() && !redirected
+                                {
+                                    let (mut reader, writer) = pipe()?;
+                                    capture = Some(Builder::new().name("shelly-process".into())
+                                        .spawn(move ||
+                                            {
+                                                let mut bytes = Vec::new();
+                                                reader.read_to_end(&mut bytes)?;
+                                                Ok::<_, Error>(bytes)
+                                            })?);
+                                    command.stdout(writer);
+                                }
+                                Ok(())
+                            });
+                    if let Some(worker) = capture
+                    {
+                        let bytes = worker.join()
+                            .map_err(|_| Error::other("Process capture worker panicked"))
+                            .and_then(|result| result)
+                            .map_err(|error| Self::redirection_error(location, error))?;
+                        if let Some(output) = interpreter.captured_stdout.as_mut()
+                        { output.extend_from_slice(&bytes); }
+                    }
+                    let result = result.map_err(|error| InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::InvalidOperand(error),
+                            })?;
+                    interpreter.last_result = Some(result);
+                    Ok(())
+                }));
+        }
 
         let special_vars: SpecialVars = HashMap::from([
                 (
@@ -509,7 +576,8 @@ impl Interpreter
         }
         else if let Some(built_in) = self.built_ins.get(command).cloned()
         {
-            built_in(self, &location, &args)?;
+            built_in(self, &location,
+                &args.iter().cloned().map(Value::from_string).collect::<Vec<_>>())?;
         }
         else
         {
@@ -676,7 +744,7 @@ impl Interpreter
                                 location: location.clone(),
                                 what: ErrorWhat::NoResult
                             })?;
-                        if matches!(value, Value::Enum(_) | Value::Struct(_))
+                        if matches!(value, Value::Enum(_) | Value::Struct(_) | Value::Terminal(_))
                         {
                             return Err(InterpreterError
                                 {
@@ -686,6 +754,10 @@ impl Interpreter
                                         if matches!(value, Value::Enum(_))
                                         {
                                             "an enum"
+                                        }
+                                        else if matches!(value, Value::Terminal(_))
+                                        {
+                                            "a terminal"
                                         }
                                         else
                                         {
@@ -722,7 +794,8 @@ impl Interpreter
                                 | Value::HashMap(_)
                                 | Value::Range(_)
                                 | Value::Enum(_)
-                                | Value::Struct(_)),
+                                | Value::Struct(_)
+                                | Value::Terminal(_)),
                             )
                                 if matches!(instruction.operand, Some(Value::Boolean(true))) =>
                                 {
@@ -2321,7 +2394,7 @@ impl Interpreter
 
         if let Some(built_in) = self.built_ins.get(executable.as_str()).cloned()
         {
-            return built_in(self, location, &args.iter().map(Value::as_text).collect::<Vec<_>>());
+            return built_in(self, location, &args);
         }
 
         if self.find_and_execute_function(location, &executable, &args)?
@@ -2339,25 +2412,7 @@ impl Interpreter
             return Ok(());
         }
 
-        // Only include the environment variables explicitly set by the interpreter.
-        let env_vars: Vec<(String, String)> = self.variables.get_all_flattened()
-            .iter()
-            .filter(|(_, value)| value.exported == ValueVisibility::Exported)
-            .map(|(key, _)|
-                {
-                    let text = self.read_raw_variable(key, location)?.as_text();
-                    let text = if key == "$PATH"
-                        {
-                            self.eval_path_list_from(&text)
-                        }
-                        else
-                        {
-                            self.eval_path_from(&text)
-                        };
-
-                    Ok((key.strip_prefix('$').unwrap_or(key.as_str()).to_string(), text))
-                })
-            .collect::<InterpreterResult<_>>()?;
+        let env_vars = self.exported_environment(location)?;
 
 
         let mut command = Command::new(&executable);
@@ -2523,6 +2578,12 @@ impl Interpreter
     {
         match value
         {
+            Value::Terminal(_) => Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::InvalidOperand(
+                        "Cannot execute a terminal as a command".to_string()),
+                }),
             Value::Struct(_) => Err(InterpreterError
                 {
                     location: location.clone(),
@@ -3102,8 +3163,10 @@ impl Interpreter
         Ok((name.to_string(), arguments.into_iter().collect()))
     }
 
-    fn handle_cd(&mut self, location: &Location, args: &[String]) -> InterpreterResult<()>
+    fn handle_cd(&mut self, location: &Location, args: &[Value]) -> InterpreterResult<()>
     {
+        let args = args.iter().map(Value::as_text).collect::<Vec<_>>();
+        let args = args.as_slice();
         if args.len() != 1
         {
             self.write_stderr(location, "Usage: cd <directory>\n")?;
@@ -3123,8 +3186,10 @@ impl Interpreter
         Ok(())
     }
 
-    fn handle_exit(&mut self, location: &Location, args: &[String]) -> InterpreterResult<()>
+    fn handle_exit(&mut self, location: &Location, args: &[Value]) -> InterpreterResult<()>
     {
+        let args = args.iter().map(Value::as_text).collect::<Vec<_>>();
+        let args = args.as_slice();
         self.exit_code = match args
             {
                 [] => 0,

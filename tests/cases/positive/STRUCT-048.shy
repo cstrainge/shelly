@@ -1,0 +1,13 @@
+# STRUCT-048: declaration result
+check ["id": "STRUCT-048",
+    "name": "declaration result",
+    "source": "fn f() { struct S {} }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

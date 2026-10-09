@@ -1,0 +1,13 @@
+# EXTENSION-033: explicit return
+check ["id": "EXTENSION-033",
+    "name": "explicit return",
+    "source": "fn Integer::early(): Integer { return \$self; echo \"bad\" }; let \$v = 3; echo \$v.early",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

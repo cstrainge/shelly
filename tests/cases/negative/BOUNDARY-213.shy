@@ -1,0 +1,13 @@
+# BOUNDARY-213: runtime rejection / exit 0 1
+check ["id": "BOUNDARY-213",
+    "name": "runtime rejection / exit 0 1",
+    "source": "exit 0 1; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "exit expects",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

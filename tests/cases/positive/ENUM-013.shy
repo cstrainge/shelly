@@ -1,0 +1,13 @@
+# ENUM-013: array iteration
+check ["id": "ENUM-013",
+    "name": "array iteration",
+    "source": "enum Color { Red, Green, Blue }; for \$c in [Color::Red, Color::Green] { echo \$c }",
+    "mode": "code",
+    "args": [],
+    "stdout": "Color::Red\nColor::Green\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# STRUCT-122: not executable
+check ["id": "STRUCT-122",
+    "name": "not executable",
+    "source": "struct S {}; let \$s = S(); \$s",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": ["Cannot execute a struct"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,5 @@
+# Conditional loops recheck conditions and restore scopes
+check_repl ["id": "R035",
+    "name": "Conditional loops recheck conditions and restore scopes",
+    "steps": [["let \$n = 0; let \$x = 9", "quiet", ""], ["while \$n != 3 { let \$x = \$n; \$n = \$n + 1; continue }", "quiet", ""], ["echo \$n \$x", "output", "3 9"], ["until \$n == 0 { \$n = \$n - 1; let \$local = \$n }", "quiet", ""], ["echo \$n \$x", "output", "0 9"], ["echo \$local", "error", "not found"], ["continue", "error", ""], ["until false { echo \"done\"; break }", "output", "done"]],
+    "exit": 0]

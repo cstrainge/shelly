@@ -1,0 +1,13 @@
+# MAP-275: key equality / "ref" / `ref
+check ["id": "MAP-275",
+    "name": "key equality / \"ref\" / `ref",
+    "source": "let \$m = [\"ref\":7]; echo \$m[`ref]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

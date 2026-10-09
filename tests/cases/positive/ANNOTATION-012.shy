@@ -1,0 +1,13 @@
+# ANNOTATION-012: default optional Number
+check ["id": "ANNOTATION-012",
+    "name": "default optional Number",
+    "source": "let \$x: optional Number; echo \"\$x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

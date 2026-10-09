@@ -1,0 +1,13 @@
+# BOOLCAST-161: shadowed struct positional
+check ["id": "BOOLCAST-161",
+    "name": "shadowed struct positional",
+    "source": "struct Boolean { value: Number }; echo Boolean(1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["shadowed"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

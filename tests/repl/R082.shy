@@ -1,0 +1,5 @@
+# Capture spawn and type errors restore streams
+check_repl ["id": "R082",
+    "name": "Capture spawn and type errors restore streams",
+    "steps": [["let \$out = \"old\"; let \$n: Integer", "quiet", ""], ["no_such_flow_command arg -> \$out", "error", "Executable not found:"], ["printf \"<%s>\\n\" \$out", "output", "<>"], ["echo \"bad\" -> \$n", "error", "Expected Integer, got String"], ["echo \$n", "output", "0"], ["echo \"restored\"", "output", "restored"]],
+    "exit": 0]

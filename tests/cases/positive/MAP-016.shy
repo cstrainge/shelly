@@ -1,0 +1,13 @@
+# MAP-016: map key ignores order
+check ["id": "MAP-016",
+    "name": "map key ignores order",
+    "source": "let \$m = [[\"a\":1,\"b\":2]:7]; echo \$m[[\"b\":2.0,\"a\":1.0]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

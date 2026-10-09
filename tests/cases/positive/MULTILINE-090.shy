@@ -1,0 +1,13 @@
+# MULTILINE-090: short circuit reaches effects
+check ["id": "MULTILINE-090",
+    "name": "short circuit reaches effects",
+    "source": "let \$hits = 0; fn tick() { \$hits = \$hits + 1; true }; echo (true\n && (tick)) (false\n || (tick)) \$hits",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

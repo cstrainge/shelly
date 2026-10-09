@@ -1,0 +1,13 @@
+# LOOP-061: stdin malformed
+check ["id": "LOOP-061",
+    "name": "stdin malformed",
+    "source": "echo \"PARSE_SENTINEL\"; loop",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

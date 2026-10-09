@@ -1,0 +1,13 @@
+# NEWLINE-019: function then group
+check ["id": "NEWLINE-019",
+    "name": "function then group",
+    "source": "fn f() { echo \"first\" }; f\n(echo \"second\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "first\nsecond\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

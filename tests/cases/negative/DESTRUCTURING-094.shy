@@ -1,0 +1,13 @@
+# DESTRUCTURING-094: noniterable
+check ["id": "DESTRUCTURING-094",
+    "name": "noniterable",
+    "source": "for (\$a, \$b) in 42 {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Iteration error:",
+    "stderr_contains": ["For loops require"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

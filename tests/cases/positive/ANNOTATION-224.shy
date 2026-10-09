@@ -1,0 +1,13 @@
+# ANNOTATION-224: redefined recursive function uses new self
+check ["id": "ANNOTATION-224",
+    "name": "redefined recursive function uses new self",
+    "source": "fn f(\$n: Number): Number { 99 }; fn f(\$n: Number): Number { if \$n == 0 { return 0 }; 1 + (f (\$n - 1)) }; echo (f 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

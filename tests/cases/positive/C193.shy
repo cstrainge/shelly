@@ -1,0 +1,13 @@
+# C193: Alias stores decoded escaped dollar
+check ["id": "C193",
+    "name": "Alias stores decoded escaped dollar",
+    "source": "alias a = echo \"\\\$missing\"\na",
+    "mode": "code",
+    "args": [],
+    "stdout": "\$missing\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

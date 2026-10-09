@@ -1,0 +1,13 @@
+# CONTROL-033: break skipped without active loop
+check ["id": "CONTROL-033",
+    "name": "break skipped without active loop",
+    "source": "if false { break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

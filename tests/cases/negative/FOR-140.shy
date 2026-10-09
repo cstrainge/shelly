@@ -1,0 +1,13 @@
+# FOR-140: runtime arithmetic failure / for $v in [1] { for $j in [1] { 1 / 0 } }
+check ["id": "FOR-140",
+    "name": "runtime arithmetic failure / for \$v in [1] { for \$j in [1] { 1 / 0 } }",
+    "source": "for \$v in [1] { for \$j in [1] { 1 / 0 } }; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

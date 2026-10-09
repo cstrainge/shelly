@@ -1,0 +1,13 @@
+# BOUNDARY-214: runtime rejection / alias a = b; alias b = c; alias c = a; a
+check ["id": "BOUNDARY-214",
+    "name": "runtime rejection / alias a = b; alias b = c; alias c = a; a",
+    "source": "alias a = b; alias b = c; alias c = a; a; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Alias cycle detected",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

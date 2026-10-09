@@ -1,0 +1,13 @@
+# MULTILINE-113: stdin source
+check ["id": "MULTILINE-113",
+    "name": "stdin source",
+    "source": "if true\n && true\n{ echo \"ok\" }",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

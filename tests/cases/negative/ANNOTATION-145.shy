@@ -1,0 +1,13 @@
+# ANNOTATION-145: unknown variable type
+check ["id": "ANNOTATION-145",
+    "name": "unknown variable type",
+    "source": "let \$x: Missing = 1",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# METHOD-130: glob methods
+check ["id": "METHOD-130",
+    "name": "glob methods",
+    "source": "let \$a = (fixtures/*.txt).sort; echo \$a.count; echo \$a...",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\nfixtures/a.txt fixtures/b.txt\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

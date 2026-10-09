@@ -1,0 +1,13 @@
+# C054: Bare return gives None
+check ["id": "C054",
+    "name": "Bare return gives None",
+    "source": "fn f() { return ; echo \"bad\" }\necho (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

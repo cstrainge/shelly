@@ -1,0 +1,13 @@
+# BOUNDARY-226: invalid exported name / let export ${bad=name} = "value"
+check ["id": "BOUNDARY-226",
+    "name": "invalid exported name / let export \${bad=name} = \"value\"",
+    "source": "echo \"PARSE_SENTINEL\"; let export \${bad=name} = \"value\"; audit_say",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": ["Invalid variable name: '=' is not allowed."],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

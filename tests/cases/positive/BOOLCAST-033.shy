@@ -1,0 +1,13 @@
+# BOOLCAST-033: 'Boolean({})' / 0.25
+check ["id": "BOOLCAST-033",
+    "name": "'Boolean({})' / 0.25",
+    "source": "echo Boolean(0.25)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

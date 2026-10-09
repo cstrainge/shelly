@@ -1,0 +1,13 @@
+# CONVERT-107: matrix Enum to Range
+check ["id": "CONVERT-107",
+    "name": "matrix Enum to Range",
+    "source": "enum E { A, B }; let \$v = E::B; let \$converted: Range = Range(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

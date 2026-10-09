@@ -1,0 +1,13 @@
+# CONVERT-164: numeric and syntax Float (\n " -2.5 ",\n)
+check ["id": "CONVERT-164",
+    "name": "numeric and syntax Float (\n \" -2.5 \",\n)",
+    "source": "echo Float (\n \" -2.5 \",\n)",
+    "mode": "code",
+    "args": [],
+    "stdout": "-2.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

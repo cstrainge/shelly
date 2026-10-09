@@ -1,0 +1,13 @@
+# C084: Missing closing parenthesis
+check ["id": "C084",
+    "name": "Missing closing parenthesis",
+    "source": "fn foo(\$a)\n{\n 2048 * \$a\n}\necho (foo 3",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

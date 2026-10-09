@@ -1,0 +1,13 @@
+# NEWLINE-004: constructor gap ' # comment\n    # another\n'
+check ["id": "NEWLINE-004",
+    "name": "constructor gap ' # comment\\n    # another\\n'",
+    "source": "struct S { n: Number }; let \$s = S # comment\n    # another\n(n: 42); echo \$s.n",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

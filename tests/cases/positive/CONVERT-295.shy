@@ -1,0 +1,13 @@
+# CONVERT-295: forward enum
+check ["id": "CONVERT-295",
+    "name": "forward enum",
+    "source": "enum E { A, B, C }; echo Later::B.index; enum Later { A, B }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,5 @@
+# Struct invalid assignments are atomic
+check_repl ["id": "R040",
+    "name": "Struct invalid assignments are atomic",
+    "steps": [["struct Child { n: Number }; struct Root { groups: [String: [Child]], opts: optional Number }; let \$r = Root(groups: [\"x\": [Child(n: 1)]])", "quiet", ""], ["\$r.groups[\"x\"][0].n = \"bad\"", "error", ""], ["echo \$r.groups[\"x\"][0].n", "output", "1"], ["\$r.groups[2] = [Child(n: 3)]", "error", ""], ["echo \$r.groups[2]", "output", "()"], ["\$r.groups[\"new\"] = [Child(n: 4), \"bad\"]", "error", ""], ["echo \$r.groups[\"new\"]", "output", "()"], ["\$r.opts = \"bad\"", "error", ""], ["echo \$r.opts", "output", "()"], ["\$r.groups[\"x\"][0].missing = 9", "error", ""], ["echo \$r.groups[\"x\"][0].n", "output", "1"], ["\$r.groups[\"x\"][0].n = 8; echo \$r.groups[\"x\"][0].n", "output", "8"]],
+    "exit": 0]

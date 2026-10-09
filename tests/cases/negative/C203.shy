@@ -1,0 +1,13 @@
+# C203: Extra exit arguments
+check ["id": "C203",
+    "name": "Extra exit arguments",
+    "source": "exit 1 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "exit expects",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

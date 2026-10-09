@@ -1,0 +1,13 @@
+# ANNOTATION-130: typed implicit nested block
+check ["id": "ANNOTATION-130",
+    "name": "typed implicit nested block",
+    "source": "fn f(): Number { { 7 } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

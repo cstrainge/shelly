@@ -1,0 +1,13 @@
+# C131: Glob assignment and splat
+check ["id": "C131",
+    "name": "Glob assignment and splat",
+    "source": "let \$files = fixtures/*.txt ; audit_args \$files...",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"fixtures/a.txt\", \"fixtures/b.txt\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C103: Self alias adds defaults once
+check ["id": "C103",
+    "name": "Self alias adds defaults once",
+    "source": "alias echo = echo \"prefix\"\necho \"suffix\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "prefix suffix\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

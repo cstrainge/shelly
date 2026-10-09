@@ -1,0 +1,13 @@
+# C157: Missing reassignment separator
+check ["id": "C157",
+    "name": "Missing reassignment separator",
+    "source": "let \$x = 0 ; \$x = 1 echo \"should-not-run\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

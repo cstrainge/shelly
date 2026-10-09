@@ -1,0 +1,13 @@
+# BOUNDARY-322: value pair / true and true
+check ["id": "BOUNDARY-322",
+    "name": "value pair / true and true",
+    "source": "echo (true == true) (true != true) (true && true) (true || true)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true false true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

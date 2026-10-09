@@ -1,0 +1,13 @@
+# BOUNDARY-196: runtime rejection / fn f($x) { $x }; f
+check ["id": "BOUNDARY-196",
+    "name": "runtime rejection / fn f(\$x) { \$x }; f",
+    "source": "fn f(\$x) { \$x }; f; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Function .* expected (?:at least )?[0-9]+(?: to [0-9]+)? arguments, but got [0-9]+",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

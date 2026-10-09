@@ -1,0 +1,13 @@
+# CONTROL-083: continue outside active frame / fn f() { continue }; f
+check ["id": "CONTROL-083",
+    "name": "continue outside active frame / fn f() { continue }; f",
+    "source": "fn f() { continue }; f; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Loop control error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

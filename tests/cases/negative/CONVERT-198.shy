@@ -1,0 +1,13 @@
+# CONVERT-198: invalid Integer("1e2")
+check ["id": "CONVERT-198",
+    "name": "invalid Integer(\"1e2\")",
+    "source": "echo Integer(\"1e2\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

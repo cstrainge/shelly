@@ -1,0 +1,13 @@
+# ENUM-018: condition result
+check ["id": "ENUM-018",
+    "name": "condition result",
+    "source": "enum Color { Red, Green, Blue }; let \$x = if true { Color::Red } else { Color::Green }; echo (\$x == Color::Red)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

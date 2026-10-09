@@ -1,0 +1,13 @@
+# CONDLOOP-040: while / outer expression stack retained
+check ["id": "CONDLOOP-040",
+    "name": "while / outer expression stack retained",
+    "source": "let \$a = [99, if true { while true { break }; 7 }]; echo \$a...",
+    "mode": "code",
+    "args": [],
+    "stdout": "99 7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

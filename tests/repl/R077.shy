@@ -1,0 +1,5 @@
+# Multiline conditions retain short circuit state
+check_repl ["id": "R077",
+    "name": "Multiline conditions retain short circuit state",
+    "steps": [["let \$hits = 0; fn tick() { \$hits = \$hits + 1; true }", "quiet", ""], ["if false\n && (tick)\n { echo \"bad\" }", "quiet", ""], ["if true\n && (tick)\n { echo \"ran\" }", "output", "ran"], ["echo \$hits", "output", "1"], ["if true\n &&\n {}", "error", "Parser error:"], ["echo \$hits", "output", "1"]],
+    "exit": 0]

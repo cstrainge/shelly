@@ -1,0 +1,13 @@
+# MUTSELF-019: nested stored reference
+check ["id": "MUTSELF-019",
+    "name": "nested stored reference",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; struct S { a: [HashMap] }; let \$v = S(a: [[\"k\": 1]]);let \$r = `\$v.a[0][\"k\"].inc; \$r; \$r; echo \$v.a[0][\"k\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# REDIRECTION-040: removed arrow <-+~
+check ["id": "REDIRECTION-040",
+    "name": "removed arrow <-+~",
+    "source": "echo \"PARSE_SENTINEL\"; cat <-+~ fixtures/a.txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

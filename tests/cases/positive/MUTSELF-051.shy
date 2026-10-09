@@ -1,0 +1,13 @@
+# MUTSELF-051: enum replace
+check ["id": "MUTSELF-051",
+    "name": "enum replace",
+    "source": "enum E { A, B }; fn E::next() { \$self = E::B }; let \$v = E::A; \$v.next; echo \$v",
+    "mode": "code",
+    "args": [],
+    "stdout": "E::B\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

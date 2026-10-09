@@ -1,0 +1,5 @@
+# Loop control restores partial expression stacks
+check_repl ["id": "R031",
+    "name": "Loop control restores partial expression stacks",
+    "steps": [["let \$x = 7", "quiet", ""], ["for \$i in [1,2] { let \$x = [1, if true { continue }, 3] }", "quiet", ""], ["echo \$x", "output", "7"], ["let \$y = [99, if true { for \$i in [1,2] { let \$z = [1, if true { break }] }; 8 }]; echo \$y...", "output", "99 8"], ["echo \$z", "error", "not found"], ["echo 2 + 3", "output", "5"]],
+    "exit": 0]

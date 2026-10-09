@@ -1,0 +1,13 @@
+# LOOP-020: normal for exit restores loop frame
+check ["id": "LOOP-020",
+    "name": "normal for exit restores loop frame",
+    "source": "loop { for \$i in [] {}; break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

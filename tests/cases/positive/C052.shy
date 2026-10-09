@@ -1,0 +1,13 @@
+# C052: Last expression wins
+check ["id": "C052",
+    "name": "Last expression wins",
+    "source": "fn f() { 1 + 1 ; 4 + 3 ; }\necho (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

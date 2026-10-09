@@ -1,0 +1,13 @@
+# CONVERT-235: none evaluates operand
+check ["id": "CONVERT-235",
+    "name": "none evaluates operand",
+    "source": "let \$hits = 0; fn next() { \$hits = \$hits + 1; \"2\" }; echo None(next); echo \$hits",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

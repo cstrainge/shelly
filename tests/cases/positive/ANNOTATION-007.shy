@@ -1,0 +1,13 @@
+# ANNOTATION-007: default any
+check ["id": "ANNOTATION-007",
+    "name": "default any",
+    "source": "let \$x: any; echo \"\$x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,5 @@
+# Array mutation errors preserve elements and REPL state
+check_repl ["id": "R019",
+    "name": "Array mutation errors preserve elements and REPL state",
+    "steps": [["let \$a = [[1,2],[3]]", "quiet", ""], ["\$a[0][1] = 8", "quiet", ""], ["echo \$a[0]...", "output", "1 8"], ["\$a[0][9] = 7", "error", ""], ["echo (\$a == [[1,8],[3]])", "output", "true"], ["\$a[0][0] = 1 / 0", "error", ""], ["echo (\$a == [[1,8],[3]])", "output", "true"], ["\$a[\"0\"] = 7", "error", ""], ["echo (\$a == [[1,8],[3]])", "output", "true"], ["let \$a = [1, 1 / 0]", "error", ""], ["echo (\$a == [[1,8],[3]])", "output", "true"], ["echo \$a[0][1]", "output", "8"]],
+    "exit": 0]

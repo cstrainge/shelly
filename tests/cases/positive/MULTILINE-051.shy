@@ -1,0 +1,13 @@
+# MULTILINE-051: assignment / == / '\n' '\n'
+check ["id": "MULTILINE-051",
+    "name": "assignment / == / '\\n' '\\n'",
+    "source": "let \$x = 2\n==\n2; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

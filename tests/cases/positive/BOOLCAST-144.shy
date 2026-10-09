@@ -1,0 +1,13 @@
+# BOOLCAST-144: shadowing contained
+check ["id": "BOOLCAST-144",
+    "name": "shadowing contained",
+    "source": "{ struct Boolean {}; echo Boolean() }; echo Boolean(0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "Boolean()\nfalse\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# PATH-020: named user tilde stays unchanged
+check ["id": "PATH-020",
+    "name": "named user tilde stays unchanged",
+    "source": "audit_args \"~someone/sub\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"~someone/sub\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-190: variadic typed Number
+check ["id": "ANNOTATION-190",
+    "name": "variadic typed Number",
+    "source": "fn f(\$xs: Number...): [Number] { return \$xs }; echo (f 1 2.5)...; echo ((f) == [])",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2.5\ntrue\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

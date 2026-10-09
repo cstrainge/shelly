@@ -1,0 +1,13 @@
+# C156: Malformed declaration with existing variable
+check ["id": "C156",
+    "name": "Malformed declaration with existing variable",
+    "source": "let \$x = \"safe\" ; let \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

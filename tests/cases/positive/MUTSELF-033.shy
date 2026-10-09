@@ -1,0 +1,13 @@
+# MUTSELF-033: temporary struct
+check ["id": "MUTSELF-033",
+    "name": "temporary struct",
+    "source": "struct S { n: Integer }; fn S::inc(): S { \$self.n = \$self.n + 1; \$self }; echo S(n: 1).inc.n",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

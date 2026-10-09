@@ -1,0 +1,13 @@
+# C092: Function local shadows outer value
+check ["id": "C092",
+    "name": "Function local shadows outer value",
+    "source": "let \$x = 9 ; fn f() { let \$x = 4 ; return \$x }\necho (f) \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "4 9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

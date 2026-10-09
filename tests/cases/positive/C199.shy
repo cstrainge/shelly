@@ -1,0 +1,13 @@
+# C199: Exit status in script file
+check ["id": "C199",
+    "name": "Exit status in script file",
+    "source": "exit 7",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 7,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C208: Truncated UTF8 source
+check ["id": "C208",
+    "name": "Truncated UTF8 source",
+    "source": "echo \"should-not-run\"\n<TRUNCATED>",
+    "mode": "invalid_file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

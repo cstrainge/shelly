@@ -1,0 +1,5 @@
+# Boolean conversion persists and annotations stay strict
+check_repl ["id": "R053",
+    "name": "Boolean conversion persists and annotations stay strict",
+    "steps": [["let \$result = /bin/true", "quiet", ""], ["let \$succeeded: Boolean = Boolean(\$result)", "quiet", ""], ["echo \$succeeded", "output", "true"], ["\$result = /bin/false", "quiet", ""], ["\$succeeded = Boolean(\$result)", "quiet", ""], ["echo \$succeeded", "output", "false"], ["\$succeeded = 1", "error", ""], ["echo \$succeeded", "output", "false"], ["echo Boolean()", "error", ""], ["echo Boolean(())", "output", "false"]],
+    "exit": 0]

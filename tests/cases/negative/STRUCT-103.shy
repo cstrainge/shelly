@@ -1,0 +1,13 @@
+# STRUCT-103: constructor dollar label
+check ["id": "STRUCT-103",
+    "name": "constructor dollar label",
+    "source": "struct S { n }; echo S(\$n: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

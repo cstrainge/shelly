@@ -1,0 +1,13 @@
+# EXTENSION-081: callable field before fallback
+check ["id": "EXTENSION-081",
+    "name": "callable field before fallback",
+    "source": "fn target() { 8 }; fn any::call() { 99 }; struct S { call: String }; let \$s = S(call: `target); echo \$s.call",
+    "mode": "code",
+    "args": [],
+    "stdout": "8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

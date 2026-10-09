@@ -1,0 +1,13 @@
+# REDIRECTION-034: non-string source
+check ["id": "REDIRECTION-034",
+    "name": "non-string source",
+    "source": "let \$out: String; 42 -> \$out; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Redirection error:",
+    "stderr_contains": ["file path must be a string"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

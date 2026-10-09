@@ -1,0 +1,13 @@
+# METHOD-089: struct field preserved
+check ["id": "METHOD-089",
+    "name": "struct field preserved",
+    "source": "struct S { sort: Integer, count: Integer }; echo S(sort: 2, count: 4).sort",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

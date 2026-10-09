@@ -1,0 +1,13 @@
+# CONDITIONALS-054: if false {} else { let $local_else = 1 }; echo $local_else
+check ["id": "CONDITIONALS-054",
+    "name": "if false {} else { let \$local_else = 1 }; echo \$local_else",
+    "source": "if false {} else { let \$local_else = 1 }; echo \$local_else",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

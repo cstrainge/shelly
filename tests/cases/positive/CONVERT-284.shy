@@ -1,0 +1,13 @@
+# CONVERT-284: literal indexes
+check ["id": "CONVERT-284",
+    "name": "literal indexes",
+    "source": "enum E { A, B, C }; echo E::A.index E::B.index E::C.index",
+    "mode": "code",
+    "args": [],
+    "stdout": "0 1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

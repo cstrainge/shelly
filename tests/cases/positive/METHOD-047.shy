@@ -1,0 +1,13 @@
+# METHOD-047: sort let $a = ["10", "2", "1"]; $a.sort
+check ["id": "METHOD-047",
+    "name": "sort let \$a = [\"10\", \"2\", \"1\"]; \$a.sort",
+    "source": "let \$a = [\"10\", \"2\", \"1\"]; echo \$a.sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 10 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

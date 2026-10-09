@@ -1,0 +1,13 @@
+# BOUNDARY-005: let export missing binding
+check ["id": "BOUNDARY-005",
+    "name": "let export missing binding",
+    "source": "echo \"PARSE_SENTINEL\"; let export = 1",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

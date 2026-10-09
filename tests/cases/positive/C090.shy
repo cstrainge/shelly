@@ -1,0 +1,13 @@
+# C090: Function local variable does not escape
+check ["id": "C090",
+    "name": "Function local variable does not escape",
+    "source": "fn f() { let \$x = 4 ; return \$x }\necho (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

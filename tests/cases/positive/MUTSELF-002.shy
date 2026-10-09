@@ -1,0 +1,13 @@
+# MUTSELF-002: variable grouped
+check ["id": "MUTSELF-002",
+    "name": "variable grouped",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$v = 1;(\$v).inc; echo \$v",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

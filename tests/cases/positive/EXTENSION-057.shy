@@ -1,0 +1,13 @@
+# EXTENSION-057: loops
+check ["id": "EXTENSION-057",
+    "name": "loops",
+    "source": "fn Array::reverse(): Array { [\$self[1], \$self[0]] }; for \$n in [1, 2].reverse { echo \$n }",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

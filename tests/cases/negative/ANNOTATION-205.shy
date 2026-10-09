@@ -1,0 +1,13 @@
+# ANNOTATION-205: unknown variadic type
+check ["id": "ANNOTATION-205",
+    "name": "unknown variadic type",
+    "source": "fn f(\$xs: Missing...) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

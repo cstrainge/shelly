@@ -1,0 +1,13 @@
+# CONVERT-040: matrix Boolean to Boolean
+check ["id": "CONVERT-040",
+    "name": "matrix Boolean to Boolean",
+    "source": "let \$v = true; let \$converted: Boolean = Boolean(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# FOR-120: syntax rejection / for $i in 1..2..3 {}
+check ["id": "FOR-120",
+    "name": "syntax rejection / for \$i in 1..2..3 {}",
+    "source": "echo \"PARSE_SENTINEL\"; for \$i in 1..2..3 {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

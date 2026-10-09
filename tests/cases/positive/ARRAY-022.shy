@@ -1,0 +1,13 @@
+# ARRAY-022: conditional array and chained indexing
+check ["id": "ARRAY-022",
+    "name": "conditional array and chained indexing",
+    "source": "echo (if false { [1] } else { [[7]] })[0][0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

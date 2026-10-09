@@ -1,0 +1,13 @@
+# PATH-002: ordinary stored path reads shorten
+check ["id": "PATH-002",
+    "name": "ordinary stored path reads shorten",
+    "source": "let \$p = \"<FIXTURE>/home/sub\"; echo (\$p == \"~/sub\") (\"\$p\" == \"~/sub\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

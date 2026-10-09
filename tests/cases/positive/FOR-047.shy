@@ -1,0 +1,13 @@
+# FOR-047: short circuit inside body
+check ["id": "FOR-047",
+    "name": "short circuit inside body",
+    "source": "for \$v in [1,2] { echo (true || (1 / 0)) (false && (1 / 0)) }",
+    "mode": "code",
+    "args": [],
+    "stdout": "true false\ntrue false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

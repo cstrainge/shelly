@@ -1,0 +1,13 @@
+# CONVERT-157: numeric and syntax Integer(" +42 ")
+check ["id": "CONVERT-157",
+    "name": "numeric and syntax Integer(\" +42 \")",
+    "source": "echo Integer(\" +42 \")",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

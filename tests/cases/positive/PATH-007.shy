@@ -1,0 +1,13 @@
+# PATH-007: function receives shortened value
+check ["id": "PATH-007",
+    "name": "function receives shortened value",
+    "source": "fn f(\$p) { echo (\$p == \"~/sub\"); /usr/bin/cat \"\$p/file.txt\" }; let \$p = \"<FIXTURE>/home/sub\"; f \$p",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\ncontent\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

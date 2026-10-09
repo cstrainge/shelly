@@ -1,0 +1,5 @@
+# Compiled Boolean conversion survives type shadowing
+check_repl ["id": "R054",
+    "name": "Compiled Boolean conversion survives type shadowing",
+    "steps": [["fn convert(\$x): Boolean { Boolean(\$x) }", "quiet", ""], ["echo (convert 0) (convert 1)", "output", "false true"], ["struct Boolean { value: Number }", "quiet", ""], ["echo Boolean(value: 3).value", "output", "3"], ["echo Boolean(1)", "error", ""], ["echo (convert 0) (convert 1)", "output", "false true"]],
+    "exit": 0]

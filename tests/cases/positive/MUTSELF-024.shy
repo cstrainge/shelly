@@ -1,0 +1,13 @@
+# MUTSELF-024: typed array copy independence
+check ["id": "MUTSELF-024",
+    "name": "typed array copy independence",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$v: [Integer] = [1];let \$copy = \$v; \$v[0].inc; echo \$v[0] \$copy[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

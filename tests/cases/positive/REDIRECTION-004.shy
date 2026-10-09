@@ -1,0 +1,13 @@
+# REDIRECTION-004: separate streams and status
+check ["id": "REDIRECTION-004",
+    "name": "separate streams and status",
+    "source": "let \$out: String; let \$err: String; let \$r = audit_streams out err 7 -> \$out ~-> \$err; printf \"%s:%s:%s\" \$r \$out \$err",
+    "mode": "code",
+    "args": [],
+    "stdout": "ExecResult(7):out:err",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

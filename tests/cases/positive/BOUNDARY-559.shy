@@ -1,0 +1,13 @@
+# BOUNDARY-559: nested branch linking depth 8
+check ["id": "BOUNDARY-559",
+    "name": "nested branch linking depth 8",
+    "source": "echo (if true { if true { if true { if true { if true { if true { if true { if true { 7 } else { \$missing_boundary } } else { \$missing_boundary } } else { \$missing_boundary } } else { \$missing_boundary } } else { \$missing_boundary } } else { \$missing_boundary } } else { \$missing_boundary } } else { \$missing_boundary })",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

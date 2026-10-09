@@ -1,0 +1,13 @@
+# MAP-027: nested aliases independent
+check ["id": "MAP-027",
+    "name": "nested aliases independent",
+    "source": "let \$m = [\"x\":1]; let \$a = [\$m,\$m]; \$a[0][\"x\"] = 2; echo \$m[\"x\"] \$a[0][\"x\"] \$a[1][\"x\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

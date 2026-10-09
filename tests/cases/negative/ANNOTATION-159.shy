@@ -1,0 +1,13 @@
+# ANNOTATION-159: no coercion
+check ["id": "ANNOTATION-159",
+    "name": "no coercion",
+    "source": "let \$x: Number = \"123\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

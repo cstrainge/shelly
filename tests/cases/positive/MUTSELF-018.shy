@@ -1,0 +1,13 @@
+# MUTSELF-018: nested grouped
+check ["id": "MUTSELF-018",
+    "name": "nested grouped",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; struct S { a: [HashMap] }; let \$v = S(a: [[\"k\": 1]]);(\$v.a[0][\"k\"]).inc; echo \$v.a[0][\"k\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

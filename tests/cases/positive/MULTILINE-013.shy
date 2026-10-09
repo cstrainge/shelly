@@ -1,0 +1,13 @@
+# MULTILINE-013: function return / && / '\n' '\n'
+check ["id": "MULTILINE-013",
+    "name": "function return / && / '\\n' '\\n'",
+    "source": "fn f() { return true\n&&\nfalse }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

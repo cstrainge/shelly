@@ -1,0 +1,13 @@
+# ARRAY-114: stdin array read/write
+check ["id": "ARRAY-114",
+    "name": "stdin array read/write",
+    "source": "let \$a = [[1,2]]; \$a[0][1] = 8; echo \$a[0]...",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "1 8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

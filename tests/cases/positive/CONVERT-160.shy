@@ -1,0 +1,13 @@
+# CONVERT-160: numeric and syntax Integer (\n false,\n)
+check ["id": "CONVERT-160",
+    "name": "numeric and syntax Integer (\n false,\n)",
+    "source": "echo Integer (\n false,\n)",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

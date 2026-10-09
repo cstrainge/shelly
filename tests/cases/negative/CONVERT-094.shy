@@ -1,0 +1,13 @@
+# CONVERT-094: matrix ExecResult to HashMap
+check ["id": "CONVERT-094",
+    "name": "matrix ExecResult to HashMap",
+    "source": "let \$v = /bin/true; let \$converted: HashMap = HashMap(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

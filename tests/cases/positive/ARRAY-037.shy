@@ -1,0 +1,13 @@
+# ARRAY-037: executable element argument invokes
+check ["id": "ARRAY-037",
+    "name": "executable element argument invokes",
+    "source": "fn f() { 7 }; let \$a = [`f]; echo \$a[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

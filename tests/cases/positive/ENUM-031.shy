@@ -1,0 +1,13 @@
+# ENUM-031: builtin name shadow
+check ["id": "ENUM-031",
+    "name": "builtin name shadow",
+    "source": "enum Integer { A }; echo Integer::A",
+    "mode": "code",
+    "args": [],
+    "stdout": "Integer::A\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

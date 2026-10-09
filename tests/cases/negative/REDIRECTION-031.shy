@@ -1,0 +1,13 @@
+# REDIRECTION-031: undeclared capture
+check ["id": "REDIRECTION-031",
+    "name": "undeclared capture",
+    "source": "echo \"bad\" -> \$out; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Redirection error:",
+    "stderr_contains": ["declare it with let"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOOLCAST-159: nested invalid return
+check ["id": "BOOLCAST-159",
+    "name": "nested invalid return",
+    "source": "fn f(): Number { Boolean(if true { return \"bad\" } else { 0 }); 1 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected Number"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

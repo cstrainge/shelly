@@ -1,0 +1,5 @@
+# User methods persist and old functions retain versions
+check_repl ["id": "R061",
+    "name": "User methods persist and old functions retain versions",
+    "steps": [["fn Integer::label(): Integer { 1 }; let \$n = 5", "quiet", ""], ["fn old(\$n: Integer): Integer { \$n.label }; let \$ref = `\$n.label", "quiet", ""], ["fn Integer::label(): Integer { 2 }", "quiet", ""], ["echo (old \$n) (\$ref) \$n.label", "output", "1 1 2"], ["fn fresh(\$n: Integer): Integer { \$n.label }; echo (fresh \$n)", "output", "2"]],
+    "exit": 0]

@@ -1,0 +1,13 @@
+# MAP-514: malformed map / if false { echo ["x":] }
+check ["id": "MAP-514",
+    "name": "malformed map / if false { echo [\"x\":] }",
+    "source": "echo \"PARSE_SENTINEL\"; if false { echo [\"x\":] }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

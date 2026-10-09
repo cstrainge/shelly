@@ -1,0 +1,13 @@
+# NEWLINE-035: spaced empty assignment
+check ["id": "NEWLINE-035",
+    "name": "spaced empty assignment",
+    "source": "struct E {}; let \$e = E (); echo \$e",
+    "mode": "code",
+    "args": [],
+    "stdout": "E()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-033: unclosed single quote
+check ["id": "BOUNDARY-033",
+    "name": "unclosed single quote",
+    "source": "echo \"PARSE_SENTINEL\"; echo 'unfinished",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

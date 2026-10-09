@@ -1,0 +1,13 @@
+# MAP-002: missing key
+check ["id": "MAP-002",
+    "name": "missing key",
+    "source": "let \$m = [\"key\": 7]; echo \$m[\"missing\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

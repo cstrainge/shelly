@@ -1,0 +1,13 @@
+# BOUNDARY-222: ambiguous variable syntax / if false { echo $args[0] }; echo "ok"
+check ["id": "BOUNDARY-222",
+    "name": "ambiguous variable syntax / if false { echo \$args[0] }; echo \"ok\"",
+    "source": "echo \"PARSE_SENTINEL\"; if false { echo \$args[0] }; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "PARSE_SENTINEL\nok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# LOOP-015: loop inside for
+check ["id": "LOOP-015",
+    "name": "loop inside for",
+    "source": "for \$i in [1,2] { loop { echo \$i; break } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

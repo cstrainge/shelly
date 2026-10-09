@@ -1,0 +1,13 @@
+# EXTENSION-014: any receiver Float
+check ["id": "EXTENSION-014",
+    "name": "any receiver Float",
+    "source": "fn any::tag(): String { \"tag\" }; let \$v = 2.5; echo \$v.tag",
+    "mode": "code",
+    "args": [],
+    "stdout": "tag\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

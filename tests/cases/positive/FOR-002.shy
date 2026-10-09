@@ -1,0 +1,13 @@
+# FOR-002: variable bounds and iterable
+check ["id": "FOR-002",
+    "name": "variable bounds and iterable",
+    "source": "let \$a = 1; let \$b = 3; let \$r = \$a..=\$b; for \$i in \$r { echo \$i }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

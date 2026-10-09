@@ -1,0 +1,13 @@
+# MULTILINE-092: semicolon ends statement
+check ["id": "MULTILINE-092",
+    "name": "semicolon ends statement",
+    "source": "echo true;\necho false",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\nfalse\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

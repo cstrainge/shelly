@@ -1,0 +1,13 @@
+# FOR-143: file syntax rejection
+check ["id": "FOR-143",
+    "name": "file syntax rejection",
+    "source": "echo \"PARSE_SENTINEL\"; for \$i in []",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

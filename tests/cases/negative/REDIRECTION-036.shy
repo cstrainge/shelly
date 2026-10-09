@@ -1,0 +1,13 @@
+# REDIRECTION-036: spawn failure
+check ["id": "REDIRECTION-036",
+    "name": "spawn failure",
+    "source": "let \$out: String; missing_flow_command arg -> \$out; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable not found:",
+    "stderr_contains": ["missing_flow_command"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

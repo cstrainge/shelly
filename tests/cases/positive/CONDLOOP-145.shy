@@ -1,0 +1,13 @@
+# CONDLOOP-145: keyword arguments
+check ["id": "CONDLOOP-145",
+    "name": "keyword arguments",
+    "source": "echo while until",
+    "mode": "code",
+    "args": [],
+    "stdout": "while until\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

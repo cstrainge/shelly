@@ -1,0 +1,13 @@
+# C088: Incomplete function header
+check ["id": "C088",
+    "name": "Incomplete function header",
+    "source": "fn f(\$a)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

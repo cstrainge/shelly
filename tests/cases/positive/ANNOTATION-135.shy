@@ -1,0 +1,13 @@
+# ANNOTATION-135: forward annotation types
+check ["id": "ANNOTATION-135",
+    "name": "forward annotation types",
+    "source": "fn f(\$x: S): S { return \$x }; let \$x: S = S(n: 3); struct S { n: Number }; echo (f \$x).n",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

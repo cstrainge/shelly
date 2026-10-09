@@ -1,0 +1,13 @@
+# CONVERT-133: matrix None to any
+check ["id": "CONVERT-133",
+    "name": "matrix None to any",
+    "source": "let \$v = (); let \$converted: any = any(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

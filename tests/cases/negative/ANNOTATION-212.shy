@@ -1,0 +1,13 @@
+# ANNOTATION-212: variadic wrong element type
+check ["id": "ANNOTATION-212",
+    "name": "variadic wrong element type",
+    "source": "fn f(\$xs: Number...) { echo \"body\" }; f 1 \"bad\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C171: Multiple distinct function parameters
+check ["id": "C171",
+    "name": "Multiple distinct function parameters",
+    "source": "fn add(\$a, \$b) { \$a + \$b }\necho (add 2 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

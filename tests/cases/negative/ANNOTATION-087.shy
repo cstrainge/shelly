@@ -1,0 +1,13 @@
+# ANNOTATION-087: dynamic bad parameter Float
+check ["id": "ANNOTATION-087",
+    "name": "dynamic bad parameter Float",
+    "source": "fn f(\$x: Float) { echo \"body ran\" }; let \$x = \"bad\"; f \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

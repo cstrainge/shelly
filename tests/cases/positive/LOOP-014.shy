@@ -1,0 +1,13 @@
+# LOOP-014: for inside loop
+check ["id": "LOOP-014",
+    "name": "for inside loop",
+    "source": "let \$n = 0; loop { \$n = \$n + 1; for \$i in [1,2] { echo \$n \$i; break }; if \$n == 2 { break } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 1\n2 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

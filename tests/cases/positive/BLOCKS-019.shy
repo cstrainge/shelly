@@ -1,0 +1,13 @@
+# BLOCKS-019: multiple jump labels
+check ["id": "BLOCKS-019",
+    "name": "multiple jump labels",
+    "source": "let \$x = true && false; { let \$y = false || true; echo \$y; { echo (false && (1 / 0)) }; echo (true || \$missing) }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\nfalse\ntrue\nfalse\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

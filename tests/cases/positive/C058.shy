@@ -1,0 +1,13 @@
+# C058: Function ending in declaration returns None
+check ["id": "C058",
+    "name": "Function ending in declaration returns None",
+    "source": "fn f() { let \$x = 7 }\necho (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

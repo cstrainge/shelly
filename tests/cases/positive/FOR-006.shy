@@ -1,0 +1,13 @@
+# FOR-006: variable map
+check ["id": "FOR-006",
+    "name": "variable map",
+    "source": "let \$m = [\"x\":7]; for \$k,\$v in \$m { echo \$k \$v }",
+    "mode": "code",
+    "args": [],
+    "stdout": "x 7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

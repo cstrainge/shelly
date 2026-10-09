@@ -1,0 +1,13 @@
+# CONDLOOP-067: while runtime / while true { let $local = 1; break }; echo $local
+check ["id": "CONDLOOP-067",
+    "name": "while runtime / while true { let \$local = 1; break }; echo \$local",
+    "source": "while true { let \$local = 1; break }; echo \$local; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

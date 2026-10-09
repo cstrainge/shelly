@@ -1,0 +1,13 @@
+# C117: Array rendered as colon joined text
+check ["id": "C117",
+    "name": "Array rendered as colon joined text",
+    "source": "echo \$args",
+    "mode": "code",
+    "args": ["first", "second"],
+    "stdout": "first:second\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

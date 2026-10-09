@@ -1,0 +1,13 @@
+# C158: Parse error prevents earlier execution
+check ["id": "C158",
+    "name": "Parse error prevents earlier execution",
+    "source": "echo \"should-not-run\" ; echo (",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

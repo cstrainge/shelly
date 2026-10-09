@@ -1,0 +1,13 @@
+# CONDLOOP-114: until / unbounded loop inside conditional loop
+check ["id": "CONDLOOP-114",
+    "name": "until / unbounded loop inside conditional loop",
+    "source": "until false { loop { break }; echo \"body\"; break }",
+    "mode": "code",
+    "args": [],
+    "stdout": "body\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

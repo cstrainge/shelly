@@ -1,0 +1,13 @@
+# ANNOTATION-211: optional too many
+check ["id": "ANNOTATION-211",
+    "name": "optional too many",
+    "source": "fn f(\$a: optional Number) {}; f 1 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Function .* expected (?:at least )?[0-9]+(?: to [0-9]+)? arguments, but got [0-9]+",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

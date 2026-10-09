@@ -1,0 +1,13 @@
+# BOUNDARY-021: fn unclosed body
+check ["id": "BOUNDARY-021",
+    "name": "fn unclosed body",
+    "source": "echo \"PARSE_SENTINEL\"; fn f() {",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

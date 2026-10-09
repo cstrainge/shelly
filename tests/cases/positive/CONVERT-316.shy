@@ -1,0 +1,13 @@
+# CONVERT-316: plain dotted path unaffected
+check ["id": "CONVERT-316",
+    "name": "plain dotted path unaffected",
+    "source": "echo file.txt ./a.b",
+    "mode": "code",
+    "args": [],
+    "stdout": "file.txt ./a.b\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

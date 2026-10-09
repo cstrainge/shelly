@@ -1,0 +1,13 @@
+# CONVERT-011: matrix Enum to None
+check ["id": "CONVERT-011",
+    "name": "matrix Enum to None",
+    "source": "enum E { A, B }; let \$v = E::B; let \$converted: None = None(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

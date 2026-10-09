@@ -1,0 +1,13 @@
+# LOOP-049: malformed / if false { loop { let $x = 1 + } }
+check ["id": "LOOP-049",
+    "name": "malformed / if false { loop { let \$x = 1 + } }",
+    "source": "echo \"PARSE_SENTINEL\"; if false { loop { let \$x = 1 + } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

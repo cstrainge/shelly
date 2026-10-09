@@ -1,0 +1,13 @@
+# CONTROL-087: continue rejects operands / continue 1
+check ["id": "CONTROL-087",
+    "name": "continue rejects operands / continue 1",
+    "source": "echo \"PARSE_SENTINEL\"; continue 1",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

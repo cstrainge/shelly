@@ -1,0 +1,13 @@
+# CONVERT-215: invalid ExecResult(256)
+check ["id": "CONVERT-215",
+    "name": "invalid ExecResult(256)",
+    "source": "echo ExecResult(256)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ENUM-035: typed ranges
+check ["id": "ENUM-035",
+    "name": "typed ranges",
+    "source": "fn f(\$r) { for \$i in \$r { echo \$i } }; f 1..3",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MAP-529: stdin map lookup
+check ["id": "MAP-529",
+    "name": "stdin map lookup",
+    "source": "let \$m = [\"key\":9]; echo \$m[\"key\"] \$m[\"absent\"]",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "9 ()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

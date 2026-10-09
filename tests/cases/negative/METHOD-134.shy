@@ -1,0 +1,13 @@
+# METHOD-134: zip explicit splat follows arity
+check ["id": "METHOD-134",
+    "name": "zip explicit splat follows arity",
+    "source": "let \$a = [1, 2]; let \$b = [3, 4]; let \$pairs = \$a.zip \$b...",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Method .* expected|Array methods require|sort requires)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

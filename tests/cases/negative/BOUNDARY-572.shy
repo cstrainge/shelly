@@ -1,0 +1,13 @@
+# BOUNDARY-572: file / orphan else
+check ["id": "BOUNDARY-572",
+    "name": "file / orphan else",
+    "source": "echo \"PARSE_SENTINEL\"; else {}",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

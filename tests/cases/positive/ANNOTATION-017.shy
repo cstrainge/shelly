@@ -1,0 +1,13 @@
+# ANNOTATION-017: empty nominal containers
+check ["id": "ANNOTATION-017",
+    "name": "empty nominal containers",
+    "source": "struct S { n: Number }; enum E { A }; let \$s: [S]; let \$e: [E: S]; echo \$s \$e",
+    "mode": "code",
+    "args": [],
+    "stdout": " [:]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

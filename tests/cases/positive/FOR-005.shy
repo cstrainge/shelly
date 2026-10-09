@@ -1,0 +1,13 @@
+# FOR-005: literal map
+check ["id": "FOR-005",
+    "name": "literal map",
+    "source": "for \$k,\$v in [\"x\":7] { echo \$k \$v }",
+    "mode": "code",
+    "args": [],
+    "stdout": "x 7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

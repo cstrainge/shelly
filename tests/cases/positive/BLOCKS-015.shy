@@ -1,0 +1,13 @@
+# BLOCKS-015: tail status
+check ["id": "BLOCKS-015",
+    "name": "tail status",
+    "source": "fn f() { { /usr/bin/false } }; let \$status = f; echo !\$status",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

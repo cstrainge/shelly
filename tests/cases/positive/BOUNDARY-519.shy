@@ -1,0 +1,13 @@
+# BOUNDARY-519: value pair / (/usr/bin/false) and (/usr/bin/true)
+check ["id": "BOUNDARY-519",
+    "name": "value pair / (/usr/bin/false) and (/usr/bin/true)",
+    "source": "echo ((/usr/bin/false) == (/usr/bin/true)) ((/usr/bin/false) != (/usr/bin/true)) ((/usr/bin/false) && (/usr/bin/true)) ((/usr/bin/false) || (/usr/bin/true))",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

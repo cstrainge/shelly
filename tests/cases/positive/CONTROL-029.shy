@@ -1,0 +1,13 @@
+# CONTROL-029: break preserves enclosing expression stack
+check ["id": "CONTROL-029",
+    "name": "break preserves enclosing expression stack",
+    "source": "let \$a = [99, if true { for \$i in [1,2] { break }; 7 }]; echo \$a...",
+    "mode": "code",
+    "args": [],
+    "stdout": "99 7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

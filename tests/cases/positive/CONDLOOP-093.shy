@@ -1,0 +1,13 @@
+# CONDLOOP-093: until / counting
+check ["id": "CONDLOOP-093",
+    "name": "until / counting",
+    "source": "let \$n = 0; until \$n == 3 { echo \$n; \$n = \$n + 1 }; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\n1\n2\n3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

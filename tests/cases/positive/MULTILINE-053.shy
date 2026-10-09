@@ -1,0 +1,13 @@
+# MULTILINE-053: function return / == / '\n' '\n'
+check ["id": "MULTILINE-053",
+    "name": "function return / == / '\\n' '\\n'",
+    "source": "fn f() { return 2\n==\n2 }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# STRUCT-007: nominal equality
+check ["id": "STRUCT-007",
+    "name": "nominal equality",
+    "source": "struct A { x }; struct B { x }; echo (A(x: 1) == B(x: 1))",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

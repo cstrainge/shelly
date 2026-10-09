@@ -1,0 +1,13 @@
+# MAP-361: key equality / [1.0] / [1]
+check ["id": "MAP-361",
+    "name": "key equality / [1.0] / [1]",
+    "source": "let \$m = [[1.0]:7]; echo \$m[[1]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

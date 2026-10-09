@@ -1,0 +1,13 @@
+# CONVERT-122: matrix Integer to Number
+check ["id": "CONVERT-122",
+    "name": "matrix Integer to Number",
+    "source": "let \$v = 2; let \$converted: Number = Number(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

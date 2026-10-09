@@ -1,0 +1,13 @@
+# ANNOTATION-199: variadic fixed arity
+check ["id": "ANNOTATION-199",
+    "name": "variadic fixed arity",
+    "source": "fn f(\$a: Number, \$xs: Number...): Number { return \$a }; echo (f 7)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

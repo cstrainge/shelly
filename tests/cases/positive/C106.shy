@@ -1,0 +1,13 @@
+# C106: Alias lifetime is global
+check ["id": "C106",
+    "name": "Alias lifetime is global",
+    "source": "fn f() { alias a = /usr/bin/echo \"hi\"\nreturn }\nf ; a",
+    "mode": "code",
+    "args": [],
+    "stdout": "hi\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C003: Let and reassignment
+check ["id": "C003",
+    "name": "Let and reassignment",
+    "source": "let \$x = 4 ; \$x = \$x + 2 ; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "6\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

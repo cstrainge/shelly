@@ -1,0 +1,13 @@
+# CONTROL-035: break no stale status
+check ["id": "CONTROL-035",
+    "name": "break no stale status",
+    "source": "for \$i in [1,2] { if (/usr/bin/false) { echo \"bad\" } else { break } }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

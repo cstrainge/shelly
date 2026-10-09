@@ -1,0 +1,13 @@
+# FOR-023: map key and value association
+check ["id": "FOR-023",
+    "name": "map key and value association",
+    "source": "let \$m = [\"a\":1,\"b\":2]; let \$copy = [:]; for \$k,\$v in \$m { \$copy[\$k] = \$v }; echo (\$copy == \$m)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

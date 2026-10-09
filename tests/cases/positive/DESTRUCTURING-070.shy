@@ -1,0 +1,13 @@
+# DESTRUCTURING-070: snapshot
+check ["id": "DESTRUCTURING-070",
+    "name": "snapshot",
+    "source": "let \$a = [[1, 2], [3, 4]]; for (\$x, \$y) in \$a { echo \$x \$y; \$a[1] = [7, 8] }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n3 4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

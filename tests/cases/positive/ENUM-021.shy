@@ -1,0 +1,13 @@
+# ENUM-021: nested declaration shadow
+check ["id": "ENUM-021",
+    "name": "nested declaration shadow",
+    "source": "enum Color { Red, Green, Blue }; { echo Color::Blue; enum Color { Blue }; }; echo Color::Red",
+    "mode": "code",
+    "args": [],
+    "stdout": "Color::Blue\nColor::Red\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

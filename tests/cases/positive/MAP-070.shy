@@ -1,0 +1,13 @@
+# MAP-070: key equality / 0 / ["a":1]
+check ["id": "MAP-070",
+    "name": "key equality / 0 / [\"a\":1]",
+    "source": "let \$m = [0:7]; echo \$m[[\"a\":1]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

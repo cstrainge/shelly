@@ -1,0 +1,13 @@
+# CONDITIONALS-002: if false { echo "bad" } else { echo "no" }
+check ["id": "CONDITIONALS-002",
+    "name": "if false { echo \"bad\" } else { echo \"no\" }",
+    "source": "if false { echo \"bad\" } else { echo \"no\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "no\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

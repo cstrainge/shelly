@@ -1,0 +1,13 @@
+# BOUNDARY-015: fn trailing comma
+check ["id": "BOUNDARY-015",
+    "name": "fn trailing comma",
+    "source": "echo \"PARSE_SENTINEL\"; fn f(\$a,) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

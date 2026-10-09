@@ -1,0 +1,13 @@
+# CONDLOOP-112: until / nested for iterator preserved
+check ["id": "CONDLOOP-112",
+    "name": "until / nested for iterator preserved",
+    "source": "for \$i in [1,2] { until false { echo \$i; break } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

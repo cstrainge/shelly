@@ -1,0 +1,13 @@
+# BOUNDARY-144: orphan or repeated else / else if true {}
+check ["id": "BOUNDARY-144",
+    "name": "orphan or repeated else / else if true {}",
+    "source": "echo \"PARSE_SENTINEL\"; else if true {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

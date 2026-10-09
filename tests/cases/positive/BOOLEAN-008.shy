@@ -1,0 +1,13 @@
+# BOOLEAN-008: echo (false && (1 / 0)) (true || $missing_boolean) (false && (missing_command arg))
+check ["id": "BOOLEAN-008",
+    "name": "echo (false && (1 / 0)) (true || \$missing_boolean) (false && (missing_command arg))",
+    "source": "echo (false && (1 / 0)) (true || \$missing_boolean) (false && (missing_command arg))",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

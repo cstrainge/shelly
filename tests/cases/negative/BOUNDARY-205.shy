@@ -1,0 +1,13 @@
+# BOUNDARY-205: runtime rejection / /usr/bin/false
+check ["id": "BOUNDARY-205",
+    "name": "runtime rejection / /usr/bin/false",
+    "source": "/usr/bin/false; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable returned error code:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

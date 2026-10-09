@@ -1,0 +1,13 @@
+# STRUCT-099: missing map value type
+check ["id": "STRUCT-099",
+    "name": "missing map value type",
+    "source": "struct S { n: [String:] }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

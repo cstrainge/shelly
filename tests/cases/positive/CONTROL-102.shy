@@ -1,0 +1,13 @@
+# CONTROL-102: callee owns its loop frames
+check ["id": "CONTROL-102",
+    "name": "callee owns its loop frames",
+    "source": "fn f() { for \$j in [3,4] { echo \$j; break } }; for \$i in [1,2] { f; echo \$i }",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n1\n3\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

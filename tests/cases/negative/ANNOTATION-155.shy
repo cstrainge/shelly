@@ -1,0 +1,13 @@
+# ANNOTATION-155: bad nested return
+check ["id": "ANNOTATION-155",
+    "name": "bad nested return",
+    "source": "fn f(): Number { loop { return \"bad\" } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

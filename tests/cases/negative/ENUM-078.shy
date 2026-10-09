@@ -1,0 +1,13 @@
+# ENUM-078: command variable
+check ["id": "ENUM-078",
+    "name": "command variable",
+    "source": "enum Color { Red, Green, Blue }; let \$x = Color::Red; \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Enums cannot|Cannot execute an enum|Cannot index|For loops require)",
+    "stderr_contains": ["Cannot execute an enum"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

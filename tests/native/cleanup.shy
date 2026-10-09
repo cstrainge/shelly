@@ -1,0 +1,44 @@
+let $fixture = $args[0]
+# A normal external child shares its Shelly parent's supervised process group.
+let $source = "let \$stat: String; /proc/self/stat -> \$stat; echo (\$stat.split \" \")[0]; /usr/bin/sleep 30"
+let $result = run_process [`$shelly, "-m", "-c", $source] [
+    "timeout_ms": 250, "stdout_file": "${fixture}/leader", "stderr_file": "${fixture}/error",
+]
+require $result["timed_out"] "watchdog did not fire"
+let $pid: String
+"${fixture}/leader" -> $pid
+$pid = $pid.trim
+require ($pid != "") "child did not start"
+require (!(test -e "/proc/${pid}/stat")) "direct child was not reaped"
+let $groups: String
+ps -eo "pgid=,stat=" -> $groups
+for $line in $groups.split "\n"
+{
+    let $fields = []
+    for $field in $line.trim.split " "
+    {
+        if $field != "" { $fields = [$fields..., $field] }
+    }
+    if ($fields.count == 2) && ($fields[0] == $pid)
+    { require ($fields[1].starts_with "Z") "process-group descendant survived" }
+}
+
+# Last-reference drop also stops and reaps a terminal child.
+fn abandoned_terminal($fixture: String)
+{
+    let $terminal = open_terminal [`$shelly, "-m", "-c",
+        "let \$stat: String; /proc/self/stat -> \$stat; echo (\$stat.split \" \")[0]; loop {}"] [:]
+    let $pid = ""
+    for $attempt in 0..50
+    {
+        let $reply = terminal_read $terminal 100
+        let $text = $reply["text"]
+    $pid = "${pid}${text}"
+        if ($pid.contains "\n") { break }
+    }
+    require ($pid.trim != "") "terminal child did not start"
+    printf "%s" $pid.trim -> "${fixture}/abandoned-pid"
+}
+abandoned_terminal $fixture
+"${fixture}/abandoned-pid" -> $pid
+require (!(test -e "/proc/${pid}/stat")) "dropped terminal child not reaped"

@@ -1,0 +1,5 @@
+# Struct typed key snapshots survive updates and iteration
+check_repl ["id": "R043",
+    "name": "Struct typed key snapshots survive updates and iteration",
+    "steps": [["struct Key { x: Float, xs: [Number] }; struct Box { key: Key }; let \$k = Key(x: 1.0, xs: [1]); let \$m = [\$k: \"found\"]", "quiet", ""], ["\$k.x = 2.0; \$k.xs[0] = 2", "quiet", ""], ["echo \$m[Key(x: 1.0, xs: [1])] \$m[\$k]", "output", "found ()"], ["for \$key, \$value in \$m { echo Box(key: \$key).key.x \$value }", "output", "1.0 found"]],
+    "exit": 0]

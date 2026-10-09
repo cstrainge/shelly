@@ -1,0 +1,13 @@
+# BOUNDARY-460: value pair / `word and ()
+check ["id": "BOUNDARY-460",
+    "name": "value pair / `word and ()",
+    "source": "echo (`word == ()) (`word != ()) (`word && ()) (`word || ())",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

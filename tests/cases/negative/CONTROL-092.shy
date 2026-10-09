@@ -1,0 +1,13 @@
+# CONTROL-092: continue rejects operands / if false { continue 1 }
+check ["id": "CONTROL-092",
+    "name": "continue rejects operands / if false { continue 1 }",
+    "source": "echo \"PARSE_SENTINEL\"; if false { continue 1 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

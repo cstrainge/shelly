@@ -1,0 +1,5 @@
+# Invalid exit status leaves REPL usable
+check_repl ["id": "R012",
+    "name": "Invalid exit status leaves REPL usable",
+    "steps": [["exit 256", "error", ""], ["echo \"recovered\"", "output", "recovered"]],
+    "exit": 0]

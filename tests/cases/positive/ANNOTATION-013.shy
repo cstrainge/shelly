@@ -1,0 +1,13 @@
+# ANNOTATION-013: default ExecResult
+check ["id": "ANNOTATION-013",
+    "name": "default ExecResult",
+    "source": "let \$x: ExecResult; echo \"\$x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ExecResult(0)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

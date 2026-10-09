@@ -1,0 +1,13 @@
+# METHOD-111: zip scalar argument
+check ["id": "METHOD-111",
+    "name": "zip scalar argument",
+    "source": "let \$a = [1]; let \$x = \$a.zip 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Method .* expected|Array methods require|sort requires)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

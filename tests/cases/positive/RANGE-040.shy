@@ -1,0 +1,13 @@
+# RANGE-040: condition range
+check ["id": "RANGE-040",
+    "name": "condition range",
+    "source": "if 1..3 { echo \"yes\" }; if 3..1 { echo \"bad\" } else { echo \"empty\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\nempty\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

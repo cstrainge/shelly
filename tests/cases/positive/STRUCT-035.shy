@@ -1,0 +1,13 @@
+# STRUCT-035: typed enum keys
+check ["id": "STRUCT-035",
+    "name": "typed enum keys",
+    "source": "enum E { A }; struct S { m: [E: String] }; echo S(m: [E::A: \"ok\"]).m[E::A]",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

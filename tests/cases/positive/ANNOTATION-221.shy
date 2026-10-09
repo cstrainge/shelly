@@ -1,0 +1,13 @@
+# ANNOTATION-221: same submission preserves compiled caller
+check ["id": "ANNOTATION-221",
+    "name": "same submission preserves compiled caller",
+    "source": "fn f(): Number { 1 }; fn g(): Number { f }; fn f(): Number { 2 }; echo (g) (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# RANGE-107: invalid bound / 1.0..3
+check ["id": "RANGE-107",
+    "name": "invalid bound / 1.0..3",
+    "source": "let \$r = 1.0..3; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Range error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

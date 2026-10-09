@@ -1,0 +1,13 @@
+# ANNOTATION-188: variadic empty
+check ["id": "ANNOTATION-188",
+    "name": "variadic empty",
+    "source": "fn f(\$xs...): Array { return \$xs }; let \$xs = f; echo (\$xs == [])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

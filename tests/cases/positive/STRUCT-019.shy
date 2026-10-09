@@ -1,0 +1,13 @@
+# STRUCT-019: optional array distinction
+check ["id": "STRUCT-019",
+    "name": "optional array distinction",
+    "source": "struct S { a: optional [Number], b: [optional Number] }; echo S(b: [()]).a",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

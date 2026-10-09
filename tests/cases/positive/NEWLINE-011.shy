@@ -1,0 +1,13 @@
+# NEWLINE-011: explicit return
+check ["id": "NEWLINE-011",
+    "name": "explicit return",
+    "source": "struct S { n: Number }; fn f() { return S\n(n: 3) }; echo (f).n",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

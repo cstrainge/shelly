@@ -1,0 +1,13 @@
+# C172: Variable path prefix preserves spaces
+check ["id": "C172",
+    "name": "Variable path prefix preserves spaces",
+    "source": "let \$root = \"directory with spaces\" ; audit_args \$root/file.txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"directory with spaces/file.txt\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

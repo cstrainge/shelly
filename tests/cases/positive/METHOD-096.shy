@@ -1,0 +1,13 @@
+# METHOD-096: bound receiver is live
+check ["id": "METHOD-096",
+    "name": "bound receiver is live",
+    "source": "let \$a = [3, 1]; let \$sort = `\$a.sort; \$a[0] = 0; echo (\$sort)...; echo \$a.sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "0 1\n0 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

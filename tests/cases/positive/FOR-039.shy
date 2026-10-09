@@ -1,0 +1,13 @@
+# FOR-039: return from iterable
+check ["id": "FOR-039",
+    "name": "return from iterable",
+    "source": "fn f() { for \$v in (if true { return 7 }) {} }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

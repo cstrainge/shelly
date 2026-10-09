@@ -1,0 +1,13 @@
+# EXTENSION-023: struct receiver mutation
+check ["id": "EXTENSION-023",
+    "name": "struct receiver mutation",
+    "source": "struct S { n: Integer }; fn S::inc(\$by: Integer): S { \$self.n = \$self.n + \$by; \$self }; let \$s = S(n: 2); let \$t = \$s.inc 3; echo \$s.n \$t.n",
+    "mode": "code",
+    "args": [],
+    "stdout": "5 5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

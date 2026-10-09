@@ -1,0 +1,13 @@
+# CONVERT-302: typed parameter index not String
+check ["id": "CONVERT-302",
+    "name": "typed parameter index not String",
+    "source": "enum E { A, B, C }; fn f(\$e: E): String { \$e.index }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

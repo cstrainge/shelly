@@ -1,0 +1,13 @@
+# CONVERT-308: signaled status Boolean
+check ["id": "CONVERT-308",
+    "name": "signaled status Boolean",
+    "source": "let \$r = audit_signal; echo Boolean(\$r)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

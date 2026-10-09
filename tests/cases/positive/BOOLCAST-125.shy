@@ -1,0 +1,13 @@
+# BOOLCAST-125: function reference stays value
+check ["id": "BOOLCAST-125",
+    "name": "function reference stays value",
+    "source": "fn f() { echo \"bad\"; false }; let \$r = `f; echo Boolean(\$r)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

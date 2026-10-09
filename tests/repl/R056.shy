@@ -1,0 +1,5 @@
+# Enum indexes are stable and read only
+check_repl ["id": "R056",
+    "name": "Enum indexes are stable and read only",
+    "steps": [["enum Color { Red, Green, Blue }", "quiet", ""], ["let \$color = Color::Blue", "quiet", ""], ["let \$n: Integer = \$color.index", "quiet", ""], ["echo \$n Color::Green.index", "output", "2 1"], ["\$color.index = 0", "error", ""], ["echo \$color.index", "output", "2"], ["enum Color { Blue, Red }", "quiet", ""], ["echo \$color.index Color::Blue.index", "output", "2 0"]],
+    "exit": 0]

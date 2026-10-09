@@ -1,0 +1,13 @@
+# CONVERT-071: matrix Enum to Array
+check ["id": "CONVERT-071",
+    "name": "matrix Enum to Array",
+    "source": "enum E { A, B }; let \$v = E::B; let \$converted: Array = Array(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

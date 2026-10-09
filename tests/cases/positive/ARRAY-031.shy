@@ -1,0 +1,13 @@
+# ARRAY-031: dynamic function write
+check ["id": "ARRAY-031",
+    "name": "dynamic function write",
+    "source": "let \$a = [1]; fn change() { \$a[0] = 5 }; change; echo \$a[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

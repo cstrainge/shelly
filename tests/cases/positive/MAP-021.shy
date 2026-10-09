@@ -1,0 +1,13 @@
+# MAP-021: map in array read/write
+check ["id": "MAP-021",
+    "name": "map in array read/write",
+    "source": "let \$a = [[\"x\":1]]; \$a[0][\"x\"] = 9; echo \$a[0][\"x\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

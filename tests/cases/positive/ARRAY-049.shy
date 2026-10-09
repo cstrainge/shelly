@@ -1,0 +1,13 @@
+# ARRAY-049: args indexed and writable
+check ["id": "ARRAY-049",
+    "name": "args indexed and writable",
+    "source": "echo \$args[0]; \$args[1] = \"changed\"; audit_args \$args...",
+    "mode": "code",
+    "args": ["first", "second"],
+    "stdout": "first\n[\"first\", \"changed\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

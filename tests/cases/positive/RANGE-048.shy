@@ -1,0 +1,13 @@
+# RANGE-048: max exclusive empty
+check ["id": "RANGE-048",
+    "name": "max exclusive empty",
+    "source": "let \$r = 9223372036854775807..9223372036854775807; audit_args \$r...",
+    "mode": "code",
+    "args": [],
+    "stdout": "[]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

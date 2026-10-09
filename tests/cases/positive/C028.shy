@@ -1,0 +1,13 @@
+# C028: Braced interpolation
+check ["id": "C028",
+    "name": "Braced interpolation",
+    "source": "let \$x = \"world\" ; echo \"\${x}_suffix\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "world_suffix\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

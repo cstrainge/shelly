@@ -1,0 +1,13 @@
+# C078: Missing function argument
+check ["id": "C078",
+    "name": "Missing function argument",
+    "source": "fn foo(\$a)\n{\n 2048 * \$a\n}\nfoo",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Function .* expected (?:at least )?[0-9]+(?: to [0-9]+)? arguments, but got [0-9]+",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

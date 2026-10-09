@@ -1,0 +1,13 @@
+# STRUCT-033: array float key constraints
+check ["id": "STRUCT-033",
+    "name": "array float key constraints",
+    "source": "struct S { m: [[Float]: Number] }; echo S(m: [[1.0]: 42]).m[[1]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

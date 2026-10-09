@@ -1,0 +1,13 @@
+# CONVERT-300: invalid enum field
+check ["id": "CONVERT-300",
+    "name": "invalid enum field",
+    "source": "enum E { A, B, C }; echo E::A.missing",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

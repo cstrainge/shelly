@@ -1,0 +1,13 @@
+# ARRAY-004: last element read
+check ["id": "ARRAY-004",
+    "name": "last element read",
+    "source": "echo [10,20,30][2]",
+    "mode": "code",
+    "args": [],
+    "stdout": "30\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

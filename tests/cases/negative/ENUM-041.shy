@@ -1,0 +1,13 @@
+# ENUM-041: command arguments
+check ["id": "ENUM-041",
+    "name": "command arguments",
+    "source": "enum Color { Red, Green, Blue }; Color::Red 1",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Cannot execute an enum"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

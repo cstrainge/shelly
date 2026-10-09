@@ -1,0 +1,13 @@
+# BLOCKS-020: tail block jumps
+check ["id": "BLOCKS-020",
+    "name": "tail block jumps",
+    "source": "fn f() { let \$x = true && true; { { \$x && (false || true) } } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,5 @@
+# Bound element uses evaluated index and live binding
+check_repl ["id": "R073",
+    "name": "Bound element uses evaluated index and live binding",
+    "steps": [["fn Integer::inc() { \$self = \$self + 1 }; let \$a = [1, 2]; let \$i = 0; let \$ref = `\$a[\$i].inc", "quiet", ""], ["\$i = 1; \$a = [4, 5]; \$ref; echo \$a...", "output", "5 5"], ["\$a = []; \$ref", "error", ""], ["\$a = [8]; \$ref; echo \$a[0]", "output", "9"]],
+    "exit": 0]

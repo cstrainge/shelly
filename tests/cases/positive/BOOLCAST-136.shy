@@ -1,0 +1,13 @@
+# BOOLCAST-136: function return
+check ["id": "BOOLCAST-136",
+    "name": "function return",
+    "source": "fn f(\$x): Boolean { Boolean(\$x) }; echo (f 0) (f 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

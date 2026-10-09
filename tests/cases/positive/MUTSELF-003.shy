@@ -1,0 +1,13 @@
+# MUTSELF-003: variable stored reference
+check ["id": "MUTSELF-003",
+    "name": "variable stored reference",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$v = 1;let \$r = `\$v.inc; \$r; \$r; echo \$v",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

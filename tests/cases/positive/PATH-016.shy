@@ -1,0 +1,13 @@
+# PATH-016: marked executable variable
+check ["id": "PATH-016",
+    "name": "marked executable variable",
+    "source": "let \$HOME = \"<FIXTURE>\"; let \$cmd = `<FIXTURE>/bin/audit_say; \$cmd",
+    "mode": "code",
+    "args": [],
+    "stdout": "fixture-called\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

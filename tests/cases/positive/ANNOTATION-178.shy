@@ -1,0 +1,13 @@
+# ANNOTATION-178: optional default parameters
+check ["id": "ANNOTATION-178",
+    "name": "optional default parameters",
+    "source": "fn f(\$a: Number, \$b: optional String, \$c: optional Number) { echo \$a \$b \$c }; f 1; f 1 \"b\"; f 1 \"b\" 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 () ()\n1 b ()\n1 b 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

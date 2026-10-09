@@ -1,0 +1,13 @@
+# RANGE-145: stdin variable range
+check ["id": "RANGE-145",
+    "name": "stdin variable range",
+    "source": "let \$a = 1; let \$b = 3; let \$r = \$a..=\$b; echo \$r...",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "1 2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

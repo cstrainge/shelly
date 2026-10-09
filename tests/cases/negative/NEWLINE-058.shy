@@ -1,0 +1,13 @@
+# NEWLINE-058: required spaced empty
+check ["id": "NEWLINE-058",
+    "name": "required spaced empty",
+    "source": "struct S { n: Number }; S ()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOOLCAST-130: arithmetic
+check ["id": "BOOLCAST-130",
+    "name": "arithmetic",
+    "source": "echo Boolean(2 - 2) Boolean(2 * 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

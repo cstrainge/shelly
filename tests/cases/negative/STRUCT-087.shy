@@ -1,0 +1,13 @@
+# STRUCT-087: unused function checked
+check ["id": "STRUCT-087",
+    "name": "unused function checked",
+    "source": "struct S { n: Number }; fn unused() { S(n: \"x\") }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected Number"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

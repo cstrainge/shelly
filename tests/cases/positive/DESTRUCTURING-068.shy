@@ -1,0 +1,13 @@
+# DESTRUCTURING-068: binding shadow
+check ["id": "DESTRUCTURING-068",
+    "name": "binding shadow",
+    "source": "let \$x: Integer = 99; for (\$x, \$y) in [[1, 2]] { echo \$x \$y }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n99\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

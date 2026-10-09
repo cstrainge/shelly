@@ -1,0 +1,13 @@
+# FOR-048: fresh conditional results
+check ["id": "FOR-048",
+    "name": "fresh conditional results",
+    "source": "for \$i in [0,1,2] { if \$i == 1 { echo \"one\" } else { echo \$i } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\none\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MUTSELF-026: typed map grouped
+check ["id": "MUTSELF-026",
+    "name": "typed map grouped",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$v: [String: Integer] = [\"k\": 1];(\$v[\"k\"]).inc; echo \$v[\"k\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

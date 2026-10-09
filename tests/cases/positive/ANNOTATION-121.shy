@@ -1,0 +1,13 @@
+# ANNOTATION-121: typed struct function
+check ["id": "ANNOTATION-121",
+    "name": "typed struct function",
+    "source": "struct S { n: Number }; fn foo(\$a: Number): S { S(n: \$a) }; let \$s: S = foo 3; echo \$s.n",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

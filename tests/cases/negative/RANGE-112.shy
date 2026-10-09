@@ -1,0 +1,13 @@
+# RANGE-112: invalid bound / 0..(true)
+check ["id": "RANGE-112",
+    "name": "invalid bound / 0..(true)",
+    "source": "let \$r = 0..(true); echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Range error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONDITIONALS-013: fn choose() { if false { 8 } }; echo (choose)
+check ["id": "CONDITIONALS-013",
+    "name": "fn choose() { if false { 8 } }; echo (choose)",
+    "source": "fn choose() { if false { 8 } }; echo (choose)",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

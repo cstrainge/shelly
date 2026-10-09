@@ -1,0 +1,13 @@
+# ARRAY-036: executable element explicit parameters
+check ["id": "ARRAY-036",
+    "name": "executable element explicit parameters",
+    "source": "fn f(\$n) { \$n * 2 }; let \$a = [`f]; echo (\$a[0] 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "6\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

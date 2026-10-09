@@ -1,0 +1,13 @@
+# STRUCT-006: scalar equality
+check ["id": "STRUCT-006",
+    "name": "scalar equality",
+    "source": "struct S { n: Number, text: String, extra: optional }; echo (S(n: 1, text: \"x\") == S(n: 1.0, text: \"x\"))",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

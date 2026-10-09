@@ -1,0 +1,13 @@
+# ANNOTATION-096: implicit return Boolean
+check ["id": "ANNOTATION-096",
+    "name": "implicit return Boolean",
+    "source": "fn f(): Boolean { true }; let \$x = f; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

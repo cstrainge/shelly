@@ -1,0 +1,13 @@
+# BOUNDARY-537: unary conversion / (/usr/bin/false)
+check ["id": "BOUNDARY-537",
+    "name": "unary conversion / (/usr/bin/false)",
+    "source": "echo !(/usr/bin/false)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

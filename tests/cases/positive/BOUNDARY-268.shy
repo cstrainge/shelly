@@ -1,0 +1,13 @@
+# BOUNDARY-268: value pair / -1 and -1
+check ["id": "BOUNDARY-268",
+    "name": "value pair / -1 and -1",
+    "source": "echo (-1 == -1) (-1 != -1) (-1 && -1) (-1 || -1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true false true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

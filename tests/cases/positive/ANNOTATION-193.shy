@@ -1,0 +1,13 @@
+# ANNOTATION-193: variadic arrays
+check ["id": "ANNOTATION-193",
+    "name": "variadic arrays",
+    "source": "fn f(\$xs: [Number]...): [[Number]] { return \$xs }; let \$xs = f [1] [2, 3]; echo \$xs[1]...",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

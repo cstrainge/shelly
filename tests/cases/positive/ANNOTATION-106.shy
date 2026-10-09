@@ -1,0 +1,13 @@
+# ANNOTATION-106: implicit return [Number]
+check ["id": "ANNOTATION-106",
+    "name": "implicit return [Number]",
+    "source": "fn f(): [Number] { [1, 2] }; let \$x = f; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# METHOD-131: zip bound reference uses live receiver
+check ["id": "METHOD-131",
+    "name": "zip bound reference uses live receiver",
+    "source": "let \$a = [1]; let \$zip = `\$a.zip; \$a[0] = 9; let \$pairs = \$zip [2]; echo \$pairs[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "9:2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

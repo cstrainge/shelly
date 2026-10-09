@@ -1,0 +1,13 @@
+# ARRAY-034: short circuit skips invalid index
+check ["id": "ARRAY-034",
+    "name": "short circuit skips invalid index",
+    "source": "echo (false && [1][9]) (true || [1][-1])",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

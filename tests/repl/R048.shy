@@ -1,0 +1,5 @@
+# Typed nominal bindings retain identities across redefinitions
+check_repl ["id": "R048",
+    "name": "Typed nominal bindings retain identities across redefinitions",
+    "steps": [["struct S { n: Number }", "quiet", ""], ["let \$s: S = S(n: 1)", "quiet", ""], ["fn keep(\$x: S): S { return \$x }", "quiet", ""], ["struct S { n: Number }", "quiet", ""], ["\$s = S(n: 2)", "error", ""], ["echo \$s.n", "output", "1"], ["echo (keep \$s).n", "output", "1"], ["keep S(n: 3)", "error", ""], ["let \$s: S = S(n: 4)", "quiet", ""], ["echo \$s.n", "output", "4"], ["keep \$s", "error", ""]],
+    "exit": 0]

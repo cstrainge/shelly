@@ -1,0 +1,13 @@
+# STRUCT-071: missing required any
+check ["id": "STRUCT-071",
+    "name": "missing required any",
+    "source": "struct S { n: any }; echo S()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Missing required field"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

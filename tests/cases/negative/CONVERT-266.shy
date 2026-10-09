@@ -1,0 +1,13 @@
+# CONVERT-266: named arguments HashMap
+check ["id": "CONVERT-266",
+    "name": "named arguments HashMap",
+    "source": "echo HashMap(value: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

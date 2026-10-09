@@ -1,0 +1,13 @@
+# STRUCT-063: shared namespace duplicate
+check ["id": "STRUCT-063",
+    "name": "shared namespace duplicate",
+    "source": "enum S { A }; struct S {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Duplicate type"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

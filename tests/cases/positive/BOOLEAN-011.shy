@@ -1,0 +1,13 @@
+# BOOLEAN-011: fn probe() { echo "called"; 7 }; echo (false && (probe)) (true || (probe)) (true && (probe)) (f
+check ["id": "BOOLEAN-011",
+    "name": "fn probe() { echo \"called\"; 7 }; echo (false && (probe)) (true || (probe)) (true && (probe)) (f",
+    "source": "fn probe() { echo \"called\"; 7 }; echo (false && (probe)) (true || (probe)) (true && (probe)) (false || (probe))",
+    "mode": "code",
+    "args": [],
+    "stdout": "called\ncalled\nfalse true true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

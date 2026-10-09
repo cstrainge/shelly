@@ -1,0 +1,13 @@
+# ANNOTATION-134: recursive typed function
+check ["id": "ANNOTATION-134",
+    "name": "recursive typed function",
+    "source": "fn fact(\$n: Number): Number { if \$n == 0 { 1 } else { \$n * (fact (\$n - 1)) } }; echo (fact 5)",
+    "mode": "code",
+    "args": [],
+    "stdout": "120\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

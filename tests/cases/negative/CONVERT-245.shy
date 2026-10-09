@@ -1,0 +1,13 @@
+# CONVERT-245: named arguments None
+check ["id": "CONVERT-245",
+    "name": "named arguments None",
+    "source": "echo None(value: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

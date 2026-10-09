@@ -1,0 +1,13 @@
+# CONDLOOP-044: while / conditional loop inside unbounded loop
+check ["id": "CONDLOOP-044",
+    "name": "while / conditional loop inside unbounded loop",
+    "source": "loop { while false {}; break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

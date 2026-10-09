@@ -1,0 +1,13 @@
+# CONTROL-094: nested continue targets inner
+check ["id": "CONTROL-094",
+    "name": "nested continue targets inner",
+    "source": "for \$i in 0..2 { for \$j in 1..4 { if \$j == 2 { continue }; echo \$i \$j } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "0 1\n0 3\n1 1\n1 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

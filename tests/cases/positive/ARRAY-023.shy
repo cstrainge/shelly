@@ -1,0 +1,13 @@
+# ARRAY-023: command element and command index
+check ["id": "ARRAY-023",
+    "name": "command element and command index",
+    "source": "fn f(\$n) { \$n * 2 }; fn i() { 1 }; let \$a = [f 3, f 4]; echo \$a[i]",
+    "mode": "code",
+    "args": [],
+    "stdout": "8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

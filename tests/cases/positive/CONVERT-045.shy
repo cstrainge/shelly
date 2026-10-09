@@ -1,0 +1,13 @@
+# CONVERT-045: matrix Range to Boolean
+check ["id": "CONVERT-045",
+    "name": "matrix Range to Boolean",
+    "source": "let \$v = 1..3; let \$converted: Boolean = Boolean(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

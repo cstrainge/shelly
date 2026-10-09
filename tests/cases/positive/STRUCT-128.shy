@@ -1,0 +1,13 @@
+# STRUCT-128: colon declaration exact example
+check ["id": "STRUCT-128",
+    "name": "colon declaration exact example",
+    "source": "struct MyStruct\n{\n value: Number\n}\nlet \$s = MyStruct(value: 42); echo \$s.value",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

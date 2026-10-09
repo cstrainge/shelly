@@ -1,0 +1,13 @@
+# CONVERT-223: invalid ArgumentExpansion(..)
+check ["id": "CONVERT-223",
+    "name": "invalid ArgumentExpansion(..)",
+    "source": "echo ArgumentExpansion(..)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

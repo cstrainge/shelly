@@ -1,0 +1,13 @@
+# CONVERT-290: member math
+check ["id": "CONVERT-290",
+    "name": "member math",
+    "source": "enum E { A, B, C }; echo E::B.index + 3",
+    "mode": "code",
+    "args": [],
+    "stdout": "4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

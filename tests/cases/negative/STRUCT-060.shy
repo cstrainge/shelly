@@ -1,0 +1,13 @@
+# STRUCT-060: array field does not coerce expansions
+check ["id": "STRUCT-060",
+    "name": "array field does not coerce expansions",
+    "source": "struct S { x: [Number] }; let \$a = [1, 2]; echo S(x: \$a...)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": ["Expected [Number]"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONTROL-082: continue outside active frame / continue
+check ["id": "CONTROL-082",
+    "name": "continue outside active frame / continue",
+    "source": "continue; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Loop control error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-221: ambiguous variable syntax / let $args[0] = 7; echo $args[0]
+check ["id": "BOUNDARY-221",
+    "name": "ambiguous variable syntax / let \$args[0] = 7; echo \$args[0]",
+    "source": "echo \"PARSE_SENTINEL\"; let \$args[0] = 7; echo \$args[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

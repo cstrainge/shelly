@@ -1,0 +1,13 @@
+# EXTENSION-068: param after variadic
+check ["id": "EXTENSION-068",
+    "name": "param after variadic",
+    "source": "fn Integer::f(\$a..., \$b) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

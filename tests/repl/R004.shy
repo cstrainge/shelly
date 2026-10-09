@@ -1,0 +1,5 @@
+# Failed declaration preserves old value
+check_repl ["id": "R004",
+    "name": "Failed declaration preserves old value",
+    "steps": [["let \$x = 9", "quiet", ""], ["let \$x = \$missing_audit_variable", "error", "not found"], ["echo \$x", "output", "9"]],
+    "exit": 0]

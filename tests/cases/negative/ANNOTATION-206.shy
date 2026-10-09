@@ -1,0 +1,13 @@
+# ANNOTATION-206: parameter known incompatible return
+check ["id": "ANNOTATION-206",
+    "name": "parameter known incompatible return",
+    "source": "fn f(\$x: Number): String { return \$x }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# LOOP-032: break abandons expression / echo "partial" (if true { break })
+check ["id": "LOOP-032",
+    "name": "break abandons expression / echo \"partial\" (if true { break })",
+    "source": "let \$n = 0; let \$old = 9; loop { \$n = \$n + 1; if \$n == 3 { break }; let \$old = echo \"partial\" (if true { break }); echo \"bad\" }; echo \$old",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

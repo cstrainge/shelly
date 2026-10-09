@@ -1,0 +1,13 @@
+# MAP-180: key equality / false / 0
+check ["id": "MAP-180",
+    "name": "key equality / false / 0",
+    "source": "let \$m = [false:7]; echo \$m[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

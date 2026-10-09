@@ -1,0 +1,13 @@
+# STRUCT-076: integer is not float
+check ["id": "STRUCT-076",
+    "name": "integer is not float",
+    "source": "struct S { n: Integer }; echo S(n: 1.0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected Integer"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

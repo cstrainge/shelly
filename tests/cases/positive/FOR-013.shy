@@ -1,0 +1,13 @@
+# FOR-013: nested loops
+check ["id": "FOR-013",
+    "name": "nested loops",
+    "source": "for \$i in [1,2] { for \$j in 3..5 { echo \$i \$j } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 3\n1 4\n2 3\n2 4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

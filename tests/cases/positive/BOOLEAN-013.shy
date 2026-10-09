@@ -1,0 +1,13 @@
+# BOOLEAN-013: fn f() { true && (false || true) }; fn g() { false || (f) }; echo (g) (g)
+check ["id": "BOOLEAN-013",
+    "name": "fn f() { true && (false || true) }; fn g() { false || (f) }; echo (g) (g)",
+    "source": "fn f() { true && (false || true) }; fn g() { false || (f) }; echo (g) (g)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

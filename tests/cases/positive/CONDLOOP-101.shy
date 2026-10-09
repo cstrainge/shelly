@@ -1,0 +1,13 @@
+# CONDLOOP-101: until / nested block continue scope
+check ["id": "CONDLOOP-101",
+    "name": "until / nested block continue scope",
+    "source": "let \$n = 0; let \$x = 9; until \$n == 3 { \$n = \$n + 1; { let \$x = 1; continue } }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

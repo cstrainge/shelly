@@ -1,0 +1,13 @@
+# BOOLEAN-012: fn f($x) { return !!$x; echo "bad" }; echo (f 0) (f false) (f "hello")
+check ["id": "BOOLEAN-012",
+    "name": "fn f(\$x) { return !!\$x; echo \"bad\" }; echo (f 0) (f false) (f \"hello\")",
+    "source": "fn f(\$x) { return !!\$x; echo \"bad\" }; echo (f 0) (f false) (f \"hello\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "false false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

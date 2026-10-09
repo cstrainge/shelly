@@ -1,0 +1,13 @@
+# FOR-008: computed bounds
+check ["id": "FOR-008",
+    "name": "computed bounds",
+    "source": "for \$i in (1 + 1)..(3 + 1) { echo \$i }",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

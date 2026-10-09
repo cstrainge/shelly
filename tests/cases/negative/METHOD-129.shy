@@ -1,0 +1,13 @@
+# METHOD-129: sort empty parentheses are one None argument
+check ["id": "METHOD-129",
+    "name": "sort empty parentheses are one None argument",
+    "source": "let \$a = [1]; let \$s = \$a.sort()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Method .* expected|Array methods require|sort requires)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

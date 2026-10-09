@@ -1,0 +1,13 @@
+# CONVERT-200: invalid Integer(-2.5)
+check ["id": "CONVERT-200",
+    "name": "invalid Integer(-2.5)",
+    "source": "echo Integer(-2.5)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

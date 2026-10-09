@@ -1,0 +1,13 @@
+# ANNOTATION-090: parameter Number
+check ["id": "ANNOTATION-090",
+    "name": "parameter Number",
+    "source": "fn f(\$x: Number): Number { return \$x }; let \$x = f 2; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-262: extra arguments Array
+check ["id": "CONVERT-262",
+    "name": "extra arguments Array",
+    "source": "echo Array(1, 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

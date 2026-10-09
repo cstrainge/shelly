@@ -1,0 +1,13 @@
+# C139: PATH mutation observed
+check ["id": "C139",
+    "name": "PATH mutation observed",
+    "source": "\$PATH = \"<FIXTURE>/bin\" ; audit_say",
+    "mode": "code",
+    "args": [],
+    "stdout": "fixture-called\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

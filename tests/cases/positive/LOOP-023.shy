@@ -1,0 +1,13 @@
+# LOOP-023: return from nested mixed loops
+check ["id": "LOOP-023",
+    "name": "return from nested mixed loops",
+    "source": "fn f() { loop { for \$i in [3,4] { loop { return \$i } } } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

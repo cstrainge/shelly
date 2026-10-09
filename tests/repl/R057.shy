@@ -1,0 +1,5 @@
+# Failed conversions preserve typed variable values
+check_repl ["id": "R057",
+    "name": "Failed conversions preserve typed variable values",
+    "steps": [["let \$x: Integer = Integer(\"42\")", "quiet", ""], ["\$x = Integer(\"bad\")", "error", ""], ["echo \$x", "output", "42"], ["\$x = Integer(2.5)", "error", ""], ["echo \$x", "output", "42"], ["\$x = Integer(2.0)", "quiet", ""], ["echo \$x", "output", "2"]],
+    "exit": 0]

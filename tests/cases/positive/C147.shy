@@ -1,0 +1,13 @@
+# C147: Output redirection writes a file
+check ["id": "C147",
+    "name": "Output redirection writes a file",
+    "source": "echo \"a\" -> out.txt; cat out.txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "a\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

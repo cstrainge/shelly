@@ -1,0 +1,13 @@
+# METHOD-132: sort preserves executable references
+check ["id": "METHOD-132",
+    "name": "sort preserves executable references",
+    "source": "fn z() { 1 }; fn a() { 2 }; let \$items = [`z, `a]; let \$sorted = \$items.sort; echo (\$sorted[0]) (\$sorted[1])",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C099: Executable marker retained in function argument
+check ["id": "C099",
+    "name": "Executable marker retained in function argument",
+    "source": "fn target() { 7 }\nfn identity(\$x) { \$x }\nlet \$r = identity `target ; echo \"\$r\" ; echo \$r",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

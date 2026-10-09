@@ -1,0 +1,13 @@
+# CONTROL-034: break skipped in empty loop
+check ["id": "CONTROL-034",
+    "name": "break skipped in empty loop",
+    "source": "for \$i in [] { break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

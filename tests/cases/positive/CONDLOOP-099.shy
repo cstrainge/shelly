@@ -1,0 +1,13 @@
+# CONDLOOP-099: until / body scope shadows condition variable
+check ["id": "CONDLOOP-099",
+    "name": "until / body scope shadows condition variable",
+    "source": "let \$n = 0; let \$ready = false; until \$ready { let \$ready = true; \$n = \$n + 1; if \$n == 3 { break } }; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ARRAY-041: literal indexed command head
+check ["id": "ARRAY-041",
+    "name": "literal indexed command head",
+    "source": "[`audit_args][0] \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"ok\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

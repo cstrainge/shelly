@@ -1,0 +1,13 @@
+# MAP-367: key equality / [1.0] / (/usr/bin/true)
+check ["id": "MAP-367",
+    "name": "key equality / [1.0] / (/usr/bin/true)",
+    "source": "let \$m = [[1.0]:7]; echo \$m[(/usr/bin/true)]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

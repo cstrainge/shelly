@@ -1,0 +1,13 @@
+# BOOLEAN-022: fn f() { (false || true) == (true && true) }; echo (f)
+check ["id": "BOOLEAN-022",
+    "name": "fn f() { (false || true) == (true && true) }; echo (f)",
+    "source": "fn f() { (false || true) == (true && true) }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

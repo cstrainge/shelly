@@ -1,0 +1,13 @@
+# RANGE-025: ordinary versus expanded argument
+check ["id": "RANGE-025",
+    "name": "ordinary versus expanded argument",
+    "source": "let \$r = 1..4; audit_args \$r \$r...",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"1..4\", \"1\", \"2\", \"3\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

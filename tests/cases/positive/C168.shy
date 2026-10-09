@@ -1,0 +1,13 @@
+# C168: Private declaration shadows exported variable
+check ["id": "C168",
+    "name": "Private declaration shadows exported variable",
+    "source": "let export \$AUDIT_FLAG = \"old\" ; fn f() { let \$AUDIT_FLAG = \"private\" ; /usr/bin/printenv AUDIT_FLAG }\nlet \$x = f ; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "ExecResult(1)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ENUM-003: equality
+check ["id": "ENUM-003",
+    "name": "equality",
+    "source": "enum Color { Red, Green, Blue }; echo (Color::Red == Color::Red) (Color::Red == Color::Green) (Color::Red != \"Color::Red\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

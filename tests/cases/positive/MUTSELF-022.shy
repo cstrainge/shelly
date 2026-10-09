@@ -1,0 +1,13 @@
+# MUTSELF-022: typed array grouped
+check ["id": "MUTSELF-022",
+    "name": "typed array grouped",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$v: [Integer] = [1];(\$v[0]).inc; echo \$v[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# DESTRUCTURING-088: nested pattern
+check ["id": "DESTRUCTURING-088",
+    "name": "nested pattern",
+    "source": "echo \"PARSE_SENTINEL\"; for ((\$a, \$b), \$c) in [] {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

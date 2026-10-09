@@ -1,0 +1,13 @@
+# CONTROL-108: file control
+check ["id": "CONTROL-108",
+    "name": "file control",
+    "source": "for \$i in 0..5 { if \$i == 1 { continue }; if \$i == 3 { break }; echo \$i }",
+    "mode": "file",
+    "args": [],
+    "stdout": "0\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

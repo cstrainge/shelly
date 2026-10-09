@@ -1,0 +1,13 @@
+# ANNOTATION-225: same submission keeps old recursive reference
+check ["id": "ANNOTATION-225",
+    "name": "same submission keeps old recursive reference",
+    "source": "fn f(\$n: Number): Number { if \$n == 0 { return 0 }; 1 + (f (\$n - 1)) }; let \$r = `f; fn f(\$n: Number): Number { 99 }; echo (\$r 3) (f 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3 99\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

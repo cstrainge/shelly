@@ -1,0 +1,13 @@
+# NEWLINE-037: spaced empty statement
+check ["id": "NEWLINE-037",
+    "name": "spaced empty statement",
+    "source": "struct E {}; E (); echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-036: matrix Struct to Float
+check ["id": "CONVERT-036",
+    "name": "matrix Struct to Float",
+    "source": "struct S { n: Integer }; let \$v = S(n: 2); let \$converted: Float = Float(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

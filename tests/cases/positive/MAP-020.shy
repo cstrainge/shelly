@@ -1,0 +1,13 @@
+# MAP-020: map-valued array key snapshot
+check ["id": "MAP-020",
+    "name": "map-valued array key snapshot",
+    "source": "let \$k = [[\"a\":1]]; let \$m = [\$k:7]; \$k[0][\"a\"] = 2; echo \$m[[[\"a\":1]]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

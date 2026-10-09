@@ -1,0 +1,13 @@
+# ARRAY-121: nested spread keeps independent elements
+check ["id": "ARRAY-121",
+    "name": "nested spread keeps independent elements",
+    "source": "let \$a = [[1]]; let \$b = [\$a...]; \$b[0][0] = 9; echo \$a[0][0] \$b[0][0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

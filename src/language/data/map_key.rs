@@ -1,9 +1,10 @@
 
 use std::{ rc::Rc, cmp::Ordering, hash::{ Hash, Hasher } };
 
-use crate::language::data::{ value::{ ExecResult, Value },
-                             range::Range,
-                             types::{ EnumValue, StructValue } };
+use crate::{ runtime::process::Terminal,
+             language::data::{ value::{ ExecResult, Value },
+                               range::Range,
+                               types::{ EnumValue, StructValue } } };
 
 // Immutable, canonical keys keep hashing consistent with language equality.
 // Collections are snapshots; map entry order and string execution flags do not
@@ -12,6 +13,7 @@ use crate::language::data::{ value::{ ExecResult, Value },
 pub enum MapKey
 {
     None,
+    Terminal(Rc<Terminal>),
     Enum(Rc<EnumValue>),
     Struct(Rc<StructKey>),
     ExecResult(u8),
@@ -34,6 +36,7 @@ impl MapKey
         match value
         {
             Value::None => Self::None,
+            Value::Terminal(value) => Self::Terminal(value.clone()),
             Value::Enum(value) => Self::Enum(value.clone()),
             Value::Struct(value) => Self::Struct(Rc::new(StructKey
                 {
@@ -87,6 +90,7 @@ impl MapKey
         match self
         {
             Self::None => Value::None,
+            Self::Terminal(value) => Value::Terminal(value.clone()),
             Self::Enum(value) => Value::Enum(value.clone()),
             Self::Struct(key) => Value::Struct(key.value.clone()),
             Self::Range(range) => Value::Range(*range),

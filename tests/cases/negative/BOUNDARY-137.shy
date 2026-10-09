@@ -1,0 +1,13 @@
+# BOUNDARY-137: assignment / if true {} else if false {
+check ["id": "BOUNDARY-137",
+    "name": "assignment / if true {} else if false {",
+    "source": "echo \"PARSE_SENTINEL\"; let \$result = if true {} else if false {",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

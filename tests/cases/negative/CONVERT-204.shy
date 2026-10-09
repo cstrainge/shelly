@@ -1,0 +1,13 @@
+# CONVERT-204: invalid Integer(-9223372036854777856.0)
+check ["id": "CONVERT-204",
+    "name": "invalid Integer(-9223372036854777856.0)",
+    "source": "echo Integer(-9223372036854777856.0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-002: let missing assignment
+check ["id": "BOUNDARY-002",
+    "name": "let missing assignment",
+    "source": "echo \"PARSE_SENTINEL\"; let \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

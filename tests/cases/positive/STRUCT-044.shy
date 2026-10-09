@@ -1,0 +1,13 @@
+# STRUCT-044: indexes before RHS once
+check ["id": "STRUCT-044",
+    "name": "indexes before RHS once",
+    "source": "let \$order = 0; fn mark(\$n) { \$order = \$order * 10 + \$n; return \$n }; struct S { xs: [Number] }; let \$s = S(xs: [0, 0]); \$s.xs[(mark 1)] = mark 2; echo \$order \$s.xs...",
+    "mode": "code",
+    "args": [],
+    "stdout": "12 0 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

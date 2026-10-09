@@ -1,0 +1,13 @@
+# BOUNDARY-315: value pair / 2.5 and (/usr/bin/true)
+check ["id": "BOUNDARY-315",
+    "name": "value pair / 2.5 and (/usr/bin/true)",
+    "source": "echo (2.5 == (/usr/bin/true)) (2.5 != (/usr/bin/true)) (2.5 && (/usr/bin/true)) (2.5 || (/usr/bin/true))",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

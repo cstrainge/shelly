@@ -1,0 +1,13 @@
+# ANNOTATION-162: bad nested map write
+check ["id": "ANNOTATION-162",
+    "name": "bad nested map write",
+    "source": "let \$x: [String: Number] = [:]; \$x[\"a\"] = \"bad\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

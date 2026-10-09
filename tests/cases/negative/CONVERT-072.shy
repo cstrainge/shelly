@@ -1,0 +1,13 @@
+# CONVERT-072: matrix Struct to Array
+check ["id": "CONVERT-072",
+    "name": "matrix Struct to Array",
+    "source": "struct S { n: Integer }; let \$v = S(n: 2); let \$converted: Array = Array(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

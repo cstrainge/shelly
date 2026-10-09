@@ -1,0 +1,13 @@
+# ANNOTATION-172: missing parameter type
+check ["id": "ANNOTATION-172",
+    "name": "missing parameter type",
+    "source": "fn f(\$x:) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

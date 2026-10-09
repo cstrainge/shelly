@@ -1,0 +1,13 @@
+# ARRAY-012: literal newlines comments trailing comma
+check ["id": "ARRAY-012",
+    "name": "literal newlines comments trailing comma",
+    "source": "let \$a = [\n 1, # one\n [2,3,],\n]; echo (\$a == [1,[2,3]])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

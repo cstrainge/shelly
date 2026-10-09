@@ -1,0 +1,13 @@
+# CONVERT-220: invalid Array(1..)
+check ["id": "CONVERT-220",
+    "name": "invalid Array(1..)",
+    "source": "echo Array(1..)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

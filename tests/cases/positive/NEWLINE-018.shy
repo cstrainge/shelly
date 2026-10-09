@@ -1,0 +1,13 @@
+# NEWLINE-018: unquoted command then group
+check ["id": "NEWLINE-018",
+    "name": "unquoted command then group",
+    "source": "echo first\n(echo \"second\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "first\nsecond\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

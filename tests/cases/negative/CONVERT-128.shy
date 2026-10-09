@@ -1,0 +1,13 @@
+# CONVERT-128: matrix HashMap to Number
+check ["id": "CONVERT-128",
+    "name": "matrix HashMap to Number",
+    "source": "let \$v = [\"x\": 1]; let \$converted: Number = Number(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

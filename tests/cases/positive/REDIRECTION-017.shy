@@ -1,0 +1,13 @@
+# REDIRECTION-017: builtin error capture
+check ["id": "REDIRECTION-017",
+    "name": "builtin error capture",
+    "source": "let \$out: String; let \$r = cd ~-> \$out; printf \"%s:%s\" \$r \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "ExecResult(1):Usage: cd <directory>\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-060: initialize None from Number
+check ["id": "ANNOTATION-060",
+    "name": "initialize None from Number",
+    "source": "let \$x: None = 2; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

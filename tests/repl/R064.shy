@@ -1,0 +1,5 @@
+# Extension error cleanup restores caller scope
+check_repl ["id": "R064",
+    "name": "Extension error cleanup restores caller scope",
+    "steps": [["let \$n = 7; fn Integer::broken() { let \$n = 9; let \$private = 4; echo \$missing }", "quiet", ""], ["\$n.broken", "error", "not found"], ["echo \$n", "output", "7"], ["echo \$self", "error", "not found"], ["echo \$private", "error", "not found"], ["fn Integer::ok() { \$self }; echo \$n.ok", "output", "7"]],
+    "exit": 0]

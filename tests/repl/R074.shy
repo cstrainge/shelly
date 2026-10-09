@@ -1,0 +1,5 @@
+# Bound receiver type changes fail cleanly
+check_repl ["id": "R074",
+    "name": "Bound receiver type changes fail cleanly",
+    "steps": [["fn Integer::inc() { \$self = \$self + 1 }; let \$v = 1; let \$ref = `\$v.inc", "quiet", ""], ["\$v = \"bad\"; \$ref", "error", ""], ["echo \$v", "output", "bad"], ["\$v = 3; \$ref; echo \$v", "output", "4"]],
+    "exit": 0]

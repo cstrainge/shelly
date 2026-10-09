@@ -1,0 +1,13 @@
+# MUTSELF-029: visible during call
+check ["id": "MUTSELF-029",
+    "name": "visible during call",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$n = 1; fn observe() { \$n.inc }; fn Integer::run() { \$self = 2; observe; echo \$self }; \$n.run; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

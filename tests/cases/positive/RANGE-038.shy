@@ -1,0 +1,13 @@
+# RANGE-038: range comparison precedence
+check ["id": "RANGE-038",
+    "name": "range comparison precedence",
+    "source": "echo (1..3 == 1..3 && true)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

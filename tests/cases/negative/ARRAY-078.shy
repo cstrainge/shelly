@@ -1,0 +1,13 @@
+# ARRAY-078: invalid access / let $a = []; $a[0] = 1
+check ["id": "ARRAY-078",
+    "name": "invalid access / let \$a = []; \$a[0] = 1",
+    "source": "let \$a = []; \$a[0] = 1; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

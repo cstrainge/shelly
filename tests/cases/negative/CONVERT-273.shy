@@ -1,0 +1,13 @@
+# CONVERT-273: empty Number
+check ["id": "CONVERT-273",
+    "name": "empty Number",
+    "source": "echo Number()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["exactly one positional value"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

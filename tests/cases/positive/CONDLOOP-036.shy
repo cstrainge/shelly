@@ -1,0 +1,13 @@
+# CONDLOOP-036: while / break in condition
+check ["id": "CONDLOOP-036",
+    "name": "while / break in condition",
+    "source": "while (if true { break }) { echo \"bad\" }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

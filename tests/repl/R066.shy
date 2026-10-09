@@ -1,0 +1,5 @@
+# Native and user method versions survive overrides
+check_repl ["id": "R066",
+    "name": "Native and user method versions survive overrides",
+    "steps": [["let \$a = [2, 1]; let \$ref = `\$a.sort; fn old(\$a: Array): Array { \$a.sort }", "quiet", ""], ["fn Array::sort(): Array { [99] }", "quiet", ""], ["echo (\$ref)...; echo (old \$a)...; echo \$a.sort...", "output", "1 2\n1 2\n99"]],
+    "exit": 0]

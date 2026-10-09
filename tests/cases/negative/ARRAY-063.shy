@@ -1,0 +1,13 @@
+# ARRAY-063: invalid index / echo $a[INDEX] / ()
+check ["id": "ARRAY-063",
+    "name": "invalid index / echo \$a[INDEX] / ()",
+    "source": "let \$a = [1,2]; echo \$a[()]; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

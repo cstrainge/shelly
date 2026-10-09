@@ -1,0 +1,13 @@
+# CONVERT-177: numeric and syntax ExecResult(2.0)
+check ["id": "CONVERT-177",
+    "name": "numeric and syntax ExecResult(2.0)",
+    "source": "echo ExecResult(2.0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "ExecResult(2)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

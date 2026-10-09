@@ -1,0 +1,13 @@
+# MUTSELF-047: string replace
+check ["id": "MUTSELF-047",
+    "name": "string replace",
+    "source": "fn String::replace(\$text: String) { \$self = \$text }; let \$s = \"old\"; \$s.replace \"new\"; echo \$s",
+    "mode": "code",
+    "args": [],
+    "stdout": "new\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

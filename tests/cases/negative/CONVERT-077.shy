@@ -1,0 +1,13 @@
+# CONVERT-077: matrix String to ArgumentExpansion
+check ["id": "CONVERT-077",
+    "name": "matrix String to ArgumentExpansion",
+    "source": "let \$v = \"2\"; let \$converted: ArgumentExpansion = ArgumentExpansion(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

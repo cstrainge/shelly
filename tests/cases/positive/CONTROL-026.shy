@@ -1,0 +1,13 @@
+# CONTROL-026: break abandoned call argument
+check ["id": "CONTROL-026",
+    "name": "break abandoned call argument",
+    "source": "let \$x = 9; for \$i in 0..3 { let \$x = echo \"BEFORE\" (if true { break }); echo \"bad\" }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

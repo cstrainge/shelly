@@ -1,0 +1,5 @@
+# Explicit parameters remain values inside methods
+check_repl ["id": "R076",
+    "name": "Explicit parameters remain values inside methods",
+    "steps": [["fn Array::edit(\$copy: Array) { \$self[0] = 2; \$copy[0] = 3 }; let \$a = [1]", "quiet", ""], ["\$a.edit \$a; echo \$a[0]", "output", "2"], ["fn ordinary(\$self: Array) { \$self[0] = 9 }; ordinary \$a; echo \$a[0]", "output", "2"]],
+    "exit": 0]

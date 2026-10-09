@@ -1,0 +1,13 @@
+# ENUM-028: function local forward
+check ["id": "ENUM-028",
+    "name": "function local forward",
+    "source": "fn f() { return Local::A; enum Local { A } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "Local::A\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ENUM-068: invalid variant
+check ["id": "ENUM-068",
+    "name": "invalid variant",
+    "source": "enum C { a-b }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

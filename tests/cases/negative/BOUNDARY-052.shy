@@ -1,0 +1,13 @@
+# BOUNDARY-052: standalone / if {}
+check ["id": "BOUNDARY-052",
+    "name": "standalone / if {}",
+    "source": "echo \"PARSE_SENTINEL\"; if {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

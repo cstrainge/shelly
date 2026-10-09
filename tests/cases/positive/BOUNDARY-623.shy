@@ -1,0 +1,13 @@
+# BOUNDARY-623: braced array argument splat
+check ["id": "BOUNDARY-623",
+    "name": "braced array argument splat",
+    "source": "audit_args \${args}...",
+    "mode": "code",
+    "args": ["one", "two"],
+    "stdout": "[\"one\", \"two\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

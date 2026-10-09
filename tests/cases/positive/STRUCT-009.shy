@@ -1,0 +1,13 @@
+# STRUCT-009: arrays
+check ["id": "STRUCT-009",
+    "name": "arrays",
+    "source": "struct S { xs: [Number] }; let \$s = S(xs: [1, 2.5]); echo \$s.xs...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

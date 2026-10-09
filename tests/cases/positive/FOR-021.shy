@@ -1,0 +1,13 @@
+# FOR-021: nested array value copies
+check ["id": "FOR-021",
+    "name": "nested array value copies",
+    "source": "let \$a = [[1],[2]]; for \$v in \$a { \$v[0] = 9 }; echo (\$a == [[1],[2]])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

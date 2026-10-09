@@ -1,0 +1,13 @@
+# METHOD-097: bound zip reference
+check ["id": "METHOD-097",
+    "name": "bound zip reference",
+    "source": "let \$a = [1, 2]; let \$zip = `\$a.zip; let \$pairs = \$zip [3, 4]; echo \$pairs[1]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2:4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-022: return multiple values
+check ["id": "BOUNDARY-022",
+    "name": "return multiple values",
+    "source": "echo \"PARSE_SENTINEL\"; fn f() { return 1 2 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

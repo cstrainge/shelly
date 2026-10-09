@@ -1,0 +1,13 @@
+# BOUNDARY-069: return / if true echo "bad"
+check ["id": "BOUNDARY-069",
+    "name": "return / if true echo \"bad\"",
+    "source": "echo \"PARSE_SENTINEL\"; fn f() { return if true echo \"bad\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

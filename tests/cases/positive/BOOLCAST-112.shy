@@ -1,0 +1,13 @@
+# BOOLCAST-112: variable / Boolean(0)
+check ["id": "BOOLCAST-112",
+    "name": "variable / Boolean(0)",
+    "source": "let \$value = Boolean(0); let \$flag: Boolean = Boolean(\$value); echo \$flag",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

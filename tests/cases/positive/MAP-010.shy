@@ -1,0 +1,13 @@
+# MAP-010: bare key and value
+check ["id": "MAP-010",
+    "name": "bare key and value",
+    "source": "let \$m = [unresolved_key: unresolved_value]; echo \$m[\"unresolved_key\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "unresolved_value\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

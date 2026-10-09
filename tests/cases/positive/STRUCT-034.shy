@@ -1,0 +1,13 @@
+# STRUCT-034: typed struct keys
+check ["id": "STRUCT-034",
+    "name": "typed struct keys",
+    "source": "struct K { n: Number }; struct S { m: [K: String] }; echo S(m: [K(n: 1): \"ok\"]).m[K(n: 1.0)]",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

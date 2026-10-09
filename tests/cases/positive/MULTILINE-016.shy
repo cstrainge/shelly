@@ -1,0 +1,13 @@
+# MULTILINE-016: assignment / && / ' # lhs\n\n # gap\n' ' # rhs\n'
+check ["id": "MULTILINE-016",
+    "name": "assignment / && / ' # lhs\\n\\n # gap\\n' ' # rhs\\n'",
+    "source": "let \$x = true # lhs\n\n # gap\n&& # rhs\nfalse; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

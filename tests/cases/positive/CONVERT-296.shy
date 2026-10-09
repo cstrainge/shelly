@@ -1,0 +1,13 @@
+# CONVERT-296: index after shadow
+check ["id": "CONVERT-296",
+    "name": "index after shadow",
+    "source": "enum E { A, B, C }; let \$e = E::C; { enum E { C, B, A }; echo \$e.index E::C.index }",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 0\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

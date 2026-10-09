@@ -1,0 +1,13 @@
+# ENUM-064: payload declaration
+check ["id": "ENUM-064",
+    "name": "payload declaration",
+    "source": "enum C { A(\$x) }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

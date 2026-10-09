@@ -1,0 +1,13 @@
+# ARRAY-131: array remains ordinary or expanded argument
+check ["id": "ARRAY-131",
+    "name": "array remains ordinary or expanded argument",
+    "source": "let \$a = [1,2,3,4]; echo \$a; echo \$a...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1:2:3:4\n1 2 3 4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONDLOOP-096: until / break skips next probe
+check ["id": "CONDLOOP-096",
+    "name": "until / break skips next probe",
+    "source": "let \$n = 0; fn probe() { \$n = \$n + 1; false }; until probe { break }; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

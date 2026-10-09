@@ -1,0 +1,5 @@
+# Empty function returns None across inputs
+check_repl ["id": "R006",
+    "name": "Empty function returns None across inputs",
+    "steps": [["return 7", "error", ""], ["fn empty() { }", "quiet", ""], ["let \$x = empty ; echo \$x", "output", "()"]],
+    "exit": 0]

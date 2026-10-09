@@ -1,0 +1,13 @@
+# CONDLOOP-140: until malformed file
+check ["id": "CONDLOOP-140",
+    "name": "until malformed file",
+    "source": "echo \"PARSE_SENTINEL\"; until",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

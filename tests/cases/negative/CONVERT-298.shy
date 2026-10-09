@@ -1,0 +1,13 @@
+# CONVERT-298: index readonly
+check ["id": "CONVERT-298",
+    "name": "index readonly",
+    "source": "enum E { A, B, C }; let \$e = E::A; \$e.index = 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

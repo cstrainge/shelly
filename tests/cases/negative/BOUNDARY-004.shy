@@ -1,0 +1,13 @@
+# BOUNDARY-004: let missing initializer
+check ["id": "BOUNDARY-004",
+    "name": "let missing initializer",
+    "source": "echo \"PARSE_SENTINEL\"; let \$x =",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

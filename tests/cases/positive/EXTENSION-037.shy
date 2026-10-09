@@ -1,0 +1,13 @@
+# EXTENSION-037: receiver once
+check ["id": "EXTENSION-037",
+    "name": "receiver once",
+    "source": "let \$hits = 0; fn make() { \$hits = \$hits + 1; 2 }; fn Integer::twice(): Integer { \$self * 2 }; echo (make).twice \$hits",
+    "mode": "code",
+    "args": [],
+    "stdout": "4 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

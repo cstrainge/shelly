@@ -1,0 +1,13 @@
+# METHOD-127: literal count type
+check ["id": "METHOD-127",
+    "name": "literal count type",
+    "source": "let \$n: String = [1].count",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-148: bad constant reassignment
+check ["id": "ANNOTATION-148",
+    "name": "bad constant reassignment",
+    "source": "let \$x: Number; \$x = \"bad\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# METHOD-037: sort [-1, -1.5, -0.5, 0, 0.5, 1.5, 1].sort
+check ["id": "METHOD-037",
+    "name": "sort [-1, -1.5, -0.5, 0, 0.5, 1.5, 1].sort",
+    "source": "echo [-1, -1.5, -0.5, 0, 0.5, 1.5, 1].sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "-1.5 -1 -0.5 0 0.5 1 1.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

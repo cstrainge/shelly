@@ -1,0 +1,13 @@
+# MULTILINE-042: grouped argument / == / '\n' ' '
+check ["id": "MULTILINE-042",
+    "name": "grouped argument / == / '\\n' ' '",
+    "source": "echo (2\n== 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

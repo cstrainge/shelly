@@ -1,0 +1,13 @@
+# DESTRUCTURING-072: continue and break
+check ["id": "DESTRUCTURING-072",
+    "name": "continue and break",
+    "source": "for (\$x, \$y) in [[1, 2], [3, 4], [5, 6]] { if \$x == 1 { continue }; echo \$y; break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "4\ndone\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

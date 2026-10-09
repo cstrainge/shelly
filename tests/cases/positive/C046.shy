@@ -1,0 +1,13 @@
+# C046: Redeclaration replaces value
+check ["id": "C046",
+    "name": "Redeclaration replaces value",
+    "source": "let \$x = 1 ; let \$x = 2 ; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

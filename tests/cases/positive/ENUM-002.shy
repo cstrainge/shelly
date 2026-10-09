@@ -1,0 +1,13 @@
+# ENUM-002: assignment
+check ["id": "ENUM-002",
+    "name": "assignment",
+    "source": "enum Color { Red, Green, Blue }; let \$x = Color::Red; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "Color::Red\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

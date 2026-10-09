@@ -1,0 +1,13 @@
+# NEWLINE-063: spaced unknown named type
+check ["id": "NEWLINE-063",
+    "name": "spaced unknown named type",
+    "source": "Missing (n: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

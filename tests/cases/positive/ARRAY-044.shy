@@ -1,0 +1,13 @@
+# ARRAY-044: relative bracket glob
+check ["id": "ARRAY-044",
+    "name": "relative bracket glob",
+    "source": "cd fixtures; audit_args ./[ab].txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"a.txt\", \"b.txt\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

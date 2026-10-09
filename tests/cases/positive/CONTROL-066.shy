@@ -1,0 +1,13 @@
+# CONTROL-066: continue table / 5..0 / 9
+check ["id": "CONTROL-066",
+    "name": "continue table / 5..0 / 9",
+    "source": "for \$i in 5..0 { if \$i == 9 { continue }; echo \$i }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# LOOP-009: return inside loop
+check ["id": "LOOP-009",
+    "name": "return inside loop",
+    "source": "fn f() { loop { return 7 }; 9 }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

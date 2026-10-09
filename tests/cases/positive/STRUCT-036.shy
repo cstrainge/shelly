@@ -1,0 +1,13 @@
+# STRUCT-036: function argument and return
+check ["id": "STRUCT-036",
+    "name": "function argument and return",
+    "source": "struct S { n: Number, text: String, extra: optional }; fn f(\$s) { return \$s }; echo (f S(n: 1, text: \"x\")).n",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

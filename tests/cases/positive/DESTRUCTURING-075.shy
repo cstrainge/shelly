@@ -1,0 +1,13 @@
+# DESTRUCTURING-075: pattern comments and newlines
+check ["id": "DESTRUCTURING-075",
+    "name": "pattern comments and newlines",
+    "source": "for (\n \$x, # first\n \$y,\n) in [[1, 2]] { echo \$x \$y }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

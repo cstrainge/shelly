@@ -1,0 +1,13 @@
+# ANNOTATION-093: dynamic bad return Number
+check ["id": "ANNOTATION-093",
+    "name": "dynamic bad return Number",
+    "source": "fn f(\$x): Number { return \$x }; let \$x = \"bad\"; f \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

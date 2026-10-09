@@ -1,0 +1,13 @@
+# CONVERT-106: matrix ExecResult to Range
+check ["id": "CONVERT-106",
+    "name": "matrix ExecResult to Range",
+    "source": "let \$v = /bin/true; let \$converted: Range = Range(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

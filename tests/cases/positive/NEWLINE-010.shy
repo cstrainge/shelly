@@ -1,0 +1,13 @@
+# NEWLINE-010: map entries
+check ["id": "NEWLINE-010",
+    "name": "map entries",
+    "source": "struct S { n: Number }; let \$m = [S\n(n: 1): S\n(n: 2)]; echo \$m[S(n: 1)].n",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# REDIRECTION-008: variable file path
+check ["id": "REDIRECTION-008",
+    "name": "variable file path",
+    "source": "let \$path = \"fixtures/a.txt\"; let \$out: String; \$path -> \$out; printf \"%s\" \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "fixture\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

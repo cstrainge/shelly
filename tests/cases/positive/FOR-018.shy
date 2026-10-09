@@ -1,0 +1,13 @@
+# FOR-018: map binding shadow
+check ["id": "FOR-018",
+    "name": "map binding shadow",
+    "source": "let \$k = 9; let \$v = 8; for \$k,\$v in [1:2] { echo \$k \$v }; echo \$k \$v",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n9 8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

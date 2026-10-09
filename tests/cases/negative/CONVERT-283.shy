@@ -1,0 +1,13 @@
+# CONVERT-283: builtin shadow conversion
+check ["id": "CONVERT-283",
+    "name": "builtin shadow conversion",
+    "source": "struct Integer {}; echo Integer(2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["shadowed"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

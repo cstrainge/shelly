@@ -1,0 +1,13 @@
+# LOOP-016: loop continue inside for
+check ["id": "LOOP-016",
+    "name": "loop continue inside for",
+    "source": "for \$i in [1,2] { let \$n = 0; loop { \$n = \$n + 1; if \$n == 1 { continue }; echo \$i \$n; break } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n2 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

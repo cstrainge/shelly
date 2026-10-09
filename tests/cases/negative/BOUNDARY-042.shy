@@ -1,0 +1,13 @@
+# BOUNDARY-042: continuation with trailing code
+check ["id": "BOUNDARY-042",
+    "name": "continuation with trailing code",
+    "source": "echo \"PARSE_SENTINEL\"; echo 1 \\ trailing",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

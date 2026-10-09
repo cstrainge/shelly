@@ -1,0 +1,13 @@
+# C196: Explicit plain variable call in group
+check ["id": "C196",
+    "name": "Explicit plain variable call in group",
+    "source": "fn f(\$x) { \$x * 2 }\nlet \$name = \"f\" ; echo (\$name 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "6\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

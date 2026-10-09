@@ -1,0 +1,13 @@
+# ARRAY-003: compact literal and arithmetic index
+check ["id": "ARRAY-003",
+    "name": "compact literal and arithmetic index",
+    "source": "let \$a = [10,20,30]; echo \$a[1 + 1]",
+    "mode": "code",
+    "args": [],
+    "stdout": "30\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

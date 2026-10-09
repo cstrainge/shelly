@@ -1,0 +1,13 @@
+# LOOP-053: runtime rejection / fn f() { break }; loop { f }
+check ["id": "LOOP-053",
+    "name": "runtime rejection / fn f() { break }; loop { f }",
+    "source": "fn f() { break }; loop { f }; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Loop control error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

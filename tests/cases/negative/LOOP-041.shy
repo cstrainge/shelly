@@ -1,0 +1,13 @@
+# LOOP-041: malformed / loop $i in [] {}
+check ["id": "LOOP-041",
+    "name": "malformed / loop \$i in [] {}",
+    "source": "echo \"PARSE_SENTINEL\"; loop \$i in [] {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

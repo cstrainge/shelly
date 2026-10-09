@@ -1,0 +1,13 @@
+# EXTENSION-090: README first and fallback
+check ["id": "EXTENSION-090",
+    "name": "README first and fallback",
+    "source": "fn Array::first(\$fallback: optional any): any { if \$self.count == 0 { \$fallback } else { \$self[0] } }; echo [4, 5].first; echo ([].first \"empty\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "4\nempty\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

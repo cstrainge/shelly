@@ -1,0 +1,13 @@
+# CONVERT-059: matrix Enum to String
+check ["id": "CONVERT-059",
+    "name": "matrix Enum to String",
+    "source": "enum E { A, B }; let \$v = E::B; let \$converted: String = String(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "E::B\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

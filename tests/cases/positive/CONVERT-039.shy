@@ -1,0 +1,13 @@
+# CONVERT-039: matrix Float to Boolean
+check ["id": "CONVERT-039",
+    "name": "matrix Float to Boolean",
+    "source": "let \$v = 2.5; let \$converted: Boolean = Boolean(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

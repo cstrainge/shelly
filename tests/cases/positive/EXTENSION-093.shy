@@ -1,0 +1,13 @@
+# EXTENSION-093: mutation without returning self
+check ["id": "EXTENSION-093",
+    "name": "mutation without returning self",
+    "source": "fn Array::mutate() { \$self[0] = 9 }; let \$a = [1]; \$a.mutate; echo \$a[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

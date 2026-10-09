@@ -1,0 +1,13 @@
+# ANNOTATION-223: same submission preserves optional signature
+check ["id": "ANNOTATION-223",
+    "name": "same submission preserves optional signature",
+    "source": "fn f(\$x: optional Number): Number { if \$x == () { 7 } else { \$x } }; fn g(): Number { f }; let \$r = `f; fn f(\$xs: Number...): [Number] { return \$xs }; echo (g) (\$r 4); echo (f 1 2)...",
+    "mode": "code",
+    "args": [],
+    "stdout": "7 4\n1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

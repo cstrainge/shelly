@@ -1,0 +1,13 @@
+# MAP-035: conditional key and value
+check ["id": "MAP-035",
+    "name": "conditional key and value",
+    "source": "let \$m = [(if true { \"a\" } else { \"b\" }): if true { 9 } else { 1 / 0 }]; echo \$m[\"a\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

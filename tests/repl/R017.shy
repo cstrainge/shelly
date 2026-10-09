@@ -1,0 +1,5 @@
+# Failed conditional initializer preserves previous binding
+check_repl ["id": "R017",
+    "name": "Failed conditional initializer preserves previous binding",
+    "steps": [["let \$old = 8", "quiet", ""], ["let \$old = if true { \$missing_audit_variable } else { 9 }", "error", "not found"], ["echo \$old", "output", "8"], ["echo (if false { \$missing_audit_variable } else { \$old })", "output", "8"]],
+    "exit": 0]

@@ -1,0 +1,13 @@
+# BOOLCAST-128: grouped call
+check ["id": "BOOLCAST-128",
+    "name": "grouped call",
+    "source": "fn f(\$x) { \$x }; echo Boolean((f 2))",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

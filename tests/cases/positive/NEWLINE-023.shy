@@ -1,0 +1,13 @@
+# NEWLINE-023: same line none argument
+check ["id": "NEWLINE-023",
+    "name": "same line none argument",
+    "source": "fn f(\$x) { return \$x }; echo (f ())",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

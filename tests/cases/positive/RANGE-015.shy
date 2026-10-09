@@ -1,0 +1,13 @@
+# RANGE-015: bound calls evaluated in order
+check ["id": "RANGE-015",
+    "name": "bound calls evaluated in order",
+    "source": "let \$n = 0; fn next() { \$n = \$n + 1; \$n }; let \$r = (next)..=(next); echo \$r...; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

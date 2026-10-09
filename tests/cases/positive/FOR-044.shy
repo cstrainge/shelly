@@ -1,0 +1,13 @@
+# FOR-044: callee loops preserve caller iterator
+check ["id": "FOR-044",
+    "name": "callee loops preserve caller iterator",
+    "source": "fn f() { for \$j in [3,4] { echo \$j } }; for \$i in [1,2] { f; echo \$i }",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n4\n1\n3\n4\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

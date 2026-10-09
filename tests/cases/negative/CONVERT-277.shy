@@ -1,0 +1,13 @@
+# CONVERT-277: extra arguments any
+check ["id": "CONVERT-277",
+    "name": "extra arguments any",
+    "source": "echo any(1, 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

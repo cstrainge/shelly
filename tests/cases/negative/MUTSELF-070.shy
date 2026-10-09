@@ -1,0 +1,13 @@
+# MUTSELF-070: outer replacement cannot bypass self type
+check ["id": "MUTSELF-070",
+    "name": "outer replacement cannot bypass self type",
+    "source": "let \$n = 1; fn change() { \$n = \"bad\" }; fn Integer::call() { change; \$self + 1 }; \$n.call",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

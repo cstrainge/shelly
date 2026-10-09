@@ -1,0 +1,13 @@
+# MULTILINE-089: short circuit skips effects
+check ["id": "MULTILINE-089",
+    "name": "short circuit skips effects",
+    "source": "let \$hits = 0; fn tick() { \$hits = \$hits + 1; true }; echo (false\n && (tick)) (true\n || (tick)) \$hits",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true 0\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

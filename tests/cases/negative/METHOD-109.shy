@@ -1,0 +1,13 @@
+# METHOD-109: zip missing argument
+check ["id": "METHOD-109",
+    "name": "zip missing argument",
+    "source": "echo [1].zip",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Method .* expected|Array methods require|sort requires)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

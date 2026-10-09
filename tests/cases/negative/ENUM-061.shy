@@ -1,0 +1,13 @@
+# ENUM-061: double comma
+check ["id": "ENUM-061",
+    "name": "double comma",
+    "source": "enum C { A,, B }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

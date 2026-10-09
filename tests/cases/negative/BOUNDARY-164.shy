@@ -1,0 +1,13 @@
+# BOUNDARY-164: missing RHS / % / fn f() {{ return 1 {} }}
+check ["id": "BOUNDARY-164",
+    "name": "missing RHS / % / fn f() {{ return 1 {} }}",
+    "source": "echo \"PARSE_SENTINEL\"; fn f() { return 1 % }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

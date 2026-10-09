@@ -1,0 +1,13 @@
+# CONVERT-278: named arguments any
+check ["id": "CONVERT-278",
+    "name": "named arguments any",
+    "source": "echo any(value: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

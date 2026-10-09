@@ -1,0 +1,13 @@
+# EXTENSION-065: struct field collision
+check ["id": "EXTENSION-065",
+    "name": "struct field collision",
+    "source": "struct S { n: Integer }; fn S::n() {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONDLOOP-057: while malformed / if false { while true { let $x = 1 + } }
+check ["id": "CONDLOOP-057",
+    "name": "while malformed / if false { while true { let \$x = 1 + } }",
+    "source": "echo \"PARSE_SENTINEL\"; if false { while true { let \$x = 1 + } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

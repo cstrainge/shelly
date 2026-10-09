@@ -1,0 +1,13 @@
+# NEWLINE-027: invalid field type
+check ["id": "NEWLINE-027",
+    "name": "invalid field type",
+    "source": "struct S { n: Number }; S\n(n: \"bad\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

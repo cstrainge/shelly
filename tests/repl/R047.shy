@@ -1,0 +1,5 @@
+# Typed parameter and return errors restore caller scopes
+check_repl ["id": "R047",
+    "name": "Typed parameter and return errors restore caller scopes",
+    "steps": [["let \$x = \"outer\"", "quiet", ""], ["fn f(\$x: Number, \$y: Number): Number { return \$x }", "quiet", ""], ["f 1 \"bad\"", "error", ""], ["echo \$x", "output", "outer"], ["fn bad_return(\$x): Number { return \$x }", "quiet", ""], ["let \$value = 7", "quiet", ""], ["let \$value: Number = bad_return \"bad\"", "error", ""], ["echo \$value", "output", "7"], ["fn f(\$x: Number): Number { \$x * 2 }", "quiet", ""], ["echo (f 3)", "output", "6"], ["echo \$x", "output", "outer"], ["fn f(): Number { \"invalid\" }", "error", ""], ["echo (f 4)", "output", "8"]],
+    "exit": 0]

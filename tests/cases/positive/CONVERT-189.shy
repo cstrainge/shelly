@@ -1,0 +1,13 @@
+# CONVERT-189: numeric and syntax ArgumentExpansion(2..=3)
+check ["id": "CONVERT-189",
+    "name": "numeric and syntax ArgumentExpansion(2..=3)",
+    "source": "echo ArgumentExpansion(2..=3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

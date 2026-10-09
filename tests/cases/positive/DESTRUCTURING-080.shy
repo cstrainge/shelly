@@ -1,0 +1,13 @@
+# DESTRUCTURING-080: enum and struct elements
+check ["id": "DESTRUCTURING-080",
+    "name": "enum and struct elements",
+    "source": "enum E { A }; struct S { x: Integer }; for (\$e, \$s) in [[E::A, S(x: 3)]] { echo \$e \$s.x }",
+    "mode": "code",
+    "args": [],
+    "stdout": "E::A 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

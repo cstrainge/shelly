@@ -1,0 +1,13 @@
+# MULTILINE-063: function return / != / '\n' ' '
+check ["id": "MULTILINE-063",
+    "name": "function return / != / '\\n' ' '",
+    "source": "fn f() { return 2\n!= 2 }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

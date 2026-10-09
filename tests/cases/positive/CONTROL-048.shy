@@ -1,0 +1,13 @@
+# CONTROL-048: continue table / 0..5 / 2
+check ["id": "CONTROL-048",
+    "name": "continue table / 0..5 / 2",
+    "source": "for \$i in 0..5 { if \$i == 2 { continue }; echo \$i }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\n1\n3\n4\ndone\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

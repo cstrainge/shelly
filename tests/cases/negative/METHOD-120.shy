@@ -1,0 +1,13 @@
+# METHOD-120: infinite sort
+check ["id": "METHOD-120",
+    "name": "infinite sort",
+    "source": "echo [1e309].sort",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Method .* expected|Array methods require|sort requires)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

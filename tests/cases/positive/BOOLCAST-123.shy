@@ -1,0 +1,13 @@
+# BOOLCAST-123: expansion empty
+check ["id": "BOOLCAST-123",
+    "name": "expansion empty",
+    "source": "let \$x = []; echo Boolean(\$x...)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONDLOOP-011: while conversion / "yes"
+check ["id": "CONDLOOP-011",
+    "name": "while conversion / \"yes\"",
+    "source": "while \"yes\" { echo \"body\"; break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "body\ndone\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# RANGE-023: parent directory command
+check ["id": "RANGE-023",
+    "name": "parent directory command",
+    "source": "cd fixtures; cd ..; audit_args fixtures/a.txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"fixtures/a.txt\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

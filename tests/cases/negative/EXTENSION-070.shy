@@ -1,0 +1,13 @@
+# EXTENSION-070: bad return
+check ["id": "EXTENSION-070",
+    "name": "bad return",
+    "source": "fn Integer::f(): Boolean { 3 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

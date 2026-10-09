@@ -1,0 +1,13 @@
+# PATH-004: collection path values
+check ["id": "PATH-004",
+    "name": "collection path values",
+    "source": "let \$a = [\"<FIXTURE>/home/sub\",1,true]; let \$m = [\"path\":\"<FIXTURE>/home/sub\"]; echo (\$a == [\"~/sub\",1,true]) (\$m[\"path\"] == \"~/sub\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

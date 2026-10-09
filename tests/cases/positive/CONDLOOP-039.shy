@@ -1,0 +1,13 @@
+# CONDLOOP-039: while / partial condition expression cleanup
+check ["id": "CONDLOOP-039",
+    "name": "while / partial condition expression cleanup",
+    "source": "while (1 + (if true { break })) { echo \"bad\" }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

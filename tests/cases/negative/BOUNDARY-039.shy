@@ -1,0 +1,13 @@
+# BOUNDARY-039: unicode overflow
+check ["id": "BOUNDARY-039",
+    "name": "unicode overflow",
+    "source": "echo \"PARSE_SENTINEL\"; echo \"\\x110000\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

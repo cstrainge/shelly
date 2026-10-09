@@ -1,0 +1,27 @@
+let $fixture = $args[0]
+for ($source, $message) in [
+    ["run_process [] [:]", "Command array cannot be empty"],
+    ["run_process [1] [:]", "Expected a String"],
+    ["run_process [\"true\"] [\"bogus\": 1]", "Unknown process option"],
+    ["run_process [\"true\"] [\"timeout_ms\": -1]", "nonnegative Integer"],
+    ["run_process [\"true\"] [\"env\": 1]", "env must be a map"],
+    ["run_process [\"true\"] [\"env\": [\"A=B\": \"x\"]]", "Invalid environment"],
+    ["open_terminal [\"true\"] [\"rows\": 0]", "from 1 to 65535"],
+    ["open_terminal [\"true\"] [\"columns\": 65536]", "from 1 to 65535"],
+    ["open_terminal [\"true\"] [\"stdin_file\": \"x\"]", "Unknown terminal option"],
+    ["terminal_read 1 0", "Expected a Terminal handle"],
+    ["echo (\"x\".contains 1)", "String methods require String arguments"],
+    ["echo (\"x\".contains)", "expected 1 arguments"],
+    ["echo (\"x\".replace \"x\")", "expected 2 arguments"],
+    ["echo (\"x\".trim 1)", "expected 0 arguments"],
+]
+{
+    let $result = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "timeout_ms": 1000,
+        "stdout_file": "${fixture}/invalid.out", "stderr_file": "${fixture}/invalid.err",
+    ]
+    require ($result["exit_code"] == 1) "invalid API arguments succeeded or panicked"
+    let $error: String
+    "${fixture}/invalid.err" -> $error
+    require ($error.contains $message) "wrong validation diagnostic"
+}

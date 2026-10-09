@@ -1,0 +1,13 @@
+# BOOLCAST-066: 'Boolean ({})' / "hello"
+check ["id": "BOOLCAST-066",
+    "name": "'Boolean ({})' / \"hello\"",
+    "source": "echo Boolean (\"hello\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C081: Return outside function
+check ["id": "C081",
+    "name": "Return outside function",
+    "source": "return 3",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Cannot return outside a function",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

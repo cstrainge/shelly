@@ -1,0 +1,13 @@
+# EXTENSION-076: wrong type receiver
+check ["id": "EXTENSION-076",
+    "name": "wrong type receiver",
+    "source": "fn Integer::f() { \$self }; let \$v = \"s\"; \$v.f",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

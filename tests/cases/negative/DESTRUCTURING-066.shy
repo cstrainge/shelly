@@ -1,0 +1,13 @@
+# DESTRUCTURING-066: non-array element 1..3
+check ["id": "DESTRUCTURING-066",
+    "name": "non-array element 1..3",
+    "source": "for (\$a, \$b) in [1..3] { echo \"UNREACHABLE\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": ["Array destructuring requires an array"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

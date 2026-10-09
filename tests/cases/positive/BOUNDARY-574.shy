@@ -1,0 +1,13 @@
+# BOUNDARY-574: stdin / conditional value
+check ["id": "BOUNDARY-574",
+    "name": "stdin / conditional value",
+    "source": "let \$x = if false { 1 } else { 2 }; echo \$x",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

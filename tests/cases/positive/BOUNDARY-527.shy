@@ -1,0 +1,13 @@
+# BOUNDARY-527: unary conversion / false
+check ["id": "BOUNDARY-527",
+    "name": "unary conversion / false",
+    "source": "echo !false",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

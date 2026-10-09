@@ -1,0 +1,13 @@
+# C190: Unicode before escaped and live interpolation
+check ["id": "C190",
+    "name": "Unicode before escaped and live interpolation",
+    "source": "let \$x = \"live\" ; echo \"猫\\\$x \${x}\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "猫\$x live\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

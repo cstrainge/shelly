@@ -1,0 +1,13 @@
+# PATH-015: executable variable with argument
+check ["id": "PATH-015",
+    "name": "executable variable with argument",
+    "source": "let \$HOME = \"<FIXTURE>\"; let \$cmd = \"<FIXTURE>/bin/audit_args\"; \$cmd \"hello\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"hello\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

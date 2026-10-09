@@ -1,0 +1,13 @@
+# CONDLOOP-007: while conversion / 1.5
+check ["id": "CONDLOOP-007",
+    "name": "while conversion / 1.5",
+    "source": "while 1.5 { echo \"body\"; break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "body\ndone\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

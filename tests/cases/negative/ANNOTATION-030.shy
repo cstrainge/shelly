@@ -1,0 +1,13 @@
+# ANNOTATION-030: initialize Float from String
+check ["id": "ANNOTATION-030",
+    "name": "initialize Float from String",
+    "source": "let \$x: Float = \"str\"; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

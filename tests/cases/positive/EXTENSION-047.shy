@@ -1,0 +1,13 @@
+# EXTENSION-047: override native
+check ["id": "EXTENSION-047",
+    "name": "override native",
+    "source": "fn Array::count(): String { \"counted\" }; let \$a: Array = [1]; let \$s: String = \$a.count; echo \$s",
+    "mode": "code",
+    "args": [],
+    "stdout": "counted\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

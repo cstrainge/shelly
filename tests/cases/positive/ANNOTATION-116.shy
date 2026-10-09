@@ -1,0 +1,13 @@
+# ANNOTATION-116: untyped redeclaration removes constraint
+check ["id": "ANNOTATION-116",
+    "name": "untyped redeclaration removes constraint",
+    "source": "let \$x: Number; let \$x = \"text\"; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "text\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

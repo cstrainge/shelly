@@ -1,0 +1,13 @@
+# CONDLOOP-046: while / multiline body open
+check ["id": "CONDLOOP-046",
+    "name": "while / multiline body open",
+    "source": "let \$n = 0; while \$n != 3\n# comment\n{ \$n = \$n + 1 }; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

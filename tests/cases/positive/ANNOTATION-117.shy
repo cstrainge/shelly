@@ -1,0 +1,13 @@
+# ANNOTATION-117: typed redeclaration self reference
+check ["id": "ANNOTATION-117",
+    "name": "typed redeclaration self reference",
+    "source": "let \$x: Number = 2; let \$x: Number = \$x + 1; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

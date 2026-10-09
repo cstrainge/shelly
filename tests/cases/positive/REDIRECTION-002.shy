@@ -1,0 +1,13 @@
+# REDIRECTION-002: stderr capture
+check ["id": "REDIRECTION-002",
+    "name": "stderr capture",
+    "source": "let \$out: String; audit_streams \"\" err 0 ~-> \$out; printf \"<%s>\" \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "<err>",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

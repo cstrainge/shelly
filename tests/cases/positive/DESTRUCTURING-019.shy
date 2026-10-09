@@ -1,0 +1,13 @@
+# DESTRUCTURING-019: zip lengths 3 3
+check ["id": "DESTRUCTURING-019",
+    "name": "zip lengths 3 3",
+    "source": "let \$a = [0, 1, 2]; let \$b = [10, 11, 12]; for (\$x, \$y) in \$a.zip \$b { echo \$x \$y }",
+    "mode": "code",
+    "args": [],
+    "stdout": "0 10\n1 11\n2 12\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

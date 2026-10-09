@@ -1,0 +1,13 @@
+# BOUNDARY-320: value pair / true and 1.0
+check ["id": "BOUNDARY-320",
+    "name": "value pair / true and 1.0",
+    "source": "echo (true == 1.0) (true != 1.0) (true && 1.0) (true || 1.0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# NEWLINE-042: spaced empty comparison chain
+check ["id": "NEWLINE-042",
+    "name": "spaced empty comparison chain",
+    "source": "struct E {}; echo (E () == E () != E ())",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

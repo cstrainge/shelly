@@ -1,0 +1,13 @@
+# FOR-010: conditional iterable
+check ["id": "FOR-010",
+    "name": "conditional iterable",
+    "source": "for \$v in if true { [1,2] } else { [] } { echo \$v }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

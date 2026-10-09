@@ -1,0 +1,13 @@
+# STRUCT-002: display declaration order
+check ["id": "STRUCT-002",
+    "name": "display declaration order",
+    "source": "struct S { n: Number, text: String, extra: optional }; echo S(text: \"hi\", n: 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "S(n: 2, text: \"hi\", extra: ())\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

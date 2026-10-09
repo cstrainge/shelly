@@ -1,0 +1,13 @@
+# STRUCT-090: known missing member
+check ["id": "STRUCT-090",
+    "name": "known missing member",
+    "source": "struct S {}; echo S().missing",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown field"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

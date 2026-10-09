@@ -1,0 +1,13 @@
+# ARRAY-009: index variable
+check ["id": "ARRAY-009",
+    "name": "index variable",
+    "source": "let \$a = [10,20]; let \$i = 1; \$a[\$i] = 8; echo \$a[\$i]",
+    "mode": "code",
+    "args": [],
+    "stdout": "8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

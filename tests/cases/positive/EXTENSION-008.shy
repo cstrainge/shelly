@@ -1,0 +1,13 @@
+# EXTENSION-008: builtin receiver Array[1, 2]
+check ["id": "EXTENSION-008",
+    "name": "builtin receiver Array[1, 2]",
+    "source": "fn Array::copy(): Array { \$self }; let \$v: Array = [1, 2]; let \$copy = \$v.copy; echo String(\$copy)",
+    "mode": "code",
+    "args": [],
+    "stdout": "1:2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

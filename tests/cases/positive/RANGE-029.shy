@@ -1,0 +1,13 @@
+# RANGE-029: expansion assignment
+check ["id": "RANGE-029",
+    "name": "expansion assignment",
+    "source": "let \$r = 1..4; let \$a = \$r...; echo (\$a == [1,2,3])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

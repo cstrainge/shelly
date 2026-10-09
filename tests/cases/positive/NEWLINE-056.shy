@@ -1,0 +1,13 @@
+# NEWLINE-056: plain symbol arguments stay separate
+check ["id": "NEWLINE-056",
+    "name": "plain symbol arguments stay separate",
+    "source": "echo unknown_name ()",
+    "mode": "code",
+    "args": [],
+    "stdout": "unknown_name ()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

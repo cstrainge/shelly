@@ -1,0 +1,13 @@
+# BOOLCAST-151: two arguments
+check ["id": "BOOLCAST-151",
+    "name": "two arguments",
+    "source": "echo Boolean(1, 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

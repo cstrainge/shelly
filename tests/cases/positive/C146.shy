@@ -1,0 +1,13 @@
+# C146: Struct declaration
+check ["id": "C146",
+    "name": "Struct declaration",
+    "source": "struct Foo { }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

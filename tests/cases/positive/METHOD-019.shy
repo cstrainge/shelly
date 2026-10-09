@@ -1,0 +1,13 @@
+# METHOD-019: sort [2, 1.5, 1, -0.5].sort
+check ["id": "METHOD-019",
+    "name": "sort [2, 1.5, 1, -0.5].sort",
+    "source": "echo [2, 1.5, 1, -0.5].sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "-0.5 1 1.5 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

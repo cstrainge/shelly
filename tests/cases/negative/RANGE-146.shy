@@ -1,0 +1,13 @@
+# RANGE-146: stdin invalid range
+check ["id": "RANGE-146",
+    "name": "stdin invalid range",
+    "source": "echo \"PARSE_SENTINEL\"; let \$r = 1..=",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

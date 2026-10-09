@@ -1,0 +1,13 @@
+# METHOD-106: loops and method results
+check ["id": "METHOD-106",
+    "name": "loops and method results",
+    "source": "let \$a = [3, 2, 1]; for \$v in \$a.sort { echo \$v }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

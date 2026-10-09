@@ -1,0 +1,13 @@
+# BOUNDARY-012: fn missing body
+check ["id": "BOUNDARY-012",
+    "name": "fn missing body",
+    "source": "echo \"PARSE_SENTINEL\"; fn f()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

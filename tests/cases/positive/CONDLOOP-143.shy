@@ -1,0 +1,13 @@
+# CONDLOOP-143: opposite condition loops nest
+check ["id": "CONDLOOP-143",
+    "name": "opposite condition loops nest",
+    "source": "let \$n = 0; while \$n != 2 { \$n = \$n + 1; let \$m = 0; until \$m == 2 { \$m = \$m + 1; echo \$n \$m } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 1\n1 2\n2 1\n2 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-628: equals after interpolated variable
+check ["id": "BOUNDARY-628",
+    "name": "equals after interpolated variable",
+    "source": "let \$x = \"prefix\"; audit_args \"\${x}=value\" \"\$x=value\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"prefix=value\", \"prefix=value\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

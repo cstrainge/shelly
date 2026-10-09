@@ -1,0 +1,13 @@
+# CONDLOOP-064: while runtime / while false {}; continue
+check ["id": "CONDLOOP-064",
+    "name": "while runtime / while false {}; continue",
+    "source": "while false {}; continue; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Loop control error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

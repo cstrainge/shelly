@@ -1,0 +1,13 @@
+# ARRAY-135: array grouped value remains valid
+check ["id": "ARRAY-135",
+    "name": "array grouped value remains valid",
+    "source": "let \$a = [1,2]; let \$b = (\$a); echo (\$b == [1,2])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

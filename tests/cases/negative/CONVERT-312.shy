@@ -1,0 +1,13 @@
+# CONVERT-312: signal has no numeric code Integer
+check ["id": "CONVERT-312",
+    "name": "signal has no numeric code Integer",
+    "source": "let \$r = audit_signal; echo Integer(\$r)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

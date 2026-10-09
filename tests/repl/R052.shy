@@ -1,0 +1,5 @@
+# References retain versions through arrays maps fields and returns
+check_repl ["id": "R052",
+    "name": "References retain versions through arrays maps fields and returns",
+    "steps": [["fn f(): Number { 7 }; struct Box { call: String }; fn factory(): String { return `f }", "quiet", ""], ["let \$r = `f; let \$array = [`f]; let \$map = [\"f\": `f]; let \$box = Box(call: `f)", "quiet", ""], ["fn f(): Number { 8 }", "quiet", ""], ["echo \$r \$array[0] \$map[\"f\"] \$box.call (f)", "output", "7 7 7 7 8"], ["let \$returned = factory; let \$remarked = `\$r", "quiet", ""], ["echo \$returned \$remarked", "output", "7 7"], ["fn apply(\$call: String): Number { \$call }; echo (apply `\$r)", "output", "7"], ["alias f = echo \"alias\"", "quiet", ""], ["echo \$r \$array[0] \$box.call", "output", "7 7 7"]],
+    "exit": 0]

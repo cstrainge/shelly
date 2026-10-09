@@ -1,0 +1,13 @@
+# CONVERT-292: member function return
+check ["id": "CONVERT-292",
+    "name": "member function return",
+    "source": "enum E { A, B, C }; fn index(\$e: E): Integer { \$e.index }; echo (index E::C)",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

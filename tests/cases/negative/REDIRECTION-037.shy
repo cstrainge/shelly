@@ -1,0 +1,13 @@
+# REDIRECTION-037: failed command capture
+check ["id": "REDIRECTION-037",
+    "name": "failed command capture",
+    "source": "let \$out: String; audit_streams kept \"\" 7 -> \$out; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable returned error code:",
+    "stderr_contains": ["7"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

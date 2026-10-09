@@ -1,0 +1,13 @@
+# BOOLEAN-001: echo (1 == 2) (1 != 2) (1 == 1) (true != false)
+check ["id": "BOOLEAN-001",
+    "name": "echo (1 == 2) (1 != 2) (1 == 1) (true != false)",
+    "source": "echo (1 == 2) (1 != 2) (1 == 1) (true != false)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

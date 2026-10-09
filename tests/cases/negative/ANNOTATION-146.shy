@@ -1,0 +1,13 @@
+# ANNOTATION-146: unknown parameter type
+check ["id": "ANNOTATION-146",
+    "name": "unknown parameter type",
+    "source": "fn f(\$x: Missing) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

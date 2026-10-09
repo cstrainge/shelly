@@ -1,0 +1,13 @@
+# LOOP-003: continue restarts body
+check ["id": "LOOP-003",
+    "name": "continue restarts body",
+    "source": "let \$n = 0; loop { \$n = \$n + 1; if \$n == 2 { continue }; if \$n == 4 { break }; echo \$n }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

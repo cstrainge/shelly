@@ -1,0 +1,13 @@
+# CONDLOOP-107: until / break in condition
+check ["id": "CONDLOOP-107",
+    "name": "until / break in condition",
+    "source": "until (if true { break }) { echo \"bad\" }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

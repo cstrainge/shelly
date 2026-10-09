@@ -1,0 +1,13 @@
+# STRUCT-017: forward enum
+check ["id": "STRUCT-017",
+    "name": "forward enum",
+    "source": "struct S { e: E }; enum E { A }; echo S(e: E::A).e",
+    "mode": "code",
+    "args": [],
+    "stdout": "E::A\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

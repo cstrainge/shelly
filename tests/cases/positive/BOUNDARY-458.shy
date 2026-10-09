@@ -1,0 +1,13 @@
+# BOUNDARY-458: value pair / `word and true
+check ["id": "BOUNDARY-458",
+    "name": "value pair / `word and true",
+    "source": "echo (`word == true) (`word != true) (`word && true) (`word || true)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

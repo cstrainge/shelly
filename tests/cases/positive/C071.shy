@@ -1,0 +1,13 @@
+# C071: Grouped flagged value executes
+check ["id": "C071",
+    "name": "Grouped flagged value executes",
+    "source": "fn f() { 7 }\nlet \$r = `f ; echo (\$r)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

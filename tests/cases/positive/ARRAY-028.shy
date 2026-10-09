@@ -1,0 +1,13 @@
+# ARRAY-028: index read copy independence
+check ["id": "ARRAY-028",
+    "name": "index read copy independence",
+    "source": "let \$a = [[1]]; let \$b = \$a[0]; \$b[0] = 2; echo \$a[0][0] \$b[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

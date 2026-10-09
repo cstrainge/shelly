@@ -1,0 +1,13 @@
+# FOR-043: iteration frame recursion
+check ["id": "FOR-043",
+    "name": "iteration frame recursion",
+    "source": "fn f(\$n) { if \$n == 0 { return 1 }; let \$sum = 0; for \$i in [1,2] { \$sum = \$sum + (f (\$n - 1)) }; \$sum }; echo (f 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

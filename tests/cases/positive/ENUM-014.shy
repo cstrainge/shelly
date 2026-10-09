@@ -1,0 +1,13 @@
+# ENUM-014: scalar expansion
+check ["id": "ENUM-014",
+    "name": "scalar expansion",
+    "source": "enum Color { Red, Green, Blue }; let \$c = Color::Red; audit_args \$c...",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"Color::Red\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

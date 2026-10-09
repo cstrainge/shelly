@@ -1,0 +1,13 @@
+# CONVERT-112: matrix Boolean to ExecResult
+check ["id": "CONVERT-112",
+    "name": "matrix Boolean to ExecResult",
+    "source": "let \$v = true; let \$converted: ExecResult = ExecResult(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "ExecResult(0)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

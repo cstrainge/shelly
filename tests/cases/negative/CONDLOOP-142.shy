@@ -1,0 +1,13 @@
+# CONDLOOP-142: until malformed stdin
+check ["id": "CONDLOOP-142",
+    "name": "until malformed stdin",
+    "source": "echo \"PARSE_SENTINEL\"; until",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

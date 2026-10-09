@@ -1,0 +1,13 @@
+# MUTSELF-056: grouped callable data field
+check ["id": "MUTSELF-056",
+    "name": "grouped callable data field",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; fn make() { 1 }; struct S { f: String }; let \$s = S(f: `make); fn Integer::next() { \$self.inc; \$self }; echo (\$s.f).next",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

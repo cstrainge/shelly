@@ -1,0 +1,13 @@
+# MULTILINE-006: assignment / && / ' ' '\n'
+check ["id": "MULTILINE-006",
+    "name": "assignment / && / ' ' '\\n'",
+    "source": "let \$x = true &&\nfalse; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

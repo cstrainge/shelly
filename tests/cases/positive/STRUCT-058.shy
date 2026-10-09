@@ -1,0 +1,13 @@
+# STRUCT-058: present optional direct access
+check ["id": "STRUCT-058",
+    "name": "present optional direct access",
+    "source": "struct Node { n: Number }; struct Box { item: optional Node }; echo Box(item: Node(n: 42)).item.n",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

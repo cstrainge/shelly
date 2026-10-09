@@ -1,0 +1,13 @@
+# C209: Invalid UTF8 within a command
+check ["id": "C209",
+    "name": "Invalid UTF8 within a command",
+    "source": "echo \"should-not-run\"\necho a<INVALID>b",
+    "mode": "invalid_file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

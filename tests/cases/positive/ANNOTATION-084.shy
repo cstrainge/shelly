@@ -1,0 +1,13 @@
+# ANNOTATION-084: implicit return Integer
+check ["id": "ANNOTATION-084",
+    "name": "implicit return Integer",
+    "source": "fn f(): Integer { 1 }; let \$x = f; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

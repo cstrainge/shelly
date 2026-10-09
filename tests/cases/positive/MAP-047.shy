@@ -1,0 +1,13 @@
+# MAP-047: short circuit skips map error
+check ["id": "MAP-047",
+    "name": "short circuit skips map error",
+    "source": "echo (true || [\"a\":1][\"missing\"][0])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-611: equals in variable name / if false { echo ${bad=name} }
+check ["id": "BOUNDARY-611",
+    "name": "equals in variable name / if false { echo \${bad=name} }",
+    "source": "echo \"PARSE_SENTINEL\"; if false { echo \${bad=name} }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": ["Invalid variable name: '=' is not allowed."],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

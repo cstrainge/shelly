@@ -1,0 +1,13 @@
+# EXTENSION-053: function version
+check ["id": "EXTENSION-053",
+    "name": "function version",
+    "source": "fn Integer::tag() { 1 }; fn old(\$n: Integer) { \$n.tag }; fn Integer::tag() { 3 }; let \$n = 2; echo (old \$n) \$n.tag",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

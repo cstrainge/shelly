@@ -1,0 +1,13 @@
+# CONDLOOP-051: while malformed / while true echo "bad"
+check ["id": "CONDLOOP-051",
+    "name": "while malformed / while true echo \"bad\"",
+    "source": "echo \"PARSE_SENTINEL\"; while true echo \"bad\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

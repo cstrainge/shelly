@@ -1,0 +1,13 @@
+# METHOD-108: method range bound
+check ["id": "METHOD-108",
+    "name": "method range bound",
+    "source": "echo ([1].count..[1, 2, 3].count)...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-280: result type inferred
+check ["id": "CONVERT-280",
+    "name": "result type inferred",
+    "source": "let \$s = \"2\"; let \$v: String = Integer(\$s)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected String"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

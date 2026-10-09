@@ -1,0 +1,13 @@
+# MAP-489: key equality / (/usr/bin/false) / [:]
+check ["id": "MAP-489",
+    "name": "key equality / (/usr/bin/false) / [:]",
+    "source": "let \$m = [(/usr/bin/false):7]; echo \$m[[:]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

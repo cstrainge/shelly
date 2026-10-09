@@ -1,0 +1,13 @@
+# C197: Function ending in assignment returns None
+check ["id": "C197",
+    "name": "Function ending in assignment returns None",
+    "source": "let \$x = 1 ; fn f() { \$x = 2 }\necho (f) \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "() 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

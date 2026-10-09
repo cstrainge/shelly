@@ -1,0 +1,13 @@
+# PATH-019: embedded path text stays shortened
+check ["id": "PATH-019",
+    "name": "embedded path text stays shortened",
+    "source": "let \$p = \"<FIXTURE>/home/sub\"; audit_args \"path=\$p\" \"\$p\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"path=~/sub\", \"<FIXTURE>/home/sub\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

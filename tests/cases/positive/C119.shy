@@ -1,0 +1,13 @@
+# C119: Command continuation
+check ["id": "C119",
+    "name": "Command continuation",
+    "source": "echo \"a\" \\\n \"b\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "a b\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

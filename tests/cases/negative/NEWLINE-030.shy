@@ -1,0 +1,13 @@
+# NEWLINE-030: missing value
+check ["id": "NEWLINE-030",
+    "name": "missing value",
+    "source": "struct S { n: Number }; S\n(n:)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

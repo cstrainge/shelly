@@ -1,0 +1,13 @@
+# MAP-001: requested lookup
+check ["id": "MAP-001",
+    "name": "requested lookup",
+    "source": "let \$myHash = [\"key\": 7]; let \$x = \$myHash[\"key\"]; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

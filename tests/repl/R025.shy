@@ -1,0 +1,5 @@
+# Range snapshots and reusable expansion across inputs
+check_repl ["id": "R025",
+    "name": "Range snapshots and reusable expansion across inputs",
+    "steps": [["let \$start = 1; let \$end = 4; let \$r = \$start..\$end", "quiet", ""], ["echo \$r \$r...", "output", "1..4 1 2 3"], ["\$start = 2; \$end = 5", "quiet", ""], ["echo \$r...", "output", "1 2 3"], ["let \$inclusive = \$start..=\$end; echo \$inclusive...", "output", "2 3 4 5"], ["fn range_value() { \$r }", "quiet", ""], ["echo (range_value)...", "output", "1 2 3"], ["let \$m = [\$r:7]; echo \$m[1..4]", "output", "7"]],
+    "exit": 0]

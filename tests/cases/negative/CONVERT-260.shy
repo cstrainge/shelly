@@ -1,0 +1,13 @@
+# CONVERT-260: named arguments String
+check ["id": "CONVERT-260",
+    "name": "named arguments String",
+    "source": "echo String(value: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

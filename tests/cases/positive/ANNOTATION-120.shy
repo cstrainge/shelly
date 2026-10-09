@@ -1,0 +1,13 @@
+# ANNOTATION-120: loop shadow independent
+check ["id": "ANNOTATION-120",
+    "name": "loop shadow independent",
+    "source": "let \$x: Number = 1; for \$x in [\"a\", \"b\"] { echo \$x }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "a\nb\n1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

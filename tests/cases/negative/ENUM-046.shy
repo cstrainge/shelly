@@ -1,0 +1,13 @@
+# ENUM-046: duplicate variant
+check ["id": "ENUM-046",
+    "name": "duplicate variant",
+    "source": "enum C { A, A }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Duplicate variant"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

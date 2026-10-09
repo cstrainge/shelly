@@ -1,0 +1,13 @@
+# ENUM-073: backtick constructor
+check ["id": "ENUM-073",
+    "name": "backtick constructor",
+    "source": "enum Color { Red, Green, Blue }; let \$x = `Color::Red",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

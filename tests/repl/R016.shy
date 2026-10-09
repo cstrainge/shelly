@@ -1,0 +1,5 @@
+# Conditional values, errors, and branch scope cleanup
+check_repl ["id": "R016",
+    "name": "Conditional values, errors, and branch scope cleanup",
+    "steps": [["let \$x = 1", "quiet", ""], ["let \$chosen = if false { 2 }\nelse if true\n{ let \$x = 9; \$x }\nelse { 3 }", "quiet", ""], ["echo \$chosen \$x", "output", "9 1"], ["if true { let \$x = 8; let \$branch_local = 1; 1 / 0 }", "error", ""], ["echo \$x", "output", "1"], ["echo \$branch_local", "error", "not found"], ["fn choose(\$v) { if \$v == \"yes\" { return 10 } else if \$v == \"no\" { 20 } else { 30 } }", "quiet", ""], ["echo (choose \"yes\") (choose \"no\") (choose \"unknown\")", "output", "10 20 30"], ["if true { let \$x = 7; return 3 }", "error", ""], ["echo \$x", "output", "1"], ["let \$chosen = if true { 9 } else { 1 + }", "error", ""], ["echo \$chosen", "output", "9"], ["if true {} else if \$missing { echo \"bad\" }", "quiet", ""], ["let \$chosen = if false { 9 }", "quiet", ""], ["echo \$chosen \$x", "output", "() 1"], ["else { echo \"bad\" }", "error", ""], ["echo (if true { true && true } else { false })", "output", "true"]],
+    "exit": 0]

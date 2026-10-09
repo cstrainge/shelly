@@ -1,0 +1,13 @@
+# ANNOTATION-174: missing initializer
+check ["id": "ANNOTATION-174",
+    "name": "missing initializer",
+    "source": "let \$x: Number =",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

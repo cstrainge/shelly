@@ -1,0 +1,13 @@
+# METHOD-087: conversion receiver
+check ["id": "METHOD-087",
+    "name": "conversion receiver",
+    "source": "echo Array(3..6).sort.count",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

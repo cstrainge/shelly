@@ -1,0 +1,13 @@
+# BOUNDARY-275: value pair / -1 and "false"
+check ["id": "BOUNDARY-275",
+    "name": "value pair / -1 and \"false\"",
+    "source": "echo (-1 == \"false\") (-1 != \"false\") (-1 && \"false\") (-1 || \"false\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

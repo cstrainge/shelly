@@ -1,0 +1,13 @@
+# MAP-527: file map lookup
+check ["id": "MAP-527",
+    "name": "file map lookup",
+    "source": "let \$m = [\"key\":9]; echo \$m[\"key\"] \$m[\"absent\"]",
+    "mode": "file",
+    "args": [],
+    "stdout": "9 ()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

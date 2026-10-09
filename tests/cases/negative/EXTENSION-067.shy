@@ -1,0 +1,13 @@
+# EXTENSION-067: required after optional
+check ["id": "EXTENSION-067",
+    "name": "required after optional",
+    "source": "fn Integer::f(\$a: optional Integer, \$b: Integer) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MAP-039: scope write
+check ["id": "MAP-039",
+    "name": "scope write",
+    "source": "let \$m = [\"a\":1]; { \$m[\"a\"] = 2 }; echo \$m[\"a\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

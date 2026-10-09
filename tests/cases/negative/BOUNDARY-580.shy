@@ -1,0 +1,13 @@
+# BOUNDARY-580: stdin / orphan else
+check ["id": "BOUNDARY-580",
+    "name": "stdin / orphan else",
+    "source": "echo \"PARSE_SENTINEL\"; else {}",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

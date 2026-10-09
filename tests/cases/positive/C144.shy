@@ -1,0 +1,13 @@
+# C144: If statement
+check ["id": "C144",
+    "name": "If statement",
+    "source": "if true { echo \"a\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "a\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ENUM-071: unclosed body
+check ["id": "ENUM-071",
+    "name": "unclosed body",
+    "source": "enum C { A",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

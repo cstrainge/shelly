@@ -1,0 +1,13 @@
+# CONTROL-080: continue skipped in empty loop
+check ["id": "CONTROL-080",
+    "name": "continue skipped in empty loop",
+    "source": "for \$i in [] { continue }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

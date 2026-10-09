@@ -1,0 +1,5 @@
+# Constructor whitespace and scoped type resolution across inputs
+check_repl ["id": "R045",
+    "name": "Constructor whitespace and scoped type resolution across inputs",
+    "steps": [["struct E {}", "quiet", ""], ["let \$e = E ()", "quiet", ""], ["echo \$e (E () == \$e)", "output", "E() true"], ["fn identity(\$x) { return \$x }", "quiet", ""], ["echo (identity ())", "output", "()"], ["struct E { n: optional Number }", "quiet", ""], ["echo E ().n (\$e == E ())", "output", "() false"], ["struct S { n: Number }", "quiet", ""], ["let \$s = S\n    (\n        n: 42,\n    )", "quiet", ""], ["echo \$s.n", "output", "42"], ["let \$s = S\n(n: \"bad\")", "error", ""], ["echo \$s.n", "output", "42"], ["fn f() { echo \"called\" }; f\n()", "output", "called"]],
+    "exit": 0]

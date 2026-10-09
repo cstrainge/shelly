@@ -1,0 +1,13 @@
+# BOOLEAN-039: echo (true && (1 / 0))
+check ["id": "BOOLEAN-039",
+    "name": "echo (true && (1 / 0))",
+    "source": "echo (true && (1 / 0))",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

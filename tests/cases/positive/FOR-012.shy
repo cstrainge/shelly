@@ -1,0 +1,13 @@
+# FOR-012: parameterized call iterable
+check ["id": "FOR-012",
+    "name": "parameterized call iterable",
+    "source": "fn make(\$end) { 0..(\$end + 0) }; for \$i in make 3 { echo \$i }",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\n1\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

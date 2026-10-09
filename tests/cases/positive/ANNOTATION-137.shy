@@ -1,0 +1,13 @@
+# ANNOTATION-137: multiline signatures
+check ["id": "ANNOTATION-137",
+    "name": "multiline signatures",
+    "source": "fn f(\n \$x: Number,\n \$y: [String]\n): Number\n{\n return \$x\n}; echo (f 3 [\"a\"])",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

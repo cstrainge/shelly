@@ -1,0 +1,13 @@
+# EXTENSION-069: duplicate param
+check ["id": "EXTENSION-069",
+    "name": "duplicate param",
+    "source": "fn Integer::f(\$a, \$a) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

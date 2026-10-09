@@ -1,0 +1,13 @@
+# BOOLEAN-014: let $x = true && false; $x = $x || 2; echo $x
+check ["id": "BOOLEAN-014",
+    "name": "let \$x = true && false; \$x = \$x || 2; echo \$x",
+    "source": "let \$x = true && false; \$x = \$x || 2; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

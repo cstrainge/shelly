@@ -1,0 +1,13 @@
+# MUTSELF-013: struct immediate
+check ["id": "MUTSELF-013",
+    "name": "struct immediate",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; struct S { n: Integer }; let \$v = S(n: 1);\$v.n.inc; echo \$v.n",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

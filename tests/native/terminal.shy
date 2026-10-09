@@ -1,0 +1,61 @@
+let $fixture = $args[0]
+let $options = ["cwd": $fixture, "env": (environment $fixture)]
+let $terminal = open_terminal ["/usr/bin/printf", "héllo 世界"] $options
+let $alias = $terminal
+require ($alias == $terminal) "terminal identity changed on assignment"
+let $lookup = [$terminal: "identity"]
+let $output = ""
+let $eof = false
+for $attempt in 0..100
+{
+    let $reply = terminal_read $terminal 100
+    let $text = $reply["text"]
+    $output = "${output}${text}"
+    if $reply["eof"] { $eof = true; break }
+}
+require ($eof && ($output == "héllo 世界")) "PTY Unicode output or EOF"
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "PTY exit status"
+let $again = terminal_close $alias
+require ($again == $status) "terminal_close is not idempotent"
+require ($lookup[$terminal] == "identity") "terminal key changed after close"
+let $terminal = open_terminal ["/usr/bin/sleep", "30"] $options
+let $reply = terminal_read $terminal 0
+require ($reply["timed_out"] && (!$reply["eof"]) && ($reply["text"] == "")) "read timeout is not EOF"
+let $status = terminal_close $terminal
+require ($status["signal"] != ()) "close did not stop child"
+
+# Ctrl+C reaches the foreground process through the native PTY.
+let $source = "echo ready; loop {}"
+let $terminal = open_terminal [`$shelly, "-m", "-c", $source] $options
+let $ready = false
+for $attempt in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    if ($reply["text"].contains "ready") { $ready = true; break }
+}
+require $ready "loop never started"
+terminal_write $terminal "\x03"
+let $eof = false
+for $attempt in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    if $reply["eof"] { $eof = true; break }
+}
+require $eof "Ctrl+C did not stop loop"
+let $status = terminal_close $terminal
+require ($status["signal"] == 2) "Ctrl+C signal not preserved"
+# A Unicode scalar split between kernel reads must be retained until complete.
+let $terminal = open_terminal ["audit_split_utf8"] $options
+let $output = ""
+let $eof = false
+for $attempt in 0..100
+{
+    let $reply = terminal_read $terminal 100
+    let $text = $reply["text"]
+    $output = "${output}${text}"
+    if $reply["eof"] { $eof = true; break }
+}
+require ($eof && ($output == "é")) "split UTF-8 character lost"
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "split UTF-8 helper failed"

@@ -1,0 +1,13 @@
+# CONVERT-271: extra arguments ArgumentExpansion
+check ["id": "CONVERT-271",
+    "name": "extra arguments ArgumentExpansion",
+    "source": "echo ArgumentExpansion(1, 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

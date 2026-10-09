@@ -1,0 +1,13 @@
+# EXTENSION-085: type names lexical identity
+check ["id": "EXTENSION-085",
+    "name": "type names lexical identity",
+    "source": "struct S { n: Integer }; fn S::f() { \$self.n }; let \$s = S(n: 4); fn inner() { struct S { n: Integer }; fn S::f() { 9 }; let \$t = S(n: 5); \$t.f }; echo (inner) \$s.f",
+    "mode": "code",
+    "args": [],
+    "stdout": "9 4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

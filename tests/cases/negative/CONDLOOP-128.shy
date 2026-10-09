@@ -1,0 +1,13 @@
+# CONDLOOP-128: until malformed / if false { until false { let $x = 1 + } }
+check ["id": "CONDLOOP-128",
+    "name": "until malformed / if false { until false { let \$x = 1 + } }",
+    "source": "echo \"PARSE_SENTINEL\"; if false { until false { let \$x = 1 + } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

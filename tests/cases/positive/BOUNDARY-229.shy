@@ -1,0 +1,13 @@
+# BOUNDARY-229: quoted braced variable word suffix
+check ["id": "BOUNDARY-229",
+    "name": "quoted braced variable word suffix",
+    "source": "let \$x = \"prefix\"; audit_args \"\${x}suffix\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"prefixsuffix\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-037: empty octal escape
+check ["id": "BOUNDARY-037",
+    "name": "empty octal escape",
+    "source": "echo \"PARSE_SENTINEL\"; echo \"\\o8\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

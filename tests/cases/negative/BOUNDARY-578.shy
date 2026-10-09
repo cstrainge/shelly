@@ -1,0 +1,13 @@
+# BOUNDARY-578: stdin / missing branch block
+check ["id": "BOUNDARY-578",
+    "name": "stdin / missing branch block",
+    "source": "echo \"PARSE_SENTINEL\"; if true 7",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

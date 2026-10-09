@@ -1,0 +1,13 @@
+# CONVERT-093: matrix Range to HashMap
+check ["id": "CONVERT-093",
+    "name": "matrix Range to HashMap",
+    "source": "let \$v = 1..3; let \$converted: HashMap = HashMap(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

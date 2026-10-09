@@ -1,0 +1,13 @@
+# MAP-026: copy independence
+check ["id": "MAP-026",
+    "name": "copy independence",
+    "source": "let \$m = [\"a\":[1]]; let \$n = \$m; \$n[\"a\"][0] = 9; \$n[\"b\"] = 8; echo (\$m == [\"a\":[1]]) (\$n == [\"a\":[9],\"b\":8])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

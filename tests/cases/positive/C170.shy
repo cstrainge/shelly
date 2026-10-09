@@ -1,0 +1,13 @@
+# C170: File mode arguments exclude filename
+check ["id": "C170",
+    "name": "File mode arguments exclude filename",
+    "source": "audit_args \$args...",
+    "mode": "file",
+    "args": ["one", "two words"],
+    "stdout": "[\"one\", \"two words\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

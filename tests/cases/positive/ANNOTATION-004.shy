@@ -1,0 +1,13 @@
+# ANNOTATION-004: default Boolean
+check ["id": "ANNOTATION-004",
+    "name": "default Boolean",
+    "source": "let \$x: Boolean; echo \"\$x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

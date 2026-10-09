@@ -1,0 +1,13 @@
+# BOOLEAN-006: echo (true||false&&false) (false&&true||true) (1 + 2 * 3 == 7) (!false == true) (true != false 
+check ["id": "BOOLEAN-006",
+    "name": "echo (true||false&&false) (false&&true||true) (1 + 2 * 3 == 7) (!false == true) (true != false ",
+    "source": "echo (true||false&&false) (false&&true||true) (1 + 2 * 3 == 7) (!false == true) (true != false && 2 == 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true true true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ENUM-027: multiline declaration
+check ["id": "ENUM-027",
+    "name": "multiline declaration",
+    "source": "enum Color\n{\n# comment\nRed,\nGreen,\n}\necho Color::Green",
+    "mode": "code",
+    "args": [],
+    "stdout": "Color::Green\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

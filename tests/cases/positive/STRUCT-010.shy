@@ -1,0 +1,13 @@
+# STRUCT-010: typed maps
+check ["id": "STRUCT-010",
+    "name": "typed maps",
+    "source": "struct S { m: [String: Number] }; let \$s = S(m: [\"one\": 1]); echo \$s.m[\"one\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

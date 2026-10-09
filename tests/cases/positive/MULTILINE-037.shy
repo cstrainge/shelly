@@ -1,0 +1,13 @@
+# MULTILINE-037: grouped argument / || / ' # lhs\n\n # gap\n' ' # rhs\n'
+check ["id": "MULTILINE-037",
+    "name": "grouped argument / || / ' # lhs\\n\\n # gap\\n' ' # rhs\\n'",
+    "source": "echo (false # lhs\n\n # gap\n|| # rhs\ntrue)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,3 @@
+#!/usr/bin/env shelly
+sleep 0.6
+/usr/bin/printf "slow-finished\n"

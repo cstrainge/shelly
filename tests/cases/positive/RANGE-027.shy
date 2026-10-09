@@ -1,0 +1,13 @@
+# RANGE-027: literal expansion
+check ["id": "RANGE-027",
+    "name": "literal expansion",
+    "source": "audit_args (1..4)...",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"1\", \"2\", \"3\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

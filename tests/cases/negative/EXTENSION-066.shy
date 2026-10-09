@@ -1,0 +1,13 @@
+# EXTENSION-066: enum index collision
+check ["id": "EXTENSION-066",
+    "name": "enum index collision",
+    "source": "enum E { A }; fn E::index() {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

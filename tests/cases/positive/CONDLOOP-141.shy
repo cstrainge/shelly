@@ -1,0 +1,13 @@
+# CONDLOOP-141: until stdin
+check ["id": "CONDLOOP-141",
+    "name": "until stdin",
+    "source": "let \$n = 0; until \$n == 3 { \$n = \$n + 1 }; echo \$n",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

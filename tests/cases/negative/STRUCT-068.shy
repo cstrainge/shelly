@@ -1,0 +1,13 @@
+# STRUCT-068: enum is not constructor
+check ["id": "STRUCT-068",
+    "name": "enum is not constructor",
+    "source": "enum E { A }; echo E()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["not a struct"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

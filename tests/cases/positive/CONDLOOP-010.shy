@@ -1,0 +1,13 @@
+# CONDLOOP-010: while conversion / "0"
+check ["id": "CONDLOOP-010",
+    "name": "while conversion / \"0\"",
+    "source": "while \"0\" { echo \"body\"; break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

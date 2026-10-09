@@ -1,0 +1,13 @@
+# C101: Alias fixed arguments
+check ["id": "C101",
+    "name": "Alias fixed arguments",
+    "source": "alias say = /usr/bin/echo \"prefix\"\nsay \"suffix\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "prefix suffix\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

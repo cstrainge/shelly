@@ -1,0 +1,5 @@
+# Loop bindings and body scopes across inputs
+check_repl ["id": "R027",
+    "name": "Loop bindings and body scopes across inputs",
+    "steps": [["let \$i = 99; let \$total = 0", "quiet", ""], ["for \$i in 1..4 { let \$inside = \$i; \$total = \$total + \$inside }", "quiet", ""], ["echo \$i \$total", "output", "99 6"], ["echo \$inside", "error", "not found"], ["for \$k,\$v in [\"x\":7] { echo \$k \$v }", "output", "x 7"], ["echo \$k", "error", "not found"], ["for \$i in [] { let \$inside = 1 }", "quiet", ""], ["echo \$i \$total", "output", "99 6"]],
+    "exit": 0]

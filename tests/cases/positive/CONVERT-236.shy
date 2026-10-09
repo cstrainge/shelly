@@ -1,0 +1,13 @@
+# CONVERT-236: short circuit skips invalid conversion
+check ["id": "CONVERT-236",
+    "name": "short circuit skips invalid conversion",
+    "source": "echo (false && Integer(\"bad\"))",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

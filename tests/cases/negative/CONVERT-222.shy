@@ -1,0 +1,13 @@
+# CONVERT-222: invalid Array(-9223372036854775808..=9223372036854775807)
+check ["id": "CONVERT-222",
+    "name": "invalid Array(-9223372036854775808..=9223372036854775807)",
+    "source": "echo Array(-9223372036854775808..=9223372036854775807)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

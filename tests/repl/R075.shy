@@ -1,0 +1,5 @@
+# Mutable self and recursive calls share current value
+check_repl ["id": "R075",
+    "name": "Mutable self and recursive calls share current value",
+    "steps": [["fn Integer::zero() { if \$self != 0 { \$self = \$self - 1; \$self.zero } }; let \$n = 4", "quiet", ""], ["\$n.zero; echo \$n", "output", "0"], ["let \$ref = `\$n.zero; \$n = 7; \$ref; echo \$n", "output", "0"]],
+    "exit": 0]

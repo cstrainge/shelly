@@ -1,0 +1,13 @@
+# MUTSELF-034: function result temporary
+check ["id": "MUTSELF-034",
+    "name": "function result temporary",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$n = 1; fn make() { \$n }; fn Integer::next() { \$self.inc; \$self }; echo (make).next \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

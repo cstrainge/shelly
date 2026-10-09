@@ -1,0 +1,13 @@
+# ANNOTATION-189: variadic heterogeneous
+check ["id": "ANNOTATION-189",
+    "name": "variadic heterogeneous",
+    "source": "fn f(\$xs...): Array { return \$xs }; echo (f 1 \"a\" true)...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 a true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

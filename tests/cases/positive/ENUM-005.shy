@@ -1,0 +1,13 @@
+# ENUM-005: map keys
+check ["id": "ENUM-005",
+    "name": "map keys",
+    "source": "enum Color { Red, Green, Blue }; let \$m = [Color::Red: 1, Color::Green: 2]; echo \$m[Color::Red] \$m[Color::Blue]",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 ()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

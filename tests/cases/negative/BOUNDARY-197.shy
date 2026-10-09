@@ -1,0 +1,13 @@
+# BOUNDARY-197: runtime rejection / fn f() { 1 }; f 2
+check ["id": "BOUNDARY-197",
+    "name": "runtime rejection / fn f() { 1 }; f 2",
+    "source": "fn f() { 1 }; f 2; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Function .* expected (?:at least )?[0-9]+(?: to [0-9]+)? arguments, but got [0-9]+",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

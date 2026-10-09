@@ -1,0 +1,13 @@
+# STRUCT-008: not string equality
+check ["id": "STRUCT-008",
+    "name": "not string equality",
+    "source": "struct E {}; echo (E() == \"E()\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ARRAY-084: missing indexed variable / echo $missing_array[0]
+check ["id": "ARRAY-084",
+    "name": "missing indexed variable / echo \$missing_array[0]",
+    "source": "echo \$missing_array[0]; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

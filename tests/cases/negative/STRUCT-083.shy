@@ -1,0 +1,13 @@
+# STRUCT-083: nominal enum fields
+check ["id": "STRUCT-083",
+    "name": "nominal enum fields",
+    "source": "enum A { X }; enum B { X }; struct S { e: A }; echo S(e: B::X)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected A"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-448: value pair / "word" and "word"
+check ["id": "BOUNDARY-448",
+    "name": "value pair / \"word\" and \"word\"",
+    "source": "echo (\"word\" == \"word\") (\"word\" != \"word\") (\"word\" && \"word\") (\"word\" || \"word\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "true false true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

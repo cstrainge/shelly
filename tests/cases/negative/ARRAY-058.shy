@@ -1,0 +1,13 @@
+# ARRAY-058: invalid index / $a[INDEX] = 9 / 1.0
+check ["id": "ARRAY-058",
+    "name": "invalid index / \$a[INDEX] = 9 / 1.0",
+    "source": "let \$a = [1,2]; \$a[1.0] = 9; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

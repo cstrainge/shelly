@@ -1,0 +1,13 @@
+# STRUCT-084: required self cycle
+check ["id": "STRUCT-084",
+    "name": "required self cycle",
+    "source": "struct Node { next: Node }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Required struct field cycle"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ARRAY-130: array used as command / let $a = [1]; fn f() { $a; 9 }; f
+check ["id": "ARRAY-130",
+    "name": "array used as command / let \$a = [1]; fn f() { \$a; 9 }; f",
+    "source": "let \$a = [1]; fn f() { \$a; 9 }; f; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": ["Cannot execute an array as a command"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

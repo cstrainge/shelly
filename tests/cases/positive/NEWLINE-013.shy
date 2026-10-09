@@ -1,0 +1,13 @@
+# NEWLINE-013: conditional branches
+check ["id": "NEWLINE-013",
+    "name": "conditional branches",
+    "source": "struct S { n: Number }; let \$s = if true { S\n(n: 5) } else { S\n(n: 6) }; echo \$s.n",
+    "mode": "code",
+    "args": [],
+    "stdout": "5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

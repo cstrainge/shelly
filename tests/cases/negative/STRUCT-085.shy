@@ -1,0 +1,13 @@
+# STRUCT-085: required mutual cycle
+check ["id": "STRUCT-085",
+    "name": "required mutual cycle",
+    "source": "struct A { b: B }; struct B { a: A }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Required struct field cycle"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

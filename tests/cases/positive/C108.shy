@@ -1,0 +1,13 @@
+# C108: Exit status argument
+check ["id": "C108",
+    "name": "Exit status argument",
+    "source": "exit 7",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 7,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

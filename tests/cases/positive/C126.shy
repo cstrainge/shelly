@@ -1,0 +1,13 @@
+# C126: Variable prefixed executable path
+check ["id": "C126",
+    "name": "Variable prefixed executable path",
+    "source": "let \$root = \"<FIXTURE>/bin\" ; \$root/audit_say",
+    "mode": "code",
+    "args": [],
+    "stdout": "fixture-called\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

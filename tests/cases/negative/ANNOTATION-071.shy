@@ -1,0 +1,13 @@
+# ANNOTATION-071: initialize [Number] from None
+check ["id": "ANNOTATION-071",
+    "name": "initialize [Number] from None",
+    "source": "let \$x: [Number] = (); echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

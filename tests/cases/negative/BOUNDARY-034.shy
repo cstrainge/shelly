@@ -1,0 +1,13 @@
+# BOUNDARY-034: unclosed multiline string
+check ["id": "BOUNDARY-034",
+    "name": "unclosed multiline string",
+    "source": "echo \"PARSE_SENTINEL\"; echo \"* unfinished",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

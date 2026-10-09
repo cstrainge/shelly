@@ -1,0 +1,13 @@
+# BOUNDARY-538: nonempty zero-valued array is truthy
+check ["id": "BOUNDARY-538",
+    "name": "nonempty zero-valued array is truthy",
+    "source": "echo !!\$args",
+    "mode": "code",
+    "args": ["0"],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONDITIONALS-048: if true {} else { if false {}
+check ["id": "CONDITIONALS-048",
+    "name": "if true {} else { if false {}",
+    "source": "if true {} else { if false {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

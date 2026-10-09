@@ -1,0 +1,13 @@
+# C027: Double quoted interpolation
+check ["id": "C027",
+    "name": "Double quoted interpolation",
+    "source": "let \$x = \"world\" ; echo \"hello \$x!\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "hello world!\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

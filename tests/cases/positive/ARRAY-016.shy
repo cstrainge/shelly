@@ -1,0 +1,13 @@
+# ARRAY-016: nested array splat
+check ["id": "ARRAY-016",
+    "name": "nested array splat",
+    "source": "let \$a = [[1,2]]; audit_args \$a[0]...",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"1\", \"2\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

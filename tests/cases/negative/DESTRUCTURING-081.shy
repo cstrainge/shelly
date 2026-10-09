@@ -1,0 +1,13 @@
+# DESTRUCTURING-081: duplicate
+check ["id": "DESTRUCTURING-081",
+    "name": "duplicate",
+    "source": "echo \"PARSE_SENTINEL\"; for (\$a, \$a) in [] {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,5 @@
+# Map collection keys remain stable after mutations
+check_repl ["id": "R023",
+    "name": "Map collection keys remain stable after mutations",
+    "steps": [["let \$k = [\"a\":[1]]; let \$m = [\$k:7]; let \$copy = \$m", "quiet", ""], ["\$k[\"a\"][0] = 2", "quiet", ""], ["echo \$m[[\"a\":[1]]] \$m[\$k]", "output", "7 ()"], ["\$copy[[\"a\":[1]]] = 9", "quiet", ""], ["echo \$m[[\"a\":[1]]] \$copy[[\"a\":[1]]]", "output", "7 9"]],
+    "exit": 0]

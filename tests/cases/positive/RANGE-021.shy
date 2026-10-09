@@ -1,0 +1,13 @@
+# RANGE-021: dots within words preserved
+check ["id": "RANGE-021",
+    "name": "dots within words preserved",
+    "source": "audit_args file..name file...name 1.2.3 ...file .../file",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"file..name\", \"file...name\", \"1.2.3\", \"...file\", \".../file\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# REDIRECTION-033: non-string path
+check ["id": "REDIRECTION-033",
+    "name": "non-string path",
+    "source": "echo \"bad\" -> 42; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Redirection error:",
+    "stderr_contains": ["string path"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

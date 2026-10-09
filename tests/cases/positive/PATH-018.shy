@@ -1,0 +1,13 @@
+# PATH-018: literal strings remain strings before execution
+check ["id": "PATH-018",
+    "name": "literal strings remain strings before execution",
+    "source": "echo (\"~\" == \"~\") (\"~/sub\" == \"~/sub\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONTROL-109: file outside loop
+check ["id": "CONTROL-109",
+    "name": "file outside loop",
+    "source": "break",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Loop control error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BLOCKS-005: nearest assignment
+check ["id": "BLOCKS-005",
+    "name": "nearest assignment",
+    "source": "let \$x = 1; { let \$x = 2; { \$x = 3 }; echo \$x }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

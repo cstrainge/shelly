@@ -1,0 +1,13 @@
+# BOUNDARY-397: value pair / "false" and "word"
+check ["id": "BOUNDARY-397",
+    "name": "value pair / \"false\" and \"word\"",
+    "source": "echo (\"false\" == \"word\") (\"false\" != \"word\") (\"false\" && \"word\") (\"false\" || \"word\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

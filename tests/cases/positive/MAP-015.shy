@@ -1,0 +1,13 @@
+# MAP-015: array key
+check ["id": "MAP-015",
+    "name": "array key",
+    "source": "let \$m = [[1,2]:7]; echo \$m[[1.0,2]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-009: matrix Range to None
+check ["id": "CONVERT-009",
+    "name": "matrix Range to None",
+    "source": "let \$v = 1..3; let \$converted: None = None(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

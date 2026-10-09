@@ -1,0 +1,13 @@
+# C080: Duplicate function parameters
+check ["id": "C080",
+    "name": "Duplicate function parameters",
+    "source": "fn f(\$a, \$a) { \$a }\necho (f 1 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

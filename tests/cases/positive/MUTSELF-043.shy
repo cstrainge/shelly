@@ -1,0 +1,13 @@
+# MUTSELF-043: argument mutation seen by receiver
+check ["id": "MUTSELF-043",
+    "name": "argument mutation seen by receiver",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$n = 1; fn bump() { \$n.inc; 3 }; fn Integer::add(\$v: Integer) { \$self = \$self + \$v }; \$n.add (bump); echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

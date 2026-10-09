@@ -1,0 +1,13 @@
+# C082: Return outside function after a call
+check ["id": "C082",
+    "name": "Return outside function after a call",
+    "source": "fn f() { 1 }\nf ; return 3",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Cannot return outside a function",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

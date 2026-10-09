@@ -1,0 +1,13 @@
+# BLOCKS-018: nested function
+check ["id": "BLOCKS-018",
+    "name": "nested function",
+    "source": "fn outer() { { fn inner() { 9 } }; { inner } }; echo (outer)",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

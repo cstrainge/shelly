@@ -1,0 +1,13 @@
+# BOOLCAST-121: enum
+check ["id": "BOOLCAST-121",
+    "name": "enum",
+    "source": "enum E { A }; echo Boolean(E::A)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

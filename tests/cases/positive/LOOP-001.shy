@@ -1,0 +1,13 @@
+# LOOP-001: immediate break
+check ["id": "LOOP-001",
+    "name": "immediate break",
+    "source": "loop { break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

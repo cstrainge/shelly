@@ -1,0 +1,13 @@
+# CONVERT-055: matrix ArgumentExpansion to String
+check ["id": "CONVERT-055",
+    "name": "matrix ArgumentExpansion to String",
+    "source": "let \$a = [1, 2]; let \$v: ArgumentExpansion = \$a...; let \$converted: String = String(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "1:2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

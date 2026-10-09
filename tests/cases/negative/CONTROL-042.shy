@@ -1,0 +1,13 @@
+# CONTROL-042: break rejects operands / break $x
+check ["id": "CONTROL-042",
+    "name": "break rejects operands / break \$x",
+    "source": "echo \"PARSE_SENTINEL\"; break \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

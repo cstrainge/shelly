@@ -1,0 +1,13 @@
+# STRUCT-059: constructor and field assignment preserve expansions
+check ["id": "STRUCT-059",
+    "name": "constructor and field assignment preserve expansions",
+    "source": "struct S { x: ArgumentExpansion }; let \$a = [1, 2]; let \$s = S(x: \$a...); echo \$s.x; \$s.x = \$a...; echo \$s.x",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

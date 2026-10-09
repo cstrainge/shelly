@@ -1,0 +1,13 @@
+# STRUCT-073: number is not string
+check ["id": "STRUCT-073",
+    "name": "number is not string",
+    "source": "struct S { n: Number }; echo S(n: \"1\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected Number"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

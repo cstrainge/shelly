@@ -1,0 +1,13 @@
+# BLOCKS-004: outer assignment
+check ["id": "BLOCKS-004",
+    "name": "outer assignment",
+    "source": "let \$x = 1; { \$x = 2 }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-179: all optional zero arguments
+check ["id": "ANNOTATION-179",
+    "name": "all optional zero arguments",
+    "source": "fn f(\$a: optional Number, \$b: optional any) { echo \$a \$b }; f",
+    "mode": "code",
+    "args": [],
+    "stdout": "() ()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

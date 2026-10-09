@@ -1,0 +1,13 @@
+# ANNOTATION-126: function parameter mutation
+check ["id": "ANNOTATION-126",
+    "name": "function parameter mutation",
+    "source": "fn f(\$x: [Number]): [Number] { \$x[0] = 2; return \$x }; let \$x: [Number] = [1]; echo (f \$x)[0] \$x[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

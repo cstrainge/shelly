@@ -1,0 +1,13 @@
+# CONDLOOP-108: until / continue in condition
+check ["id": "CONDLOOP-108",
+    "name": "until / continue in condition",
+    "source": "let \$n = 0; until (if \$n == 0 { \$n = 1; continue } else { true }) { echo \"bad\" }; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

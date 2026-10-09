@@ -1,0 +1,13 @@
+# C011: Unary negation of group
+check ["id": "C011",
+    "name": "Unary negation of group",
+    "source": "echo -(2 + 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "-5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

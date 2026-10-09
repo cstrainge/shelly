@@ -1,0 +1,13 @@
+# CONVERT-257: named arguments Boolean
+check ["id": "CONVERT-257",
+    "name": "named arguments Boolean",
+    "source": "echo Boolean(value: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

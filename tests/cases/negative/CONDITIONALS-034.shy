@@ -1,0 +1,13 @@
+# CONDITIONALS-034: if
+check ["id": "CONDITIONALS-034",
+    "name": "if",
+    "source": "if",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

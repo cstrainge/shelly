@@ -1,0 +1,13 @@
+# METHOD-070: count typed []
+check ["id": "METHOD-070",
+    "name": "count typed []",
+    "source": "let \$a: [any] = []; let \$n: Integer = \$a.count; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

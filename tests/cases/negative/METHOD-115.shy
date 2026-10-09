@@ -1,0 +1,13 @@
+# METHOD-115: mixed sort
+check ["id": "METHOD-115",
+    "name": "mixed sort",
+    "source": "echo [1, \"2\"].sort",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Method .* expected|Array methods require|sort requires)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# NEWLINE-043: spaced empty boolean
+check ["id": "NEWLINE-043",
+    "name": "spaced empty boolean",
+    "source": "struct E {}; echo !E () (E () && E ())",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

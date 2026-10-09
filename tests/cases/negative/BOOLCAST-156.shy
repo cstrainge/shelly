@@ -1,0 +1,13 @@
+# BOOLCAST-156: conversion not number
+check ["id": "BOOLCAST-156",
+    "name": "conversion not number",
+    "source": "let \$flag: Number = Boolean(1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected Number"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# LOOP-021: consecutive unbounded loops
+check ["id": "LOOP-021",
+    "name": "consecutive unbounded loops",
+    "source": "loop { break }; loop { break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

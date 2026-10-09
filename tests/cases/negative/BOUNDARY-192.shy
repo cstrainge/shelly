@@ -1,0 +1,13 @@
+# BOUNDARY-192: missing unary operand / if ! {}
+check ["id": "BOUNDARY-192",
+    "name": "missing unary operand / if ! {}",
+    "source": "echo \"PARSE_SENTINEL\"; if ! {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

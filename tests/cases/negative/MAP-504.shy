@@ -1,0 +1,13 @@
+# MAP-504: malformed map / echo [:1]
+check ["id": "MAP-504",
+    "name": "malformed map / echo [:1]",
+    "source": "echo \"PARSE_SENTINEL\"; echo [:1]",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

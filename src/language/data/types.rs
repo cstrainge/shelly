@@ -217,9 +217,9 @@ impl TypeRegistry
         self.methods.get(&receiver)?.get(name).cloned()
     }
 
-    const BUILTIN_NAMES: [&'static str; 12] = [
+    const BUILTIN_NAMES: [&'static str; 13] = [
             "None", "ExecResult", "Integer", "Float", "Boolean", "String",
-            "Array", "HashMap", "Range", "ArgumentExpansion", "Number", "any",
+            "Array", "HashMap", "Range", "ArgumentExpansion", "Number", "any", "Terminal",
         ];
 
     pub fn is_builtin_name(name: &str) -> bool
@@ -379,6 +379,7 @@ impl TypeRegistry
                         "Integer" => matches!(value, Value::Integer(_)),
                         "Float" => matches!(value, Value::Float(_, _)),
                         "String" => matches!(value, Value::String(_, _)),
+                        "Terminal" => matches!(value, Value::Terminal(_)),
                         "Boolean" => matches!(value, Value::Boolean(_)),
                         "None" => matches!(value, Value::None),
                         "ExecResult" => matches!(value, Value::ExecResult(_)),

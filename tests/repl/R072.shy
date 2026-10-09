@@ -1,0 +1,5 @@
+# Escaped mutable receiver survives local scope
+check_repl ["id": "R072",
+    "name": "Escaped mutable receiver survives local scope",
+    "steps": [["fn Integer::next() { \$self = \$self + 1; \$self }; fn make() { let \$n = 1; return `\$n.next }; let \$ref = make", "quiet", ""], ["echo (\$ref)", "output", "2"], ["echo (\$ref)", "output", "3"], ["let \$n = 99; echo (\$ref) \$n", "output", "4 99"]],
+    "exit": 0]

@@ -1,0 +1,13 @@
+# BOOLCAST-083: 'Boolean(\n {},\n)' / ["x": ()]
+check ["id": "BOOLCAST-083",
+    "name": "'Boolean(\\n {},\\n)' / [\"x\": ()]",
+    "source": "echo Boolean(\n [\"x\": ()],\n)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

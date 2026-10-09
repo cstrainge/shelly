@@ -1,0 +1,13 @@
+# MUTSELF-011: map stored reference
+check ["id": "MUTSELF-011",
+    "name": "map stored reference",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$v = [\"k\": 1];let \$r = `\$v[\"k\"].inc; \$r; \$r; echo \$v[\"k\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MUTSELF-045: self shadow is local
+check ["id": "MUTSELF-045",
+    "name": "self shadow is local",
+    "source": "fn Integer::change() { let \$self = 9; \$self }; let \$n = 1; echo \$n.change \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "9 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

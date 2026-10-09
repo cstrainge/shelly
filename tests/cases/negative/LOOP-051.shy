@@ -1,0 +1,13 @@
+# LOOP-051: runtime rejection / loop { /usr/bin/false; break }
+check ["id": "LOOP-051",
+    "name": "runtime rejection / loop { /usr/bin/false; break }",
+    "source": "loop { /usr/bin/false; break }; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable returned error code:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

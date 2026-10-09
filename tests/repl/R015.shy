@@ -1,0 +1,5 @@
+# Block shadowing and runtime error cleanup
+check_repl ["id": "R015",
+    "name": "Block shadowing and runtime error cleanup",
+    "steps": [["let \$x = 1", "quiet", ""], ["{\n let \$x = 2\n { let \$x = 3; echo \$x }\n echo \$x\n}", "output", "3\n2"], ["echo \$x", "output", "1"], ["{ let \$x = 9; let \$block_only = 7; 1 / 0 }", "error", ""], ["echo \$x", "output", "1"], ["echo \$block_only", "error", "not found"], ["fn f() { { let \$x = 4; { return \$x }; echo \"bad\" } }", "quiet", ""], ["echo (f) \$x", "output", "4 1"]],
+    "exit": 0]

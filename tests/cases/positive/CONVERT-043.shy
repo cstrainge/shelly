@@ -1,0 +1,13 @@
+# CONVERT-043: matrix ArgumentExpansion to Boolean
+check ["id": "CONVERT-043",
+    "name": "matrix ArgumentExpansion to Boolean",
+    "source": "let \$a = [1, 2]; let \$v: ArgumentExpansion = \$a...; let \$converted: Boolean = Boolean(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C034: Numeric character escapes
+check ["id": "C034",
+    "name": "Numeric character escapes",
+    "source": "echo \"\\x41 \\o101 \\065\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "A A A\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

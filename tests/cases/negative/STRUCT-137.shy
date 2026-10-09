@@ -1,0 +1,13 @@
+# STRUCT-137: missing type at eof
+check ["id": "STRUCT-137",
+    "name": "missing type at eof",
+    "source": "struct S { n:",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

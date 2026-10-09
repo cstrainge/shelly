@@ -1,0 +1,13 @@
+# ENUM-038: typed array splat
+check ["id": "ENUM-038",
+    "name": "typed array splat",
+    "source": "enum Color { Red, Green, Blue }; fn f(\$a, \$b) { (\$a == Color::Red) && (\$b == Color::Green) }; let \$a = [Color::Red, Color::Green]; echo (f \$a...)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

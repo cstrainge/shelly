@@ -1,0 +1,13 @@
+# LOOP-002: repeats without condition
+check ["id": "LOOP-002",
+    "name": "repeats without condition",
+    "source": "let \$n = 0; loop { \$n = \$n + 1; if \$n == 4 { break }; echo \$n }; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n3\n4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

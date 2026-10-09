@@ -1,0 +1,13 @@
+# BOUNDARY-195: runtime rejection / let $x = 1; echo $missing_boundary
+check ["id": "BOUNDARY-195",
+    "name": "runtime rejection / let \$x = 1; echo \$missing_boundary",
+    "source": "let \$x = 1; echo \$missing_boundary; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# METHOD-117: nested array sort
+check ["id": "METHOD-117",
+    "name": "nested array sort",
+    "source": "echo [[1]].sort",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Method .* expected|Array methods require|sort requires)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

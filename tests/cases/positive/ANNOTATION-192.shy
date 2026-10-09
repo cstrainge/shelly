@@ -1,0 +1,13 @@
+# ANNOTATION-192: variadic nominal
+check ["id": "ANNOTATION-192",
+    "name": "variadic nominal",
+    "source": "struct S {}; fn f(\$xs: S...): [S] { return \$xs }; echo (f S() S())...",
+    "mode": "code",
+    "args": [],
+    "stdout": "S() S()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

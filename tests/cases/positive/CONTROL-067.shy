@@ -1,0 +1,13 @@
+# CONTROL-067: continue abandoned array
+check ["id": "CONTROL-067",
+    "name": "continue abandoned array",
+    "source": "let \$x = 9; for \$i in 0..3 { let \$x = [1, if true { continue }, 3]; echo \"bad\" }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-220: duplicate variadic name
+check ["id": "ANNOTATION-220",
+    "name": "duplicate variadic name",
+    "source": "fn f(\$x, \$x...) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-014: default Range
+check ["id": "ANNOTATION-014",
+    "name": "default Range",
+    "source": "let \$x: Range; echo \"\$x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "0..0\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

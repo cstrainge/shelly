@@ -1,0 +1,13 @@
+# ARRAY-007: nested array replacement
+check ["id": "ARRAY-007",
+    "name": "nested array replacement",
+    "source": "let \$a = [[1]]; \$a[0] = [2,3]; echo \$a[0]...",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

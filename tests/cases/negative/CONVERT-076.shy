@@ -1,0 +1,13 @@
+# CONVERT-076: matrix Boolean to ArgumentExpansion
+check ["id": "CONVERT-076",
+    "name": "matrix Boolean to ArgumentExpansion",
+    "source": "let \$v = true; let \$converted: ArgumentExpansion = ArgumentExpansion(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

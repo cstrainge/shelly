@@ -1,0 +1,13 @@
+# BOUNDARY-416: value pair / "0" and $args
+check ["id": "BOUNDARY-416",
+    "name": "value pair / \"0\" and \$args",
+    "source": "echo (\"0\" == \$args) (\"0\" != \$args) (\"0\" && \$args) (\"0\" || \$args)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

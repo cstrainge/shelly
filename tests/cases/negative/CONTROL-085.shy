@@ -1,0 +1,13 @@
+# CONTROL-085: continue outside active frame / for $i in [] {}; continue
+check ["id": "CONTROL-085",
+    "name": "continue outside active frame / for \$i in [] {}; continue",
+    "source": "for \$i in [] {}; continue; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Loop control error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

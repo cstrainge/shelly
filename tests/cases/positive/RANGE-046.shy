@@ -1,0 +1,13 @@
+# RANGE-046: short circuit invalid range
+check ["id": "RANGE-046",
+    "name": "short circuit invalid range",
+    "source": "echo (true || (1.5..3)) (false && (1..\"3\"))",
+    "mode": "code",
+    "args": [],
+    "stdout": "true false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

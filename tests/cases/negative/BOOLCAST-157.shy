@@ -1,0 +1,13 @@
+# BOOLCAST-157: dynamic conversion not number
+check ["id": "BOOLCAST-157",
+    "name": "dynamic conversion not number",
+    "source": "let \$v = 1; let \$flag: Number = Boolean(\$v)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected Number"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

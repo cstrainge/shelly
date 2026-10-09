@@ -1,0 +1,13 @@
+# BLOCKS-010: nested tail block
+check ["id": "BLOCKS-010",
+    "name": "nested tail block",
+    "source": "fn f() { 9; { { 7 } } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

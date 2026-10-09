@@ -1,0 +1,13 @@
+# NEWLINE-034: tokenizer failure lookahead
+check ["id": "NEWLINE-034",
+    "name": "tokenizer failure lookahead",
+    "source": "struct S { n: Number }; S\n(n: \"unterminated)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

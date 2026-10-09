@@ -1,0 +1,13 @@
+# METHOD-088: enum receiver unchanged
+check ["id": "METHOD-088",
+    "name": "enum receiver unchanged",
+    "source": "enum E { A, B }; echo E::B.index",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

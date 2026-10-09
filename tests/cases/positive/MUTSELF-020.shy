@@ -1,0 +1,13 @@
+# MUTSELF-020: nested copy independence
+check ["id": "MUTSELF-020",
+    "name": "nested copy independence",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; struct S { a: [HashMap] }; let \$v = S(a: [[\"k\": 1]]);let \$copy = \$v; \$v.a[0][\"k\"].inc; echo \$v.a[0][\"k\"] \$copy.a[0][\"k\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

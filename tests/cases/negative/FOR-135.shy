@@ -1,0 +1,13 @@
+# FOR-135: binding count / for $k,$v in [1] {}
+check ["id": "FOR-135",
+    "name": "binding count / for \$k,\$v in [1] {}",
+    "source": "for \$k,\$v in [1] {}; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Iteration error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

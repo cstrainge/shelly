@@ -1,0 +1,13 @@
+# BOUNDARY-303: value pair / 2.5 and 1.0
+check ["id": "BOUNDARY-303",
+    "name": "value pair / 2.5 and 1.0",
+    "source": "echo (2.5 == 1.0) (2.5 != 1.0) (2.5 && 1.0) (2.5 || 1.0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

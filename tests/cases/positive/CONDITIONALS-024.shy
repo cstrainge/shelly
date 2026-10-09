@@ -1,0 +1,13 @@
+# CONDITIONALS-024: if /usr/bin/false { echo "bad" } else if /usr/bin/true { echo "ok" }
+check ["id": "CONDITIONALS-024",
+    "name": "if /usr/bin/false { echo \"bad\" } else if /usr/bin/true { echo \"ok\" }",
+    "source": "if /usr/bin/false { echo \"bad\" } else if /usr/bin/true { echo \"ok\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

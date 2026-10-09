@@ -1,0 +1,13 @@
+# ENUM-054: loop condition outside body
+check ["id": "ENUM-054",
+    "name": "loop condition outside body",
+    "source": "while C::A { enum C { A }; break }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown type"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

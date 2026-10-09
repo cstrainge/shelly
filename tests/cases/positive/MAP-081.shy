@@ -1,0 +1,13 @@
+# MAP-081: key equality / -0.0 / false
+check ["id": "MAP-081",
+    "name": "key equality / -0.0 / false",
+    "source": "let \$m = [-0.0:7]; echo \$m[false]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

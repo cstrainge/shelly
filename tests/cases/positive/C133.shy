@@ -1,0 +1,13 @@
+# C133: Bracket glob
+check ["id": "C133",
+    "name": "Bracket glob",
+    "source": "audit_args fixtures/[ab].txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"fixtures/a.txt\", \"fixtures/b.txt\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

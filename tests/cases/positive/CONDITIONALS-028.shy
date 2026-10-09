@@ -1,0 +1,13 @@
+# CONDITIONALS-028: if true { echo "yes" } # comment else if false {} else {} echo "after"
+check ["id": "CONDITIONALS-028",
+    "name": "if true { echo \"yes\" } # comment else if false {} else {} echo \"after\"",
+    "source": "if true\n{ echo \"yes\" }\n# comment\nelse if false\n{}\nelse\n{}\necho \"after\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\nafter\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

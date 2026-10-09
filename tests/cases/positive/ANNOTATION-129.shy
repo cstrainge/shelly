@@ -1,0 +1,13 @@
+# ANNOTATION-129: typed explicit return across blocks
+check ["id": "ANNOTATION-129",
+    "name": "typed explicit return across blocks",
+    "source": "fn f(): Number { { return 7 }; echo \"not reached\" }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

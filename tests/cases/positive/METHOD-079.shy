@@ -1,0 +1,13 @@
+# METHOD-079: zip pair iteration
+check ["id": "METHOD-079",
+    "name": "zip pair iteration",
+    "source": "let \$a = [1, 2]; for \$pair in \$a.zip [\"a\", \"b\"] { echo \$pair[0] \$pair[1] }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 a\n2 b\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

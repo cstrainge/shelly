@@ -1,0 +1,13 @@
+# C077: Unknown explicit call fails
+check ["id": "C077",
+    "name": "Unknown explicit call fails",
+    "source": "let \$x = shelly_audit_unknown 1",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable not found:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

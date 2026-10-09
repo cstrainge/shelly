@@ -1,0 +1,13 @@
+# PATH-006: prefix boundary
+check ["id": "PATH-006",
+    "name": "prefix boundary",
+    "source": "let \$p = \"<FIXTURE>/home-other\"; echo (\$p == \"<FIXTURE>/home-other\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

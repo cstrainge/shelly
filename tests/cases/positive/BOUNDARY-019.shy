@@ -1,0 +1,13 @@
+# BOUNDARY-019: fn splat parameter
+check ["id": "BOUNDARY-019",
+    "name": "fn splat parameter",
+    "source": "echo \"PARSE_SENTINEL\"; fn f(\$a...) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "PARSE_SENTINEL\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

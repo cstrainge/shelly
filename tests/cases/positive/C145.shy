@@ -1,0 +1,13 @@
+# C145: Loop statement
+check ["id": "C145",
+    "name": "Loop statement",
+    "source": "while true { echo \"a\"; break }",
+    "mode": "code",
+    "args": [],
+    "stdout": "a\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

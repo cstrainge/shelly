@@ -1,0 +1,13 @@
+# CONVERT-155: numeric and syntax Integer("9007199254740993")
+check ["id": "CONVERT-155",
+    "name": "numeric and syntax Integer(\"9007199254740993\")",
+    "source": "echo Integer(\"9007199254740993\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "9007199254740993\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C128: Asterisk glob sorted and hides dotfiles
+check ["id": "C128",
+    "name": "Asterisk glob sorted and hides dotfiles",
+    "source": "audit_args fixtures/*.txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"fixtures/a.txt\", \"fixtures/b.txt\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

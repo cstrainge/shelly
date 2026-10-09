@@ -1,0 +1,13 @@
+# CONTROL-062: continue table / [] / 9
+check ["id": "CONTROL-062",
+    "name": "continue table / [] / 9",
+    "source": "for \$i in [] { if \$i == 9 { continue }; echo \$i }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

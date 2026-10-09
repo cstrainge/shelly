@@ -1,0 +1,13 @@
+# STRUCT-031: float keys canonical equality
+check ["id": "STRUCT-031",
+    "name": "float keys canonical equality",
+    "source": "struct S { m: [Float: Number] }; echo S(m: [1.0: 42]).m[1]",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

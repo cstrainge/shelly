@@ -1,0 +1,13 @@
+# EXTENSION-074: missing argument
+check ["id": "EXTENSION-074",
+    "name": "missing argument",
+    "source": "fn Integer::f(\$n: Integer) { \$n }; let \$n = 1; echo \$n.f",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Method .* expected|Array methods require|sort requires)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-150: bad static implicit return
+check ["id": "ANNOTATION-150",
+    "name": "bad static implicit return",
+    "source": "fn f(): Number { \"bad\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

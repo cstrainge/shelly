@@ -1,0 +1,13 @@
+# BOUNDARY-011: fn missing parameter list
+check ["id": "BOUNDARY-011",
+    "name": "fn missing parameter list",
+    "source": "echo \"PARSE_SENTINEL\"; fn f {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

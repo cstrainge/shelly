@@ -1,0 +1,13 @@
+# CONVERT-238: optional conversion result
+check ["id": "CONVERT-238",
+    "name": "optional conversion result",
+    "source": "let \$v: optional Integer = Integer(\"12\"); echo \$v",
+    "mode": "code",
+    "args": [],
+    "stdout": "12\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

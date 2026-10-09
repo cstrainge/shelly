@@ -1,0 +1,13 @@
+# METHOD-104: short circuit
+check ["id": "METHOD-104",
+    "name": "short circuit",
+    "source": "echo (false && [].zip) (true || [(), 1].sort)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

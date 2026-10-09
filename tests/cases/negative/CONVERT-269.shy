@@ -1,0 +1,13 @@
+# CONVERT-269: named arguments Range
+check ["id": "CONVERT-269",
+    "name": "named arguments Range",
+    "source": "echo Range(value: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

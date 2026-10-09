@@ -1,0 +1,13 @@
+# EXTENSION-021: any receiver ArgumentExpansion
+check ["id": "EXTENSION-021",
+    "name": "any receiver ArgumentExpansion",
+    "source": "fn any::tag(): String { \"tag\" }; let \$v = ArgumentExpansion([1]); echo \$v.tag",
+    "mode": "code",
+    "args": [],
+    "stdout": "tag\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

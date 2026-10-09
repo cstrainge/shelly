@@ -1,0 +1,13 @@
+# BOUNDARY-210: runtime rejection / exit 256
+check ["id": "BOUNDARY-210",
+    "name": "runtime rejection / exit 256",
+    "source": "exit 256; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "exit expects",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

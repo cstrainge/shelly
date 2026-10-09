@@ -1,0 +1,13 @@
+# MULTILINE-007: grouped argument / && / ' ' '\n'
+check ["id": "MULTILINE-007",
+    "name": "grouped argument / && / ' ' '\\n'",
+    "source": "echo (true &&\nfalse)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

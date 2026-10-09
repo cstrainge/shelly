@@ -1,0 +1,13 @@
+# ARRAY-086: array evaluation error / let $a = [1 / 0]
+check ["id": "ARRAY-086",
+    "name": "array evaluation error / let \$a = [1 / 0]",
+    "source": "let \$a = [1 / 0]; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

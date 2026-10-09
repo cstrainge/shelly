@@ -1,0 +1,13 @@
+# CONDLOOP-134: until runtime / until true {}; break
+check ["id": "CONDLOOP-134",
+    "name": "until runtime / until true {}; break",
+    "source": "until true {}; break; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Loop control error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

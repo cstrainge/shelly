@@ -1,0 +1,13 @@
+# CONDITIONALS-014: fn f() { return if true { 7 } else { 8 }; echo "bad" }; echo (f)
+check ["id": "CONDITIONALS-014",
+    "name": "fn f() { return if true { 7 } else { 8 }; echo \"bad\" }; echo (f)",
+    "source": "fn f() { return if true { 7 } else { 8 }; echo \"bad\" }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONDLOOP-068: while file
+check ["id": "CONDLOOP-068",
+    "name": "while file",
+    "source": "let \$n = 0; while \$n != 3 { \$n = \$n + 1 }; echo \$n",
+    "mode": "file",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

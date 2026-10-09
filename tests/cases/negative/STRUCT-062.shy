@@ -1,0 +1,13 @@
+# STRUCT-062: unknown field type
+check ["id": "STRUCT-062",
+    "name": "unknown field type",
+    "source": "struct S { n: Missing }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown type"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

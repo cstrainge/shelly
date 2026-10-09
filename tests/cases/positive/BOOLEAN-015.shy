@@ -1,0 +1,13 @@
+# BOOLEAN-015: echo !(/usr/bin/true) !(/usr/bin/false) ((/usr/bin/false) || (/usr/bin/true))
+check ["id": "BOOLEAN-015",
+    "name": "echo !(/usr/bin/true) !(/usr/bin/false) ((/usr/bin/false) || (/usr/bin/true))",
+    "source": "echo !(/usr/bin/true) !(/usr/bin/false) ((/usr/bin/false) || (/usr/bin/true))",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

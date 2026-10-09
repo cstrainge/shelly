@@ -1,0 +1,13 @@
+# EXTENSION-010: builtin receiver Range1..3
+check ["id": "EXTENSION-010",
+    "name": "builtin receiver Range1..3",
+    "source": "fn Range::copy(): Range { \$self }; let \$v: Range = 1..3; let \$copy = \$v.copy; echo String(\$copy)",
+    "mode": "code",
+    "args": [],
+    "stdout": "1..3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

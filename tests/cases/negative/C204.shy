@@ -1,0 +1,13 @@
+# C204: Checked signed division overflow
+check ["id": "C204",
+    "name": "Checked signed division overflow",
+    "source": "echo -9223372036854775808 / -1",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

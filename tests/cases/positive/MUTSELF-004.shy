@@ -1,0 +1,13 @@
+# MUTSELF-004: variable copy independence
+check ["id": "MUTSELF-004",
+    "name": "variable copy independence",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$v = 1;let \$copy = \$v; \$v.inc; echo \$v \$copy",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

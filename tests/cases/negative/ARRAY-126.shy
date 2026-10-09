@@ -1,0 +1,13 @@
+# ARRAY-126: array used as command / let $a = [`audit_say]; echo ($a "argument")
+check ["id": "ARRAY-126",
+    "name": "array used as command / let \$a = [`audit_say]; echo (\$a \"argument\")",
+    "source": "let \$a = [`audit_say]; echo (\$a \"argument\"); echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": ["Cannot execute an array as a command"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

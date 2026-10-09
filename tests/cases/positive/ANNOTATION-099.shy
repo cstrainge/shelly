@@ -1,0 +1,13 @@
+# ANNOTATION-099: implicit return String
+check ["id": "ANNOTATION-099",
+    "name": "implicit return String",
+    "source": "fn f(): String { \"str\" }; let \$x = f; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

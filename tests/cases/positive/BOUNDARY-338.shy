@@ -1,0 +1,13 @@
+# BOUNDARY-338: value pair / false and 2.5
+check ["id": "BOUNDARY-338",
+    "name": "value pair / false and 2.5",
+    "source": "echo (false == 2.5) (false != 2.5) (false && 2.5) (false || 2.5)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

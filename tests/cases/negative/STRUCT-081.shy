@@ -1,0 +1,13 @@
+# STRUCT-081: array of optionals still array
+check ["id": "STRUCT-081",
+    "name": "array of optionals still array",
+    "source": "struct S { n: [optional Number] }; echo S(n: ())",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected [optional Number]"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

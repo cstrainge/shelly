@@ -1,0 +1,13 @@
+# STRUCT-120: runtime write field on number
+check ["id": "STRUCT-120",
+    "name": "runtime write field on number",
+    "source": "let \$n = 1; \$n.field = 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": ["Cannot assign a field"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

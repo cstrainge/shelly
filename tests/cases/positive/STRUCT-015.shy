@@ -1,0 +1,13 @@
+# STRUCT-015: mutually recursive optional
+check ["id": "STRUCT-015",
+    "name": "mutually recursive optional",
+    "source": "struct A { b: B }; struct B { a: optional A }; echo A(b: B()).b.a",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

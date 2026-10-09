@@ -1,0 +1,13 @@
+# FOR-004: variable array
+check ["id": "FOR-004",
+    "name": "variable array",
+    "source": "let \$a = [1,2]; for \$v in \$a { echo \$v }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-168: numeric and syntax Number (\n "2.5",\n)
+check ["id": "CONVERT-168",
+    "name": "numeric and syntax Number (\n \"2.5\",\n)",
+    "source": "echo Number (\n \"2.5\",\n)",
+    "mode": "code",
+    "args": [],
+    "stdout": "2.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

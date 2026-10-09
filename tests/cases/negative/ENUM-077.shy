@@ -1,0 +1,13 @@
+# ENUM-077: nested array arithmetic
+check ["id": "ENUM-077",
+    "name": "nested array arithmetic",
+    "source": "enum Color { Red, Green, Blue }; echo [Color::Red] + 1",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Enums cannot|Cannot execute an enum|Cannot index|For loops require)",
+    "stderr_contains": ["Enums cannot be used in arithmetic"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

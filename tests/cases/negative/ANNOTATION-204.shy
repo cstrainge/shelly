@@ -1,0 +1,13 @@
+# ANNOTATION-204: untyped required after optional
+check ["id": "ANNOTATION-204",
+    "name": "untyped required after optional",
+    "source": "fn f(\$a: optional Number, \$b) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

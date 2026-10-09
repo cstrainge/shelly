@@ -1,0 +1,13 @@
+# BOUNDARY-557: nested branch linking depth 2
+check ["id": "BOUNDARY-557",
+    "name": "nested branch linking depth 2",
+    "source": "echo (if true { if true { 7 } else { \$missing_boundary } } else { \$missing_boundary })",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOOLEAN-007: let $x = 7; echo ($x==7) (${x}!=8) ($x==/path) !($x==7)
+check ["id": "BOOLEAN-007",
+    "name": "let \$x = 7; echo (\$x==7) (\${x}!=8) (\$x==/path) !(\$x==7)",
+    "source": "let \$x = 7; echo (\$x==7) (\${x}!=8) (\$x==/path) !(\$x==7)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true false false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

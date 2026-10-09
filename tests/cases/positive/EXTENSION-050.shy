@@ -1,0 +1,13 @@
+# EXTENSION-050: bound reference
+check ["id": "EXTENSION-050",
+    "name": "bound reference",
+    "source": "fn Integer::add(\$x: Integer): Integer { \$self + \$x }; let \$n = 2; let \$r = `\$n.add; \$n = 10; echo (\$r 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "13\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

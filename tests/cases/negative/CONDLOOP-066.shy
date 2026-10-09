@@ -1,0 +1,13 @@
+# CONDLOOP-066: while runtime / fn f() { continue }; while true { f }
+check ["id": "CONDLOOP-066",
+    "name": "while runtime / fn f() { continue }; while true { f }",
+    "source": "fn f() { continue }; while true { f }; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Loop control error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

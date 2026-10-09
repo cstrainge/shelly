@@ -1,0 +1,13 @@
+# MUTSELF-044: method version pinned
+check ["id": "MUTSELF-044",
+    "name": "method version pinned",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$n = 1; let \$r = `\$n.inc; fn Integer::inc() { \$self = \$self + 10 }; \$r; \$n.inc; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "12\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

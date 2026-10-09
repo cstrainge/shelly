@@ -1,0 +1,13 @@
+# REDIRECTION-015: nested capture
+check ["id": "REDIRECTION-015",
+    "name": "nested capture",
+    "source": "fn f() { let \$inner: String; echo \"inner\" -> \$inner; printf \"%s\" \$inner }; let \$out: String; f -> \$out; printf \"%s\" \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "inner\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

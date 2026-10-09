@@ -1,0 +1,13 @@
+# NEWLINE-024: semicolon prevents constructor
+check ["id": "NEWLINE-024",
+    "name": "semicolon prevents constructor",
+    "source": "let \$x = unknown_name;\n()\necho \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "unknown_name\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

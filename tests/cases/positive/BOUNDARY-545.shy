@@ -1,0 +1,13 @@
+# BOUNDARY-545: three-branch scope table / false,true,false
+check ["id": "BOUNDARY-545",
+    "name": "three-branch scope table / false,true,false",
+    "source": "let \$x = 99; let \$y = if false { let \$x = 0; \$x } else if true { let \$x = 1; \$x } else if false { let \$x = 2; \$x } else { let \$x = 3; \$x }; echo \$y \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 99\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

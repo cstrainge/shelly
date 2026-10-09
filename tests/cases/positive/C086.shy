@@ -1,0 +1,13 @@
+# C086: None literal
+check ["id": "C086",
+    "name": "None literal",
+    "source": "echo ()",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

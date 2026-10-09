@@ -1,0 +1,13 @@
+# CONVERT-058: matrix ExecResult to String
+check ["id": "CONVERT-058",
+    "name": "matrix ExecResult to String",
+    "source": "let \$v = /bin/true; let \$converted: String = String(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "ExecResult(0)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

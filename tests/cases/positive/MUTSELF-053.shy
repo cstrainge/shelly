@@ -1,0 +1,13 @@
+# MUTSELF-053: expansion replace
+check ["id": "MUTSELF-053",
+    "name": "expansion replace",
+    "source": "fn ArgumentExpansion::replace() { \$self = ArgumentExpansion([2]) }; let \$v: ArgumentExpansion = ArgumentExpansion([1]); \$v.replace; echo \$v",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

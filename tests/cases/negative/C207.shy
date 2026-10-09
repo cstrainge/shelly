@@ -1,0 +1,13 @@
+# C207: Checked array arithmetic overflow
+check ["id": "C207",
+    "name": "Checked array arithmetic overflow",
+    "source": "echo \$args + 0",
+    "mode": "code",
+    "args": ["9223372036854775807", "1"],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

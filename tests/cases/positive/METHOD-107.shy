@@ -1,0 +1,13 @@
+# METHOD-107: method arithmetic
+check ["id": "METHOD-107",
+    "name": "method arithmetic",
+    "source": "echo [1, 2].count + 3",
+    "mode": "code",
+    "args": [],
+    "stdout": "5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

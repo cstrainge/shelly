@@ -1,0 +1,13 @@
+# C061: Standalone executable variable
+check ["id": "C061",
+    "name": "Standalone executable variable",
+    "source": "fn f() { echo \"called\" }\nlet \$r = `f ; \$r",
+    "mode": "code",
+    "args": [],
+    "stdout": "called\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

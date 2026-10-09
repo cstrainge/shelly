@@ -1,0 +1,13 @@
+# MAP-499: map key insertion order
+check ["id": "MAP-499",
+    "name": "map key insertion order",
+    "source": "let \$m = [[\"a\":1,\"b\":2]:7]; echo \$m[[\"b\":2,\"a\":1]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

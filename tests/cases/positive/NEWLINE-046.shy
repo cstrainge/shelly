@@ -1,0 +1,13 @@
+# NEWLINE-046: spaced empty nested
+check ["id": "NEWLINE-046",
+    "name": "spaced empty nested",
+    "source": "struct E {}; struct S { e: E }; echo S (e: E ()).e",
+    "mode": "code",
+    "args": [],
+    "stdout": "E()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

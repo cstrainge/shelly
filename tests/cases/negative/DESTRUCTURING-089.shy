@@ -1,0 +1,13 @@
+# DESTRUCTURING-089: missing in
+check ["id": "DESTRUCTURING-089",
+    "name": "missing in",
+    "source": "echo \"PARSE_SENTINEL\"; for (\$a, \$b) [] {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

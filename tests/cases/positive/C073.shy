@@ -1,0 +1,13 @@
+# C073: Bare executable argument is called
+check ["id": "C073",
+    "name": "Bare executable argument is called",
+    "source": "fn f() { 7 }\necho f",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

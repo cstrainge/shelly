@@ -1,0 +1,13 @@
+# BOUNDARY-311: value pair / 2.5 and "2"
+check ["id": "BOUNDARY-311",
+    "name": "value pair / 2.5 and \"2\"",
+    "source": "echo (2.5 == \"2\") (2.5 != \"2\") (2.5 && \"2\") (2.5 || \"2\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,5 @@
+# Methods on typed function parameters survive type shadowing
+check_repl ["id": "R060",
+    "name": "Methods on typed function parameters survive type shadowing",
+    "steps": [["fn ordered(\$a: Array): Array { \$a.sort }", "quiet", ""], ["fn length(\$a: [Integer]): Integer { \$a.count }", "quiet", ""], ["echo (ordered [3, 1])...; echo (length [4, 5])", "output", "1 3\n2"], ["struct Array { count: String }", "quiet", ""], ["echo Array(count: \"field\").count", "output", "field"], ["echo (ordered [3, 1])...; echo (length [4, 5])", "output", "1 3\n2"], ["echo [1, \"x\"].sort", "error", ""], ["echo [2, 1].sort...", "output", "1 2"]],
+    "exit": 0]

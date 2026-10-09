@@ -1,0 +1,13 @@
+# FOR-097: range table / 2..=0
+check ["id": "FOR-097",
+    "name": "range table / 2..=0",
+    "source": "for \$i in 2..=0 { echo \$i }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

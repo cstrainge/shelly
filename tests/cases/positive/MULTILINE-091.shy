@@ -1,0 +1,13 @@
+# MULTILINE-091: statement and else boundaries
+check ["id": "MULTILINE-091",
+    "name": "statement and else boundaries",
+    "source": "let \$x = 1\necho \$x\nif false\n{ echo \"bad\" }\nelse\n{ echo \"else\" }\necho \"next\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\nelse\nnext\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

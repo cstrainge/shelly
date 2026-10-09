@@ -1,0 +1,13 @@
+# BOUNDARY-475: value pair / $args and true
+check ["id": "BOUNDARY-475",
+    "name": "value pair / \$args and true",
+    "source": "echo (\$args == true) (\$args != true) (\$args && true) (\$args || true)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-062: initialize None from String
+check ["id": "ANNOTATION-062",
+    "name": "initialize None from String",
+    "source": "let \$x: None = \"str\"; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

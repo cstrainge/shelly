@@ -1,0 +1,13 @@
+# ANNOTATION-036: initialize Number from Number
+check ["id": "ANNOTATION-036",
+    "name": "initialize Number from Number",
+    "source": "let \$x: Number = 2; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# RANGE-017: array bounds
+check ["id": "RANGE-017",
+    "name": "array bounds",
+    "source": "let \$a = [1,4]; echo (\$a[0]..\$a[1])...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

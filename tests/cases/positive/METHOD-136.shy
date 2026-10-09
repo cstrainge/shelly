@@ -1,0 +1,13 @@
+# METHOD-136: glob method reference
+check ["id": "METHOD-136",
+    "name": "glob method reference",
+    "source": "let \$a: ArgumentExpansion = fixtures/*.txt; let \$sort = `\$a.sort; echo (\$sort).count",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

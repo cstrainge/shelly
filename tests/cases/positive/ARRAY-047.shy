@@ -1,0 +1,13 @@
+# ARRAY-047: array equality nesting
+check ["id": "ARRAY-047",
+    "name": "array equality nesting",
+    "source": "echo ([[1],[2]] == [[1],[2]]) ([[1],[2]] != [[1],[3]])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

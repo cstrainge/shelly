@@ -1,0 +1,13 @@
+# FOR-015: fresh scopes and outer mutation
+check ["id": "FOR-015",
+    "name": "fresh scopes and outer mutation",
+    "source": "let \$v = 9; let \$n = 0; for \$v in [1,2] { let \$local = \$v; \$n = \$n + \$local }; echo \$v \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "9 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

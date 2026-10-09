@@ -1,0 +1,13 @@
+# C154: Invalid UTF8 script rejects source
+check ["id": "C154",
+    "name": "Invalid UTF8 script rejects source",
+    "source": "echo \"before\"\n<INVALID>\necho \"after\"",
+    "mode": "invalid_file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

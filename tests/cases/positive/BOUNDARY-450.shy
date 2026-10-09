@@ -1,0 +1,13 @@
+# BOUNDARY-450: value pair / "word" and $args
+check ["id": "BOUNDARY-450",
+    "name": "value pair / \"word\" and \$args",
+    "source": "echo (\"word\" == \$args) (\"word\" != \$args) (\"word\" && \$args) (\"word\" || \$args)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

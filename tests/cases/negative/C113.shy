@@ -1,0 +1,13 @@
+# C113: Intermediate command failure stops function
+check ["id": "C113",
+    "name": "Intermediate command failure stops function",
+    "source": "fn f() { /usr/bin/false ; echo \"bad\" }\nlet \$x = f ; echo \"bad\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable returned error code:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

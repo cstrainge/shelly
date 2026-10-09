@@ -1,0 +1,13 @@
+# CONDLOOP-061: while runtime / while $missing {}
+check ["id": "CONDLOOP-061",
+    "name": "while runtime / while \$missing {}",
+    "source": "while \$missing {}; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

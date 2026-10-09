@@ -1,0 +1,13 @@
+# PATH-003: colored prompt interpolation
+check ["id": "PATH-003",
+    "name": "colored prompt interpolation",
+    "source": "cd \"<FIXTURE>/home/sub\"; fn prompt() { echo \"prefix: \${pwd}\" }; prompt",
+    "mode": "code",
+    "args": [],
+    "stdout": "prefix: ~/sub\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

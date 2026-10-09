@@ -1,0 +1,13 @@
+# CONTROL-107: keyword arguments
+check ["id": "CONTROL-107",
+    "name": "keyword arguments",
+    "source": "echo break continue",
+    "mode": "code",
+    "args": [],
+    "stdout": "break continue\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

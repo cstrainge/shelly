@@ -1,0 +1,13 @@
+# ENUM-081: index enum
+check ["id": "ENUM-081",
+    "name": "index enum",
+    "source": "enum Color { Red, Green, Blue }; let \$x = Color::Red; echo \$x[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Enums cannot|Cannot execute an enum|Cannot index|For loops require)",
+    "stderr_contains": ["Cannot index"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

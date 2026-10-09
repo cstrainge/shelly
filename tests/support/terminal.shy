@@ -1,0 +1,121 @@
+# PTY interaction, terminal protocol handling and assertions are Shelly code.
+fn fail($message: String)
+{
+    echo "FAIL: $message"
+    exit 1
+}
+
+fn require($condition: Boolean, $message: String)
+{
+    if !$condition { fail $message }
+}
+
+fn strip_ansi($text: String): String
+{
+    let $output = ""
+    let $state = "text"
+    let $final = "@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+    for $character in $text.chars
+    {
+        if $state == "escape"
+        {
+            $state = if $character == "[" { "csi" } else { "text" }
+        }
+        else if $state == "csi"
+        {
+            if ($final.contains $character) { $state = "text" }
+        }
+        else if $character == "\x1b" { $state = "escape" }
+        else if $character != "\r" { $output = "${output}${character}" }
+    }
+    $output
+}
+
+fn drain($terminal: Terminal)
+{
+    let $raw = ""
+    for $attempt in 0..50
+    {
+        let $reply = terminal_read $terminal 100
+        let $text = $reply["text"]
+        $raw = "${raw}${text}"
+        if ($raw.contains "\x1b[6n")
+        {
+            terminal_write $terminal "\x1b[1;1R"
+            $raw = $raw.replace "\x1b[6n" ""
+        }
+        if ($raw.contains "\x1b[c")
+        {
+            terminal_write $terminal "\x1b[?1;2c"
+            $raw = $raw.replace "\x1b[c" ""
+        }
+        let $output = strip_ansi $raw
+        if $reply["eof"] || ($reply["timed_out"] &&
+            (($output.ends_with "\n$ ") || ($output.ends_with "\n# ")))
+        {
+            return ["output": $output, "eof": $reply["eof"],
+                    "exit_code": $reply["exit_code"], "signal": $reply["signal"]]
+        }
+    }
+    fail "terminal did not reach a prompt or EOF"
+}
+
+fn submit($terminal: Terminal, $source: String)
+{
+    terminal_write $terminal "\x1b[200~${source}\x1b[201~\r"
+    drain $terminal
+}
+
+fn session($fixture: String): Terminal
+{
+    open_terminal [`$shelly, "--norc", "-m", "-b"] [
+        "cwd": $fixture, "env": ["HOME": $fixture,
+            "PATH": "${fixture}/bin:/usr/bin:/bin", "TERM": "xterm-256color", "LANG": "C.UTF-8"],
+        "rows": 40, "columns": 140,
+    ]
+}
+
+fn check_repl($case: HashMap)
+{
+    let $fixture = $args[0]
+    let $terminal = session $fixture
+    let $initial = drain $terminal
+    require (!$initial["eof"]) "shell exited during startup"
+    for ($source, $kind, $expected) in $case["steps"]
+    {
+        let $reply = submit $terminal ($source.replace "<FIXTURE>" $fixture)
+        let $output = $reply["output"].replace $fixture "<FIXTURE>"
+        if !(repl_matches $kind $expected $output)
+        {
+            echo $output
+            fail "wrong REPL output or diagnostic"
+        }
+        require ($reply["eof"] == ($case["exit"] == 7)) "unexpected EOF or missing exit"
+        if $case["id"] == "R013" { require ($output.contains "[~]") "home prompt not shortened" }
+    }
+    if $case["exit"] == 0
+    {
+        terminal_write $terminal "\x04"
+        let $closed = drain $terminal
+        require $closed["eof"] "Ctrl+D did not close shell"
+    }
+    let $status = terminal_close $terminal
+    require ($status["exit_code"] == $case["exit"]) "wrong REPL exit status"
+    require ($status["signal"] == ()) "REPL terminated by signal"
+}
+
+fn repl_matches($kind: String, $expected: String, $output: String): Boolean
+{
+    if ($output.contains "panicked at") || ($output.contains "stack overflow") { return false }
+    let $lines = "\n${output}"
+    let $error = $lines.contains "\nError processing text:"
+    if $kind == "error"
+    {
+        if !$error { return false }
+        let $diagnostic = ($lines.split "\nError processing text:")[1]
+        return $diagnostic.contains $expected
+    }
+    if $error { return false }
+    if $kind == "quiet" { return true }
+    ($kind == "output") && ($output.contains "\n${expected}\n")
+}

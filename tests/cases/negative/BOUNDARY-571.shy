@@ -1,0 +1,13 @@
+# BOUNDARY-571: file / branch error
+check ["id": "BOUNDARY-571",
+    "name": "file / branch error",
+    "source": "if true { 1 / 0 } else { 7 }",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

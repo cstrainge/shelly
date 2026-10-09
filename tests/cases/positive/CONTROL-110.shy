@@ -1,0 +1,13 @@
+# CONTROL-110: stdin control
+check ["id": "CONTROL-110",
+    "name": "stdin control",
+    "source": "for \$i in 0..5 { if \$i == 1 { continue }; if \$i == 3 { break }; echo \$i }",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "0\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

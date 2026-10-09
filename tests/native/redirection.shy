@@ -1,0 +1,15 @@
+let $fixture = $args[0]
+let $output: String
+let $errors: String
+let $result = run_process ["/usr/bin/printf", "captured"] [:] -> $output
+require (($result["exit_code"] == 0) && ($output == "captured")) "native stdout capture"
+let $result = run_process ["audit_streams", "out", "err", "0"] ["env": (environment $args[0])] -> $output ~-> $errors
+require (($output == "out") && ($errors == "err")) "native separate captures"
+let $result = run_process ["audit_streams", "out", "err", "0"] ["env": (environment $args[0])] ~+-> $output
+require ($output == "outerr") "native combined capture"
+let $result = run_process ["/usr/bin/printf", "file"] ["stdout_file": "${fixture}/explicit"] -> $output
+require ($output == "") "explicit file should override inherited capture"
+"${fixture}/explicit" -> $output
+require ($output == "file") "explicit output file missing"
+let $result = run_process ["/usr/bin/cat", "${fixture}/data/megabyte"] [:] -> $output
+require (($result["exit_code"] == 0) && ($output.chars.count == 1048576)) "large capture deadlock or truncation"

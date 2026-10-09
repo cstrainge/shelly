@@ -1,0 +1,13 @@
+# STRUCT-039: field call arguments
+check ["id": "STRUCT-039",
+    "name": "field call arguments",
+    "source": "struct S { call }; fn f(\$n) { \$n + 1 }; let \$s = S(call: `f); echo (\$s.call 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

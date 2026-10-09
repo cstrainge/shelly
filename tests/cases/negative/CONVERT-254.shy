@@ -1,0 +1,13 @@
+# CONVERT-254: named arguments Float
+check ["id": "CONVERT-254",
+    "name": "named arguments Float",
+    "source": "echo Float(value: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

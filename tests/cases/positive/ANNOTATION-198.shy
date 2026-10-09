@@ -1,0 +1,13 @@
+# ANNOTATION-198: variadic alias
+check ["id": "ANNOTATION-198",
+    "name": "variadic alias",
+    "source": "fn f(\$xs...): Array { return \$xs }; alias g = f \"a\"; echo (g \"b\")...",
+    "mode": "code",
+    "args": [],
+    "stdout": "a b\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

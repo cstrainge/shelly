@@ -1,0 +1,13 @@
+# METHOD-080: chaining
+check ["id": "METHOD-080",
+    "name": "chaining",
+    "source": "echo [3, 1, 2].sort.count [3, 1, 2].sort[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "3 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

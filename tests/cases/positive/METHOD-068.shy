@@ -1,0 +1,13 @@
+# METHOD-068: zip literal [1]["a", "b"]
+check ["id": "METHOD-068",
+    "name": "zip literal [1][\"a\", \"b\"]",
+    "source": "let \$pairs = [1].zip [\"a\", \"b\"]; echo \$pairs...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1:a\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

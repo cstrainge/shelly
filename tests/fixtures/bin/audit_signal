@@ -1,0 +1,5 @@
+#!/usr/bin/env shelly
+let $stat: String
+"/proc/self/stat" -> $stat
+let $pid = ($stat.split " ")[0]
+/bin/kill -TERM $pid

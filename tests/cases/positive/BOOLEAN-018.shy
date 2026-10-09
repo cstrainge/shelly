@@ -1,0 +1,13 @@
+# BOOLEAN-018: echo !$args ($args == $args)
+check ["id": "BOOLEAN-018",
+    "name": "echo !\$args (\$args == \$args)",
+    "source": "echo !\$args (\$args == \$args)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

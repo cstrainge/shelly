@@ -1,0 +1,13 @@
+# MAP-498: infinite keys
+check ["id": "MAP-498",
+    "name": "infinite keys",
+    "source": "let \$m = [1e309:7,-1e309:8]; echo \$m[1e309] \$m[-1e309]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7 8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

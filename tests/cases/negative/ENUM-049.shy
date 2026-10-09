@@ -1,0 +1,13 @@
+# ENUM-049: loop scope leak
+check ["id": "ENUM-049",
+    "name": "loop scope leak",
+    "source": "loop { enum C { A }; break }; echo C::A",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown type"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

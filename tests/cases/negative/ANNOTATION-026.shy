@@ -1,0 +1,13 @@
+# ANNOTATION-026: initialize Float from Integer
+check ["id": "ANNOTATION-026",
+    "name": "initialize Float from Integer",
+    "source": "let \$x: Float = 1; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

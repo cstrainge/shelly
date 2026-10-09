@@ -1,0 +1,13 @@
+# ANNOTATION-086: parameter Float
+check ["id": "ANNOTATION-086",
+    "name": "parameter Float",
+    "source": "fn f(\$x: Float): Float { return \$x }; let \$x = f 1.5; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

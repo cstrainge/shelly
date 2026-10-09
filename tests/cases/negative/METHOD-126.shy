@@ -1,0 +1,13 @@
+# METHOD-126: sort return type
+check ["id": "METHOD-126",
+    "name": "sort return type",
+    "source": "fn f(\$a: Array): Integer { \$a.sort }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

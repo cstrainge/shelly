@@ -1,0 +1,13 @@
+# BLOCKS-025: extra closing brace
+check ["id": "BLOCKS-025",
+    "name": "extra closing brace",
+    "source": "{} }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

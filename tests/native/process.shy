@@ -1,0 +1,39 @@
+let $fixture = $args[0]
+let $options = ["cwd": $fixture, "env": (environment $fixture),
+    "stdin_file": "/dev/null", "stdout_file": "${fixture}/native.out",
+    "stderr_file": "${fixture}/native.err", "timeout_ms": 1000]
+let $result = run_process [`$shelly, "-m", "-c", "exit 7"] $options
+require ($result["exit_code"] == 7) "exit code lost"
+require (($result["signal"] == ()) && (!$result["timed_out"]) && ($result["error"] == ())) "exit metadata"
+let $result = run_process ["__shelly_missing_process__"] $options
+require (($result["error"] != ()) && ($result["exit_code"] == ())) "launch failure metadata"
+let $result = run_process ["audit_signal"] $options
+require (($result["signal"] == 15) && ($result["exit_code"] == ())) "signal metadata"
+let $result = run_process ["audit_streams", "out", "err", "0"] $options
+require ($result["exit_code"] == 0) "streams helper failed"
+let $out: String
+let $err: String
+"${fixture}/native.out" -> $out
+"${fixture}/native.err" -> $err
+require (($out == "out") && ($err == "err")) "streams mixed"
+$options["stdin_file"] = "${fixture}/data/all-bytes"
+let $result = run_process ["/usr/bin/cat"] $options
+require ($result["exit_code"] == 0) "binary stdin failed"
+require (Boolean(cmp -s "${fixture}/data/all-bytes" "${fixture}/native.out")) "binary bytes changed"
+$options["stdin_file"] = "${fixture}/missing-input"
+let $result = run_process ["/usr/bin/cat"] $options
+require ($result["error"] != ()) "missing stdin did not report I/O failure"
+$options["stdin_file"] = "/dev/null"
+$options["cwd"] = "${fixture}/missing-directory"
+let $result = run_process ["/usr/bin/true"] $options
+require ($result["error"] != ()) "missing cwd did not report launch failure"
+# Omitted env inherits Shelly exports; an explicit map replaces them.
+let export $SHELLY_NATIVE_EXPORT = "live"
+let $private_native = "hidden"
+let $result = run_process ["/usr/bin/printenv", "SHELLY_NATIVE_EXPORT"] ["stdout_file": "${fixture}/env.out"]
+"${fixture}/env.out" -> $out
+require (($result["exit_code"] == 0) && ($out == "live\n")) "live export not inherited"
+let $result = run_process ["/usr/bin/printenv", "private_native"] ["stdout_file": "${fixture}/env.out"]
+require ($result["exit_code"] == 1) "private variable leaked"
+let $result = run_process ["/usr/bin/printenv", "SHELLY_NATIVE_EXPORT"] ["env": [:], "stdout_file": "${fixture}/env.out"]
+require ($result["exit_code"] == 1) "explicit empty environment did not clear exports"

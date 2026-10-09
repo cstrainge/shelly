@@ -1,0 +1,13 @@
+# FOR-046: loop under skipped condition
+check ["id": "FOR-046",
+    "name": "loop under skipped condition",
+    "source": "if false { for \$v in 7 { echo \"bad\" } }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

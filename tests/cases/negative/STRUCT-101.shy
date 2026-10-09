@@ -1,0 +1,13 @@
+# STRUCT-101: optional missing element type
+check ["id": "STRUCT-101",
+    "name": "optional missing element type",
+    "source": "struct S { n: [optional] }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

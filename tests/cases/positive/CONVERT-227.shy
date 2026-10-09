@@ -1,0 +1,13 @@
+# CONVERT-227: number preserves integer
+check ["id": "CONVERT-227",
+    "name": "number preserves integer",
+    "source": "let \$n: Integer = Number(\"42\"); echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

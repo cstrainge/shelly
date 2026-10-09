@@ -1,0 +1,13 @@
+# C164: Zero argument reference assignment invokes
+check ["id": "C164",
+    "name": "Zero argument reference assignment invokes",
+    "source": "fn f() { 7 }\nlet \$r = `f ; let \$x = (\$r) ; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

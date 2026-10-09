@@ -1,0 +1,13 @@
+# STRUCT-026: map field insertion
+check ["id": "STRUCT-026",
+    "name": "map field insertion",
+    "source": "struct S { m: [String: Number] }; let \$s = S(m: [:]); \$s.m[\"x\"] = 42; echo \$s.m[\"x\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

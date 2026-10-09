@@ -1,0 +1,13 @@
+# MAP-530: stdin map write
+check ["id": "MAP-530",
+    "name": "stdin map write",
+    "source": "let \$m = [:]; \$m[[1]] = 7; echo \$m[[1.0]]",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

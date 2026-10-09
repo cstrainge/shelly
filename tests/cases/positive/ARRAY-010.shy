@@ -1,0 +1,13 @@
+# ARRAY-010: unary precedence
+check ["id": "ARRAY-010",
+    "name": "unary precedence",
+    "source": "echo (![false][0]) (-[3][0])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true -3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

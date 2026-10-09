@@ -1,0 +1,13 @@
+# ANNOTATION-147: unknown return type
+check ["id": "ANNOTATION-147",
+    "name": "unknown return type",
+    "source": "fn f(): Missing {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

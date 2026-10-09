@@ -1,0 +1,13 @@
+# MAP-023: nested map read/write
+check ["id": "MAP-023",
+    "name": "nested map read/write",
+    "source": "let \$m = [\"a\":[\"b\":1]]; \$m[\"a\"][\"c\"] = 9; echo \$m[\"a\"][\"b\"] \$m[\"a\"][\"c\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

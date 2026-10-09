@@ -1,0 +1,13 @@
+# C040: Single line string with raw newline
+check ["id": "C040",
+    "name": "Single line string with raw newline",
+    "source": "echo \"a\nb\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MUTSELF-059: loop break releases references
+check ["id": "MUTSELF-059",
+    "name": "loop break releases references",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$a = [1]; loop { \$a[(if true { break } else { 0 })].inc }; \$a[0].inc; echo \$a[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

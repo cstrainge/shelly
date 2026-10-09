@@ -1,0 +1,13 @@
+# EXTENSION-059: self reassign
+check ["id": "EXTENSION-059",
+    "name": "self reassign",
+    "source": "fn Integer::local(): Integer { \$self = 3; \$self }; let \$n = 1; echo \$n.local \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "3 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

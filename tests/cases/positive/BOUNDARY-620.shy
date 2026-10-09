@@ -1,0 +1,13 @@
+# BOUNDARY-620: ordinary variable command
+check ["id": "BOUNDARY-620",
+    "name": "ordinary variable command",
+    "source": "let \$cmd = `audit_args; \$cmd \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"ok\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

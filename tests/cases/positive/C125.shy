@@ -1,0 +1,13 @@
+# C125: Variable prefixed path
+check ["id": "C125",
+    "name": "Variable prefixed path",
+    "source": "let \$root = \"fixtures\" ; echo \$root/a.txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "fixtures/a.txt\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

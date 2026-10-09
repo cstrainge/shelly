@@ -1,0 +1,5 @@
+# Typed declaration checking rolls back function publication
+check_repl ["id": "R049",
+    "name": "Typed declaration checking rolls back function publication",
+    "steps": [["fn retained(): Number { 7 }", "quiet", ""], ["fn retained(): Number { 8 }; let \$x: Number = \"bad\"", "error", ""], ["echo (retained)", "output", "7"], ["fn optional_bad(\$a: optional Number, \$b: Number) {}", "error", ""], ["echo \"recovered\"", "output", "recovered"]],
+    "exit": 0]

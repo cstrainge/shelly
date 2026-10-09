@@ -1,0 +1,13 @@
+# MAP-318: key equality / [] / []
+check ["id": "MAP-318",
+    "name": "key equality / [] / []",
+    "source": "let \$m = [[]:7]; echo \$m[[]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

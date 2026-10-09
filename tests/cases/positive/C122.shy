@@ -1,0 +1,13 @@
+# C122: Quoted tilde expands at external command boundary
+check ["id": "C122",
+    "name": "Quoted tilde expands at external command boundary",
+    "source": "echo \"~\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "<FIXTURE>/home\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C111: Uncaptured nonzero command rejects rest
+check ["id": "C111",
+    "name": "Uncaptured nonzero command rejects rest",
+    "source": "/usr/bin/false ; echo \"bad\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable returned error code:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

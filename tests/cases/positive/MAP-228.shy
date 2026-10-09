@@ -1,0 +1,13 @@
+# MAP-228: key equality / "" / false
+check ["id": "MAP-228",
+    "name": "key equality / \"\" / false",
+    "source": "let \$m = [\"\":7]; echo \$m[false]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

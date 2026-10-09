@@ -1,0 +1,13 @@
+# METHOD-035: sort let $a = [-9223372036854775808, -9223372036854777856.0]; $a.sort
+check ["id": "METHOD-035",
+    "name": "sort let \$a = [-9223372036854775808, -9223372036854777856.0]; \$a.sort",
+    "source": "let \$a = [-9223372036854775808, -9223372036854777856.0]; echo \$a.sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "-9223372036854777856.0 -9223372036854775808\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

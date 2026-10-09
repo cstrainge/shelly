@@ -1,11 +1,12 @@
 
 use std::{ collections::HashMap, rc::Rc, fmt::{ self, Debug, Formatter } };
 
-use crate::language::{ data::{ map_key::MapKey,
-                               range::Range,
-                               methods::BoundMethod,
-                               types::{ EnumValue, StructValue, TypeKind } },
-                       bytecode::FunctionRef };
+use crate::{ runtime::process::Terminal,
+             language::{ data::{ map_key::MapKey,
+                                 range::Range,
+                                 methods::BoundMethod,
+                                 types::{ EnumValue, StructValue, TypeKind } },
+                         bytecode::FunctionRef } };
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExecResult
@@ -57,6 +58,7 @@ impl PartialEq for Executable
 pub enum Value
 {
     None,
+    Terminal(Rc<Terminal>),
     Enum(Rc<EnumValue>),
     Struct(Rc<StructValue>),
     ExecResult(ExecResult),
@@ -78,6 +80,7 @@ impl Value
         match self
         {
             Value::None => "None",
+            Value::Terminal(_) => "Terminal",
             Value::Integer(_) => "Integer",
             Value::Float(_, _) => "Float",
             Value::Boolean(_) => "Boolean",
@@ -131,6 +134,7 @@ impl Value
         match self
         {
             Value::None => "()".to_string(),
+            Value::Terminal(_) => "Terminal".to_string(),
             Value::Enum(value) => value.to_string(),
             Value::Struct(value) =>
                 {
@@ -203,7 +207,7 @@ impl Value
     {
         match self
         {
-            Value::None => 0,
+            Value::None | Value::Terminal(_) => 0,
             Value::HashMap(_) | Value::Range(_) | Value::Enum(_) | Value::Struct(_) => 0,
             Value::ExecResult(code) => match code
                 {
@@ -224,7 +228,7 @@ impl Value
         match self
         {
             Value::None => false,
-            Value::Enum(_) | Value::Struct(_) => true,
+            Value::Enum(_) | Value::Struct(_) | Value::Terminal(_) => true,
             Value::Range(range) => !range.is_empty(),
             Value::ExecResult(ExecResult::Value(code)) => *code == 0,
             Value::ExecResult(ExecResult::Signaled) => false,
@@ -244,6 +248,7 @@ impl Value
         match (self, other)
         {
             (Value::None, Value::None) => true,
+            (Value::Terminal(left), Value::Terminal(right)) => left == right,
             (Value::Enum(left), Value::Enum(right)) => left == right,
             (Value::Struct(left), Value::Struct(right)) => left.definition.id == right.definition.id
                 && left.fields.len() == right.fields.len()
@@ -276,6 +281,7 @@ impl Value
     {
         match self
         {
+            Value::Terminal(_) => Some("Terminals cannot be used in arithmetic"),
             Value::Enum(_) => Some("Enums cannot be used in arithmetic"),
             Value::Struct(_) => Some("Structs cannot be used in arithmetic"),
             Value::Array(values) | Value::ArgumentExpansion(values) =>
@@ -288,7 +294,7 @@ impl Value
     {
         match self
         {
-            Value::Enum(_) | Value::Struct(_) => None,
+            Value::Enum(_) | Value::Struct(_) | Value::Terminal(_) => None,
             Value::Array(values) | Value::ArgumentExpansion(values) => values.iter()
                 .try_fold(0i64, |sum, value| sum.checked_add(value.checked_integer()?)),
             _ => Some(self.as_integer())

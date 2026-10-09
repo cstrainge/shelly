@@ -1,0 +1,13 @@
+# CONVERT-252: empty Float
+check ["id": "CONVERT-252",
+    "name": "empty Float",
+    "source": "echo Float()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["exactly one positional value"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

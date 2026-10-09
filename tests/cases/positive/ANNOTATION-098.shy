@@ -1,0 +1,13 @@
+# ANNOTATION-098: parameter String
+check ["id": "ANNOTATION-098",
+    "name": "parameter String",
+    "source": "fn f(\$x: String): String { return \$x }; let \$x = f \"str\"; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

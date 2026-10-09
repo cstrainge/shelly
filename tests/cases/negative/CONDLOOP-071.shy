@@ -1,0 +1,13 @@
+# CONDLOOP-071: while malformed stdin
+check ["id": "CONDLOOP-071",
+    "name": "while malformed stdin",
+    "source": "echo \"PARSE_SENTINEL\"; while",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

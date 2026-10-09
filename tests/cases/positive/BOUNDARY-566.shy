@@ -1,0 +1,13 @@
+# BOUNDARY-566: file / conditional value
+check ["id": "BOUNDARY-566",
+    "name": "file / conditional value",
+    "source": "let \$x = if false { 1 } else { 2 }; echo \$x",
+    "mode": "file",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ENUM-048: function scope leak
+check ["id": "ENUM-048",
+    "name": "function scope leak",
+    "source": "fn f() { enum C { A } }; echo C::A",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown type"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

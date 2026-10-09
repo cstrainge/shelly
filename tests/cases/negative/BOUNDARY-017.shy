@@ -1,0 +1,13 @@
+# BOUNDARY-017: fn duplicate parameter
+check ["id": "BOUNDARY-017",
+    "name": "fn duplicate parameter",
+    "source": "echo \"PARSE_SENTINEL\"; fn f(\$a,\$a) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

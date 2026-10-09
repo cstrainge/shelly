@@ -1,0 +1,13 @@
+# ENUM-052: before effects
+check ["id": "ENUM-052",
+    "name": "before effects",
+    "source": "echo \"must not run\"; enum C { A }; echo C::Missing",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown variant"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

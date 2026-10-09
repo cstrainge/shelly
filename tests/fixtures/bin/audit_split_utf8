@@ -1,0 +1,4 @@
+#!/usr/bin/env shelly
+/usr/bin/printf "\\303"
+/usr/bin/sleep 0.03
+/usr/bin/printf "\\251"

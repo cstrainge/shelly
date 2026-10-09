@@ -1,0 +1,13 @@
+# CONVERT-242: builtin named field type
+check ["id": "CONVERT-242",
+    "name": "builtin named field type",
+    "source": "struct S { index: String }; echo S(index: \"x\").index",
+    "mode": "code",
+    "args": [],
+    "stdout": "x\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

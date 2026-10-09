@@ -1,0 +1,13 @@
+# EXTENSION-064: self typed mismatch
+check ["id": "EXTENSION-064",
+    "name": "self typed mismatch",
+    "source": "fn Integer::f() { \$self = \"bad\" }; let \$n = 1; \$n.f",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

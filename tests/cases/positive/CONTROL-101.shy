@@ -1,0 +1,13 @@
+# CONTROL-101: continue after inner normal exit
+check ["id": "CONTROL-101",
+    "name": "continue after inner normal exit",
+    "source": "for \$i in [1,2] { for \$j in [3] {}; continue }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

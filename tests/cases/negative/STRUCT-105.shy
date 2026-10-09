@@ -1,0 +1,13 @@
+# STRUCT-105: constructor missing comma
+check ["id": "STRUCT-105",
+    "name": "constructor missing comma",
+    "source": "struct S { n, m }; echo S(n: 1 m: 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

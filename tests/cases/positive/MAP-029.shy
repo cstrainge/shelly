@@ -1,0 +1,13 @@
+# MAP-029: self insertion finite
+check ["id": "MAP-029",
+    "name": "self insertion finite",
+    "source": "let \$m = [:]; \$m[\"self\"] = \$m; echo (\$m == [\"self\":[:]])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

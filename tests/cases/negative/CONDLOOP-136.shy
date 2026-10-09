@@ -1,0 +1,13 @@
+# CONDLOOP-136: until runtime / fn f() { break }; until false { f }
+check ["id": "CONDLOOP-136",
+    "name": "until runtime / fn f() { break }; until false { f }",
+    "source": "fn f() { break }; until false { f }; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Loop control error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

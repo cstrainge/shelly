@@ -1,0 +1,13 @@
+# CONDITIONALS-033: let $r = `echo; if false {} else { echo "ok" }; echo (if 0 {} else { true && true })
+check ["id": "CONDITIONALS-033",
+    "name": "let \$r = `echo; if false {} else { echo \"ok\" }; echo (if 0 {} else { true && true })",
+    "source": "let \$r = `echo; if false {} else { echo \"ok\" }; echo (if 0 {} else { true && true })",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\ntrue\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

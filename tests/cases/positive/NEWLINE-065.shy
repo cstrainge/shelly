@@ -1,0 +1,13 @@
+# NEWLINE-065: escaped type preserves arguments
+check ["id": "NEWLINE-065",
+    "name": "escaped type preserves arguments",
+    "source": "struct E {}; echo `E ()",
+    "mode": "code",
+    "args": [],
+    "stdout": "E ()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

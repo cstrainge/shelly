@@ -1,0 +1,13 @@
+# ANNOTATION-075: initialize [String: Number] from Float
+check ["id": "ANNOTATION-075",
+    "name": "initialize [String: Number] from Float",
+    "source": "let \$x: [String: Number] = 1.5; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

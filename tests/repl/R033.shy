@@ -1,0 +1,5 @@
+# Unbounded loop scopes and control across inputs
+check_repl ["id": "R033",
+    "name": "Unbounded loop scopes and control across inputs",
+    "steps": [["let \$n = 0; let \$x = 9", "quiet", ""], ["loop { let \$x = 1; \$n = \$n + 1; if \$n == 1 { continue }; break }", "quiet", ""], ["echo \$n \$x", "output", "2 9"], ["loop { let \$local = 1; break }", "quiet", ""], ["echo \$local", "error", "not found"], ["break", "error", ""], ["loop\n{\n echo \"again\"\n break\n}", "output", "again"]],
+    "exit": 0]

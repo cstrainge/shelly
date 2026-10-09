@@ -1,0 +1,13 @@
+# MAP-517: map command or missing intermediate / let $m = [:]; $m "arg"
+check ["id": "MAP-517",
+    "name": "map command or missing intermediate / let \$m = [:]; \$m \"arg\"",
+    "source": "let \$m = [:]; \$m \"arg\"; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Hash map error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-227: valid export spelling
+check ["id": "BOUNDARY-227",
+    "name": "valid export spelling",
+    "source": "let export \$AUDIT_VALID = \"ok\"; /usr/bin/printenv AUDIT_VALID",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

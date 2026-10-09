@@ -1,0 +1,13 @@
+# ANNOTATION-219: old proposed typed variadic form
+check ["id": "ANNOTATION-219",
+    "name": "old proposed typed variadic form",
+    "source": "fn f(\$xs...: [Number]) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

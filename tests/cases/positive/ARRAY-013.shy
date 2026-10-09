@@ -1,0 +1,13 @@
+# ARRAY-013: index newlines
+check ["id": "ARRAY-013",
+    "name": "index newlines",
+    "source": "let \$a = [7]; echo \$a[\n0\n]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

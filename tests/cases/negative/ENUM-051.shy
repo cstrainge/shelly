@@ -1,0 +1,13 @@
+# ENUM-051: unused function
+check ["id": "ENUM-051",
+    "name": "unused function",
+    "source": "fn f() { Missing::A }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown type"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

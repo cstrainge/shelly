@@ -1,0 +1,13 @@
+# BOUNDARY-469: value pair / `word and (/usr/bin/false)
+check ["id": "BOUNDARY-469",
+    "name": "value pair / `word and (/usr/bin/false)",
+    "source": "echo (`word == (/usr/bin/false)) (`word != (/usr/bin/false)) (`word && (/usr/bin/false)) (`word || (/usr/bin/false))",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

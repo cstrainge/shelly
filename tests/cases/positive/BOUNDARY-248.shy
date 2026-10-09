@@ -1,0 +1,13 @@
+# BOUNDARY-248: value pair / 0 and (/usr/bin/false)
+check ["id": "BOUNDARY-248",
+    "name": "value pair / 0 and (/usr/bin/false)",
+    "source": "echo (0 == (/usr/bin/false)) (0 != (/usr/bin/false)) (0 && (/usr/bin/false)) (0 || (/usr/bin/false))",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

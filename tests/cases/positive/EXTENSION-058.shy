@@ -1,0 +1,13 @@
+# EXTENSION-058: scope locals
+check ["id": "EXTENSION-058",
+    "name": "scope locals",
+    "source": "fn Integer::local() { let \$self = 3; \$self }; let \$n = 1; echo \$n.local \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "3 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

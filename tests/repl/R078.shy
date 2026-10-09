@@ -1,0 +1,5 @@
+# Array destructuring restores typed outer bindings
+check_repl ["id": "R078",
+    "name": "Array destructuring restores typed outer bindings",
+    "steps": [["let \$a: Integer = 77; let \$pairs = [[1, 2], [3, 4]]", "quiet", ""], ["for (\$a, \$b) in \$pairs { echo \$a \$b }", "output", "1 2\n3 4"], ["echo \$a", "output", "77"], ["for (\$a, \$b) in [[9]] { echo \"bad\" }", "error", "expected 2 elements, got 1"], ["echo \$a", "output", "77"], ["echo \$b", "error", "Variable '\$b' not found"], ["for (\$a, \$b) in [[5, 6]] { echo \$a \$b }", "output", "5 6"]],
+    "exit": 0]

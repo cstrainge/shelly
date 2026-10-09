@@ -1,0 +1,13 @@
+# EXTENSION-046: native more specific than any
+check ["id": "EXTENSION-046",
+    "name": "native more specific than any",
+    "source": "fn any::count() { 99 }; echo [1, 2].count",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

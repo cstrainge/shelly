@@ -1,0 +1,13 @@
+# BOOLCAST-137: explicit return
+check ["id": "BOOLCAST-137",
+    "name": "explicit return",
+    "source": "fn f(\$x): Boolean { return Boolean(\$x) }; echo (f 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-038: matrix Integer to Boolean
+check ["id": "CONVERT-038",
+    "name": "matrix Integer to Boolean",
+    "source": "let \$v = 2; let \$converted: Boolean = Boolean(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

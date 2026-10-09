@@ -1,0 +1,13 @@
+# ANNOTATION-006: default None
+check ["id": "ANNOTATION-006",
+    "name": "default None",
+    "source": "let \$x: None; echo \"\$x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

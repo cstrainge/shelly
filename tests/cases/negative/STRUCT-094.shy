@@ -1,0 +1,13 @@
+# STRUCT-094: missing comma
+check ["id": "STRUCT-094",
+    "name": "missing comma",
+    "source": "struct S { n: Number m: String }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C116: Argument expansion from args array
+check ["id": "C116",
+    "name": "Argument expansion from args array",
+    "source": "audit_args \$args...",
+    "mode": "code",
+    "args": ["first", "two words"],
+    "stdout": "[\"first\", \"two words\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

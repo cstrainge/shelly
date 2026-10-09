@@ -1,0 +1,13 @@
+# BOUNDARY-026: mismatched delimiters
+check ["id": "BOUNDARY-026",
+    "name": "mismatched delimiters",
+    "source": "echo \"PARSE_SENTINEL\"; { (1 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,5 @@
+# Loop control cannot escape function frames or survive errors
+check_repl ["id": "R032",
+    "name": "Loop control cannot escape function frames or survive errors",
+    "steps": [["fn bad() { break }; let \$i = 99", "quiet", ""], ["for \$i in [1] { bad }", "error", ""], ["echo \$i", "output", "99"], ["for \$i in [1] { for \$j in [2] { 1 / 0 } }", "error", ""], ["continue", "error", ""], ["fn first() { for \$i in [3,4] { return \$i } }", "quiet", ""], ["for \$i in [1,2] { echo (first); continue }", "output", "3\n3"], ["for \$i in [5,6] { echo \$i; break }", "output", "5"]],
+    "exit": 0]

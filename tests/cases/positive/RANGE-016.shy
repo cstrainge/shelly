@@ -1,0 +1,13 @@
+# RANGE-016: conditional bounds
+check ["id": "RANGE-016",
+    "name": "conditional bounds",
+    "source": "let \$r = (if true { 1 } else { 9 })..(if false { 0 } else { 3 }); echo \$r...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

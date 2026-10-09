@@ -1,0 +1,13 @@
+# MAP-046: grouped colon argument in literal
+check ["id": "MAP-046",
+    "name": "grouped colon argument in literal",
+    "source": "let \$m = [\"x\":(audit_args :)]; echo \$m[\"x\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\":\"]\nExecResult(0)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# RANGE-028: array spreading
+check ["id": "RANGE-028",
+    "name": "array spreading",
+    "source": "let \$r = 1..4; echo ([0,\$r...,4] == [0,1,2,3,4])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

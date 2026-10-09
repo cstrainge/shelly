@@ -1,0 +1,13 @@
+# CONVERT-099: matrix Float to Range
+check ["id": "CONVERT-099",
+    "name": "matrix Float to Range",
+    "source": "let \$v = 2.5; let \$converted: Range = Range(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

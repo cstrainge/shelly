@@ -1,0 +1,13 @@
+# BOUNDARY-207: runtime rejection / cd
+check ["id": "BOUNDARY-207",
+    "name": "runtime rejection / cd",
+    "source": "cd; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable returned error code:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

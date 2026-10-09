@@ -1,0 +1,13 @@
+# BOOLCAST-145: function same name
+check ["id": "BOOLCAST-145",
+    "name": "function same name",
+    "source": "fn Boolean(\$x) { 9 }; echo Boolean(0) (Boolean 0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false 9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

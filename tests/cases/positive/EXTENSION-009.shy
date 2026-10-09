@@ -1,0 +1,13 @@
+# EXTENSION-009: builtin receiver HashMap["a": 1]
+check ["id": "EXTENSION-009",
+    "name": "builtin receiver HashMap[\"a\": 1]",
+    "source": "fn HashMap::copy(): HashMap { \$self }; let \$v: HashMap = [\"a\": 1]; let \$copy = \$v.copy; echo String(\$copy)",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"a\": 1]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

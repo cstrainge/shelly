@@ -1,0 +1,5 @@
+# Nonzero external command allows next prompt
+check_repl ["id": "R005",
+    "name": "Nonzero external command allows next prompt",
+    "steps": [["/usr/bin/false", "error", ""], ["echo \"recovered\"", "output", "recovered"]],
+    "exit": 0]

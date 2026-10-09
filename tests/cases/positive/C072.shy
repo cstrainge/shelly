@@ -1,0 +1,13 @@
+# C072: Nested groups do not double call
+check ["id": "C072",
+    "name": "Nested groups do not double call",
+    "source": "fn target() { echo \"bad\" }\nfn f() { return `target }\nlet \$r = `f ; echo (((\$r)))",
+    "mode": "code",
+    "args": [],
+    "stdout": "target\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

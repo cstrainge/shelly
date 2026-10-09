@@ -1,0 +1,13 @@
+# STRUCT-042: field range bound
+check ["id": "STRUCT-042",
+    "name": "field range bound",
+    "source": "struct S { n: Number, text: String, extra: optional }; let \$s = S(n: 2, text: \"x\"); echo (\$s.n..4)...",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

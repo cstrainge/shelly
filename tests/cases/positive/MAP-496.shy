@@ -1,0 +1,13 @@
+# MAP-496: integer lower limit
+check ["id": "MAP-496",
+    "name": "integer lower limit",
+    "source": "let \$m = [-9223372036854775808:7]; echo \$m[-9223372036854775808.0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

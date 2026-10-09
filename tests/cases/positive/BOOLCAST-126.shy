@@ -1,0 +1,13 @@
+# BOOLCAST-126: expression once
+check ["id": "BOOLCAST-126",
+    "name": "expression once",
+    "source": "let \$hits = 0; fn f() { \$hits = \$hits + 1; 0 }; echo Boolean(f); echo \$hits",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

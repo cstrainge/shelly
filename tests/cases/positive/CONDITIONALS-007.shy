@@ -1,0 +1,13 @@
+# CONDITIONALS-007: echo if true { "a" } else { "b" } "tail"
+check ["id": "CONDITIONALS-007",
+    "name": "echo if true { \"a\" } else { \"b\" } \"tail\"",
+    "source": "echo if true { \"a\" } else { \"b\" } \"tail\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "a tail\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

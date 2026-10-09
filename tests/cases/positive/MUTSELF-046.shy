@@ -1,0 +1,13 @@
+# MUTSELF-046: whole struct replace
+check ["id": "MUTSELF-046",
+    "name": "whole struct replace",
+    "source": "struct S { n: Integer }; fn S::replace() { \$self = S(n: 7) }; let \$s = S(n: 1); \$s.replace; echo \$s.n",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

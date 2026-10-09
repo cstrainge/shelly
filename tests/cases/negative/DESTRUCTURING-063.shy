@@ -1,0 +1,13 @@
+# DESTRUCTURING-063: non-array element "text"
+check ["id": "DESTRUCTURING-063",
+    "name": "non-array element \"text\"",
+    "source": "for (\$a, \$b) in [\"text\"] { echo \"UNREACHABLE\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": ["Array destructuring requires an array"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

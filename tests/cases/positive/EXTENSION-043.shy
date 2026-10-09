@@ -1,0 +1,13 @@
+# EXTENSION-043: method and function namespaces
+check ["id": "EXTENSION-043",
+    "name": "method and function namespaces",
+    "source": "fn Integer::read(): Integer { \$self }; fn read() { 8 }; let \$n = 3; echo \$n.read (read)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3 8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

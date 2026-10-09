@@ -1,0 +1,13 @@
+# C104: Alias cycles rejected
+check ["id": "C104",
+    "name": "Alias cycles rejected",
+    "source": "alias a = b\nalias b = a\na",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Alias cycle detected",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

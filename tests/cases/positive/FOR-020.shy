@@ -1,0 +1,13 @@
+# FOR-020: array replacement snapshot
+check ["id": "FOR-020",
+    "name": "array replacement snapshot",
+    "source": "let \$a = [1,2]; for \$v in \$a { echo \$v; \$a = [] }; echo (\$a == [])",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\ntrue\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

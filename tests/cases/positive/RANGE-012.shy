@@ -1,0 +1,13 @@
+# RANGE-012: arithmetic bounds
+check ["id": "RANGE-012",
+    "name": "arithmetic bounds",
+    "source": "let \$start = 1; let \$end = 5; echo ((\$start + 1)..(\$end - 1))...",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

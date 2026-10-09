@@ -1,0 +1,13 @@
+# ANNOTATION-023: initialize Integer from None
+check ["id": "ANNOTATION-023",
+    "name": "initialize Integer from None",
+    "source": "let \$x: Integer = (); echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

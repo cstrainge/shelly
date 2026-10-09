@@ -1,0 +1,13 @@
+# REDIRECTION-018: short circuit skips capture
+check ["id": "REDIRECTION-018",
+    "name": "short circuit skips capture",
+    "source": "let \$out = \"old\"; false && (echo \"bad\" -> \$out); printf \"%s\" \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "old",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

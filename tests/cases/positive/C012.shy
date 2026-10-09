@@ -1,0 +1,13 @@
+# C012: Boolean and float literals
+check ["id": "C012",
+    "name": "Boolean and float literals",
+    "source": "echo true false 2.50",
+    "mode": "code",
+    "args": [],
+    "stdout": "true false 2.50\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

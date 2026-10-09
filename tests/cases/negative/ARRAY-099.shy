@@ -1,0 +1,13 @@
+# ARRAY-099: malformed array / echo $args[]
+check ["id": "ARRAY-099",
+    "name": "malformed array / echo \$args[]",
+    "source": "echo \"PARSE_SENTINEL\"; echo \$args[]",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

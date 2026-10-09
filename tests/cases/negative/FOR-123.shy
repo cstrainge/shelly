@@ -1,0 +1,13 @@
+# FOR-123: syntax rejection / for $i in [] {} echo "missing separator"
+check ["id": "FOR-123",
+    "name": "syntax rejection / for \$i in [] {} echo \"missing separator\"",
+    "source": "echo \"PARSE_SENTINEL\"; for \$i in [] {} echo \"missing separator\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

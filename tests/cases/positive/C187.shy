@@ -1,0 +1,13 @@
+# C187: Braced interpolation inside a word
+check ["id": "C187",
+    "name": "Braced interpolation inside a word",
+    "source": "let \$x = \"ok\" ; audit_args prefix\${x}/suffix",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"prefixok/suffix\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

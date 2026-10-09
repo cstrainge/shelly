@@ -1,0 +1,13 @@
+# EXTENSION-078: grouped callback result
+check ["id": "EXTENSION-078",
+    "name": "grouped callback result",
+    "source": "fn target() { echo \"bad\" }; fn Integer::callback() { return `target }; let \$n = 1; echo (\$n.callback)",
+    "mode": "code",
+    "args": [],
+    "stdout": "target\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

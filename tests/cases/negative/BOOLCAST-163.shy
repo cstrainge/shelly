@@ -1,0 +1,13 @@
+# BOOLCAST-163: unknown variable
+check ["id": "BOOLCAST-163",
+    "name": "unknown variable",
+    "source": "echo Boolean(\$missing)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

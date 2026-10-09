@@ -1,0 +1,13 @@
+# BOUNDARY-622: scalar argument splat
+check ["id": "BOUNDARY-622",
+    "name": "scalar argument splat",
+    "source": "let \$x = 7; audit_args \$x...",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"7\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

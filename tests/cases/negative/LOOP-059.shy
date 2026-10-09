@@ -1,0 +1,13 @@
+# LOOP-059: file malformed
+check ["id": "LOOP-059",
+    "name": "file malformed",
+    "source": "echo \"PARSE_SENTINEL\"; loop",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

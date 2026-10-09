@@ -1,0 +1,13 @@
+# FOR-009: indexed iterable
+check ["id": "FOR-009",
+    "name": "indexed iterable",
+    "source": "let \$a = [[1,2]]; for \$v in \$a[0] { echo \$v }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

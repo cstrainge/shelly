@@ -1,0 +1,13 @@
+# STRUCT-074: number is not bool
+check ["id": "STRUCT-074",
+    "name": "number is not bool",
+    "source": "struct S { n: Number }; echo S(n: true)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected Number"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

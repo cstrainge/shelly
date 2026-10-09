@@ -1,0 +1,13 @@
+# REDIRECTION-013: quoted command filename
+check ["id": "REDIRECTION-013",
+    "name": "quoted command filename",
+    "source": "printf \"file\" -> echo; let \$out: String; \"echo\" -> \$out; printf \"%s\" \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "file",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-212: runtime rejection / exit "invalid"
+check ["id": "BOUNDARY-212",
+    "name": "runtime rejection / exit \"invalid\"",
+    "source": "exit \"invalid\"; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "exit expects",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

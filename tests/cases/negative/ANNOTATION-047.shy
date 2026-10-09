@@ -1,0 +1,13 @@
+# ANNOTATION-047: initialize Boolean from None
+check ["id": "ANNOTATION-047",
+    "name": "initialize Boolean from None",
+    "source": "let \$x: Boolean = (); echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

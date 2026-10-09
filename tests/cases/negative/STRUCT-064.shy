@@ -1,0 +1,13 @@
+# STRUCT-064: shared namespace duplicate reverse
+check ["id": "STRUCT-064",
+    "name": "shared namespace duplicate reverse",
+    "source": "struct S {}; enum S { A }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Duplicate type"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

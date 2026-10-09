@@ -1,0 +1,13 @@
+# ARRAY-050: assign expansion to element
+check ["id": "ARRAY-050",
+    "name": "assign expansion to element",
+    "source": "let \$a = [()]; \$a[0] = \$args...; echo (\$a[0] == [\"x\",\"y\"])",
+    "mode": "code",
+    "args": ["x", "y"],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

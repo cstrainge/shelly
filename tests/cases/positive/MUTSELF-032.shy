@@ -1,0 +1,13 @@
+# MUTSELF-032: return is ordinary copy
+check ["id": "MUTSELF-032",
+    "name": "return is ordinary copy",
+    "source": "fn Array::identity() { \$self }; fn Array::inc() { \$self[0] = \$self[0] + 1; \$self }; let \$a = [1]; let \$b = \$a.identity.inc; echo \$a[0] \$b[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

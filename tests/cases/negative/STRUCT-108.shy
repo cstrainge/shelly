@@ -1,0 +1,13 @@
+# STRUCT-108: member missing name
+check ["id": "STRUCT-108",
+    "name": "member missing name",
+    "source": "let \$x = 1; echo \$x.",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

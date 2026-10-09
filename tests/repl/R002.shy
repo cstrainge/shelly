@@ -1,0 +1,5 @@
+# Runtime error recovery and scope cleanup
+check_repl ["id": "R002",
+    "name": "Runtime error recovery and scope cleanup",
+    "steps": [["fn f(\$a) { let \$audit_local = 2 ; return \$a }", "quiet", ""], ["f", "error", "expected 1 arguments"], ["echo \$audit_local", "error", "not found"], ["let \$x = 9 ; echo \$x", "output", "9"]],
+    "exit": 0]

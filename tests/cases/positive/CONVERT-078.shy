@@ -1,0 +1,13 @@
+# CONVERT-078: matrix Array to ArgumentExpansion
+check ["id": "CONVERT-078",
+    "name": "matrix Array to ArgumentExpansion",
+    "source": "let \$v = [1, 2]; let \$converted: ArgumentExpansion = ArgumentExpansion(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

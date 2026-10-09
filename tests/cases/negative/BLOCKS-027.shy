@@ -1,0 +1,13 @@
+# BLOCKS-027: block assignment unsupported
+check ["id": "BLOCKS-027",
+    "name": "block assignment unsupported",
+    "source": "let \$x = { 7 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

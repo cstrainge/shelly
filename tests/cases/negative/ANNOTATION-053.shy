@@ -1,0 +1,13 @@
+# ANNOTATION-053: initialize String from Boolean
+check ["id": "ANNOTATION-053",
+    "name": "initialize String from Boolean",
+    "source": "let \$x: String = true; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

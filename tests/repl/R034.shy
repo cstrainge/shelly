@@ -1,0 +1,5 @@
+# Unbounded loop error and return cleanup
+check_repl ["id": "R034",
+    "name": "Unbounded loop error and return cleanup",
+    "steps": [["let \$x = 9", "quiet", ""], ["loop { let \$x = 1; for \$i in [1] { 1 / 0 } }", "error", ""], ["echo \$x", "output", "9"], ["continue", "error", ""], ["fn f() { loop { let \$x = 2; return \$x } }", "quiet", ""], ["echo (f) \$x", "output", "2 9"], ["loop { break }; for \$i in [3,4] { loop { echo \$i; break } }", "output", "3\n4"], ["loop true {}", "error", ""], ["loop { echo \"recovered\"; break }", "output", "recovered"]],
+    "exit": 0]

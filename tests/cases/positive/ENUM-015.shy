@@ -1,0 +1,13 @@
+# ENUM-015: group expansion
+check ["id": "ENUM-015",
+    "name": "group expansion",
+    "source": "enum Color { Red, Green, Blue }; audit_args (Color::Red)...",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"Color::Red\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

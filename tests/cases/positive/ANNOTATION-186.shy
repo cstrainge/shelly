@@ -1,0 +1,13 @@
+# ANNOTATION-186: optional loops and linked targets
+check ["id": "ANNOTATION-186",
+    "name": "optional loops and linked targets",
+    "source": "fn f(\$n: optional Number): Number { if \$n == () { return 7 }; let \$sum: Number; for \$x in 0..\$n { \$sum = \$sum + \$x }; return \$sum }; echo (f) (f 4)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7 6\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

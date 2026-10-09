@@ -1,0 +1,13 @@
+# EXTENSION-062: unknown receiver
+check ["id": "EXTENSION-062",
+    "name": "unknown receiver",
+    "source": "fn Missing::f() {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

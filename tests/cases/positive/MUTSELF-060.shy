@@ -1,0 +1,13 @@
+# MUTSELF-060: nested methods modifying separate members
+check ["id": "MUTSELF-060",
+    "name": "nested methods modifying separate members",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; struct S { a: Integer, b: Integer }; fn S::update() { \$self.a.inc; \$self.b.inc }; let \$s = S(a: 1, b: 2); \$s.update; echo \$s.a \$s.b",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# EXTENSION-026: map receiver mutation
+check ["id": "EXTENSION-026",
+    "name": "map receiver mutation",
+    "source": "fn HashMap::replace(): HashMap { \$self[\"x\"][0] = 9; \$self }; let \$a = [\"x\": [1]]; let \$b = \$a.replace; echo \$a[\"x\"][0] \$b[\"x\"][0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "9 9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

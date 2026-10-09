@@ -1,0 +1,13 @@
+# DESTRUCTURING-071: copy independence
+check ["id": "DESTRUCTURING-071",
+    "name": "copy independence",
+    "source": "let \$a = [[[1], [2]]]; for (\$x, \$y) in \$a { \$x[0] = 9; \$y[0] = 8 }; echo \$a[0][0][0] \$a[0][1][0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

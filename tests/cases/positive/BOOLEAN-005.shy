@@ -1,0 +1,13 @@
+# BOOLEAN-005: echo !"" !"false" !"0" !"0.00" !"hello" !"true" !"2"
+check ["id": "BOOLEAN-005",
+    "name": "echo !\"\" !\"false\" !\"0\" !\"0.00\" !\"hello\" !\"true\" !\"2\"",
+    "source": "echo !\"\" !\"false\" !\"0\" !\"0.00\" !\"hello\" !\"true\" !\"2\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true true true false false false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

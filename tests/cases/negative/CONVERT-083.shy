@@ -1,0 +1,13 @@
+# CONVERT-083: matrix Enum to ArgumentExpansion
+check ["id": "CONVERT-083",
+    "name": "matrix Enum to ArgumentExpansion",
+    "source": "enum E { A, B }; let \$v = E::B; let \$converted: ArgumentExpansion = ArgumentExpansion(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,5 @@
+# Function body error restores caller scope
+check_repl ["id": "R007",
+    "name": "Function body error restores caller scope",
+    "steps": [["let \$x = 9 ; fn f() { let \$x = 2 ; let \$audit_local = 4 ; echo \$missing_audit_variable }", "quiet", ""], ["f", "error", "not found"], ["echo \$x", "output", "9"], ["echo \$audit_local", "error", "not found"]],
+    "exit": 0]

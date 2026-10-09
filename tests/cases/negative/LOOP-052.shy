@@ -1,0 +1,13 @@
+# LOOP-052: runtime rejection / loop { return 1 }
+check ["id": "LOOP-052",
+    "name": "runtime rejection / loop { return 1 }",
+    "source": "loop { return 1 }; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Cannot return outside a function",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

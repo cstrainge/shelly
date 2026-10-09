@@ -1,0 +1,13 @@
+# ENUM-043: unknown variant
+check ["id": "ENUM-043",
+    "name": "unknown variant",
+    "source": "enum Color { Red, Green, Blue }; echo Color::Missing",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown variant"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

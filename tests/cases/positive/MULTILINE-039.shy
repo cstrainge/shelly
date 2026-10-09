@@ -1,0 +1,13 @@
+# MULTILINE-039: array / || / ' # lhs\n\n # gap\n' ' # rhs\n'
+check ["id": "MULTILINE-039",
+    "name": "array / || / ' # lhs\\n\\n # gap\\n' ' # rhs\\n'",
+    "source": "let \$x = [false # lhs\n\n # gap\n|| # rhs\ntrue]; echo \$x[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

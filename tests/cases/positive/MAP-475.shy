@@ -1,0 +1,13 @@
+# MAP-475: key equality / (/usr/bin/false) / -0.0
+check ["id": "MAP-475",
+    "name": "key equality / (/usr/bin/false) / -0.0",
+    "source": "let \$m = [(/usr/bin/false):7]; echo \$m[-0.0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

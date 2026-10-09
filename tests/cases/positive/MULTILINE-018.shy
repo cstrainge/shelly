@@ -1,0 +1,13 @@
+# MULTILINE-018: function return / && / ' # lhs\n\n # gap\n' ' # rhs\n'
+check ["id": "MULTILINE-018",
+    "name": "function return / && / ' # lhs\\n\\n # gap\\n' ' # rhs\\n'",
+    "source": "fn f() { return true # lhs\n\n # gap\n&& # rhs\nfalse }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

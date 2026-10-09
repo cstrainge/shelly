@@ -1,0 +1,13 @@
+# FOR-022: map snapshot and inserts
+check ["id": "FOR-022",
+    "name": "map snapshot and inserts",
+    "source": "let \$m = [\"a\":1,\"b\":2]; let \$sum = 0; let \$n = 0; for \$k,\$v in \$m { \$sum = \$sum + \$v; \$n = \$n + 1; \$m[\"a\"] = 9; \$m[\"b\"] = 9; \$m[\"c\"] = 9 }; echo \$sum \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "3 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

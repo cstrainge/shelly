@@ -1,0 +1,13 @@
+# BOOLCAST-094: 'Boolean ({})' / 3..1
+check ["id": "BOOLCAST-094",
+    "name": "'Boolean ({})' / 3..1",
+    "source": "echo Boolean (3..1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

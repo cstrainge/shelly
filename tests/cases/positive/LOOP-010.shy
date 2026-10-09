@@ -1,0 +1,13 @@
+# LOOP-010: bare return inside loop
+check ["id": "LOOP-010",
+    "name": "bare return inside loop",
+    "source": "fn f() { loop { return } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

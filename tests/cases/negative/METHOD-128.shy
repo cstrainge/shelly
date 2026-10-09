@@ -1,0 +1,13 @@
+# METHOD-128: old map name
+check ["id": "METHOD-128",
+    "name": "old map name",
+    "source": "echo [1].map",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

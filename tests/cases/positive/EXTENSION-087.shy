@@ -1,0 +1,13 @@
+# EXTENSION-087: array of method references
+check ["id": "EXTENSION-087",
+    "name": "array of method references",
+    "source": "fn Integer::f() { \$self }; let \$n = 3; let \$a = [`\$n.f]; echo (\$a[0])",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

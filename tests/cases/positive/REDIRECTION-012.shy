@@ -1,0 +1,13 @@
+# REDIRECTION-012: combined file
+check ["id": "REDIRECTION-012",
+    "name": "combined file",
+    "source": "audit_streams out err 0 ~+-> combined.txt; cat combined.txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "outerr",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

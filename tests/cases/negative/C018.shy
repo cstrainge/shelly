@@ -1,0 +1,13 @@
+# C018: Missing RHS
+check ["id": "C018",
+    "name": "Missing RHS",
+    "source": "let \$x =",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

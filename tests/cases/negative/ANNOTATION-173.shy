@@ -1,0 +1,13 @@
+# ANNOTATION-173: missing return type
+check ["id": "ANNOTATION-173",
+    "name": "missing return type",
+    "source": "fn f(): {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

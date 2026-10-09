@@ -1,0 +1,13 @@
+# LOOP-056: runtime rejection / loop { break }; continue
+check ["id": "LOOP-056",
+    "name": "runtime rejection / loop { break }; continue",
+    "source": "loop { break }; continue; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Loop control error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-135: matrix Float to any
+check ["id": "CONVERT-135",
+    "name": "matrix Float to any",
+    "source": "let \$v = 2.5; let \$converted: any = any(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "2.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

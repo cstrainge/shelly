@@ -1,0 +1,13 @@
+# CONTROL-044: break rejects operands / break {}
+check ["id": "CONTROL-044",
+    "name": "break rejects operands / break {}",
+    "source": "echo \"PARSE_SENTINEL\"; break {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

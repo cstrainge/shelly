@@ -1,0 +1,13 @@
+# CONDITIONALS-052: if true { return 7 }
+check ["id": "CONDITIONALS-052",
+    "name": "if true { return 7 }",
+    "source": "if true { return 7 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Cannot return outside a function",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

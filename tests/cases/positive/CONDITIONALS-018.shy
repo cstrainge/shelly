@@ -1,0 +1,13 @@
+# CONDITIONALS-018: let $x = 1; if true { $x = 4 }; echo $x
+check ["id": "CONDITIONALS-018",
+    "name": "let \$x = 1; if true { \$x = 4 }; echo \$x",
+    "source": "let \$x = 1; if true { \$x = 4 }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

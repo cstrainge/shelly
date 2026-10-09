@@ -1,0 +1,13 @@
+# BOOLEAN-017: let $r = `name; echo ($r == "name") (`name == "name")
+check ["id": "BOOLEAN-017",
+    "name": "let \$r = `name; echo (\$r == \"name\") (`name == \"name\")",
+    "source": "let \$r = `name; echo (\$r == \"name\") (`name == \"name\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

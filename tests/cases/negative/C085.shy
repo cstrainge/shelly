@@ -1,0 +1,13 @@
+# C085: Extra closing parenthesis
+check ["id": "C085",
+    "name": "Extra closing parenthesis",
+    "source": "echo foo 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

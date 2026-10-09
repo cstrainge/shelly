@@ -1,0 +1,13 @@
+# CONTROL-106: inclusive max continue terminates
+check ["id": "CONTROL-106",
+    "name": "inclusive max continue terminates",
+    "source": "for \$i in 9223372036854775807..=9223372036854775807 { continue }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

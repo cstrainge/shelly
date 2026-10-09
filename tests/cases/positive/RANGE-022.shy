@@ -1,0 +1,13 @@
+# RANGE-022: open range arguments
+check ["id": "RANGE-022",
+    "name": "open range arguments",
+    "source": "echo ..3; echo ..=3; echo ..",
+    "mode": "code",
+    "args": [],
+    "stdout": "..3\n..=3\n..\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

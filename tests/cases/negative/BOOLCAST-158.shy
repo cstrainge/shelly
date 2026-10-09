@@ -1,0 +1,13 @@
+# BOOLCAST-158: return type strict
+check ["id": "BOOLCAST-158",
+    "name": "return type strict",
+    "source": "fn f(\$x): Number { Boolean(\$x) }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected Number"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

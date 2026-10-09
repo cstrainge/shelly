@@ -1,0 +1,13 @@
+# C065: Executable variable with args in assignment
+check ["id": "C065",
+    "name": "Executable variable with args in assignment",
+    "source": "fn foo(\$a)\n{\n 2048 * \$a\n}\nlet \$r = `foo ; let \$x = \$r 3 ; echo \"\$x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "6144\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

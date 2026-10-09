@@ -1,0 +1,13 @@
+# CONVERT-031: matrix ArgumentExpansion to Float
+check ["id": "CONVERT-031",
+    "name": "matrix ArgumentExpansion to Float",
+    "source": "let \$a = [1, 2]; let \$v: ArgumentExpansion = \$a...; let \$converted: Float = Float(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

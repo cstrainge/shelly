@@ -1,0 +1,13 @@
+# EXTENSION-061: method returns callback
+check ["id": "EXTENSION-061",
+    "name": "method returns callback",
+    "source": "fn target() { echo \"bad\" }; fn Integer::callback() { return `target }; let \$n = 1; echo \$n.callback",
+    "mode": "code",
+    "args": [],
+    "stdout": "target\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

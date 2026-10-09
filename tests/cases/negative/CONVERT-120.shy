@@ -1,0 +1,13 @@
+# CONVERT-120: matrix Struct to ExecResult
+check ["id": "CONVERT-120",
+    "name": "matrix Struct to ExecResult",
+    "source": "struct S { n: Integer }; let \$v = S(n: 2); let \$converted: ExecResult = ExecResult(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

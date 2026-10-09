@@ -1,0 +1,13 @@
+# FOR-007: braced bindings
+check ["id": "FOR-007",
+    "name": "braced bindings",
+    "source": "let \$a = [1]; for \${v} in \${a} { echo \$v }; for \${k},\${v} in [\"x\":2] { echo \$k \$v }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\nx 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

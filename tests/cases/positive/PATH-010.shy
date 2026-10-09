@@ -1,0 +1,13 @@
+# PATH-010: HOME relative to old HOME
+check ["id": "PATH-010",
+    "name": "HOME relative to old HOME",
+    "source": "let \$HOME = \"\${HOME}/sub\"; cd \$HOME; echo (\$pwd == \"~\"); /usr/bin/pwd",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n<FIXTURE>/home/sub\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

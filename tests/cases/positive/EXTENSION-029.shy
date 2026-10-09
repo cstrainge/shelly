@@ -1,0 +1,13 @@
+# EXTENSION-029: typed variadic
+check ["id": "EXTENSION-029",
+    "name": "typed variadic",
+    "source": "fn Integer::sum(\$rest: Integer...): Integer { for \$n in \$rest { \$self = \$self + \$n }; \$self }; let \$v = 1; echo \$v.sum (\$v.sum 2 3) (\$v.sum [4, 5]...)",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 6 15\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

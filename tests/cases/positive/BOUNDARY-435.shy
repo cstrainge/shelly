@@ -1,0 +1,13 @@
+# BOUNDARY-435: value pair / "2" and (/usr/bin/false)
+check ["id": "BOUNDARY-435",
+    "name": "value pair / \"2\" and (/usr/bin/false)",
+    "source": "echo (\"2\" == (/usr/bin/false)) (\"2\" != (/usr/bin/false)) (\"2\" && (/usr/bin/false)) (\"2\" || (/usr/bin/false))",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONDITIONALS-051: if true { /usr/bin/false }; echo "bad"
+check ["id": "CONDITIONALS-051",
+    "name": "if true { /usr/bin/false }; echo \"bad\"",
+    "source": "if true { /usr/bin/false }; echo \"bad\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable returned error code:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

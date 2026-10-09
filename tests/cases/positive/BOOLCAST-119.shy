@@ -1,0 +1,13 @@
+# BOOLCAST-119: status in expression
+check ["id": "BOOLCAST-119",
+    "name": "status in expression",
+    "source": "echo Boolean(/bin/false)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-183: optional expanded arguments
+check ["id": "ANNOTATION-183",
+    "name": "optional expanded arguments",
+    "source": "fn f(\$a: Number, \$b: optional Number) { echo \$a \$b }; let \$a = [1]; f \$a...; let \$b = [1, 2]; f \$b...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 ()\n1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONDITIONALS-020: if true {} else if $missing { echo "bad" } else { echo "bad" }; echo "ok"
+check ["id": "CONDITIONALS-020",
+    "name": "if true {} else if \$missing { echo \"bad\" } else { echo \"bad\" }; echo \"ok\"",
+    "source": "if true {} else if \$missing { echo \"bad\" } else { echo \"bad\" }; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

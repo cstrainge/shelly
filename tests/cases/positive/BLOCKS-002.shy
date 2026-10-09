@@ -1,0 +1,13 @@
+# BLOCKS-002: nested empty
+check ["id": "BLOCKS-002",
+    "name": "nested empty",
+    "source": "{{{}}}; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

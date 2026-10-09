@@ -1,0 +1,17 @@
+# Both original infinite-loop probes; the native watchdog kills and reaps the process group.
+let $fixture = $args[0]
+for $body in ["", "continue"]
+{
+    let $source = "echo \"entered\"; loop { ${body} }; echo \"unreachable\""
+    let $result = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": (environment $fixture), "timeout_ms": 150,
+        "stdout_file": "${fixture}/loop.out", "stderr_file": "${fixture}/loop.err",
+    ]
+    require $result["timed_out"] "unbounded loop returned"
+    require ($result["signal"] != ()) "watchdog did not terminate child"
+    let $out: String
+    let $err: String
+    "${fixture}/loop.out" -> $out
+    "${fixture}/loop.err" -> $err
+    require (($out == "entered\n") && ($err == "")) "loop exited or produced a diagnostic"
+}

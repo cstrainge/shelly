@@ -1,0 +1,13 @@
+# REDIRECTION-016: alias capture
+check ["id": "REDIRECTION-016",
+    "name": "alias capture",
+    "source": "alias say = printf \"%s\"; let \$out: String; say \"ok\" -> \$out; printf \"%s\" \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

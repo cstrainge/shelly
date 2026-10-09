@@ -1,0 +1,13 @@
+# CONVERT-285: variable typed index
+check ["id": "CONVERT-285",
+    "name": "variable typed index",
+    "source": "enum E { A, B, C }; let \$v: E = E::B; let \$n: Integer = \$v.index; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

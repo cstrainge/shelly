@@ -1,0 +1,13 @@
+# DESTRUCTURING-074: nested loops
+check ["id": "DESTRUCTURING-074",
+    "name": "nested loops",
+    "source": "for (\$x, \$y) in [[1, 2], [3, 4]] { for (\$z,) in [[5]] { echo \$x \$y \$z } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2 5\n3 4 5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ENUM-024: repeated loop declaration
+check ["id": "ENUM-024",
+    "name": "repeated loop declaration",
+    "source": "let \$x = (); let \$same = false; for \$i in 0..2 { enum Local { A }; if \$i == 0 { \$x = Local::A } else { \$same = \$x == Local::A } }; echo \$same",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

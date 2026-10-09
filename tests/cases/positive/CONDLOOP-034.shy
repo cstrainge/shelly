@@ -1,0 +1,13 @@
+# CONDLOOP-034: while / return in body
+check ["id": "CONDLOOP-034",
+    "name": "while / return in body",
+    "source": "fn f() { while true { return 7 }; 9 }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

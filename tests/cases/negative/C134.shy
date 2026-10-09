@@ -1,0 +1,13 @@
+# C134: Unmatched glob
+check ["id": "C134",
+    "name": "Unmatched glob",
+    "source": "audit_args fixtures/no-match-*",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "File glob error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MUTSELF-007: array stored reference
+check ["id": "MUTSELF-007",
+    "name": "array stored reference",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$v = [1];let \$r = `\$v[0].inc; \$r; \$r; echo \$v[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

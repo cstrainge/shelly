@@ -1,0 +1,13 @@
+# ENUM-037: typed status condition
+check ["id": "ENUM-037",
+    "name": "typed status condition",
+    "source": "fn f(\$x) { !\$x }; echo (f (/usr/bin/false)) (f (/usr/bin/true))",
+    "mode": "code",
+    "args": [],
+    "stdout": "true false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

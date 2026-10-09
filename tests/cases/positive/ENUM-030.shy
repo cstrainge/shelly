@@ -1,0 +1,13 @@
+# ENUM-030: distinct types as map keys
+check ["id": "ENUM-030",
+    "name": "distinct types as map keys",
+    "source": "enum Color { Red, Green, Blue }; enum Other { Red }; let \$m = [Color::Red: 1, Other::Red: 2]; echo \$m[Color::Red] \$m[Other::Red]",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

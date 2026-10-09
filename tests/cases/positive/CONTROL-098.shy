@@ -1,0 +1,13 @@
+# CONTROL-098: map continue
+check ["id": "CONTROL-098",
+    "name": "map continue",
+    "source": "let \$sum = 0; for \$k,\$v in [\"a\":1,\"b\":2] { if \$k == \"a\" { continue }; \$sum = \$sum + \$v }; echo \$sum",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

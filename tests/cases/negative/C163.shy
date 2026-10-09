@@ -1,0 +1,13 @@
+# C163: Stored missing executable fails when invoked
+check ["id": "C163",
+    "name": "Stored missing executable fails when invoked",
+    "source": "let \$r = `shelly_audit_unknown ; \$r",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable not found:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C060: Backtick stores reference
+check ["id": "C060",
+    "name": "Backtick stores reference",
+    "source": "fn f() { echo \"bad\" }\nlet \$r = `f ; echo \"\$r\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "f\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ENUM-059: comma only
+check ["id": "ENUM-059",
+    "name": "comma only",
+    "source": "enum C { , }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

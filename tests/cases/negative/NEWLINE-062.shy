@@ -1,0 +1,13 @@
+# NEWLINE-062: spaced named bad field
+check ["id": "NEWLINE-062",
+    "name": "spaced named bad field",
+    "source": "struct S { n: optional Number }; S (bad: 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

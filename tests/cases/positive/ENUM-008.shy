@@ -1,0 +1,13 @@
+# ENUM-008: map iterator roundtrip
+check ["id": "ENUM-008",
+    "name": "map iterator roundtrip",
+    "source": "enum Color { Red, Green, Blue }; let \$m = [Color::Red: 42]; for \$k, \$v in \$m { echo (\$k == Color::Red) \$v }",
+    "mode": "code",
+    "args": [],
+    "stdout": "true 42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

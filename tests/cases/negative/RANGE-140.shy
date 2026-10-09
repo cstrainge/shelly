@@ -1,0 +1,13 @@
+# RANGE-140: range runtime rejection / let $r = 0..9223372036854775807; echo $r...
+check ["id": "RANGE-140",
+    "name": "range runtime rejection / let \$r = 0..9223372036854775807; echo \$r...",
+    "source": "let \$r = 0..9223372036854775807; echo \$r...; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Range error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

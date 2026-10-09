@@ -1,0 +1,13 @@
+# REDIRECTION-028: unreadable source
+check ["id": "REDIRECTION-028",
+    "name": "unreadable source",
+    "source": "let \$out: String; missing-flow-file.txt -> \$out; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Redirection error:",
+    "stderr_contains": ["missing-flow-file.txt"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

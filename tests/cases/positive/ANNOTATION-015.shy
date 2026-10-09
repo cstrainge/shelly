@@ -1,0 +1,13 @@
+# ANNOTATION-015: default ArgumentExpansion
+check ["id": "ANNOTATION-015",
+    "name": "default ArgumentExpansion",
+    "source": "let \$x: ArgumentExpansion; echo \"\$x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

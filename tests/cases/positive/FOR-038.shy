@@ -1,0 +1,13 @@
+# FOR-038: return nested loops
+check ["id": "FOR-038",
+    "name": "return nested loops",
+    "source": "fn f() { for \$i in [1,2] { for \$j in [3,4] { return \$i + \$j } }; 9 }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-199: runtime rejection / { return 1 }
+check ["id": "BOUNDARY-199",
+    "name": "runtime rejection / { return 1 }",
+    "source": "{ return 1 }; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Cannot return outside a function",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

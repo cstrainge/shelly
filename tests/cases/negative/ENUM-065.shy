@@ -1,0 +1,13 @@
+# ENUM-065: empty payload declaration
+check ["id": "ENUM-065",
+    "name": "empty payload declaration",
+    "source": "enum C { A() }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

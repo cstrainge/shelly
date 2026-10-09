@@ -1,0 +1,13 @@
+# CONTROL-015: break table / [] / 4
+check ["id": "CONTROL-015",
+    "name": "break table / [] / 4",
+    "source": "for \$i in [] { if \$i == 4 { break }; echo \$i }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

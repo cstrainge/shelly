@@ -1,0 +1,13 @@
+# DESTRUCTURING-076: empty input
+check ["id": "DESTRUCTURING-076",
+    "name": "empty input",
+    "source": "for (\$a, \$b, \$c) in [] { echo \"bad\" }; echo \"empty\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "empty\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

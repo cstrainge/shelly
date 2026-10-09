@@ -1,0 +1,13 @@
+# C093: Assignment updates visible outer scope
+check ["id": "C093",
+    "name": "Assignment updates visible outer scope",
+    "source": "let \$x = 9 ; fn f() { \$x = 4 ; return }\nf ; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

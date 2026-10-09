@@ -1,0 +1,13 @@
+# NEWLINE-036: spaced empty argument
+check ["id": "NEWLINE-036",
+    "name": "spaced empty argument",
+    "source": "struct E {}; echo E () E()",
+    "mode": "code",
+    "args": [],
+    "stdout": "E() E()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# FOR-025: map collection key copy
+check ["id": "FOR-025",
+    "name": "map collection key copy",
+    "source": "let \$m = [[1]:7]; for \$k,\$v in \$m { \$k[0] = 9 }; echo \$m[[1]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

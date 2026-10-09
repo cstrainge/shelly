@@ -1,0 +1,13 @@
+# ANNOTATION-009: default [String: Number]
+check ["id": "ANNOTATION-009",
+    "name": "default [String: Number]",
+    "source": "let \$x: [String: Number]; echo \"\$x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "[:]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

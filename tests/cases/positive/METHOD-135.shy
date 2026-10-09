@@ -1,0 +1,13 @@
+# METHOD-135: glob zip arrays
+check ["id": "METHOD-135",
+    "name": "glob zip arrays",
+    "source": "let \$a = (fixtures/*.txt).sort; let \$pairs = \$a.zip \$a; echo \$pairs.count \$pairs[0][0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 fixtures/a.txt\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

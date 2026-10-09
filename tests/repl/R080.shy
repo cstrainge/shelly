@@ -1,0 +1,5 @@
+# Array destructuring break continue and return cleanup
+check_repl ["id": "R080",
+    "name": "Array destructuring break continue and return cleanup",
+    "steps": [["let \$a = 99; fn f() { for (\$a, \$b) in [[1, 2]] { return \$b } }", "quiet", ""], ["echo (f) \$a", "output", "2 99"], ["for (\$a, \$b) in [[1, 2], [3, 4]] { if \$a == 1 { continue }; echo \$b; break }", "output", "4"], ["echo \$a", "output", "99"], ["echo \$b", "error", "Variable '\$b' not found"]],
+    "exit": 0]

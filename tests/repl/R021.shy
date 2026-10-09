@@ -1,0 +1,5 @@
+# Array command rejection leaves REPL and value usable
+check_repl ["id": "R021",
+    "name": "Array command rejection leaves REPL and value usable",
+    "steps": [["let \$x = [1,2,3,4]", "quiet", ""], ["echo \$x", "output", "1:2:3:4"], ["echo \$x...", "output", "1 2 3 4"], ["\$x", "error", ""], ["echo \$x...", "output", "1 2 3 4"], ["\$x \"argument\"", "error", ""], ["fn f() { \$x }", "quiet", ""], ["echo ((f) == [1,2,3,4])", "output", "true"]],
+    "exit": 0]

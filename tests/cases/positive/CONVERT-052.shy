@@ -1,0 +1,13 @@
+# CONVERT-052: matrix Boolean to String
+check ["id": "CONVERT-052",
+    "name": "matrix Boolean to String",
+    "source": "let \$v = true; let \$converted: String = String(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

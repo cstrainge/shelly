@@ -1,0 +1,13 @@
+# C127: Variable-prefixed glob
+check ["id": "C127",
+    "name": "Variable-prefixed glob",
+    "source": "let \$root = \"fixtures\" ; audit_args \$root/*.txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"fixtures/a.txt\", \"fixtures/b.txt\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

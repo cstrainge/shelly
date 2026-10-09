@@ -1,0 +1,13 @@
+# CONTROL-011: break table / [0,1,2,3,4] / 4
+check ["id": "CONTROL-011",
+    "name": "break table / [0,1,2,3,4] / 4",
+    "source": "for \$i in [0,1,2,3,4] { if \$i == 4 { break }; echo \$i }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\n1\n2\n3\ndone\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

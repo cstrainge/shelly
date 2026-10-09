@@ -1,0 +1,13 @@
+# REDIRECTION-022: home boundary
+check ["id": "REDIRECTION-022",
+    "name": "home boundary",
+    "source": "echo \"home\" -> \"~/out.txt\"; cat \"~/out.txt\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "home\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

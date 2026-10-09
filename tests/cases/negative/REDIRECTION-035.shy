@@ -1,0 +1,13 @@
+# REDIRECTION-035: invalid UTF8
+check ["id": "REDIRECTION-035",
+    "name": "invalid UTF8",
+    "source": "let \$out: String; cat data/invalid-utf8 -> \$out; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Redirection error:",
+    "stderr_contains": ["invalid utf-8"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

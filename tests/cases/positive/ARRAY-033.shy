@@ -1,0 +1,13 @@
+# ARRAY-033: early return from literal element
+check ["id": "ARRAY-033",
+    "name": "early return from literal element",
+    "source": "fn f() { [1, if true { return [8] }, 3] }; echo (f)[0]; echo [4][0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "8\n4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

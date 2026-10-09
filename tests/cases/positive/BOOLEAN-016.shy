@@ -1,0 +1,13 @@
+# BOOLEAN-016: echo !(/bin/sh -c 'kill -TERM $$')
+check ["id": "BOOLEAN-016",
+    "name": "echo !(/bin/sh -c 'kill -TERM \$\$')",
+    "source": "echo !(audit_signal)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

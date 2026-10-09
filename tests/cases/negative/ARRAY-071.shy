@@ -1,0 +1,13 @@
+# ARRAY-071: non-array / "text" / echo $a[0]
+check ["id": "ARRAY-071",
+    "name": "non-array / \"text\" / echo \$a[0]",
+    "source": "let \$a = \"text\"; echo \$a[0]; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

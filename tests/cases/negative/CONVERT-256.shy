@@ -1,0 +1,13 @@
+# CONVERT-256: extra arguments Boolean
+check ["id": "CONVERT-256",
+    "name": "extra arguments Boolean",
+    "source": "echo Boolean(1, 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

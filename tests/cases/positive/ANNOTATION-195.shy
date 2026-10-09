@@ -1,0 +1,13 @@
+# ANNOTATION-195: variadic after optional
+check ["id": "ANNOTATION-195",
+    "name": "variadic after optional",
+    "source": "fn f(\$a: Number, \$b: optional String, \$xs: Number...): [Number] { echo \$a \$b; return \$xs }; echo (f 1)...; echo (f 1 \"b\" 2 3)...; echo (f 1 () 4)...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 ()\n\n1 b\n2 3\n1 ()\n4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

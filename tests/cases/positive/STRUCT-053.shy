@@ -1,0 +1,13 @@
+# STRUCT-053: struct scalar expansion
+check ["id": "STRUCT-053",
+    "name": "struct scalar expansion",
+    "source": "struct E {}; let \$s = E(); audit_args \$s...",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"E()\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

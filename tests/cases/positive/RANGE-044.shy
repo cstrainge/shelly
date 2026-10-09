@@ -1,0 +1,13 @@
+# RANGE-044: numeric function parameters need conversion
+check ["id": "RANGE-044",
+    "name": "numeric function parameters need conversion",
+    "source": "fn f(\$start,\$end) { (\$start + 0)..(\$end + 0) }; echo (f 1 3)...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

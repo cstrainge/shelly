@@ -1,0 +1,13 @@
+# CONVERT-096: matrix Struct to HashMap
+check ["id": "CONVERT-096",
+    "name": "matrix Struct to HashMap",
+    "source": "struct S { n: Integer }; let \$v = S(n: 2); let \$converted: HashMap = HashMap(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

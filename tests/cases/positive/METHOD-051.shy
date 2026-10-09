@@ -1,0 +1,13 @@
+# METHOD-051: sort let $a = ["Z", "a", "A"]; let $g: ArgumentExpansion = $a...; $g.sort
+check ["id": "METHOD-051",
+    "name": "sort let \$a = [\"Z\", \"a\", \"A\"]; let \$g: ArgumentExpansion = \$a...; \$g.sort",
+    "source": "let \$a = [\"Z\", \"a\", \"A\"]; let \$g: ArgumentExpansion = \$a...; echo \$g.sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "A Z a\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

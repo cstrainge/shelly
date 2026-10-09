@@ -1,0 +1,13 @@
+# ARRAY-040: executable element backtick suppresses
+check ["id": "ARRAY-040",
+    "name": "executable element backtick suppresses",
+    "source": "fn f() { 7 }; let \$a = [`f]; audit_args `\$a[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"f\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

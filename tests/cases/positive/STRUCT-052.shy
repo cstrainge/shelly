@@ -1,0 +1,13 @@
+# STRUCT-052: member names are not interpolated
+check ["id": "STRUCT-052",
+    "name": "member names are not interpolated",
+    "source": "struct S { x }; let \$s = S(x: \"hello\"); echo \"\${s}\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "S(x: \"hello\")\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

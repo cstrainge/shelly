@@ -1,0 +1,13 @@
+# NEWLINE-005: constructor gap '\r\n    '
+check ["id": "NEWLINE-005",
+    "name": "constructor gap '\\r\\n    '",
+    "source": "struct S { n: Number }; let \$s = S\r\n    (n: 42); echo \$s.n",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

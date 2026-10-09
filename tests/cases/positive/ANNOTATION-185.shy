@@ -1,0 +1,13 @@
+# ANNOTATION-185: optional array
+check ["id": "ANNOTATION-185",
+    "name": "optional array",
+    "source": "fn f(\$x: optional [Number]) { echo \$x }; f; f [1, 2]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n1:2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

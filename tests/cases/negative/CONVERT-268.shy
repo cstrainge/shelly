@@ -1,0 +1,13 @@
+# CONVERT-268: extra arguments Range
+check ["id": "CONVERT-268",
+    "name": "extra arguments Range",
+    "source": "echo Range(1, 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONTROL-074: continue abandoned indexed expression
+check ["id": "CONTROL-074",
+    "name": "continue abandoned indexed expression",
+    "source": "let \$x = 9; for \$i in 0..3 { let \$x = [1,2][if true { continue }]; echo \"bad\" }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

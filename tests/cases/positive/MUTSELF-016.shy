@@ -1,0 +1,13 @@
+# MUTSELF-016: struct copy independence
+check ["id": "MUTSELF-016",
+    "name": "struct copy independence",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; struct S { n: Integer }; let \$v = S(n: 1);let \$copy = \$v; \$v.n.inc; echo \$v.n \$copy.n",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

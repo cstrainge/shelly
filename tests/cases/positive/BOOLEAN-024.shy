@@ -1,0 +1,13 @@
+# BOOLEAN-024: echo (foo==foo) (foo!=bar) !foo
+check ["id": "BOOLEAN-024",
+    "name": "echo (foo==foo) (foo!=bar) !foo",
+    "source": "echo (foo==foo) (foo!=bar) !foo",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

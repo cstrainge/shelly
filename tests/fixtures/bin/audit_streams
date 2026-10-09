@@ -1,0 +1,5 @@
+#!/usr/bin/env shelly
+/usr/bin/printf "%s" $args[0]
+let $result = run_process ["/usr/bin/printf", "%s", $args[1]] ["stdout_file": "/dev/stderr"]
+if $result["exit_code"] != 0 { exit 99 }
+exit $args[2]

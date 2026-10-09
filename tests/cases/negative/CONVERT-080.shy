@@ -1,0 +1,13 @@
+# CONVERT-080: matrix HashMap to ArgumentExpansion
+check ["id": "CONVERT-080",
+    "name": "matrix HashMap to ArgumentExpansion",
+    "source": "let \$v = [\"x\": 1]; let \$converted: ArgumentExpansion = ArgumentExpansion(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

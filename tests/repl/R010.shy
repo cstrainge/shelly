@@ -1,0 +1,5 @@
+# Executable variable with parameters persists between inputs
+check_repl ["id": "R010",
+    "name": "Executable variable with parameters persists between inputs",
+    "steps": [["fn f(\$x) { \$x * 2 }", "quiet", ""], ["let \$r = `f", "quiet", ""], ["let \$answer = \$r 3 ; echo \$answer", "output", "6"], ["echo (\$r 4)", "output", "8"]],
+    "exit": 0]

@@ -1,0 +1,13 @@
+# BOUNDARY-065: skipped boolean / if true
+check ["id": "BOUNDARY-065",
+    "name": "skipped boolean / if true",
+    "source": "echo \"PARSE_SENTINEL\"; echo (true || (if true))",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

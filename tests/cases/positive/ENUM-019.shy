@@ -1,0 +1,13 @@
+# ENUM-019: forward reference
+check ["id": "ENUM-019",
+    "name": "forward reference",
+    "source": "echo Color::Red; enum Color { Red }",
+    "mode": "code",
+    "args": [],
+    "stdout": "Color::Red\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

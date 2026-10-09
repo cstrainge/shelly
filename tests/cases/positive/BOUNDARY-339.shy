@@ -1,0 +1,13 @@
+# BOUNDARY-339: value pair / false and true
+check ["id": "BOUNDARY-339",
+    "name": "value pair / false and true",
+    "source": "echo (false == true) (false != true) (false && true) (false || true)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ARRAY-025: write evaluation order
+check ["id": "ARRAY-025",
+    "name": "write evaluation order",
+    "source": "let \$n = 0; let \$a = [[0]]; fn i() { \$n = \$n * 10 + 1; 0 }; fn v() { \$n = \$n * 10 + 2; 9 }; \$a[i][i] = v; echo \$n \$a[0][0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "112 9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

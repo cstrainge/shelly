@@ -1,0 +1,13 @@
+# BOUNDARY-132: return / if false {} else {
+check ["id": "BOUNDARY-132",
+    "name": "return / if false {} else {",
+    "source": "echo \"PARSE_SENTINEL\"; fn f() { return if false {} else { }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOOLCAST-143: shadowed enum
+check ["id": "BOOLCAST-143",
+    "name": "shadowed enum",
+    "source": "enum Boolean { Yes }; echo Boolean::Yes",
+    "mode": "code",
+    "args": [],
+    "stdout": "Boolean::Yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

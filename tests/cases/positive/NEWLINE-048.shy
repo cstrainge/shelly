@@ -1,0 +1,13 @@
+# NEWLINE-048: tab separated constructor
+check ["id": "NEWLINE-048",
+    "name": "tab separated constructor",
+    "source": "struct S { n: optional Number }; echo S\t(n: 42).n",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

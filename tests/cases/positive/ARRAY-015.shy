@@ -1,0 +1,13 @@
+# ARRAY-015: array direct splat
+check ["id": "ARRAY-015",
+    "name": "array direct splat",
+    "source": "audit_args [1,2]...",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"1\", \"2\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

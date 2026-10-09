@@ -1,0 +1,13 @@
+# DESTRUCTURING-082: duplicate third
+check ["id": "DESTRUCTURING-082",
+    "name": "duplicate third",
+    "source": "echo \"PARSE_SENTINEL\"; for (\$a, \$b, \$a) in [] {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

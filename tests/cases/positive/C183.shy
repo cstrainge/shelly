@@ -1,0 +1,13 @@
+# C183: Variable tilde expands in globs
+check ["id": "C183",
+    "name": "Variable tilde expands in globs",
+    "source": "let \$p = \"~\" ; audit_args \$p/sub/*.txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"<FIXTURE>/home/sub/file.txt\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

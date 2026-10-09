@@ -1,0 +1,13 @@
+# MAP-033: duplicate values still evaluated
+check ["id": "MAP-033",
+    "name": "duplicate values still evaluated",
+    "source": "let \$n = 0; fn next() { \$n = \$n + 1; \$n }; let \$m = [1:next,1:next]; echo \$m[1] \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

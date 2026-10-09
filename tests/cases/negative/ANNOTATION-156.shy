@@ -1,0 +1,13 @@
+# ANNOTATION-156: bad skipped declaration
+check ["id": "ANNOTATION-156",
+    "name": "bad skipped declaration",
+    "source": "if false { let \$x: Number = \"bad\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

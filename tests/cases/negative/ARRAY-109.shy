@@ -1,0 +1,13 @@
+# ARRAY-109: malformed array / [1][0] = 2
+check ["id": "ARRAY-109",
+    "name": "malformed array / [1][0] = 2",
+    "source": "echo \"PARSE_SENTINEL\"; [1][0] = 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C185: Variable glob prefix escapes pattern metacharacters
+check ["id": "C185",
+    "name": "Variable glob prefix escapes pattern metacharacters",
+    "source": "let \$p = \"files[1]\" ; audit_args \$p/*.txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"files[1]/a.txt\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

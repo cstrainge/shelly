@@ -1,0 +1,13 @@
+# STRUCT-069: unknown constructor field
+check ["id": "STRUCT-069",
+    "name": "unknown constructor field",
+    "source": "struct S { n }; echo S(other: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown field"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

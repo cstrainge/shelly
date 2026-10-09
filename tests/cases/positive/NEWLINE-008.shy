@@ -1,0 +1,13 @@
+# NEWLINE-008: nested constructors
+check ["id": "NEWLINE-008",
+    "name": "nested constructors",
+    "source": "struct S { n: Number }; struct Box { s: S }; echo Box\n(s: S\n(n: 7)).s.n",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

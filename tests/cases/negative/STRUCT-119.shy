@@ -1,0 +1,13 @@
+# STRUCT-119: runtime field on array
+check ["id": "STRUCT-119",
+    "name": "runtime field on array",
+    "source": "let \$a = []; echo \$a.field",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": ["Cannot access a field"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-053: assignment / if {}
+check ["id": "BOUNDARY-053",
+    "name": "assignment / if {}",
+    "source": "echo \"PARSE_SENTINEL\"; let \$result = if {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-136: dynamic variable scope
+check ["id": "ANNOTATION-136",
+    "name": "dynamic variable scope",
+    "source": "let \$x: Number = 1; fn f(): String { return \$x }; fn g(): String { let \$x: String = \"dynamic\"; f }; echo (g)",
+    "mode": "code",
+    "args": [],
+    "stdout": "dynamic\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

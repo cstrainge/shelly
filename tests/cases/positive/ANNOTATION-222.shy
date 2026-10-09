@@ -1,0 +1,13 @@
+# ANNOTATION-222: same submission preserves stored reference
+check ["id": "ANNOTATION-222",
+    "name": "same submission preserves stored reference",
+    "source": "fn f(): Number { 1 }; let \$r = `f; fn f(): Number { 2 }; echo \$r (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

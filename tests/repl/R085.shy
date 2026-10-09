@@ -1,0 +1,5 @@
+# Slow command completes before the next submission
+check_repl ["id": "R085",
+    "name": "Slow command completes before the next submission",
+    "steps": [["audit_slow", "output", "slow-finished"], ["echo \"after-slow\"", "output", "after-slow"]],
+    "exit": 0]

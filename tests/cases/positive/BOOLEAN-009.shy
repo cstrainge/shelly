@@ -1,0 +1,13 @@
+# BOOLEAN-009: echo (true && 7) (false || 7) (true && 0) (false || 0)
+check ["id": "BOOLEAN-009",
+    "name": "echo (true && 7) (false || 7) (true && 0) (false || 0)",
+    "source": "echo (true && 7) (false || 7) (true && 0) (false || 0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true false false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

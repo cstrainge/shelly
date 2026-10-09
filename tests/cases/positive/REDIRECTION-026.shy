@@ -1,0 +1,13 @@
+# REDIRECTION-026: quoted removed arrows
+check ["id": "REDIRECTION-026",
+    "name": "quoted removed arrows",
+    "source": "printf \"%s %s %s\" \"<-\" \"<-~\" \"<-+~\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "<- <-~ <-+~",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

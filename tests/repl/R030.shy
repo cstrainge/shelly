@@ -1,0 +1,5 @@
+# Break continue scopes and sequential loop frames
+check_repl ["id": "R030",
+    "name": "Break continue scopes and sequential loop frames",
+    "steps": [["let \$i = 99; let \$sum = 0", "quiet", ""], ["for \$i in 0..5 { { let \$local = 8; if \$i == 1 { continue }; if \$i == 3 { break }; \$sum = \$sum + \$i } }", "quiet", ""], ["echo \$i \$sum", "output", "99 2"], ["echo \$local", "error", "not found"], ["break", "error", ""], ["continue", "error", ""], ["for \$i in [4,5] { echo \$i; break }", "output", "4"], ["echo \$i", "output", "99"]],
+    "exit": 0]

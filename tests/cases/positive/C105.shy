@@ -1,0 +1,13 @@
+# C105: Alias before same line block close
+check ["id": "C105",
+    "name": "Alias before same line block close",
+    "source": "fn f() { alias a = /usr/bin/echo \"hi\" }\nf ; a",
+    "mode": "code",
+    "args": [],
+    "stdout": "hi\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

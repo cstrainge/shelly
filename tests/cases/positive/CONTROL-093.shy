@@ -1,0 +1,13 @@
+# CONTROL-093: nested break targets inner
+check ["id": "CONTROL-093",
+    "name": "nested break targets inner",
+    "source": "for \$i in 0..3 { for \$j in 1..4 { if \$j == 2 { break }; echo \$i \$j } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "0 1\n1 1\n2 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

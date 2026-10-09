@@ -1,0 +1,13 @@
+# C153: Unicode script file
+check ["id": "C153",
+    "name": "Unicode script file",
+    "source": "echo \"café 猫\"",
+    "mode": "file",
+    "args": [],
+    "stdout": "café 猫\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

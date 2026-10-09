@@ -1,0 +1,13 @@
+# CONVERT-026: matrix Integer to Float
+check ["id": "CONVERT-026",
+    "name": "matrix Integer to Float",
+    "source": "let \$v = 2; let \$converted: Float = Float(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

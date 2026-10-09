@@ -1,0 +1,42 @@
+#!/usr/bin/env shelly
+# Preserve raw argument spelling instead of home-shortened display values.
+let $HOME = "/__shelly_argument_probe_has_no_home__"
+fn quote($text: String)
+{
+    /usr/bin/printf '"'
+    for $character in $text.chars
+    {
+        let $ordinal: String
+        /usr/bin/printf "%d" "'${character}" -> $ordinal
+        let $code = Integer($ordinal)
+        if ($character == '"') || ($character == "\\")
+        {
+            /usr/bin/printf "%s%s" "\\" $character
+        }
+        else if $character == "\n" { /usr/bin/printf "%s" "\\n" }
+        else if $character == "\r" { /usr/bin/printf "%s" "\\r" }
+        else if $character == "\t" { /usr/bin/printf "%s" "\\t" }
+        else if ($code / 32 == 0) || ($code / 128 != 0)
+        {
+            if $code / 65536 == 0 { /usr/bin/printf "%s%04x" "\\u" $code }
+            else
+            {
+                let $point = $code - 65536
+                /usr/bin/printf "%s%04x%s%04x" "\\u" (55296 + $point / 1024) "\\u" (56320 + $point % 1024)
+            }
+        }
+        # Passing a standalone tilde as an argument would expand it as a path.
+        else if $character == "~" { /usr/bin/printf "%b" "\\176" }
+        else { /usr/bin/printf "%s" $character }
+    }
+    /usr/bin/printf '"'
+}
+/usr/bin/printf "["
+let $separator = ""
+for $argument in $args
+{
+    /usr/bin/printf "%s" $separator
+    quote $argument
+    $separator = ", "
+}
+/usr/bin/printf "]\n"

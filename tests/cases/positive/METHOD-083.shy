@@ -1,0 +1,13 @@
+# METHOD-083: function implicit return
+check ["id": "METHOD-083",
+    "name": "function implicit return",
+    "source": "fn f(\$a: [Integer]): [Integer] { \$a.sort }; echo (f [2, 1])...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

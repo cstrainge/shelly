@@ -1,0 +1,5 @@
+# Capture invalid UTF8 preserves destination and shell state
+check_repl ["id": "R083",
+    "name": "Capture invalid UTF8 preserves destination and shell state",
+    "steps": [["let \$out = \"old\"", "quiet", ""], ["cat data/invalid-utf8 -> \$out", "error", "invalid utf-8"], ["echo \$out", "output", "old"], ["echo \"next\" -> \$out", "quiet", ""], ["printf \"<%s>\\n\" \$out", "output", "<next\n>"]],
+    "exit": 0]

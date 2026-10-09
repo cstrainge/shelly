@@ -1,0 +1,5 @@
+# Map failed writes and initializers preserve state
+check_repl ["id": "R024",
+    "name": "Map failed writes and initializers preserve state",
+    "steps": [["let \$m = [\"a\":[1]]", "quiet", ""], ["\$m[\"missing\"][0] = 9", "error", ""], ["echo (\$m == [\"a\":[1]])", "output", "true"], ["\$m[\"a\"][9] = 9", "error", ""], ["echo (\$m == [\"a\":[1]])", "output", "true"], ["\$m[\"new\"] = 1 / 0", "error", ""], ["echo \$m[\"new\"]", "output", "()"], ["let \$m = [\"a\":1 / 0]", "error", ""], ["echo (\$m == [\"a\":[1]])", "output", "true"], ["{ let \$local = [:]; \$m[\"missing\"][0] = 9 }", "error", ""], ["echo \$local", "error", "not found"], ["let \$m = [\"a\":1,2]", "error", ""], ["echo (\$m == [\"a\":[1]])", "output", "true"]],
+    "exit": 0]

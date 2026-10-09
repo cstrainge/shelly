@@ -1,0 +1,13 @@
+# MUTSELF-058: loop continue releases references
+check ["id": "MUTSELF-058",
+    "name": "loop continue releases references",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$a = [1]; let \$i = 0; loop { \$i = \$i + 1; if \$i == 3 { break }; \$a[(if true { continue } else { 0 })].inc }; \$a[0].inc; echo \$a[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

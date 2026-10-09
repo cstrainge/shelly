@@ -1,0 +1,13 @@
+# METHOD-074: count typed [1, 2, 3]
+check ["id": "METHOD-074",
+    "name": "count typed [1, 2, 3]",
+    "source": "let \$a: [any] = [1, 2, 3]; let \$n: Integer = \$a.count; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

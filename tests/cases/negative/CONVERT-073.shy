@@ -1,0 +1,13 @@
+# CONVERT-073: matrix None to ArgumentExpansion
+check ["id": "CONVERT-073",
+    "name": "matrix None to ArgumentExpansion",
+    "source": "let \$v = (); let \$converted: ArgumentExpansion = ArgumentExpansion(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

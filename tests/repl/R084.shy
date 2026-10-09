@@ -1,0 +1,5 @@
+# Removed arrows fail before definitions are published
+check_repl ["id": "R084",
+    "name": "Removed arrows fail before definitions are published",
+    "steps": [["let \$kept = 9", "quiet", ""], ["let \$kept = 1; cat <- missing", "error", "Left-facing redirection is not supported"], ["echo \$kept", "output", "9"], ["for (\$a, \$a) in [] {}", "error", "Duplicate loop binding"], ["echo \$kept", "output", "9"]],
+    "exit": 0]

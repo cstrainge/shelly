@@ -1,0 +1,5 @@
+# Rejected names and command splats preserve state
+check_repl ["id": "R018",
+    "name": "Rejected names and command splats preserve state",
+    "steps": [["let \$hits = 0; fn touched() { \$hits = \$hits + 1 }; let \$cmd = `touched", "quiet", ""], ["\$cmd...", "error", ""], ["\$cmd... = 2", "error", ""], ["echo \$hits", "output", "0"], ["\$cmd", "quiet", ""], ["echo \$hits", "output", "1"], ["let \$bad = 7", "quiet", ""], ["let \$bad=name = 9", "error", ""], ["let export \${bad=name} = 9", "error", ""], ["echo \$bad \$hits", "output", "7 1"], ["echo \$bad...", "output", "7"]],
+    "exit": 0]

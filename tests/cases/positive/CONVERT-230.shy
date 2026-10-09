@@ -1,0 +1,13 @@
+# CONVERT-230: map sharing write isolation
+check ["id": "CONVERT-230",
+    "name": "map sharing write isolation",
+    "source": "let \$a = [\"x\": 1]; let \$b = HashMap(\$a); \$b[\"x\"] = 9; echo \$a[\"x\"] \$b[\"x\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

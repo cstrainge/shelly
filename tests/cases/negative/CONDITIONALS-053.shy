@@ -1,0 +1,13 @@
+# CONDITIONALS-053: if true { let $local_if = 1 }; echo $local_if
+check ["id": "CONDITIONALS-053",
+    "name": "if true { let \$local_if = 1 }; echo \$local_if",
+    "source": "if true { let \$local_if = 1 }; echo \$local_if",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

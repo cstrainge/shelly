@@ -1,0 +1,13 @@
+# STRUCT-067: unknown constructor type
+check ["id": "STRUCT-067",
+    "name": "unknown constructor type",
+    "source": "echo Missing()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Unknown type"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

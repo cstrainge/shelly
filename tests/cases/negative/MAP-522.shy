@@ -1,0 +1,13 @@
+# MAP-522: nested invalid access / let $m = ["a":[1]]; $m["a"][2] = 7
+check ["id": "MAP-522",
+    "name": "nested invalid access / let \$m = [\"a\":[1]]; \$m[\"a\"][2] = 7",
+    "source": "let \$m = [\"a\":[1]]; \$m[\"a\"][2] = 7; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

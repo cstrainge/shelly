@@ -1,0 +1,13 @@
+# FOR-133: unsupported iterable / ..=3
+check ["id": "FOR-133",
+    "name": "unsupported iterable / ..=3",
+    "source": "for \$v in ..=3 {}; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Iteration error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

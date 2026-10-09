@@ -1,0 +1,13 @@
+# STRUCT-028: struct keys
+check ["id": "STRUCT-028",
+    "name": "struct keys",
+    "source": "struct Key { n: Number }; let \$m = [Key(n: 1): \"found\"]; echo \$m[Key(n: 1.0)]",
+    "mode": "code",
+    "args": [],
+    "stdout": "found\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

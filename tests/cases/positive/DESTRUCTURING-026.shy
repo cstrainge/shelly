@@ -1,0 +1,13 @@
+# DESTRUCTURING-026: exact arity 1
+check ["id": "DESTRUCTURING-026",
+    "name": "exact arity 1",
+    "source": "for (\$v0,) in [[0]] { echo \$v0 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

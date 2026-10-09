@@ -1,0 +1,13 @@
+# CONTROL-036: break outside active frame / break
+check ["id": "CONTROL-036",
+    "name": "break outside active frame / break",
+    "source": "break; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Loop control error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# PATH-011: HOME scoped anchor
+check ["id": "PATH-011",
+    "name": "HOME scoped anchor",
+    "source": "let \$HOME = \"<FIXTURE>/home/sub\"; { let \$HOME = \$HOME; echo (\$HOME == \"~\") }; echo (\$HOME == \"~\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\ntrue\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

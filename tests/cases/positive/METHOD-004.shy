@@ -1,0 +1,13 @@
+# METHOD-004: sort [1].sort
+check ["id": "METHOD-004",
+    "name": "sort [1].sort",
+    "source": "echo [1].sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

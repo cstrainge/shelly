@@ -1,0 +1,13 @@
+# CONDITIONALS-004: if false { echo "bad" }; echo "after"
+check ["id": "CONDITIONALS-004",
+    "name": "if false { echo \"bad\" }; echo \"after\"",
+    "source": "if false { echo \"bad\" }; echo \"after\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "after\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

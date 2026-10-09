@@ -1,0 +1,13 @@
+# MUTSELF-048: boolean toggle
+check ["id": "MUTSELF-048",
+    "name": "boolean toggle",
+    "source": "fn Boolean::toggle() { \$self = !\$self }; let \$v = true; \$v.toggle; echo \$v",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

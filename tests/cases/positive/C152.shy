@@ -1,0 +1,13 @@
+# C152: Script file mode
+check ["id": "C152",
+    "name": "Script file mode",
+    "source": "echo \"file\"",
+    "mode": "file",
+    "args": [],
+    "stdout": "file\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

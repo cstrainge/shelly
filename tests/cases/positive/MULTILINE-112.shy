@@ -1,0 +1,13 @@
+# MULTILINE-112: file source
+check ["id": "MULTILINE-112",
+    "name": "file source",
+    "source": "if true\n && true\n{ echo \"ok\" }",
+    "mode": "file",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

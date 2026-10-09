@@ -1,0 +1,13 @@
+# LOOP-025: preserve outer expression stack
+check ["id": "LOOP-025",
+    "name": "preserve outer expression stack",
+    "source": "let \$a = [99, if true { loop { break }; 7 }]; echo \$a...",
+    "mode": "code",
+    "args": [],
+    "stdout": "99 7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

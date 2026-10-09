@@ -1,0 +1,13 @@
+# BLOCKS-007: return cleanup
+check ["id": "BLOCKS-007",
+    "name": "return cleanup",
+    "source": "let \$x = 1; fn f() { { let \$x = 2; { return \$x + 1 }; echo \"bad\" }; echo \"bad\" }; echo (f) \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "3 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

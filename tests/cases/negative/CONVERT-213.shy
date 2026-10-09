@@ -1,0 +1,13 @@
+# CONVERT-213: invalid Number("1e309")
+check ["id": "CONVERT-213",
+    "name": "invalid Number(\"1e309\")",
+    "source": "echo Number(\"1e309\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

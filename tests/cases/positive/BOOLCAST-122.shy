@@ -1,0 +1,13 @@
+# BOOLCAST-122: struct
+check ["id": "BOOLCAST-122",
+    "name": "struct",
+    "source": "struct S {}; echo Boolean(S())",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

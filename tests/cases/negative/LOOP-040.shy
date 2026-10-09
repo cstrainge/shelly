@@ -1,0 +1,13 @@
+# LOOP-040: malformed / loop true {}
+check ["id": "LOOP-040",
+    "name": "malformed / loop true {}",
+    "source": "echo \"PARSE_SENTINEL\"; loop true {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

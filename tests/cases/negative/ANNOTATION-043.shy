@@ -1,0 +1,13 @@
+# ANNOTATION-043: initialize Boolean from Float
+check ["id": "ANNOTATION-043",
+    "name": "initialize Boolean from Float",
+    "source": "let \$x: Boolean = 1.5; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

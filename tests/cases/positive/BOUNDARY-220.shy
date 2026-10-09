@@ -1,0 +1,13 @@
+# BOUNDARY-220: skipped runtime error / command
+check ["id": "BOUNDARY-220",
+    "name": "skipped runtime error / command",
+    "source": "if false { boundary_missing_executable 1 }; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

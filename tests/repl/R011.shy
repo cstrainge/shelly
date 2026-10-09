@@ -1,0 +1,5 @@
+# Explicit REPL exit status
+check_repl ["id": "R011",
+    "name": "Explicit REPL exit status",
+    "steps": [["exit 7", "quiet", ""]],
+    "exit": 7]

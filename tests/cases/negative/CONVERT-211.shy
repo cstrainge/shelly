@@ -1,0 +1,13 @@
+# CONVERT-211: invalid Number("NaN")
+check ["id": "CONVERT-211",
+    "name": "invalid Number(\"NaN\")",
+    "source": "echo Number(\"NaN\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

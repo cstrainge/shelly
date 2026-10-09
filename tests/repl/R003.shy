@@ -1,0 +1,5 @@
+# Parsing error recovery
+check_repl ["id": "R003",
+    "name": "Parsing error recovery",
+    "steps": [["echo foo 3)", "error", ""], ["echo \"recovered\"", "output", "recovered"]],
+    "exit": 0]

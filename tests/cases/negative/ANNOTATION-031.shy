@@ -1,0 +1,13 @@
+# ANNOTATION-031: initialize Float from None
+check ["id": "ANNOTATION-031",
+    "name": "initialize Float from None",
+    "source": "let \$x: Float = (); echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

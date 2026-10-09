@@ -1,0 +1,13 @@
+# BOUNDARY-264: value pair / 1 and (/usr/bin/true)
+check ["id": "BOUNDARY-264",
+    "name": "value pair / 1 and (/usr/bin/true)",
+    "source": "echo (1 == (/usr/bin/true)) (1 != (/usr/bin/true)) (1 && (/usr/bin/true)) (1 || (/usr/bin/true))",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

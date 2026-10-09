@@ -1,0 +1,13 @@
+# LOOP-013: nested unbounded loops
+check ["id": "LOOP-013",
+    "name": "nested unbounded loops",
+    "source": "let \$n = 0; loop { \$n = \$n + 1; loop { echo \$n; break }; if \$n == 3 { break } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

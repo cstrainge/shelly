@@ -1,0 +1,13 @@
+# LOOP-058: file loop
+check ["id": "LOOP-058",
+    "name": "file loop",
+    "source": "let \$i = 0; loop { \$i = \$i + 1; if \$i == 3 { break } }; echo \$i",
+    "mode": "file",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

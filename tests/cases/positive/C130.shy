@@ -1,0 +1,13 @@
+# C130: Recursive path glob
+check ["id": "C130",
+    "name": "Recursive path glob",
+    "source": "audit_args fixtures/**/*.txt",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"fixtures/a.txt\", \"fixtures/b.txt\", \"fixtures/nested/c.txt\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MAP-051: map key flags ignored
+check ["id": "MAP-051",
+    "name": "map key flags ignored",
+    "source": "let \$m = [`unresolved_key:7]; echo \$m[\"unresolved_key\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-157: wrong nominal variable
+check ["id": "ANNOTATION-157",
+    "name": "wrong nominal variable",
+    "source": "struct A {}; struct B {}; let \$x: A = B()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

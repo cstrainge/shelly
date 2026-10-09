@@ -1,0 +1,13 @@
+# CONDITIONALS-015: fn f() { let $x = if true { { return 9 } } else { 2 }; echo "bad" }; echo (f)
+check ["id": "CONDITIONALS-015",
+    "name": "fn f() { let \$x = if true { { return 9 } } else { 2 }; echo \"bad\" }; echo (f)",
+    "source": "fn f() { let \$x = if true { { return 9 } } else { 2 }; echo \"bad\" }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

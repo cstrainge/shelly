@@ -1,0 +1,13 @@
+# MAP-004: array distinct from map
+check ["id": "MAP-004",
+    "name": "array distinct from map",
+    "source": "echo ([] == [:]) ([] != [:])",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

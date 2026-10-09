@@ -1,0 +1,13 @@
+# METHOD-082: standalone method
+check ["id": "METHOD-082",
+    "name": "standalone method",
+    "source": "let \$a = [3, 1]; \$a.sort; \$a.count; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

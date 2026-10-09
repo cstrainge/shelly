@@ -1,0 +1,13 @@
+# BOUNDARY-043: incomplete pipeline
+check ["id": "BOUNDARY-043",
+    "name": "incomplete pipeline",
+    "source": "echo \"PARSE_SENTINEL\"; echo 1 |",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-599: command-head splat / let $ref = `${cmd}...
+check ["id": "BOUNDARY-599",
+    "name": "command-head splat / let \$ref = `\${cmd}...",
+    "source": "echo \"PARSE_SENTINEL\"; let \$cmd = `audit_say; let \$ref = `\${cmd}...",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

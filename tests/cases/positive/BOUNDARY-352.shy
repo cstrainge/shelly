@@ -1,0 +1,13 @@
+# BOUNDARY-352: value pair / () and 1
+check ["id": "BOUNDARY-352",
+    "name": "value pair / () and 1",
+    "source": "echo (() == 1) (() != 1) (() && 1) (() || 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

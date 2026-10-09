@@ -1,0 +1,13 @@
+# CONVERT-162: numeric and syntax Float (\n "1e2",\n)
+check ["id": "CONVERT-162",
+    "name": "numeric and syntax Float (\n \"1e2\",\n)",
+    "source": "echo Float (\n \"1e2\",\n)",
+    "mode": "code",
+    "args": [],
+    "stdout": "100\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

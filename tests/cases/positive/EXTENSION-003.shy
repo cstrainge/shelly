@@ -1,0 +1,13 @@
+# EXTENSION-003: builtin receiver Number3
+check ["id": "EXTENSION-003",
+    "name": "builtin receiver Number3",
+    "source": "fn Number::copy(): Number { \$self }; let \$v: Number = 3; let \$copy = \$v.copy; echo String(\$copy)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

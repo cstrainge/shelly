@@ -1,0 +1,13 @@
+# EXTENSION-040: recursive redefinition
+check ["id": "EXTENSION-040",
+    "name": "recursive redefinition",
+    "source": "fn Integer::factorial(): Integer { 77 }; fn Integer::factorial(): Integer { if \$self == 0 { 1 } else { \$self * (\$self - 1).factorial } }; let \$n = 5; echo \$n.factorial",
+    "mode": "code",
+    "args": [],
+    "stdout": "120\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

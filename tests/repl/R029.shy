@@ -1,0 +1,5 @@
+# Loop return cleanup and collection snapshots
+check_repl ["id": "R029",
+    "name": "Loop return cleanup and collection snapshots",
+    "steps": [["let \$i = 99; let \$a = [1,2]", "quiet", ""], ["fn first() { for \$i in \$a { let \$local = \$i; return \$local } }", "quiet", ""], ["echo (first) \$i", "output", "1 99"], ["echo \$local", "error", "not found"], ["for \$i in \$a { echo \$i; \$a[1] = 9 }", "output", "1\n2"], ["echo \$a...", "output", "1 9"], ["for \$i in [1] { return \$i }", "error", ""], ["echo \$i", "output", "99"], ["for \$i in 0..2 { echo \$i }", "output", "0\n1"]],
+    "exit": 0]

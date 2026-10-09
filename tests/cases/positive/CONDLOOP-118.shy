@@ -1,0 +1,13 @@
+# CONDLOOP-118: until / skipped runtime condition error
+check ["id": "CONDLOOP-118",
+    "name": "until / skipped runtime condition error",
+    "source": "if false { until (1 / 0) {} }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

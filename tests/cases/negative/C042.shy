@@ -1,0 +1,13 @@
+# C042: Malformed braced variable
+check ["id": "C042",
+    "name": "Malformed braced variable",
+    "source": "echo \${x",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

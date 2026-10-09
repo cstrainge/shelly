@@ -1,0 +1,13 @@
+# ENUM-045: duplicate type
+check ["id": "ENUM-045",
+    "name": "duplicate type",
+    "source": "enum C { A }; enum C { B }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Duplicate type"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

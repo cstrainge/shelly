@@ -1,0 +1,2 @@
+#!/usr/bin/env shelly
+/usr/bin/printf "malformed-let-executed\n"

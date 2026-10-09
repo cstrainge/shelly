@@ -1,0 +1,13 @@
+# BOOLEAN-020: echo (true || (false && $missing_boolean)) (false || (true && !false))
+check ["id": "BOOLEAN-020",
+    "name": "echo (true || (false && \$missing_boolean)) (false || (true && !false))",
+    "source": "echo (true || (false && \$missing_boolean)) (false || (true && !false))",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

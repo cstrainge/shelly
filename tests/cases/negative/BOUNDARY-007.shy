@@ -1,0 +1,13 @@
+# BOUNDARY-007: let missing separator
+check ["id": "BOUNDARY-007",
+    "name": "let missing separator",
+    "source": "echo \"PARSE_SENTINEL\"; let \$x = 1 echo \"bad\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

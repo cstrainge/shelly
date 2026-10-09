@@ -1,0 +1,13 @@
+# C151: Stdin source mode
+check ["id": "C151",
+    "name": "Stdin source mode",
+    "source": "echo \"stdin\"",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "stdin\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

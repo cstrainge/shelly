@@ -1,0 +1,13 @@
+# METHOD-018: sort let $a = [2.5, -1.25, 0.5]; let $g: ArgumentExpansion = $a...; $g.sort
+check ["id": "METHOD-018",
+    "name": "sort let \$a = [2.5, -1.25, 0.5]; let \$g: ArgumentExpansion = \$a...; \$g.sort",
+    "source": "let \$a = [2.5, -1.25, 0.5]; let \$g: ArgumentExpansion = \$a...; echo \$g.sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "-1.25 0.5 2.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

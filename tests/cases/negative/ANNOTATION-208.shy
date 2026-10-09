@@ -1,0 +1,13 @@
+# ANNOTATION-208: typed variadic reassignment
+check ["id": "ANNOTATION-208",
+    "name": "typed variadic reassignment",
+    "source": "fn f(\$xs: Number...) { \$xs = 1 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

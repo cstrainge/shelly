@@ -1,0 +1,13 @@
+# ANNOTATION-118: block shadows type
+check ["id": "ANNOTATION-118",
+    "name": "block shadows type",
+    "source": "let \$x: Number = 1; { let \$x: String = \"text\"; echo \$x }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "text\n1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# EXTENSION-032: required untyped
+check ["id": "EXTENSION-032",
+    "name": "required untyped",
+    "source": "fn String::pair(\$other) { [\$self, \$other] }; let \$s = \"x\"; echo (\$s.pair 2)...",
+    "mode": "code",
+    "args": [],
+    "stdout": "x 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-114: matrix Array to ExecResult
+check ["id": "CONVERT-114",
+    "name": "matrix Array to ExecResult",
+    "source": "let \$v = [1, 2]; let \$converted: ExecResult = ExecResult(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

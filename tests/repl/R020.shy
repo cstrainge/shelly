@@ -1,0 +1,5 @@
+# Array scopes copies and malformed input recovery
+check_repl ["id": "R020",
+    "name": "Array scopes copies and malformed input recovery",
+    "steps": [["let \$a = [1]; let \$b = \$a", "quiet", ""], ["{ let \$a = [2]; \$a[0] = 9; echo \$a[0] }", "output", "9"], ["echo \$a[0] \$b[0]", "output", "1 1"], ["{ \$a[0] = 4; let \$inner = [8]; echo \$inner[4] }", "error", ""], ["echo \$a[0] \$b[0]", "output", "4 1"], ["echo \$inner", "error", "not found"], ["let \$a = [1,,2]", "error", ""], ["echo \$a[0]", "output", "4"], ["let \$a = [\n 1,\n [2,3],\n]", "quiet", ""], ["echo \$a[1][0]", "output", "2"]],
+    "exit": 0]

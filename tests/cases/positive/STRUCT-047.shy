@@ -1,0 +1,13 @@
+# STRUCT-047: loop type stable
+check ["id": "STRUCT-047",
+    "name": "loop type stable",
+    "source": "let \$old = (); for \$n in 0..2 { struct S {}; if \$n == 0 { \$old = S() } else { echo (\$old == S()) } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

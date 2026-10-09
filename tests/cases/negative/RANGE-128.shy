@@ -1,0 +1,13 @@
+# RANGE-128: malformed range / ..1..2
+check ["id": "RANGE-128",
+    "name": "malformed range / ..1..2",
+    "source": "echo \"PARSE_SENTINEL\"; let \$r = ..1..2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

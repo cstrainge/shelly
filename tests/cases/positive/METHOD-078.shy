@@ -1,0 +1,13 @@
+# METHOD-078: zip nested copy
+check ["id": "METHOD-078",
+    "name": "zip nested copy",
+    "source": "let \$a = [[1]]; let \$b = [[2]]; let \$pairs = \$a.zip \$b; \$pairs[0][0][0] = 9; \$pairs[0][1][0] = 8; echo \$a[0][0] \$b[0][0] \$pairs[0][0][0] \$pairs[0][1][0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2 9 8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

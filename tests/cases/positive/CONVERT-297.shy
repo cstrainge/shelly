@@ -1,0 +1,13 @@
+# CONVERT-297: index in hash key
+check ["id": "CONVERT-297",
+    "name": "index in hash key",
+    "source": "enum E { A, B, C }; let \$m = [E::B.index: \"ok\"]; echo \$m[1]",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

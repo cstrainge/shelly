@@ -1,0 +1,13 @@
+# C022: Malformed declaration falls back to command
+check ["id": "C022",
+    "name": "Malformed declaration falls back to command",
+    "source": "let \$missing_audit_variable",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

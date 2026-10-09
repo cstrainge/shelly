@@ -1,0 +1,13 @@
+# CONDLOOP-082: until conversion / "yes"
+check ["id": "CONDLOOP-082",
+    "name": "until conversion / \"yes\"",
+    "source": "until \"yes\" { echo \"body\"; break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

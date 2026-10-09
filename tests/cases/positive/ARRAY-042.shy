@@ -1,0 +1,13 @@
+# ARRAY-042: marked literal element not invoked during construction
+check ["id": "ARRAY-042",
+    "name": "marked literal element not invoked during construction",
+    "source": "let \$hits = 0; fn f() { \$hits = \$hits + 1 }; let \$a = [`f]; echo \$hits",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

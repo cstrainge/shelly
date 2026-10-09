@@ -1,0 +1,13 @@
+# ANNOTATION-180: optional explicit holes
+check ["id": "ANNOTATION-180",
+    "name": "optional explicit holes",
+    "source": "fn f(\$a: optional Number, \$b: optional String) { echo \$a \$b }; f () \"b\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "() b\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

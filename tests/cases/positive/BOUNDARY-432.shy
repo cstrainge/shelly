@@ -1,0 +1,13 @@
+# BOUNDARY-432: value pair / "2" and `word
+check ["id": "BOUNDARY-432",
+    "name": "value pair / \"2\" and `word",
+    "source": "echo (\"2\" == `word) (\"2\" != `word) (\"2\" && `word) (\"2\" || `word)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-193: missing unary operand / let $x = !
+check ["id": "BOUNDARY-193",
+    "name": "missing unary operand / let \$x = !",
+    "source": "echo \"PARSE_SENTINEL\"; let \$x = !",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

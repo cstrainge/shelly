@@ -1,0 +1,13 @@
+# METHOD-092: receiver evaluated once
+check ["id": "METHOD-092",
+    "name": "receiver evaluated once",
+    "source": "let \$hits = 0; fn f() { \$hits = \$hits + 1; [3, 1] }; echo (f).sort...; echo \$hits",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 3\n1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

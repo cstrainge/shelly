@@ -1,0 +1,13 @@
+# MAP-012: braced variable syntax
+check ["id": "MAP-012",
+    "name": "braced variable syntax",
+    "source": "let \$m = [\"x\":1]; \${m}[\"x\"] = 2; echo \${m}[\"x\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

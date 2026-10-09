@@ -1,0 +1,13 @@
+# C162: Unknown argument remains text
+check ["id": "C162",
+    "name": "Unknown argument remains text",
+    "source": "echo shelly_audit_unknown",
+    "mode": "code",
+    "args": [],
+    "stdout": "shelly_audit_unknown\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ARRAY-048: nonempty false-like elements are truthy
+check ["id": "ARRAY-048",
+    "name": "nonempty false-like elements are truthy",
+    "source": "echo !![false] !![()] !![0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

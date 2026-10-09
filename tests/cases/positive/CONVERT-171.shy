@@ -1,0 +1,13 @@
+# CONVERT-171: numeric and syntax Number(2.50)
+check ["id": "CONVERT-171",
+    "name": "numeric and syntax Number(2.50)",
+    "source": "echo Number(2.50)",
+    "mode": "code",
+    "args": [],
+    "stdout": "2.50\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

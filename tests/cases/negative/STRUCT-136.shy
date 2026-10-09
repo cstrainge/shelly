@@ -1,0 +1,13 @@
+# STRUCT-136: missing type before newline
+check ["id": "STRUCT-136",
+    "name": "missing type before newline",
+    "source": "struct S { n:\n }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# FOR-050: keyword argument fallback
+check ["id": "FOR-050",
+    "name": "keyword argument fallback",
+    "source": "echo for in",
+    "mode": "code",
+    "args": [],
+    "stdout": "for in\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

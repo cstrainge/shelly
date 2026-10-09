@@ -1,0 +1,13 @@
+# METHOD-085: typed count return
+check ["id": "METHOD-085",
+    "name": "typed count return",
+    "source": "fn f(\$a: [Integer]): Integer { \$a.count }; echo (f [2, 1])",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

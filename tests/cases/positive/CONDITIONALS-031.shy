@@ -1,0 +1,13 @@
+# CONDITIONALS-031: fn f() { if true { /usr/bin/false } else { /usr/bin/true } }; let $s = f; echo !$s
+check ["id": "CONDITIONALS-031",
+    "name": "fn f() { if true { /usr/bin/false } else { /usr/bin/true } }; let \$s = f; echo !\$s",
+    "source": "fn f() { if true { /usr/bin/false } else { /usr/bin/true } }; let \$s = f; echo !\$s",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

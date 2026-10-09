@@ -1,0 +1,13 @@
+# MAP-268: key equality / "ref" / 1.5
+check ["id": "MAP-268",
+    "name": "key equality / \"ref\" / 1.5",
+    "source": "let \$m = [\"ref\":7]; echo \$m[1.5]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

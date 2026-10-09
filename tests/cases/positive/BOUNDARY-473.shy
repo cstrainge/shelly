@@ -1,0 +1,13 @@
+# BOUNDARY-473: value pair / $args and 1.0
+check ["id": "BOUNDARY-473",
+    "name": "value pair / \$args and 1.0",
+    "source": "echo (\$args == 1.0) (\$args != 1.0) (\$args && 1.0) (\$args || 1.0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

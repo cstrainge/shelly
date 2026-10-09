@@ -1,0 +1,13 @@
+# BLOCKS-028: block command argument unsupported
+check ["id": "BLOCKS-028",
+    "name": "block command argument unsupported",
+    "source": "echo { 7 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# METHOD-105: boolean method result
+check ["id": "METHOD-105",
+    "name": "boolean method result",
+    "source": "if [1].count { echo \"ok\" }; echo Boolean([].sort)",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\nfalse\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

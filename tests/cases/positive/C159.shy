@@ -1,0 +1,13 @@
+# C159: Quoted callable name remains text
+check ["id": "C159",
+    "name": "Quoted callable name remains text",
+    "source": "fn f() { 7 }\necho (\"f\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "f\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

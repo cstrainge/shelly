@@ -1,0 +1,13 @@
+# ANNOTATION-152: bad empty return
+check ["id": "ANNOTATION-152",
+    "name": "bad empty return",
+    "source": "fn f(): Number { return }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

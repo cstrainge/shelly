@@ -1,0 +1,13 @@
+# C109: External status can be captured
+check ["id": "C109",
+    "name": "External status can be captured",
+    "source": "let \$x = /usr/bin/false ; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "ExecResult(1)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

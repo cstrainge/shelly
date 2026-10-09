@@ -1,0 +1,13 @@
+# STRUCT-080: optional rejects wrong type
+check ["id": "STRUCT-080",
+    "name": "optional rejects wrong type",
+    "source": "struct S { n: optional Number }; echo S(n: \"x\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected Number"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

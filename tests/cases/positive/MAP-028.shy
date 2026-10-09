@@ -1,0 +1,13 @@
+# MAP-028: read copy independence
+check ["id": "MAP-028",
+    "name": "read copy independence",
+    "source": "let \$m = [\"a\":[\"b\":1]]; let \$n = \$m[\"a\"]; \$n[\"b\"] = 2; echo \$m[\"a\"][\"b\"] \$n[\"b\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

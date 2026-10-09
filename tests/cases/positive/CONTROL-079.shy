@@ -1,0 +1,13 @@
+# CONTROL-079: continue skipped without active loop
+check ["id": "CONTROL-079",
+    "name": "continue skipped without active loop",
+    "source": "if false { continue }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C047: Self referencing redeclaration
+check ["id": "C047",
+    "name": "Self referencing redeclaration",
+    "source": "let \$x = 4 ; let \$x = \$x + 1 ; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

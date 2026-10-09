@@ -1,0 +1,13 @@
+# STRUCT-100: missing map key type
+check ["id": "STRUCT-100",
+    "name": "missing map key type",
+    "source": "struct S { n: [:Number] }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

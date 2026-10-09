@@ -1,0 +1,13 @@
+# CONVERT-299: nested index readonly
+check ["id": "CONVERT-299",
+    "name": "nested index readonly",
+    "source": "enum E { A, B, C }; let \$a = [E::A]; \$a[0].index = 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONTROL-059: continue table / [] / 0
+check ["id": "CONTROL-059",
+    "name": "continue table / [] / 0",
+    "source": "for \$i in [] { if \$i == 0 { continue }; echo \$i }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

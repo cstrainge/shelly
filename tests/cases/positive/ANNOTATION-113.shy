@@ -1,0 +1,13 @@
+# ANNOTATION-113: untyped remains dynamic
+check ["id": "ANNOTATION-113",
+    "name": "untyped remains dynamic",
+    "source": "let \$x = 1; \$x = \"text\"; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "text\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

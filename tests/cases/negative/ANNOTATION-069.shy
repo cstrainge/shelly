@@ -1,0 +1,13 @@
+# ANNOTATION-069: initialize [Number] from Boolean
+check ["id": "ANNOTATION-069",
+    "name": "initialize [Number] from Boolean",
+    "source": "let \$x: [Number] = true; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

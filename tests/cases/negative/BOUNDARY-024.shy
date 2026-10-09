@@ -1,0 +1,13 @@
+# BOUNDARY-024: unclosed block
+check ["id": "BOUNDARY-024",
+    "name": "unclosed block",
+    "source": "echo \"PARSE_SENTINEL\"; {",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-029: group statement list
+check ["id": "BOUNDARY-029",
+    "name": "group statement list",
+    "source": "echo \"PARSE_SENTINEL\"; echo (1; 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

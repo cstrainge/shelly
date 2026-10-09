@@ -1,0 +1,13 @@
+# CONVERT-066: matrix Array to Array
+check ["id": "CONVERT-066",
+    "name": "matrix Array to Array",
+    "source": "let \$v = [1, 2]; let \$converted: Array = Array(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "1:2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

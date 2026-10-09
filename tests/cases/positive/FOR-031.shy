@@ -1,0 +1,13 @@
+# FOR-031: empty map
+check ["id": "FOR-031",
+    "name": "empty map",
+    "source": "for \$k,\$v in [:] { echo \"bad\" }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

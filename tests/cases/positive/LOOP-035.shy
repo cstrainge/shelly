@@ -1,0 +1,13 @@
+# LOOP-035: continue abandons expression / 1 + (if true { continue })
+check ["id": "LOOP-035",
+    "name": "continue abandons expression / 1 + (if true { continue })",
+    "source": "let \$n = 0; let \$old = 9; loop { \$n = \$n + 1; if \$n == 3 { break }; let \$old = 1 + (if true { continue }); echo \"bad\" }; echo \$old",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

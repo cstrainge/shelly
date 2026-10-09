@@ -1,0 +1,13 @@
+# STRUCT-012: recursive optional
+check ["id": "STRUCT-012",
+    "name": "recursive optional",
+    "source": "struct Node { n: Number, next: optional Node }; let \$n = Node(n: 1, next: Node(n: 2)); echo \$n.next.n \$n.next.next",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 ()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

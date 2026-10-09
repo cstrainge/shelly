@@ -1,0 +1,13 @@
+# RANGE-056: existing scalar splat
+check ["id": "RANGE-056",
+    "name": "existing scalar splat",
+    "source": "let \$x = 7; audit_args \$x...",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"7\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-176: duplicate typed parameter
+check ["id": "ANNOTATION-176",
+    "name": "duplicate typed parameter",
+    "source": "fn f(\$x: Number, \$x: String) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

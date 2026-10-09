@@ -1,0 +1,13 @@
+# ANNOTATION-207: variable known incompatible initializer
+check ["id": "ANNOTATION-207",
+    "name": "variable known incompatible initializer",
+    "source": "let \$x: Number; let \$y: String = \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

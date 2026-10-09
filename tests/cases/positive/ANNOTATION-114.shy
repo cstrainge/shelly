@@ -1,0 +1,13 @@
+# ANNOTATION-114: explicit any remains dynamic
+check ["id": "ANNOTATION-114",
+    "name": "explicit any remains dynamic",
+    "source": "let \$x: any; \$x = [1]; \$x = \"text\"; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "text\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

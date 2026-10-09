@@ -1,0 +1,13 @@
+# RANGE-007: both variable bounds
+check ["id": "RANGE-007",
+    "name": "both variable bounds",
+    "source": "let \$start = 1; let \$end = 4; let \$r = \$start..\$end; echo \$r \$r...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1..4 1 2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

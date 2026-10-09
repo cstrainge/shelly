@@ -1,0 +1,13 @@
+# CONDITIONALS-029: if true {} let $x = 4 echo $x
+check ["id": "CONDITIONALS-029",
+    "name": "if true {} let \$x = 4 echo \$x",
+    "source": "if true {}\nlet \$x = 4\necho \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

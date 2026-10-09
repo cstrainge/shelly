@@ -1,0 +1,13 @@
+# ENUM-006: map key write
+check ["id": "ENUM-006",
+    "name": "map key write",
+    "source": "enum Color { Red, Green, Blue }; let \$m = [:]; \$m[Color::Green] = 9; echo \$m[Color::Green]",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

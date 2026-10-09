@@ -1,0 +1,13 @@
+# BOUNDARY-157: missing RHS / * / if false {{ 1 {} }} else {{ 7 }}
+check ["id": "BOUNDARY-157",
+    "name": "missing RHS / * / if false {{ 1 {} }} else {{ 7 }}",
+    "source": "echo \"PARSE_SENTINEL\"; if false { 1 * } else { 7 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "PARSE_SENTINEL\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

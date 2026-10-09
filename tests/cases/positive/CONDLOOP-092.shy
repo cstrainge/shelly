@@ -1,0 +1,13 @@
+# CONDLOOP-092: until conversion / (/usr/bin/false)
+check ["id": "CONDLOOP-092",
+    "name": "until conversion / (/usr/bin/false)",
+    "source": "until (/usr/bin/false) { echo \"body\"; break }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "body\ndone\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

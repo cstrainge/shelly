@@ -1,0 +1,13 @@
+# LOOP-007: function loop returns None
+check ["id": "LOOP-007",
+    "name": "function loop returns None",
+    "source": "fn f() { loop { break } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

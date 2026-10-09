@@ -1,0 +1,13 @@
+# CONVERT-258: empty String
+check ["id": "CONVERT-258",
+    "name": "empty String",
+    "source": "echo String()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["exactly one positional value"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

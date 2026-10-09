@@ -1,0 +1,13 @@
+# FOR-019: array source snapshot
+check ["id": "FOR-019",
+    "name": "array source snapshot",
+    "source": "let \$a = [1,2]; for \$v in \$a { echo \$v; \$a[1] = 9 }; echo \$a...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n1 9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

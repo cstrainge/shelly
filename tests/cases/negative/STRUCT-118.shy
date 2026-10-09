@@ -1,0 +1,13 @@
+# STRUCT-118: runtime field on none
+check ["id": "STRUCT-118",
+    "name": "runtime field on none",
+    "source": "struct S { next: optional S }; let \$s = S(); echo \$s.next.next",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": ["Cannot access a field"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

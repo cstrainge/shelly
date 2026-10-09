@@ -1,0 +1,13 @@
+# ARRAY-134: array variable conditional result
+check ["id": "ARRAY-134",
+    "name": "array variable conditional result",
+    "source": "let \$a = [1,2]; let \$b = if true { \$a }; echo (\$b == [1,2])",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

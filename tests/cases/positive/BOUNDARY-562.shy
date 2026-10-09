@@ -1,0 +1,13 @@
+# BOUNDARY-562: current literal-punctuation policy / alias a = echo ); a
+check ["id": "BOUNDARY-562",
+    "name": "current literal-punctuation policy / alias a = echo ); a",
+    "source": "alias a = echo ); a",
+    "mode": "code",
+    "args": [],
+    "stdout": ")\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

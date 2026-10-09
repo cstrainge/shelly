@@ -1,0 +1,13 @@
+# CONTROL-025: break abandoned arithmetic
+check ["id": "CONTROL-025",
+    "name": "break abandoned arithmetic",
+    "source": "let \$x = 9; for \$i in 0..3 { let \$x = 100 + (if true { break }); echo \"bad\" }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

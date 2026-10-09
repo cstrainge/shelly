@@ -1,0 +1,13 @@
+# LOOP-011: fresh scopes and shadow restoration
+check ["id": "LOOP-011",
+    "name": "fresh scopes and shadow restoration",
+    "source": "let \$n = 0; let \$local = 9; loop { let \$local = \$local + 1; echo \$local; \$n = \$n + 1; if \$n == 3 { break } }; echo \$local",
+    "mode": "code",
+    "args": [],
+    "stdout": "10\n10\n10\n9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

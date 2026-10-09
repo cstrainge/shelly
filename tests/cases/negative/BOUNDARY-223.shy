@@ -1,0 +1,13 @@
+# BOUNDARY-223: ambiguous variable syntax / let $x = `audit_say; $x... = 2
+check ["id": "BOUNDARY-223",
+    "name": "ambiguous variable syntax / let \$x = `audit_say; \$x... = 2",
+    "source": "echo \"PARSE_SENTINEL\"; let \$x = `audit_say; \$x... = 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

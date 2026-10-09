@@ -1,0 +1,13 @@
+# C056: Empty spaced function returns None
+check ["id": "C056",
+    "name": "Empty spaced function returns None",
+    "source": "fn f() { }\necho (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

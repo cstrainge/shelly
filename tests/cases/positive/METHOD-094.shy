@@ -1,0 +1,13 @@
+# METHOD-094: sort enum
+check ["id": "METHOD-094",
+    "name": "sort enum",
+    "source": "enum E { Z, A, M }; echo [E::M, E::Z, E::A].sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "E::Z E::A E::M\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

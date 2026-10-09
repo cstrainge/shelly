@@ -1,0 +1,13 @@
+# BOUNDARY-548: three-branch truth table / true,false,false
+check ["id": "BOUNDARY-548",
+    "name": "three-branch truth table / true,false,false",
+    "source": "echo (if true { 0 } else if false { 1 } else if false { 2 } else { 3 })",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

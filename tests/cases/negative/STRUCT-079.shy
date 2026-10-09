@@ -1,0 +1,13 @@
+# STRUCT-079: wrong nested map value
+check ["id": "STRUCT-079",
+    "name": "wrong nested map value",
+    "source": "struct S { n: [String: Number] }; echo S(n: [\"x\": \"2\"])",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected Number"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

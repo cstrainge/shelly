@@ -1,0 +1,13 @@
+# RANGE-047: max inclusive single value
+check ["id": "RANGE-047",
+    "name": "max inclusive single value",
+    "source": "let \$r = 9223372036854775807..=9223372036854775807; echo \$r...",
+    "mode": "code",
+    "args": [],
+    "stdout": "9223372036854775807\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

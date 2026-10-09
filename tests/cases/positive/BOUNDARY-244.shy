@@ -1,0 +1,13 @@
+# BOUNDARY-244: value pair / 0 and "word"
+check ["id": "BOUNDARY-244",
+    "name": "value pair / 0 and \"word\"",
+    "source": "echo (0 == \"word\") (0 != \"word\") (0 && \"word\") (0 || \"word\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

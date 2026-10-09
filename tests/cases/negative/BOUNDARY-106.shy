@@ -1,0 +1,13 @@
+# BOUNDARY-106: skipped branch / if true {} else 7
+check ["id": "BOUNDARY-106",
+    "name": "skipped branch / if true {} else 7",
+    "source": "echo \"PARSE_SENTINEL\"; if true { 1 } else { if true {} else 7 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

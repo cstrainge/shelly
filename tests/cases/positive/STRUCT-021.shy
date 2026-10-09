@@ -1,0 +1,13 @@
+# STRUCT-021: copy on write
+check ["id": "STRUCT-021",
+    "name": "copy on write",
+    "source": "struct S { n: Number, text: String, extra: optional }; let \$a = S(n: 1, text: \"x\"); let \$b = \$a; \$b.n = 2; echo \$a.n \$b.n",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

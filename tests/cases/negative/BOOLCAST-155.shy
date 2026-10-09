@@ -1,0 +1,13 @@
+# BOOLCAST-155: annotation strict
+check ["id": "BOOLCAST-155",
+    "name": "annotation strict",
+    "source": "let \$flag: Boolean = 1",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Expected Boolean"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

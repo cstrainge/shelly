@@ -1,0 +1,13 @@
+# METHOD-119: mixed enums sort
+check ["id": "METHOD-119",
+    "name": "mixed enums sort",
+    "source": "enum E { A }; enum F { A }; echo [E::A, F::A].sort",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Method .* expected|Array methods require|sort requires)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

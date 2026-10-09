@@ -1,0 +1,13 @@
+# MAP-485: key equality / (/usr/bin/false) / `ref
+check ["id": "MAP-485",
+    "name": "key equality / (/usr/bin/false) / `ref",
+    "source": "let \$m = [(/usr/bin/false):7]; echo \$m[`ref]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

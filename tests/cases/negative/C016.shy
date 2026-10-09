@@ -1,0 +1,13 @@
+# C016: Missing variable
+check ["id": "C016",
+    "name": "Missing variable",
+    "source": "echo \$missing_audit_variable",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

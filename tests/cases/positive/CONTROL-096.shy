@@ -1,0 +1,13 @@
+# CONTROL-096: continue inner then break outer
+check ["id": "CONTROL-096",
+    "name": "continue inner then break outer",
+    "source": "for \$i in 0..3 { for \$j in [1,2] { continue }; echo \$i; break }",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

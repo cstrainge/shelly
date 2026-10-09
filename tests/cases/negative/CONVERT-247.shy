@@ -1,0 +1,13 @@
+# CONVERT-247: extra arguments ExecResult
+check ["id": "CONVERT-247",
+    "name": "extra arguments ExecResult",
+    "source": "echo ExecResult(1, 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

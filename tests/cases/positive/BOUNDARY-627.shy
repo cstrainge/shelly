@@ -1,0 +1,13 @@
+# BOUNDARY-627: equals after variable path prefix
+check ["id": "BOUNDARY-627",
+    "name": "equals after variable path prefix",
+    "source": "let \$x = \"prefix\"; audit_args \$x/file=name",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"prefix/file=name\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

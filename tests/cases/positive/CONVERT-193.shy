@@ -1,0 +1,13 @@
+# CONVERT-193: numeric and syntax HashMap([:])
+check ["id": "CONVERT-193",
+    "name": "numeric and syntax HashMap([:])",
+    "source": "echo HashMap([:])",
+    "mode": "code",
+    "args": [],
+    "stdout": "[:]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

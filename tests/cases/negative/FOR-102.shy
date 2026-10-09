@@ -1,0 +1,13 @@
+# FOR-102: syntax rejection / for
+check ["id": "FOR-102",
+    "name": "syntax rejection / for",
+    "source": "echo \"PARSE_SENTINEL\"; for",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# NEWLINE-057: standalone none
+check ["id": "NEWLINE-057",
+    "name": "standalone none",
+    "source": "echo ()",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ARRAY-024: literal evaluation order
+check ["id": "ARRAY-024",
+    "name": "literal evaluation order",
+    "source": "let \$n = 0; fn next() { \$n = \$n + 1; \$n }; let \$a = [next, next, next]; echo (\$a == [1,2,3]) \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "true 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

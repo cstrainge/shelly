@@ -1,0 +1,13 @@
+# CONVERT-265: extra arguments HashMap
+check ["id": "CONVERT-265",
+    "name": "extra arguments HashMap",
+    "source": "echo HashMap(1, 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

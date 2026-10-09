@@ -1,0 +1,13 @@
+# EXTENSION-044: same method other types
+check ["id": "EXTENSION-044",
+    "name": "same method other types",
+    "source": "fn Integer::tag() { \"integer\" }; fn String::tag() { \"string\" }; let \$a = 1; let \$b = \"x\"; echo \$a.tag \$b.tag",
+    "mode": "code",
+    "args": [],
+    "stdout": "integer string\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

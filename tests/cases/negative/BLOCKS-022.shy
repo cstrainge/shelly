@@ -1,0 +1,13 @@
+# BLOCKS-022: locals vanish
+check ["id": "BLOCKS-022",
+    "name": "locals vanish",
+    "source": "{ let \$local_block = 7 }; echo \$local_block",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

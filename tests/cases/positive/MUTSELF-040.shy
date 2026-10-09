@@ -1,0 +1,13 @@
+# MUTSELF-040: new declaration keeps old binding alive
+check ["id": "MUTSELF-040",
+    "name": "new declaration keeps old binding alive",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$n = 1; fn Integer::next() { \$self.inc; \$self }; let \$r = `\$n.next; let \$n = 9; echo (\$r) (\$r) \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 3 9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

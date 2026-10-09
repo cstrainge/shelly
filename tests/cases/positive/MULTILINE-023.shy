@@ -1,0 +1,13 @@
+# MULTILINE-023: function return / || / '\n' ' '
+check ["id": "MULTILINE-023",
+    "name": "function return / || / '\\n' ' '",
+    "source": "fn f() { return false\n|| true }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

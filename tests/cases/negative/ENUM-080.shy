@@ -1,0 +1,13 @@
+# ENUM-080: backtick variable
+check ["id": "ENUM-080",
+    "name": "backtick variable",
+    "source": "enum Color { Red, Green, Blue }; let \$x = Color::Red; let \$f = `\$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Enums cannot|Cannot execute an enum|Cannot index|For loops require)",
+    "stderr_contains": ["Cannot execute an enum"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

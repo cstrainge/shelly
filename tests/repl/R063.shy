@@ -1,0 +1,5 @@
+# Extension compile errors roll back definitions
+check_repl ["id": "R063",
+    "name": "Extension compile errors roll back definitions",
+    "steps": [["fn Integer::label() { 1 }; let \$n = 3", "quiet", ""], ["fn Integer::label() { 2 }; fn Unknown::f() {}", "error", ""], ["echo \$n.label", "output", "1"], ["struct S { x: Integer }; fn S::x() {}", "error", ""], ["struct S { y: Integer }; echo S(y: 4).y", "output", "4"]],
+    "exit": 0]

@@ -1,0 +1,5 @@
+# Compiled calls and stored references keep original function versions
+check_repl ["id": "R050",
+    "name": "Compiled calls and stored references keep original function versions",
+    "steps": [["fn target(\$x: optional Number): optional Number { return \$x }", "quiet", ""], ["fn caller() { target }", "quiet", ""], ["let \$r = `target", "quiet", ""], ["let \$copy = \$r", "quiet", ""], ["echo (caller) (\$r)", "output", "() ()"], ["fn target(\$x: optional Number, \$y: optional Number): String { return \"new\" }", "quiet", ""], ["echo (caller) (\$r) (target)", "output", "() () new"], ["echo (\$copy 7)", "output", "7"], ["\$r 1 2", "error", ""], ["fn target(\$xs: Number...): [Number] { return \$xs }", "quiet", ""], ["echo ((caller) == ()) (\$r 5)", "output", "true 5"], ["echo (target 1 2)...", "output", "1 2"], ["let \$new = `target", "quiet", ""], ["fn target(): String { return \"latest\" }", "quiet", ""], ["echo (\$new 3 4)...", "output", "3 4"], ["echo (target)", "output", "latest"], ["echo (caller) (\$r)", "output", "() ()"]],
+    "exit": 0]

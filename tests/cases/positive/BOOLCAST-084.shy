@@ -1,0 +1,13 @@
+# BOOLCAST-084: variable / ["x": ()]
+check ["id": "BOOLCAST-084",
+    "name": "variable / [\"x\": ()]",
+    "source": "let \$value = [\"x\": ()]; let \$flag: Boolean = Boolean(\$value); echo \$flag",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

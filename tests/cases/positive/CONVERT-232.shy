@@ -1,0 +1,13 @@
+# CONVERT-232: plain string reference
+check ["id": "CONVERT-232",
+    "name": "plain string reference",
+    "source": "fn f() { echo \"bad\" }; let \$r = `f; let \$s = String(\$r); echo \$s",
+    "mode": "code",
+    "args": [],
+    "stdout": "f\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

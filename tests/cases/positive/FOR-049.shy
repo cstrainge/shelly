@@ -1,0 +1,13 @@
+# FOR-049: multiline body open
+check ["id": "FOR-049",
+    "name": "multiline body open",
+    "source": "for \$v in [\n1,2,\n]\n# body\n{\n echo \$v\n}",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

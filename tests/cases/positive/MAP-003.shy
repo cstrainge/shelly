@@ -1,0 +1,13 @@
+# MAP-003: empty map
+check ["id": "MAP-003",
+    "name": "empty map",
+    "source": "let \$m = [:]; echo (\$m == [:]) !\$m \$m[\"missing\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true ()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

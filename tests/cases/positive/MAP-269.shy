@@ -1,0 +1,13 @@
+# MAP-269: key equality / "ref" / true
+check ["id": "MAP-269",
+    "name": "key equality / \"ref\" / true",
+    "source": "let \$m = [\"ref\":7]; echo \$m[true]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

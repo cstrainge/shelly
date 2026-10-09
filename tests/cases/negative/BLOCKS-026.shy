@@ -1,0 +1,13 @@
+# BLOCKS-026: incomplete nested block
+check ["id": "BLOCKS-026",
+    "name": "incomplete nested block",
+    "source": "{{}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

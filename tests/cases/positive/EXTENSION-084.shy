@@ -1,0 +1,13 @@
+# EXTENSION-084: bound return escape
+check ["id": "EXTENSION-084",
+    "name": "bound return escape",
+    "source": "fn Integer::f() { \$self }; fn make() { let \$n = 7; return `\$n.f }; let \$r = make; echo (\$r)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

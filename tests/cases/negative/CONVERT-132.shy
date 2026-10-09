@@ -1,0 +1,13 @@
+# CONVERT-132: matrix Struct to Number
+check ["id": "CONVERT-132",
+    "name": "matrix Struct to Number",
+    "source": "struct S { n: Integer }; let \$v = S(n: 2); let \$converted: Number = Number(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

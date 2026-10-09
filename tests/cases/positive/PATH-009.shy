@@ -1,0 +1,13 @@
+# PATH-009: HOME self assignment after change
+check ["id": "PATH-009",
+    "name": "HOME self assignment after change",
+    "source": "let \$HOME = \"<FIXTURE>/home/sub\"; let \$HOME = \$HOME; cd \$HOME; echo (\$pwd == \"~\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

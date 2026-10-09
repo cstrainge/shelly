@@ -1,0 +1,13 @@
+# REDIRECTION-046: stdin source
+check ["id": "REDIRECTION-046",
+    "name": "stdin source",
+    "source": "let \$out: String; echo \"ok\" -> \$out; printf \"%s\" \$out",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

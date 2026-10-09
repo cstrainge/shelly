@@ -1,0 +1,13 @@
+# ENUM-001: construction and printing
+check ["id": "ENUM-001",
+    "name": "construction and printing",
+    "source": "enum Color { Red, Green, Blue }; echo Color::Red Color::Green",
+    "mode": "code",
+    "args": [],
+    "stdout": "Color::Red Color::Green\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

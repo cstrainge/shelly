@@ -1,0 +1,5 @@
+# Enum scope escape and old function bindings
+check_repl ["id": "R039",
+    "name": "Enum scope escape and old function bindings",
+    "steps": [["enum Outer { A }; let \$escaped = ()", "quiet", ""], ["{ enum Outer { A }; \$escaped = Outer::A; fn inner() { Outer::A } }", "quiet", ""], ["echo (\$escaped == Outer::A) ((inner) == \$escaped)", "output", "false true"], ["{ enum Local { A }; let \$x = Local::A }; echo \"ok\"", "output", "ok"], ["echo Local::A", "error", ""], ["echo !Outer::A", "output", "false"]],
+    "exit": 0]

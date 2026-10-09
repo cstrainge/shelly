@@ -1,0 +1,13 @@
+# NEWLINE-026: missing field
+check ["id": "NEWLINE-026",
+    "name": "missing field",
+    "source": "struct S { n: Number, other }; S\n(n: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

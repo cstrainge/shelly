@@ -1,0 +1,13 @@
+# ENUM-017: no magic variants
+check ["id": "ENUM-017",
+    "name": "no magic variants",
+    "source": "enum Test { False, Error, None }; echo !Test::False !Test::Error !Test::None",
+    "mode": "code",
+    "args": [],
+    "stdout": "false false false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

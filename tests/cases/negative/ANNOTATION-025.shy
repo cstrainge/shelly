@@ -1,0 +1,13 @@
+# ANNOTATION-025: initialize Integer from [String: Number]
+check ["id": "ANNOTATION-025",
+    "name": "initialize Integer from [String: Number]",
+    "source": "let \$x: Integer = [\"x\": 1]; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

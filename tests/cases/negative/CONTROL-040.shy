@@ -1,0 +1,13 @@
+# CONTROL-040: break outside active frame / for $i in [1] { break }; break
+check ["id": "CONTROL-040",
+    "name": "break outside active frame / for \$i in [1] { break }; break",
+    "source": "for \$i in [1] { break }; break; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Loop control error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

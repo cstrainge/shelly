@@ -1,0 +1,13 @@
+# STRUCT-066: duplicate constructor field
+check ["id": "STRUCT-066",
+    "name": "duplicate constructor field",
+    "source": "struct S { n }; echo S(n: 1, n: 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Duplicate constructor field"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

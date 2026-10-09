@@ -1,0 +1,13 @@
+# CONTROL-017: break table / 5..0 / 0
+check ["id": "CONTROL-017",
+    "name": "break table / 5..0 / 0",
+    "source": "for \$i in 5..0 { if \$i == 0 { break }; echo \$i }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# RANGE-144: file invalid range
+check ["id": "RANGE-144",
+    "name": "file invalid range",
+    "source": "echo \"PARSE_SENTINEL\"; let \$r = 1..=",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

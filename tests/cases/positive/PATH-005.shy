@@ -1,0 +1,13 @@
+# PATH-005: stored source remains absolute
+check ["id": "PATH-005",
+    "name": "stored source remains absolute",
+    "source": "let \$p = \"<FIXTURE>/home/sub\"; echo (\$p == \"~/sub\"); \$HOME = \"<FIXTURE>/fixtures\"; echo (\$p == \"<FIXTURE>/home/sub\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\ntrue\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

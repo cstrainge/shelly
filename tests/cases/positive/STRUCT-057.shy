@@ -1,0 +1,13 @@
+# STRUCT-057: keyword fields
+check ["id": "STRUCT-057",
+    "name": "keyword fields",
+    "source": "struct S { if, true, optional }; let \$s = S(if: 1, true: 2, optional: 3); echo \$s.if \$s.true \$s.optional",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

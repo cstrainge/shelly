@@ -1,0 +1,13 @@
+# MAP-008: numeric duplicate last wins
+check ["id": "MAP-008",
+    "name": "numeric duplicate last wins",
+    "source": "let \$m = [1:1,1.0:2]; echo (\$m == [1:2]) \$m[1] \$m[1.0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "true 2 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,5 @@
+# Boolean short circuit side effects across inputs
+check_repl ["id": "R014",
+    "name": "Boolean short circuit side effects across inputs",
+    "steps": [["let \$hits = 0", "quiet", ""], ["fn touch() { \$hits = \$hits + 1; true }", "quiet", ""], ["let \$ready = false && (touch)", "quiet", ""], ["echo \$ready \$hits", "output", "false 0"], ["let \$ready = true && (touch)", "quiet", ""], ["echo \$ready \$hits", "output", "true 1"], ["echo (true && (1 / 0))", "error", ""], ["echo \$hits", "output", "1"]],
+    "exit": 0]

@@ -1,0 +1,13 @@
+# MULTILINE-094: until condition
+check ["id": "MULTILINE-094",
+    "name": "until condition",
+    "source": "let \$x = 0; until \$x == 2\n || false\n { \$x = \$x + 1 }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

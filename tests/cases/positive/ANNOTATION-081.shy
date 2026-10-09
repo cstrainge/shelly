@@ -1,0 +1,13 @@
+# ANNOTATION-081: initialize [String: Number] from [String: Number]
+check ["id": "ANNOTATION-081",
+    "name": "initialize [String: Number] from [String: Number]",
+    "source": "let \$x: [String: Number] = [\"x\": 1]; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

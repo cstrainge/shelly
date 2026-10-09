@@ -1,0 +1,13 @@
+# BOUNDARY-218: skipped runtime error / status
+check ["id": "BOUNDARY-218",
+    "name": "skipped runtime error / status",
+    "source": "if false { /usr/bin/false }; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

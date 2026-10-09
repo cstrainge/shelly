@@ -1,0 +1,13 @@
+# C059: Returned executable remains a value
+check ["id": "C059",
+    "name": "Returned executable remains a value",
+    "source": "fn target() { echo \"bad\" }\nlet \$r = `target ; fn f() { return \$r }\necho (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "target\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

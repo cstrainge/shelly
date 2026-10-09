@@ -1,0 +1,13 @@
+# ANNOTATION-082: parameter Integer
+check ["id": "ANNOTATION-082",
+    "name": "parameter Integer",
+    "source": "fn f(\$x: Integer): Integer { return \$x }; let \$x = f 1; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

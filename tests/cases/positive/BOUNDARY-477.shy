@@ -1,0 +1,13 @@
+# BOUNDARY-477: value pair / $args and ()
+check ["id": "BOUNDARY-477",
+    "name": "value pair / \$args and ()",
+    "source": "echo (\$args == ()) (\$args != ()) (\$args && ()) (\$args || ())",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

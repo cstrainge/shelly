@@ -1,0 +1,13 @@
+# RANGE-059: bounded iteration table / -2..-1
+check ["id": "RANGE-059",
+    "name": "bounded iteration table / -2..-1",
+    "source": "let \$r = -2..-1; audit_args \$r...; echo !\$r",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"-2\"]\nfalse\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

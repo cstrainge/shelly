@@ -1,0 +1,5 @@
+# Loop errors clean up scopes and iterator state
+check_repl ["id": "R028",
+    "name": "Loop errors clean up scopes and iterator state",
+    "steps": [["let \$i = 99; let \$hits = 0", "quiet", ""], ["for \$i in [1,2] { \$hits = \$hits + 1; let \$local = \$i; 1 / 0 }", "error", ""], ["echo \$i \$hits", "output", "99 1"], ["echo \$local", "error", "not found"], ["for \$i in 7 {}", "error", ""], ["for \$i in []", "error", ""], ["for \$i in [1,2] { for \$j in [3] { /usr/bin/false } }", "error", ""], ["echo \$j", "error", "not found"], ["for \$i in [4,5] { echo \$i }", "output", "4\n5"], ["echo \$i", "output", "99"]],
+    "exit": 0]

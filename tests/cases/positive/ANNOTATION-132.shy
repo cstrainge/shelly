@@ -1,0 +1,13 @@
+# ANNOTATION-132: early return within loop
+check ["id": "ANNOTATION-132",
+    "name": "early return within loop",
+    "source": "fn f(): Number { loop { return 7 } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

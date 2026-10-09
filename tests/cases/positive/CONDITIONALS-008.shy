@@ -1,0 +1,13 @@
+# CONDITIONALS-008: echo 2 + if true { 3 } else { 4 } * 5
+check ["id": "CONDITIONALS-008",
+    "name": "echo 2 + if true { 3 } else { 4 } * 5",
+    "source": "echo 2 + if true { 3 } else { 4 } * 5",
+    "mode": "code",
+    "args": [],
+    "stdout": "17\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# REDIRECTION-014: function capture
+check ["id": "REDIRECTION-014",
+    "name": "function capture",
+    "source": "fn f() { echo \"one\"; echo \"two\" }; let \$out: String; f -> \$out; printf \"%s\" \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "one\ntwo\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

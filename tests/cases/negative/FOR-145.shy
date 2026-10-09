@@ -1,0 +1,13 @@
+# FOR-145: stdin syntax rejection
+check ["id": "FOR-145",
+    "name": "stdin syntax rejection",
+    "source": "echo \"PARSE_SENTINEL\"; for \$i in []",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

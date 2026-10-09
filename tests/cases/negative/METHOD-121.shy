@@ -1,0 +1,13 @@
+# METHOD-121: bound method wrong arity
+check ["id": "METHOD-121",
+    "name": "bound method wrong arity",
+    "source": "let \$a = [1]; let \$sort = `\$a.sort; \$sort 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Method .* expected|Array methods require|sort requires)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

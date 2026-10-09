@@ -1,0 +1,13 @@
+# REDIRECTION-024: binary file transfer
+check ["id": "REDIRECTION-024",
+    "name": "binary file transfer",
+    "source": "cat data/all-bytes -> binary.dat; binary.dat -> copy.dat; cmp binary.dat copy.dat; echo \"binary-ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "binary-ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

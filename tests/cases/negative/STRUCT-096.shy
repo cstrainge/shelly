@@ -1,0 +1,13 @@
+# STRUCT-096: invalid field name
+check ["id": "STRUCT-096",
+    "name": "invalid field name",
+    "source": "struct S { some-name: Number }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

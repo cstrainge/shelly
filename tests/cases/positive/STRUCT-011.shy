@@ -1,0 +1,13 @@
+# STRUCT-011: map any types
+check ["id": "STRUCT-011",
+    "name": "map any types",
+    "source": "struct S { m: [any: any] }; echo S(m: [[1]: ()]).m",
+    "mode": "code",
+    "args": [],
+    "stdout": "[[1]: ()]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

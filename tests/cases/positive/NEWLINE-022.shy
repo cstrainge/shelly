@@ -1,0 +1,13 @@
+# NEWLINE-022: same line shell argument
+check ["id": "NEWLINE-022",
+    "name": "same line shell argument",
+    "source": "fn f(\$x) { return \$x }; echo (f (3 + 4))",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

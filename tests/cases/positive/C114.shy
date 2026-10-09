@@ -1,0 +1,13 @@
+# C114: Exported variable reaches child
+check ["id": "C114",
+    "name": "Exported variable reaches child",
+    "source": "let export \$AUDIT_FLAG = \"ok\" ; /usr/bin/printenv AUDIT_FLAG",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

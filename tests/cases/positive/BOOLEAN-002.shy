@@ -1,0 +1,13 @@
+# BOOLEAN-002: echo (1==1.0) (2.50==2.5) ("1"==1) (true==1) (() == ())
+check ["id": "BOOLEAN-002",
+    "name": "echo (1==1.0) (2.50==2.5) (\"1\"==1) (true==1) (() == ())",
+    "source": "echo (1==1.0) (2.50==2.5) (\"1\"==1) (true==1) (() == ())",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true false false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

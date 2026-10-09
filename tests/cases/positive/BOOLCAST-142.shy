@@ -1,0 +1,13 @@
+# BOOLCAST-142: shadowed empty struct
+check ["id": "BOOLCAST-142",
+    "name": "shadowed empty struct",
+    "source": "struct Boolean {}; echo Boolean() Boolean ()",
+    "mode": "code",
+    "args": [],
+    "stdout": "Boolean() Boolean()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

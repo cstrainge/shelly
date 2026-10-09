@@ -1,0 +1,13 @@
+# ANNOTATION-131: typed conditional expression
+check ["id": "ANNOTATION-131",
+    "name": "typed conditional expression",
+    "source": "fn f(\$x: Boolean): Number { if \$x { 1 } else { 2 } }; echo (f true) (f false)",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

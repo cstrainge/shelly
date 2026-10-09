@@ -1,0 +1,13 @@
+# EXTENSION-031: optional and variadic
+check ["id": "EXTENSION-031",
+    "name": "optional and variadic",
+    "source": "fn Integer::args(\$a: optional Integer, \$rest: Integer...): Array { [\$self, \$a, \$rest] }; let \$n = 2; let \$a = \$n.args; let \$b = \$n.args 3 4 5; echo \$a[0] \$a[1] \$a[2].count \$b[0] \$b[1] \$b[2]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 () 0 2 3 4:5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

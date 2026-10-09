@@ -1,0 +1,13 @@
+# MAP-011: compact syntax
+check ["id": "MAP-011",
+    "name": "compact syntax",
+    "source": "echo [\"x\":1,\"y\":2][\"y\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-226: forward local function shadows outer version
+check ["id": "ANNOTATION-226",
+    "name": "forward local function shadows outer version",
+    "source": "fn g(): Number { 1 }; fn f(): Number { return g; fn g(): Number { 2 } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# C062: Reference copy is inert
+check ["id": "C062",
+    "name": "Reference copy is inert",
+    "source": "fn f() { 7 }\nlet \$r = `f ; let \$copy = \$r ; echo \"\$copy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "f\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

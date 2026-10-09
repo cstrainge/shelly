@@ -1,0 +1,13 @@
+# ANNOTATION-213: variadic too few fixed
+check ["id": "ANNOTATION-213",
+    "name": "variadic too few fixed",
+    "source": "fn f(\$a: Number, \$xs...) {}; f",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Function .* expected (?:at least )?[0-9]+(?: to [0-9]+)? arguments, but got [0-9]+",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

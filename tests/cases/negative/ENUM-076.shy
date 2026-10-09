@@ -1,0 +1,13 @@
+# ENUM-076: variable arithmetic
+check ["id": "ENUM-076",
+    "name": "variable arithmetic",
+    "source": "enum Color { Red, Green, Blue }; let \$x = Color::Red; echo \$x * 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Enums cannot|Cannot execute an enum|Cannot index|For loops require)",
+    "stderr_contains": ["Enums cannot be used in arithmetic"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

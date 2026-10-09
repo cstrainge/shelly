@@ -1,0 +1,13 @@
+# CONVERT-229: array sharing write isolation
+check ["id": "CONVERT-229",
+    "name": "array sharing write isolation",
+    "source": "let \$a = [1, 2]; let \$b: Array = Array(\$a); \$b[0] = 9; echo \$a \$b",
+    "mode": "code",
+    "args": [],
+    "stdout": "1:2 9:2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

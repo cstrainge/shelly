@@ -1,0 +1,13 @@
+# RANGE-123: unbounded expansion / ..3
+check ["id": "RANGE-123",
+    "name": "unbounded expansion / ..3",
+    "source": "let \$r = ..3; echo \$r...; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Range error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

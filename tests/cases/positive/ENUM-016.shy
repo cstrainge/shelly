@@ -1,0 +1,13 @@
+# ENUM-016: enum truth
+check ["id": "ENUM-016",
+    "name": "enum truth",
+    "source": "enum Color { Red, Green, Blue }; echo !Color::Red (Color::Red && true) (Color::Red || false)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

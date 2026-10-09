@@ -1,0 +1,13 @@
+# MULTILINE-076: assignment / != / ' # lhs\n\n # gap\n' ' # rhs\n'
+check ["id": "MULTILINE-076",
+    "name": "assignment / != / ' # lhs\\n\\n # gap\\n' ' # rhs\\n'",
+    "source": "let \$x = 2 # lhs\n\n # gap\n!= # rhs\n2; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

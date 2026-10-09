@@ -1,0 +1,13 @@
+# MAP-018: array key snapshot
+check ["id": "MAP-018",
+    "name": "array key snapshot",
+    "source": "let \$k = [1]; let \$m = [\$k:7]; \$k[0] = 2; echo \$m[[1]] \$m[\$k]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7 ()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

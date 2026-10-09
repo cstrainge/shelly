@@ -1,0 +1,13 @@
+# BOOLCAST-140: array and map
+check ["id": "BOOLCAST-140",
+    "name": "array and map",
+    "source": "let \$a = [Boolean(0), Boolean(1)]; let \$m = [Boolean(1): 7]; echo \$a... \$m[true]",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true 7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

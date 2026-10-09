@@ -1,0 +1,13 @@
+# ANNOTATION-133: return inside initializer
+check ["id": "ANNOTATION-133",
+    "name": "return inside initializer",
+    "source": "fn f(): Number { let \$x = if true { return 7 } else { 2 }; return \$x }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# ANNOTATION-171: missing type
+check ["id": "ANNOTATION-171",
+    "name": "missing type",
+    "source": "let \$x:",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

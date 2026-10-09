@@ -1,0 +1,132 @@
+# Shared assertions for process cases. The runner supplies a fresh fixture as $args[0].
+fn fail($message: String)
+{
+    echo "FAIL: $message"
+    exit 1
+}
+
+fn require($condition: Boolean, $message: String)
+{
+    if !$condition { fail $message }
+}
+
+fn environment($fixture: String)
+{
+    ["HOME": "${fixture}/home", "PATH": "${fixture}/bin:/usr/bin:/bin",
+     "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "TERM": "dumb"]
+}
+
+fn check($case: HashMap)
+{
+    validate_case $case
+    if ($args.count == 3) && ($args[2] != "")
+    { require ($case["id"] == $args[2]) "case ID does not match filename" }
+    let $fixture = $args[0]
+    let $source = $case["source"].replace "<FIXTURE>" $fixture
+    let $mode = $case["mode"]
+    let $command = [`$shelly, "-m", "-c", $source, $case["args"]...]
+    if ($mode == "file") || ($mode == "invalid_file") || ($mode == "stdin")
+    {
+        if $mode == "invalid_file"
+        {
+            let $bytes = ($source.replace "<INVALID>" "\\377").replace "<TRUNCATED>" "\\303"
+            printf "%b" $bytes -> "${fixture}/input.shy"
+        }
+        else { printf "%s" $source -> "${fixture}/input.shy" }
+        $command = [`$shelly, "-m", "input.shy", $case["args"]...]
+    }
+    if $mode == "stdin"
+    {
+        $command = [`$shelly, "-m", "-s", $case["args"]...]
+    }
+    if $mode == "bad_tab" { $command = [`$shelly, "-m", "-t", "0", "-c", ""] }
+    let $options = ["cwd": $fixture, "env": (environment $fixture),
+        "stdout_file": "${fixture}/stdout", "stderr_file": "${fixture}/stderr",
+        "stdin_file": "/dev/null", "timeout_ms": 3000]
+    if $mode == "stdin" { $options["stdin_file"] = "${fixture}/input.shy" }
+    let $result = run_process $command $options
+    let $stdout: String
+    let $stderr: String
+    "${fixture}/stdout" -> $stdout
+    "${fixture}/stderr" -> $stderr
+    assess $case $result ($stdout.replace $fixture "<FIXTURE>") ($stderr.replace $fixture "<FIXTURE>") $fixture
+}
+
+fn assess($case: HashMap, $result: HashMap, $stdout: String, $stderr: String, $fixture: String)
+{
+    printf "%s" $stderr -> "${fixture}/evidence.err"
+    require ($result["error"] == ()) "process launch or I/O failed"
+    require (!$result["timed_out"]) "process timed out"
+    require ($result["signal"] == ()) "process terminated by signal"
+    require ($result["exit_code"] == $case["status"]) "wrong exit status"
+    if $stdout != $case["stdout"]
+    {
+        printf "expected: <%s> actual: <%s>\n" $case["stdout"] $stdout
+        fail "stdout differs"
+    }
+    require (!(($stderr.contains "panicked at") || ($stderr.contains "stack overflow"))) "host panic"
+    if $case["error"] != ""
+    {
+        require (Boolean(grep -Pq -- $case["error"] "${fixture}/evidence.err")) "wrong error category"
+    }
+    if $case["valid"] && ($case["stderr_contains"].count == 0)
+    {
+        require ($stderr == "") "unexpected stderr"
+    }
+    for $phrase in $case["stderr_contains"]
+    {
+        require ($stderr.contains $phrase) "required stderr detail missing"
+    }
+    for $phrase in $case["stderr_excludes"]
+    {
+        require (!($stderr.contains $phrase)) "forbidden stderr detail"
+    }
+    for $phrase in $case["stdout_excludes"]
+    {
+        require (!($stdout.contains $phrase)) "forbidden stdout detail"
+    }
+    if $case["mode"] == "invalid_file" { require ($stderr.contains "UTF-8") "missing UTF-8 error" }
+}
+
+fn text_field($value: String) { true }
+fn text_array($value: [String]) { true }
+fn boolean_field($value: Boolean) { true }
+fn status_field($value: Integer)
+{
+    require (($value / 256 == 0) && (!(("${value}").starts_with "-"))) "invalid exit status"
+}
+
+fn validate_case($case: HashMap)
+{
+    for $field in ["id", "name", "source", "stdout", "mode", "error"]
+    { text_field $case[$field] }
+    boolean_field $case["valid"]
+    status_field $case["status"]
+    for $field in ["args", "stderr_contains", "stderr_excludes", "stdout_excludes"]
+    { text_array $case[$field] }
+    require ($case["id"] != "") "empty case ID"
+    for $character in $case["id"].chars
+    {
+        require ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-".contains $character) "invalid case ID"
+    }
+    let $modes = ["code": true, "file": true, "stdin": true, "invalid_file": true, "bad_tab": true]
+    require ($modes[$case["mode"]] == true) "unknown input mode"
+    let $patterns = ["Redirection error:": true, "(Method .* expected|Array methods require|sort requires)": true, "(Type conversion error:|Enum index is read-only)": true, "Parser error:": true, "Type error:": true, "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)": true, "(Enums cannot|Cannot execute an enum|Cannot index|For loops require)": true, "(?:Variable .*not found|Variable not found for SetVariable)": true, "Arithmetic error:": true, "Executable not found:": true, "Function .* expected (?:at least )?[0-9]+(?: to [0-9]+)? arguments, but got [0-9]+": true, "Cannot return outside a function": true, "Alias cycle detected": true, "Executable returned error code:": true, "Executable .*signal": true, "File glob error:": true, "exit expects": true, "Invalid tab width": true, "Executable I/O error:": true, "(?i)(invalid|expected|cannot).*(export|environment|variable.*name)": true, "Invalid variable name:": true, "Array error:": true, "Hash map error:": true, "Range error:": true, "Iteration error:": true, "Loop control error:": true]
+    if $case["valid"] { require ($case["error"] == "") "positive case requires language error" }
+    else
+    {
+        require (($case["status"] == 1) && ($patterns[$case["error"]] == true)) "negative case needs a known diagnostic and exit 1"
+    }
+}
+
+fn validate_catalog($rows: Array)
+{
+    require ($rows.count != 0) "empty catalog"
+    let $seen = [:]
+    for $row in $rows
+    {
+        validate_case $row
+        require ($seen[$row["id"]] == ()) "duplicate case ID"
+        $seen[$row["id"]] = true
+    }
+}

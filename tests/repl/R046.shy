@@ -1,0 +1,5 @@
+# Typed variable writes and failed redeclarations are atomic
+check_repl ["id": "R046",
+    "name": "Typed variable writes and failed redeclarations are atomic",
+    "steps": [["let \$n: Number = 7", "quiet", ""], ["let \$bad = \"bad\"", "quiet", ""], ["\$n = \$bad", "error", ""], ["echo \$n", "output", "7"], ["let \$n: Number = \$bad", "error", ""], ["echo \$n", "output", "7"], ["let \$xs: [Number] = [1, 2]", "quiet", ""], ["\$xs[0] = \"bad\"", "error", ""], ["echo \$xs...", "output", "1 2"], ["let \$map: [String: [Number]] = [\"a\": [1]]", "quiet", ""], ["\$map[\"a\"][0] = \"bad\"", "error", ""], ["echo \$map[\"a\"][0]", "output", "1"], ["let \$n: String = \"new\"", "quiet", ""], ["echo \$n", "output", "new"], ["\$n = 3", "error", ""], ["echo \$n", "output", "new"]],
+    "exit": 0]

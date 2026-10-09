@@ -1,0 +1,13 @@
+# METHOD-100: bound snapshot escapes scope
+check ["id": "METHOD-100",
+    "name": "bound snapshot escapes scope",
+    "source": "fn f() { let \$a = [3, 1]; return `\$a.sort }; let \$sort = f; echo (\$sort)...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

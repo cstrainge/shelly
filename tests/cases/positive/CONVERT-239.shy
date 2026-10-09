@@ -1,0 +1,13 @@
+# CONVERT-239: variadic call conversion
+check ["id": "CONVERT-239",
+    "name": "variadic call conversion",
+    "source": "fn f(\$v: Integer...) { \$v }; echo (f Integer(\"1\") Integer(\"2\"))...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

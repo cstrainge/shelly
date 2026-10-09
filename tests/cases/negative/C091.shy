@@ -1,0 +1,13 @@
+# C091: Reading a function local outside
+check ["id": "C091",
+    "name": "Reading a function local outside",
+    "source": "fn f() { let \$audit_local = 4 ; return }\nf ; echo \$audit_local",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# FOR-124: syntax rejection / if false { for $i in [] }
+check ["id": "FOR-124",
+    "name": "syntax rejection / if false { for \$i in [] }",
+    "source": "echo \"PARSE_SENTINEL\"; if false { for \$i in [] }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# RANGE-014: bounds evaluated once
+check ["id": "RANGE-014",
+    "name": "bounds evaluated once",
+    "source": "let \$start = 1; let \$end = 3; let \$r = \$start..\$end; \$start = 9; \$end = 10; echo \$r...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

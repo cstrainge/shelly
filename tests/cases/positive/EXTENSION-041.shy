@@ -1,0 +1,13 @@
+# EXTENSION-041: mutual recursion
+check ["id": "EXTENSION-041",
+    "name": "mutual recursion",
+    "source": "fn Integer::even(): Boolean { if \$self == 0 { true } else { (\$self - 1).odd } }; fn Integer::odd(): Boolean { if \$self == 0 { false } else { (\$self - 1).even } }; let \$n = 6; echo \$n.even \$n.odd",
+    "mode": "code",
+    "args": [],
+    "stdout": "true false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

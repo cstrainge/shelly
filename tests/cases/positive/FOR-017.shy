@@ -1,0 +1,13 @@
+# FOR-017: nested binding shadow
+check ["id": "FOR-017",
+    "name": "nested binding shadow",
+    "source": "for \$i in [1] { for \$i in [2] { echo \$i }; echo \$i }",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

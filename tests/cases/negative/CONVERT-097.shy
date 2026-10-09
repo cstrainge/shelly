@@ -1,0 +1,13 @@
+# CONVERT-097: matrix None to Range
+check ["id": "CONVERT-097",
+    "name": "matrix None to Range",
+    "source": "let \$v = (); let \$converted: Range = Range(\$v); echo \$converted",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

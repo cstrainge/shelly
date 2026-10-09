@@ -1,0 +1,13 @@
+# MAP-231: key equality / "" / "1"
+check ["id": "MAP-231",
+    "name": "key equality / \"\" / \"1\"",
+    "source": "let \$m = [\"\":7]; echo \$m[\"1\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

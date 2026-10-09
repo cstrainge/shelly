@@ -1,0 +1,13 @@
+# BOUNDARY-581: stdin / local visibility
+check ["id": "BOUNDARY-581",
+    "name": "stdin / local visibility",
+    "source": "if true { let \$local_mode = 7 }; echo \$local_mode",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

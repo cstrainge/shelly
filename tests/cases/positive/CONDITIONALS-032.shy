@@ -1,0 +1,13 @@
+# CONDITIONALS-032: if false { fn f() { 7 } }; echo (f)
+check ["id": "CONDITIONALS-032",
+    "name": "if false { fn f() { 7 } }; echo (f)",
+    "source": "if false { fn f() { 7 } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

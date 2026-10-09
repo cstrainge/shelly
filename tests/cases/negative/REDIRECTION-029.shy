@@ -1,0 +1,13 @@
+# REDIRECTION-029: invalid destination directory
+check ["id": "REDIRECTION-029",
+    "name": "invalid destination directory",
+    "source": "echo \"bad\" -> missing-dir/file; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Redirection error:",
+    "stderr_contains": ["missing-dir/file"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

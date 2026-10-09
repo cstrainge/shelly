@@ -1,0 +1,13 @@
+# MAP-495: large integers stay distinct
+check ["id": "MAP-495",
+    "name": "large integers stay distinct",
+    "source": "let \$m = [9007199254740993:7]; echo \$m[9007199254740992.0] \$m[9007199254740993]",
+    "mode": "code",
+    "args": [],
+    "stdout": "() 7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

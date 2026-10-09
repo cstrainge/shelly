@@ -1,0 +1,13 @@
+# MAP-031: literal evaluation order
+check ["id": "MAP-031",
+    "name": "literal evaluation order",
+    "source": "let \$n = 0; fn next() { \$n = \$n + 1; \$n }; let \$m = [next:next,next:next]; echo (\$m == [1:2,3:4]) \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "true 4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

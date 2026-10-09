@@ -1,0 +1,5 @@
+# Enum failed submissions are transactional
+check_repl ["id": "R038",
+    "name": "Enum failed submissions are transactional",
+    "steps": [["enum Stable { A }; fn original() { Stable::A }", "quiet", ""], ["enum Temp { A }; fn original() { Temp::A }; echo Missing::A", "error", ""], ["echo (original)", "output", "Stable::A"], ["echo Temp::A", "error", ""], ["enum Stable { B }; fn unused() { Missing::A }", "error", ""], ["echo Stable::A", "output", "Stable::A"], ["fn unused() { Missing::A }; let \$effect = 1", "error", ""], ["echo \$effect", "error", "not found"], ["enum Persist { A }; /usr/bin/false", "error", ""], ["echo Persist::A", "output", "Persist::A"]],
+    "exit": 0]

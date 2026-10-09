@@ -1,0 +1,13 @@
+# CONVERT-226: invalid ArgumentExpansion(-9223372036854775808..=9223372036854775807)
+check ["id": "CONVERT-226",
+    "name": "invalid ArgumentExpansion(-9223372036854775808..=9223372036854775807)",
+    "source": "echo ArgumentExpansion(-9223372036854775808..=9223372036854775807)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

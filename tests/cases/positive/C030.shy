@@ -1,0 +1,13 @@
+# C030: Interpolation is not recursive
+check ["id": "C030",
+    "name": "Interpolation is not recursive",
+    "source": "let \$x = '\$missing_audit_variable' ; echo \"\$x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "\$missing_audit_variable\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

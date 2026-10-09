@@ -1,0 +1,13 @@
+# MAP-059: key equality / 0 / true
+check ["id": "MAP-059",
+    "name": "key equality / 0 / true",
+    "source": "let \$m = [0:7]; echo \$m[true]",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

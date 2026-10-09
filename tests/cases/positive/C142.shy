@@ -1,0 +1,13 @@
+# C142: Array indexing
+check ["id": "C142",
+    "name": "Array indexing",
+    "source": "echo \$args[0]",
+    "mode": "code",
+    "args": ["first", "second"],
+    "stdout": "first\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# METHOD-101: string conversion removes method binding
+check ["id": "METHOD-101",
+    "name": "string conversion removes method binding",
+    "source": "let \$a = [3, 1]; let \$sort = `\$a.sort; let \$s = String(\$sort); echo \$s",
+    "mode": "code",
+    "args": [],
+    "stdout": "Array.sort\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

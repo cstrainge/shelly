@@ -1,0 +1,13 @@
+# REDIRECTION-027: missing input file
+check ["id": "REDIRECTION-027",
+    "name": "missing input file",
+    "source": "missing-flow-file.txt -> \$out; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Redirection error:",
+    "stderr_contains": ["Variable"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

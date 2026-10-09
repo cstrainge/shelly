@@ -1,0 +1,13 @@
+# MULTILINE-066: assignment / != / ' ' '\n'
+check ["id": "MULTILINE-066",
+    "name": "assignment / != / ' ' '\\n'",
+    "source": "let \$x = 2 !=\n2; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

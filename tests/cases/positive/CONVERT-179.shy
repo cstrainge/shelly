@@ -1,0 +1,13 @@
+# CONVERT-179: numeric and syntax ExecResult("255")
+check ["id": "CONVERT-179",
+    "name": "numeric and syntax ExecResult(\"255\")",
+    "source": "echo ExecResult(\"255\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "ExecResult(255)\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

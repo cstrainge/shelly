@@ -1,0 +1,13 @@
+# NEWLINE-009: array elements
+check ["id": "NEWLINE-009",
+    "name": "array elements",
+    "source": "struct S { n: Number }; let \$a = [S\n(n: 1), S\n(n: 2)]; echo \$a[0].n \$a[1].n",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

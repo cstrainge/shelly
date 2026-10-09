@@ -1,0 +1,13 @@
+# FOR-107: syntax rejection / for i in [] {}
+check ["id": "FOR-107",
+    "name": "syntax rejection / for i in [] {}",
+    "source": "echo \"PARSE_SENTINEL\"; for i in [] {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

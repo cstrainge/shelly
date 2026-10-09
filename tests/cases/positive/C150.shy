@@ -1,0 +1,13 @@
+# C150: Code mode script arguments
+check ["id": "C150",
+    "name": "Code mode script arguments",
+    "source": "audit_args \$args...",
+    "mode": "code",
+    "args": ["one", "--flag"],
+    "stdout": "[\"one\", \"--flag\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

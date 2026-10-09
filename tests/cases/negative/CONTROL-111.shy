@@ -1,0 +1,13 @@
+# CONTROL-111: stdin outside loop
+check ["id": "CONTROL-111",
+    "name": "stdin outside loop",
+    "source": "break",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Loop control error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

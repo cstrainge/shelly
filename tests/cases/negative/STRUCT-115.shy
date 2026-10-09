@@ -1,0 +1,13 @@
+# STRUCT-115: runtime wrong map value write
+check ["id": "STRUCT-115",
+    "name": "runtime wrong map value write",
+    "source": "struct S { n: [String: Number] }; let \$s = S(n: [:]); \$s.n[\"x\"] = \"y\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": ["Expected Number"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

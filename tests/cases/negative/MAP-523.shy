@@ -1,0 +1,13 @@
+# MAP-523: map evaluation error / let $m = [1 / 0:7]
+check ["id": "MAP-523",
+    "name": "map evaluation error / let \$m = [1 / 0:7]",
+    "source": "let \$m = [1 / 0:7]; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

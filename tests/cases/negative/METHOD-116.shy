@@ -1,0 +1,13 @@
+# METHOD-116: mixed number bool sort
+check ["id": "METHOD-116",
+    "name": "mixed number bool sort",
+    "source": "echo [1, true].sort",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Method .* expected|Array methods require|sort requires)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

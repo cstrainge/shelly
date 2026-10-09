@@ -1,0 +1,5 @@
+# Array methods persist and do not mutate receivers
+check_repl ["id": "R058",
+    "name": "Array methods persist and do not mutate receivers",
+    "steps": [["let \$a = [3, 1, 2]", "quiet", ""], ["let \$b = \$a.sort", "quiet", ""], ["echo \$a...; echo \$b...", "output", "3 1 2\n1 2 3"], ["let \$pairs = \$b.zip [\"a\", \"b\"]", "quiet", ""], ["echo \$pairs.count \$pairs[0][0] \$pairs[0][1]", "output", "2 1 a"], ["\$a.sort", "quiet", ""], ["echo \$a.count", "output", "3"], ["\$a.count = 0", "error", ""], ["echo \$a.count", "output", "3"]],
+    "exit": 0]

@@ -1,0 +1,13 @@
+# CONVERT-170: numeric and syntax Number (\n "1e2",\n)
+check ["id": "CONVERT-170",
+    "name": "numeric and syntax Number (\n \"1e2\",\n)",
+    "source": "echo Number (\n \"1e2\",\n)",
+    "mode": "code",
+    "args": [],
+    "stdout": "100\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

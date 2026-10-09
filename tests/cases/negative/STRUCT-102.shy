@@ -1,0 +1,13 @@
+# STRUCT-102: constructor positional
+check ["id": "STRUCT-102",
+    "name": "constructor positional",
+    "source": "struct S { n }; echo S(1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

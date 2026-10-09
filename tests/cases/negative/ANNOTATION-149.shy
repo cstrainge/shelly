@@ -1,0 +1,13 @@
+# ANNOTATION-149: bad constant parameter reassignment
+check ["id": "ANNOTATION-149",
+    "name": "bad constant parameter reassignment",
+    "source": "fn f(\$x: Number) { \$x = \"bad\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

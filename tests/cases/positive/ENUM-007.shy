@@ -1,0 +1,13 @@
+# ENUM-007: nested keys
+check ["id": "ENUM-007",
+    "name": "nested keys",
+    "source": "enum Color { Red, Green, Blue }; let \$m = [[Color::Red]: 42]; echo \$m[[Color::Red]]",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-294: member condition
+check ["id": "CONVERT-294",
+    "name": "member condition",
+    "source": "enum E { A, B, C }; if E::A.index == 0 { echo \"ok\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# STRUCT-135: missing type before comma
+check ["id": "STRUCT-135",
+    "name": "missing type before comma",
+    "source": "struct S { n:, m: Number }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

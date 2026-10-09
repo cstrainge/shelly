@@ -1,0 +1,13 @@
+# BOUNDARY-031: escaped command with arguments
+check ["id": "BOUNDARY-031",
+    "name": "escaped command with arguments",
+    "source": "echo \"PARSE_SENTINEL\"; echo (`audit_say 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

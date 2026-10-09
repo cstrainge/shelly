@@ -1,0 +1,13 @@
+# BOUNDARY-038: surrogate escape
+check ["id": "BOUNDARY-038",
+    "name": "surrogate escape",
+    "source": "echo \"PARSE_SENTINEL\"; echo \"\\xD800\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

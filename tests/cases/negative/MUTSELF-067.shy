@@ -1,0 +1,13 @@
+# MUTSELF-067: readonly enum index
+check ["id": "MUTSELF-067",
+    "name": "readonly enum index",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; enum E { A }; let \$e = E::A; \$e.index.inc",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

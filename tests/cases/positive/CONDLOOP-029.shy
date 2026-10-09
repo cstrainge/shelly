@@ -1,0 +1,13 @@
+# CONDLOOP-029: while / body assignment changes condition
+check ["id": "CONDLOOP-029",
+    "name": "while / body assignment changes condition",
+    "source": "let \$ready = true; while \$ready { \$ready = false }; echo \"done\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "done\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

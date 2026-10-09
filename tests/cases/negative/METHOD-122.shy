@@ -1,0 +1,13 @@
+# METHOD-122: wrong receiver
+check ["id": "METHOD-122",
+    "name": "wrong receiver",
+    "source": "let \$v = 1; echo \$v.sort",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

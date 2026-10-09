@@ -1,0 +1,13 @@
+# RANGE-045: early return in bound
+check ["id": "RANGE-045",
+    "name": "early return in bound",
+    "source": "fn f() { (if true { return 7 })..3 }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

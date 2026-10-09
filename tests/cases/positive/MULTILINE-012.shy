@@ -1,0 +1,13 @@
+# MULTILINE-012: grouped argument / && / '\n' '\n'
+check ["id": "MULTILINE-012",
+    "name": "grouped argument / && / '\\n' '\\n'",
+    "source": "echo (true\n&&\nfalse)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

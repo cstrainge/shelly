@@ -1,0 +1,13 @@
+# ARRAY-115: stdin invalid array index
+check ["id": "ARRAY-115",
+    "name": "stdin invalid array index",
+    "source": "let \$a = []; echo \$a[0]; echo \"AFTER_ERROR\"",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

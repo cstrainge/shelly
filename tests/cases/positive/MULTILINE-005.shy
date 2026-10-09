@@ -1,0 +1,13 @@
+# MULTILINE-005: if / && / '\n' ' '
+check ["id": "MULTILINE-005",
+    "name": "if / && / '\\n' ' '",
+    "source": "if true\n&& false { echo \"selected\" } else { echo \"skipped\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "skipped\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

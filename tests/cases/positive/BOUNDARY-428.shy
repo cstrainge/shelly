@@ -1,0 +1,13 @@
+# BOUNDARY-428: value pair / "2" and "false"
+check ["id": "BOUNDARY-428",
+    "name": "value pair / \"2\" and \"false\"",
+    "source": "echo (\"2\" == \"false\") (\"2\" != \"false\") (\"2\" && \"false\") (\"2\" || \"false\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MUTSELF-038: bound index frozen
+check ["id": "MUTSELF-038",
+    "name": "bound index frozen",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$i = 0; let \$a = [1, 3]; let \$r = `\$a[\$i].inc; \$i = 1; \$r; echo \$a...",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

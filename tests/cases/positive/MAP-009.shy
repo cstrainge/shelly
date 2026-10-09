@@ -1,0 +1,13 @@
+# MAP-009: string numeric keys distinct
+check ["id": "MAP-009",
+    "name": "string numeric keys distinct",
+    "source": "let \$m = [1:7,\"1\":8,true:9]; echo \$m[1] \$m[\"1\"] \$m[true]",
+    "mode": "code",
+    "args": [],
+    "stdout": "7 8 9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOOLCAST-111: 'Boolean(\n {},\n)' / Boolean(0)
+check ["id": "BOOLCAST-111",
+    "name": "'Boolean(\\n {},\\n)' / Boolean(0)",
+    "source": "echo Boolean(\n Boolean(0),\n)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

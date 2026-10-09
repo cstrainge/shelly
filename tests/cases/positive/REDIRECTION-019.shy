@@ -1,0 +1,13 @@
+# REDIRECTION-019: condition preserves failure
+check ["id": "REDIRECTION-019",
+    "name": "condition preserves failure",
+    "source": "let \$out: String; if audit_streams kept \"\" 7 -> \$out { echo \"bad\" }; printf \"%s\" \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "kept",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

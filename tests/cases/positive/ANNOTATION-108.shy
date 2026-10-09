@@ -1,0 +1,13 @@
+# ANNOTATION-108: parameter [String: Number]
+check ["id": "ANNOTATION-108",
+    "name": "parameter [String: Number]",
+    "source": "fn f(\$x: [String: Number]): [String: Number] { return \$x }; let \$x = f [\"x\": 1]; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

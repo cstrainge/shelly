@@ -1,0 +1,13 @@
+# MUTSELF-068: invalidated bound index
+check ["id": "MUTSELF-068",
+    "name": "invalidated bound index",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$a = [1]; let \$r = `\$a[0].inc; \$a = []; \$r",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Array error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

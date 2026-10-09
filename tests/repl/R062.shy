@@ -1,0 +1,5 @@
+# Stored methods mutate their live receiver
+check_repl ["id": "R062",
+    "name": "Stored methods mutate their live receiver",
+    "steps": [["struct S { a: [Integer] }; let \$s = S(a: [1])", "quiet", ""], ["fn S::replace(\$n: Integer): S { \$self.a[0] = \$n; \$self }", "quiet", ""], ["let \$ref = `\$s.replace; \$s.a[0] = 2; let \$t = \$ref 3; echo \$s.a[0] \$t.a[0]", "output", "3 3"], ["fn S::read(): Integer { \$self.a[0] }; echo \$s.read \$t.read", "output", "3 3"]],
+    "exit": 0]

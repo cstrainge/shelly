@@ -1,0 +1,13 @@
+# MULTILINE-086: precedence True False True
+check ["id": "MULTILINE-086",
+    "name": "precedence True False True",
+    "source": "echo (true\n || false\n && true)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

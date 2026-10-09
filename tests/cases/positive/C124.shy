@@ -1,0 +1,13 @@
+# C124: Stored home paths retain filesystem spelling
+check ["id": "C124",
+    "name": "Stored home paths retain filesystem spelling",
+    "source": "let \$x = \"<FIXTURE>/home/sub\" ; echo \"\$x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "<FIXTURE>/home/sub\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

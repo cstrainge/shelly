@@ -1,0 +1,13 @@
+# CONVERT-303: index not Float
+check ["id": "CONVERT-303",
+    "name": "index not Float",
+    "source": "enum E { A, B, C }; let \$x: Float = E::A.index",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# RANGE-051: large range definition stays lazy
+check ["id": "RANGE-051",
+    "name": "large range definition stays lazy",
+    "source": "let \$r = -9223372036854775808..=9223372036854775807; echo \$r",
+    "mode": "code",
+    "args": [],
+    "stdout": "-9223372036854775808..=9223372036854775807\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

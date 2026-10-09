@@ -1,0 +1,13 @@
+# CONVERT-255: empty Boolean
+check ["id": "CONVERT-255",
+    "name": "empty Boolean",
+    "source": "echo Boolean()",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["exactly one positional value"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

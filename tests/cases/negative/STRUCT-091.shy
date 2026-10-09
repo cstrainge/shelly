@@ -1,0 +1,13 @@
+# STRUCT-091: known field on enum
+check ["id": "STRUCT-091",
+    "name": "known field on enum",
+    "source": "enum E { A }; echo (E::A).field",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["Cannot access field"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-251: named arguments Integer
+check ["id": "CONVERT-251",
+    "name": "named arguments Integer",
+    "source": "echo Integer(value: 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

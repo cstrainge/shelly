@@ -1,0 +1,13 @@
+# CONVERT-154: numeric and syntax Integer (\n "9223372036854775807",\n)
+check ["id": "CONVERT-154",
+    "name": "numeric and syntax Integer (\n \"9223372036854775807\",\n)",
+    "source": "echo Integer (\n \"9223372036854775807\",\n)",
+    "mode": "code",
+    "args": [],
+    "stdout": "9223372036854775807\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

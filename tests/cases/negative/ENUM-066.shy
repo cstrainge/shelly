@@ -1,0 +1,13 @@
+# ENUM-066: invalid name
+check ["id": "ENUM-066",
+    "name": "invalid name",
+    "source": "enum C-x { A }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

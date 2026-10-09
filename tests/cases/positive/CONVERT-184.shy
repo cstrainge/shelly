@@ -1,0 +1,13 @@
+# CONVERT-184: numeric and syntax Array (\n 2..=2,\n)
+check ["id": "CONVERT-184",
+    "name": "numeric and syntax Array (\n 2..=2,\n)",
+    "source": "echo Array (\n 2..=2,\n)",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# BOUNDARY-179: missing RHS / || / let $x = 1 {}
+check ["id": "BOUNDARY-179",
+    "name": "missing RHS / || / let \$x = 1 {}",
+    "source": "echo \"PARSE_SENTINEL\"; let \$x = 1 ||",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

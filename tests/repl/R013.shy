@@ -1,0 +1,5 @@
+# Prompt shortens home while command arguments remain real paths
+check_repl ["id": "R013",
+    "name": "Prompt shortens home while command arguments remain real paths",
+    "steps": [["echo \"\$pwd\"", "output", "<FIXTURE>"]],
+    "exit": 0]

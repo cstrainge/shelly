@@ -1,0 +1,13 @@
+# BOOLCAST-146: newline does not join
+check ["id": "BOOLCAST-146",
+    "name": "newline does not join",
+    "source": "fn Boolean() { 7 }; Boolean\n(1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

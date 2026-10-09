@@ -1,0 +1,13 @@
+# PATH-001: pwd reads shorten
+check ["id": "PATH-001",
+    "name": "pwd reads shorten",
+    "source": "cd \"<FIXTURE>/home/sub\"; echo (\$pwd == \"~/sub\") (\"\${pwd}\" == \"~/sub\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "true true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

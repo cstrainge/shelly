@@ -1,0 +1,13 @@
+# C087: Multiple statements inside expression group
+check ["id": "C087",
+    "name": "Multiple statements inside expression group",
+    "source": "echo (1; 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

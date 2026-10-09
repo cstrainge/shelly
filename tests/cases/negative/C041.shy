@@ -1,0 +1,13 @@
+# C041: Unterminated multiline string
+check ["id": "C041",
+    "name": "Unterminated multiline string",
+    "source": "echo \"*abc",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

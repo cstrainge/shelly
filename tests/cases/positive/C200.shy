@@ -1,0 +1,13 @@
+# C200: Exit status from stdin
+check ["id": "C200",
+    "name": "Exit status from stdin",
+    "source": "exit 7",
+    "mode": "stdin",
+    "args": [],
+    "stdout": "",
+    "status": 7,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

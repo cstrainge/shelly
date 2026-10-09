@@ -1,0 +1,13 @@
+# FOR-045: callee return preserves caller iterator
+check ["id": "FOR-045",
+    "name": "callee return preserves caller iterator",
+    "source": "fn f() { for \$j in [3,4] { return \$j } }; for \$i in [1,2] { echo \$i (f) }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 3\n2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

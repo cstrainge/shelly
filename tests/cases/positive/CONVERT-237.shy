@@ -1,0 +1,13 @@
+# CONVERT-237: typed return
+check ["id": "CONVERT-237",
+    "name": "typed return",
+    "source": "fn f(\$v: String): Integer { Integer(\$v) }; echo (f \"12\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "12\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

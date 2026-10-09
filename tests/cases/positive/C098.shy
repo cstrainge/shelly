@@ -1,0 +1,13 @@
+# C098: Variables use dynamic caller scope
+check ["id": "C098",
+    "name": "Variables use dynamic caller scope",
+    "source": "let \$x = 1 ; fn read() { \$x }\nfn f() { let \$x = 2 ; read }\necho (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

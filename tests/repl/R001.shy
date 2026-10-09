@@ -1,0 +1,5 @@
+# Persistent multiline function and stored executable
+check_repl ["id": "R001",
+    "name": "Persistent multiline function and stored executable",
+    "steps": [["fn foo()\n{\n echo \"foo called.\"\n}", "quiet", ""], ["let \$bar = `foo", "quiet", ""], ["\$bar", "output", "foo called."], ["echo (\$bar)", "output", "foo called.\nExecResult(0)"]],
+    "exit": 0]

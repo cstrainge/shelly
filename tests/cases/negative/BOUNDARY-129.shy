@@ -1,0 +1,13 @@
+# BOUNDARY-129: standalone / if false {} else {
+check ["id": "BOUNDARY-129",
+    "name": "standalone / if false {} else {",
+    "source": "echo \"PARSE_SENTINEL\"; if false {} else {",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

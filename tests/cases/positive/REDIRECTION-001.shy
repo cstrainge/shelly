@@ -1,0 +1,13 @@
+# REDIRECTION-001: stdout capture
+check ["id": "REDIRECTION-001",
+    "name": "stdout capture",
+    "source": "let \$out: String; printf \"hello\\n\" -> \$out; printf \"<%s>\" \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "<hello\n>",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

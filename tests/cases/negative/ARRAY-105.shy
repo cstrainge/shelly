@@ -1,0 +1,13 @@
+# ARRAY-105: malformed array / let $a = [1]; $a[0] =
+check ["id": "ARRAY-105",
+    "name": "malformed array / let \$a = [1]; \$a[0] =",
+    "source": "echo \"PARSE_SENTINEL\"; let \$a = [1]; \$a[0] =",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

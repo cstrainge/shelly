@@ -1,0 +1,13 @@
+# CONVERT-306: empty index field
+check ["id": "CONVERT-306",
+    "name": "empty index field",
+    "source": "enum E { A, B, C }; echo E::A.",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

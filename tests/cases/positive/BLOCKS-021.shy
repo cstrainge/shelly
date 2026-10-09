@@ -1,0 +1,13 @@
+# BLOCKS-021: export shadow
+check ["id": "BLOCKS-021",
+    "name": "export shadow",
+    "source": "let export \$SHELLY_BLOCK = \"outer\"; { let export \$SHELLY_BLOCK = \"inner\"; printenv SHELLY_BLOCK }; echo \$SHELLY_BLOCK",
+    "mode": "code",
+    "args": [],
+    "stdout": "inner\nouter\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

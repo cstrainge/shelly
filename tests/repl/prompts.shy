@@ -1,0 +1,43 @@
+# Thirteen original custom-prompt/path checks, through an actual PTY.
+let $fixture = $args[0]
+let $nested = "${fixture}/workdir/shelly"
+mkdir -p $nested "${fixture}/workdir/shelly-neighbor" "${fixture}/déjà vu"
+let $terminal = session $fixture
+let $initial = drain $terminal
+let $reply = submit $terminal "cd \"${nested}\""
+let $reply = submit $terminal 'fn prompt() { echo "\\n<shelly>"; echo "\\x1b[0m: \\x1b[0;32m${pwd}\\x1b[0m" }'
+require ($reply["output"].contains "\n: ~/workdir/shelly\n") "colored prompt shortens home"
+let $reply = submit $terminal 'echo ($pwd == "~/workdir/shelly")'
+require ($reply["output"].contains "\ntrue\n") "variable path values"
+require ($reply["output"].contains "\n: ~/workdir/shelly\n") "prompt stays shortened"
+let $reply = submit $terminal 'fn prompt() { cd "$pwd"; echo ": ${pwd}" }'
+require ($reply["output"].contains "\n: ~/workdir/shelly\n") "cd expands shortened path"
+let $reply = submit $terminal 'fn prompt() { echo ": ${pwd}" }'
+let $reply = submit $terminal "cd \"${fixture}\""
+require ($reply["output"].contains "\n: ~\n") "exact home"
+let $reply = submit $terminal "cd \"${nested}\""
+let $reply = submit $terminal "let \$HOME = \"${fixture}/workdir\""
+require ($reply["output"].contains "\n: ~/shelly\n") "changed HOME"
+let $reply = submit $terminal "let \$HOME = \"${nested}\""
+require ($reply["output"].contains "\n: ~\n") "changed exact home"
+let $reply = submit $terminal "cd \"${fixture}/workdir/shelly-neighbor\""
+require ($reply["output"].contains "\n: ${fixture}/workdir/shelly-neighbor\n") "component boundary"
+let $reply = submit $terminal "cd \"${nested}\""
+let $reply = submit $terminal "let \$HOME = \"${fixture}/\""
+require ($reply["output"].contains "\n: ~/workdir/shelly\n") "trailing slash HOME"
+let $reply = submit $terminal 'let $HOME = "/"'
+require ($reply["output"].contains "\n: ~${nested}\n") "root HOME separator"
+let $reply = submit $terminal "let \$HOME = \"${fixture}\""
+let $reply = submit $terminal 'fn prompt() { echo "[${pwd}]" }'
+require ($reply["output"].contains "\n[~/workdir/shelly]\n") "bracketed prompt"
+let $reply = submit $terminal "cd \"${fixture}/déjà vu\""
+require ($reply["output"].contains "\n[~/déjà vu]\n") "Unicode and spaces"
+let $reply = submit $terminal 'fn prompt() { 1 / 0 }'
+require ($reply["output"].contains "[~/déjà vu]") "prompt failure fallback"
+# Native process stdout must participate in prompt capture too.
+let $reply = submit $terminal 'fn prompt() { run_process ["/usr/bin/printf", "native-prompt\\n"] [:] }'
+require ($reply["output"].contains "\nnative-prompt\n") "native process prompt capture"
+terminal_write $terminal "\x04"
+let $closed = drain $terminal
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "prompt session shutdown"

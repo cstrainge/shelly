@@ -1,0 +1,13 @@
+# C049: Grouped call
+check ["id": "C049",
+    "name": "Grouped call",
+    "source": "fn foo(\$a)\n{\n 2048 * \$a\n}\necho (foo 3)",
+    "mode": "code",
+    "args": [],
+    "stdout": "6144\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

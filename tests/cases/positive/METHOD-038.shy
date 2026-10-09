@@ -1,0 +1,13 @@
+# METHOD-038: sort let $a = [-1, -1.5, -0.5, 0, 0.5, 1.5, 1]; $a.sort
+check ["id": "METHOD-038",
+    "name": "sort let \$a = [-1, -1.5, -0.5, 0, 0.5, 1.5, 1]; \$a.sort",
+    "source": "let \$a = [-1, -1.5, -0.5, 0, 0.5, 1.5, 1]; echo \$a.sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "-1.5 -1 -0.5 0 0.5 1 1.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

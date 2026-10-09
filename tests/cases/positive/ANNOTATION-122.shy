@@ -1,0 +1,13 @@
+# ANNOTATION-122: typed enum function
+check ["id": "ANNOTATION-122",
+    "name": "typed enum function",
+    "source": "enum E { A }; fn f(\$x: E): E { return \$x }; let \$x: E = f E::A; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "E::A\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

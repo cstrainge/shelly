@@ -1,0 +1,13 @@
+# ENUM-060: missing comma
+check ["id": "ENUM-060",
+    "name": "missing comma",
+    "source": "enum C { A B }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

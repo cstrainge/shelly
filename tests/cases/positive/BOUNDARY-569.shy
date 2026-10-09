@@ -1,0 +1,13 @@
+# BOUNDARY-569: file / nested early return
+check ["id": "BOUNDARY-569",
+    "name": "file / nested early return",
+    "source": "fn f() { if true { { return 7 } } }; echo (f)",
+    "mode": "file",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

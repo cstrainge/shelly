@@ -1,0 +1,13 @@
+# BOUNDARY-629: literal invalid-looking name
+check ["id": "BOUNDARY-629",
+    "name": "literal invalid-looking name",
+    "source": "audit_args '\${bad=name}'",
+    "mode": "code",
+    "args": [],
+    "stdout": "[\"\${bad=name}\"]\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

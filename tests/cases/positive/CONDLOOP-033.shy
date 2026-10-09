@@ -1,0 +1,13 @@
+# CONDLOOP-033: while / branch loop result
+check ["id": "CONDLOOP-033",
+    "name": "while / branch loop result",
+    "source": "echo (if true { while false {} } else { 9 })",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

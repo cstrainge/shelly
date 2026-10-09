@@ -1,0 +1,13 @@
+# STRUCT-016: forward declaration
+check ["id": "STRUCT-016",
+    "name": "forward declaration",
+    "source": "echo A(b: B()).b; struct A { b: B }; struct B {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "B()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

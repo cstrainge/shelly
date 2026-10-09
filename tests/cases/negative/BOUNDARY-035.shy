@@ -1,0 +1,13 @@
+# BOUNDARY-035: raw newline in quote
+check ["id": "BOUNDARY-035",
+    "name": "raw newline in quote",
+    "source": "echo \"PARSE_SENTINEL\"; echo \"a\nb\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

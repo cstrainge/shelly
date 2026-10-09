@@ -1,0 +1,13 @@
+# BOUNDARY-507: value pair / (/usr/bin/false) and 1.0
+check ["id": "BOUNDARY-507",
+    "name": "value pair / (/usr/bin/false) and 1.0",
+    "source": "echo ((/usr/bin/false) == 1.0) ((/usr/bin/false) != 1.0) ((/usr/bin/false) && 1.0) ((/usr/bin/false) || 1.0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "false true false true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# RANGE-036: range default numeric conversion
+check ["id": "RANGE-036",
+    "name": "range default numeric conversion",
+    "source": "echo ((1..3) + 0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

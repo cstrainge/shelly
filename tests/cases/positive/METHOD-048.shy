@@ -1,0 +1,13 @@
+# METHOD-048: sort let $a = ["10", "2", "1"]; let $g: ArgumentExpansion = $a...; $g.sort
+check ["id": "METHOD-048",
+    "name": "sort let \$a = [\"10\", \"2\", \"1\"]; let \$g: ArgumentExpansion = \$a...; \$g.sort",
+    "source": "let \$a = [\"10\", \"2\", \"1\"]; let \$g: ArgumentExpansion = \$a...; echo \$g.sort...",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 10 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

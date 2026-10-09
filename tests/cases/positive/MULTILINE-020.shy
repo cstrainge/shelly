@@ -1,0 +1,13 @@
+# MULTILINE-020: if / && / ' # lhs\n\n # gap\n' ' # rhs\n'
+check ["id": "MULTILINE-020",
+    "name": "if / && / ' # lhs\\n\\n # gap\\n' ' # rhs\\n'",
+    "source": "if true # lhs\n\n # gap\n&& # rhs\nfalse { echo \"selected\" } else { echo \"skipped\" }",
+    "mode": "code",
+    "args": [],
+    "stdout": "skipped\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

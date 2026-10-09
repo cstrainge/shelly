@@ -1,0 +1,13 @@
+# C031: Escaped dollar stays literal
+check ["id": "C031",
+    "name": "Escaped dollar stays literal",
+    "source": "let \$x = \"expanded\" ; echo \"\\\$x\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "\$x\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

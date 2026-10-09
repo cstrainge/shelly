@@ -1,0 +1,13 @@
+# MUTSELF-042: escaped self reference
+check ["id": "MUTSELF-042",
+    "name": "escaped self reference",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; fn Integer::callback() { return `\$self.inc }; let \$n = 1; let \$r = \$n.callback; \$r; echo \$n",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

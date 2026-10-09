@@ -1,0 +1,13 @@
+# CONDITIONALS-012: fn choose($x) { if $x == "a" { 1 } else if $x == "b" { 2 } else { 3 } }; echo (choose a) (choos
+check ["id": "CONDITIONALS-012",
+    "name": "fn choose(\$x) { if \$x == \"a\" { 1 } else if \$x == \"b\" { 2 } else { 3 } }; echo (choose a) (choos",
+    "source": "fn choose(\$x) { if \$x == \"a\" { 1 } else if \$x == \"b\" { 2 } else { 3 } }; echo (choose a) (choose b) (choose c)",
+    "mode": "code",
+    "args": [],
+    "stdout": "1 2 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

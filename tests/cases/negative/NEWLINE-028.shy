@@ -1,0 +1,13 @@
+# NEWLINE-028: duplicate field
+check ["id": "NEWLINE-028",
+    "name": "duplicate field",
+    "source": "struct S { n: Number }; S\n(n: 1, n: 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

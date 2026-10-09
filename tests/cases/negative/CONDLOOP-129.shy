@@ -1,0 +1,13 @@
+# CONDLOOP-129: until runtime / until (1 / 0) {}
+check ["id": "CONDLOOP-129",
+    "name": "until runtime / until (1 / 0) {}",
+    "source": "until (1 / 0) {}; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

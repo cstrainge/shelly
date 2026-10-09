@@ -1,0 +1,13 @@
+# CONVERT-206: invalid Float("")
+check ["id": "CONVERT-206",
+    "name": "invalid Float(\"\")",
+    "source": "echo Float(\"\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

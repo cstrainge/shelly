@@ -1,110 +1,127 @@
 #!/usr/bin/env shelly
+# All assertions and orchestration run in Shelly. Native children preserve CLI and PTY boundaries.
 
-
-fn run_test($test_file: String, $output_file: String, $expect_success: Boolean): Boolean
+fn run_case($file: String, $library: String, $suite: String): Boolean
 {
-    let $test_name: String
-    let $output_name: String
-
-    basename -- $test_file .shy ~+-> $test_name
-    basename -- $output_file .txt ~+-> $output_name
-
-    if $test_name != $output_name
+    let $work: String
+    mktemp -d /tmp/shelly-suite.XXXXXXXXXX -> $work
+    $work = $work.trim_end
+    if !(cp -r -- "${suite}/tests/fixtures/." $work)
     {
-        echo "$test_file has no matching expected output file; found $output_file."
+        rm -rf -- $work
         return false
     }
-
-    let $expected_output: String
-    $output_file -> $expected_output
-
-    let $output: String
-    let $result = $shelly $test_file ~+-> $output
-    let $succeeded: Boolean = Boolean($result)
-
-    if $succeeded != $expect_success
+    mkdir -- "${work}/driver-home" "${work}/tmp"
+    ln -s -- `$shelly "${work}/bin/shelly"
+    let $common: String
+    let $source: String
+    $library -> $common
+    $file -> $source
+    printf "%s\n%s" $common $source -> "${work}/driver.shy"
+    let $case_id = ""
+    if ($file.starts_with "tests/cases/")
     {
-        if $expect_success
-        {
-            echo "$test_file failed (result: $result)."
-        }
-        else
-        {
-            echo "$test_file unexpectedly succeeded."
-        }
-
-        return false
+        let $parts = $file.split "/"
+        $case_id = $parts[$parts.count - 1].replace ".shy" ""
     }
-
-    # An empty expected-output file disables output comparison.
-    if    ($expected_output != "")
-       && ($output != $expected_output)
+    let $result = run_process [`$shelly, "-m", "${work}/driver.shy", $work, $suite, $case_id] [
+        "cwd": $suite,
+        "env": ["HOME": "${work}/driver-home", "PATH": "${work}/bin:/usr/bin:/bin",
+                "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "TERM": "dumb", "TMPDIR": "${work}/tmp"],
+        "stdin_file": "/dev/null",
+        "stdout_file": "${work}/driver.out", "stderr_file": "${work}/driver.err",
+        "timeout_ms": 30000,
+    ]
+    let $passed =   ($result["exit_code"] == 0) && ($result["signal"] == ())
+                 && (!$result["timed_out"]) && ($result["error"] == ())
+    if $passed { echo "PASS" $file }
+    else
     {
-        echo "$test_file produced unexpected output."
-        return false
+        echo "FAIL" $file $result
+        cat "${work}/driver.out" "${work}/driver.err"
     }
-
-    true
+    rm -rf -- $work
+    $passed
 }
 
-
-let $must_succeed    = (./tests/must_succeed/*.shy).sort
-let $succeed_outputs = (./tests/must_succeed/*.txt).sort
-
-let $must_fail       = (./tests/must_fail/*.shy).sort
-let $fail_outputs    = (./tests/must_fail/*.txt).sort
-
-
-if    ($must_succeed.count != $succeed_outputs.count)
-   || ($must_fail.count != $fail_outputs.count)
+fn invalid_inventory($message: String)
 {
-    echo "* Missing expected output files for tests. Each test must have an expected output .txt
-            If the output doesn't matter include an empty .txt file for that test.
-          *"
+    echo "Invalid inventory: $message"
     exit 1
 }
 
-
-let $total_succeed = $must_succeed.count
-let $total_fail    = $must_fail.count
-
-let $total = $total_succeed + $total_fail
-
-
-echo "*
-        Shelly Test Suite
-
-        About to run $total tests.
-
-            $total_succeed positive tests.
-            $total_fail negative tests.
-
-      *"
-
-
-let $success_count = 0
-
-for ($test_file, $output_file) in $must_succeed.zip $succeed_outputs
+fn validate_inventory($files: Array, $suite: String)
 {
-    if (run_test $test_file $output_file true)
+    if !(test -f "${suite}/tests/INVENTORY.tsv")
     {
-        $success_count = $success_count + 1
+        if $files.count != 0 { invalid_inventory "missing inventory" }
+        return
+    }
+    let $text: String
+    "${suite}/tests/INVENTORY.tsv" -> $text
+    let $paths = []
+    let $ids = []
+    for $line in $text.split "\n"
+    {
+        if ($line == "") || ($line == "id\tgroup\tname\tfile") { continue }
+        let $fields = $line.split "\t"
+        if $fields.count != 4 { invalid_inventory "malformed row" }
+        let $id = $fields[0]
+        let $group = $fields[1]
+        if ($id == "") || (($group != "positive") && ($group != "negative"))
+        { invalid_inventory "invalid ID or group" }
+        for $character in $id.chars
+        {
+            if !("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-".contains $character)
+            { invalid_inventory "invalid ID" }
+        }
+        if $fields[3] != "tests/cases/${group}/${id}.shy"
+        { invalid_inventory "case path does not match ID" }
+        $paths = [$paths..., $fields[3]]
+        $ids = [$ids..., $id]
+    }
+    let $previous = ""
+    for $id in $ids.sort
+    {
+        if $id == $previous { invalid_inventory "duplicate ID" }
+        $previous = $id
+    }
+    if $paths.sort != $files.sort { invalid_inventory "missing or orphan case file" }
+}
+
+let $suite = $pwd
+let $filter = if $args.count == 0 { "" } else { $args[0] }
+let $passed = 0
+let $total = 0
+for ($pattern, $library) in [
+    ["process", "tests/support/process.shy"],
+    ["repl", "tests/support/terminal.shy"],
+    ["native", "tests/support/process.shy"],
+    ["harness", "tests/support/process.shy"],
+]
+{
+    if (($filter == "process") || ($filter == "repl") || ($filter == "native") || ($filter == "harness")) && ($filter != $pattern)
+    { continue }
+    let $directories = ["tests/${pattern}"]
+    if $pattern == "process" { $directories = ["tests/cases/positive", "tests/cases/negative"] }
+    let $files = []
+    for $directory in $directories
+    {
+        if !(test -d $directory) { continue }
+        let $found: String
+        find $directory -maxdepth 1 -name "\x2a.shy" -type f -print -quit -> $found
+        if $found != "" { $files = [$files..., ($directory/*.shy)...] }
+    }
+    if ($pattern == "process") && (($filter == "") || ($filter == "process"))
+    { validate_inventory $files $suite }
+    for $file in $files
+    {
+        if ($filter == "") || ($filter == $pattern) || ($file.contains $filter)
+        {
+            $total = $total + 1
+            if (run_case $file $library $suite) { $passed = $passed + 1 }
+        }
     }
 }
-
-for ($test_file, $output_file) in $must_fail.zip $fail_outputs
-{
-    if (run_test $test_file $output_file false)
-    {
-        $success_count = $success_count + 1
-    }
-}
-
-
-echo ${success_count} '/' ${total} tests passed.
-
-
-if $success_count != $total
-{
-    exit 1
-}
+echo $passed "/" $total "tests passed."
+if ($total == 0) || ($passed != $total) { exit 1 }

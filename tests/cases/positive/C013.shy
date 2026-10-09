@@ -1,0 +1,13 @@
+# C013: Numeric string conversion
+check ["id": "C013",
+    "name": "Numeric string conversion",
+    "source": "echo \"12\" + 3",
+    "mode": "code",
+    "args": [],
+    "stdout": "15\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# CONVERT-195: invalid Integer("hello")
+check ["id": "CONVERT-195",
+    "name": "invalid Integer(\"hello\")",
+    "source": "echo Integer(\"hello\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

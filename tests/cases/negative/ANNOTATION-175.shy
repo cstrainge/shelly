@@ -1,0 +1,13 @@
+# ANNOTATION-175: untyped no initializer
+check ["id": "ANNOTATION-175",
+    "name": "untyped no initializer",
+    "source": "let \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

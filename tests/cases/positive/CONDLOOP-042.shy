@@ -1,0 +1,13 @@
+# CONDLOOP-042: while / for inside conditional loop
+check ["id": "CONDLOOP-042",
+    "name": "while / for inside conditional loop",
+    "source": "while true { for \$i in [1,2] { echo \$i; continue }; break }",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

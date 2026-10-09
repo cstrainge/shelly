@@ -1,0 +1,13 @@
+# BOUNDARY-603: equals in variable name / fn f($bad=name) {}
+check ["id": "BOUNDARY-603",
+    "name": "equals in variable name / fn f(\$bad=name) {}",
+    "source": "echo \"PARSE_SENTINEL\"; fn f(\$bad=name) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": ["Invalid variable name: '=' is not allowed."],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

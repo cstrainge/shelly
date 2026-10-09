@@ -1,0 +1,5 @@
+# Builtin conversions preserve target identities across redefinitions
+check_repl ["id": "R055",
+    "name": "Builtin conversions preserve target identities across redefinitions",
+    "steps": [["fn convert(\$text: String): Integer { Integer(\$text) }", "quiet", ""], ["echo (convert \"42\")", "output", "42"], ["struct Integer { text: String }", "quiet", ""], ["echo Integer(text: \"hi\").text", "output", "hi"], ["echo Integer(\"2\")", "error", ""], ["echo (convert \"43\")", "output", "43"]],
+    "exit": 0]
