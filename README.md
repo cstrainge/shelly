@@ -73,7 +73,7 @@ Variable names cannot contain `=`, including braced names and function parameter
 Keep spaces around assignment `=`; adjacent `==` and `!=` remain comparisons.
 
 Values include signed 64-bit integers, floating-point values, booleans, strings,
-arrays, hash maps, ranges, the no-value result displayed as `()`, and external
+arrays, hash maps, ranges, enums, the no-value result displayed as `()`, and external
 command statuses such as `ExecResult(0)`. Arrays come from literals, `$args`, and
 file globs. Without `...`, an array becomes colon-separated text when passed to
 a command. `()` is also a literal that evaluates to `None`, including in assignments
@@ -117,8 +117,9 @@ and chained `$a[1][2]` reads work. The opening index bracket must touch its
 value: `$a[0]` is an element, while `$a [0]` supplies a separate array argument.
 Negative, out-of-range, or non-integer indexes (including `"0"` and `1.0`)
 produce errors for arrays. Only arrays and maps support indexing. Array writes
-replace existing elements; they do not append or grow an array. Function parameters still arrive as strings;
-use arithmetic such as `$index + 0` when converting a numeric parameter to an index.
+replace existing elements; they do not append or grow an array. Numeric function
+arguments retain their types; use `$index + 0` to convert an explicitly textual
+index, such as one read from `$args`.
 
 Indexed assignment must start with a variable, as in `$a[0] = value` or
 `$a[0][1] = value`. It updates the nearest visible binding. Index expressions
@@ -229,8 +230,8 @@ not consume the range. Parenthesize a literal before expanding it: `(1..4)...`.
 Without expansion, a command receives the range's text, such as `1..4`.
 
 Bounds must be integers; floats, numeric strings, and other types produce an
-error. Function parameters arrive as strings, so `$start + 0` explicitly
-converts a numeric parameter. Inclusive ranges require an end bound, and chained
+error. Use `$start + 0` to explicitly convert a numeric string; integer function
+arguments already retain their type. Inclusive ranges require an end bound, and chained
 ranges such as `1..2..3` are rejected. Omitted bounds remain unspecified;
 expanding such a range is an error. Range indexing and array slicing are not
 implemented yet.
@@ -245,6 +246,56 @@ comparisons. Spaces around `..` and `..=` are optional. Parenthesize open ranges
 when followed by other arguments, as in `echo (1..) (..5)`. Ordinary words retain
 embedded dots (`file..name`); quote text that would otherwise parse as a range.
 Paths such as `./file`, `../file`, and `cd ..` continue to work.
+
+## Enums
+
+Enums define named alternatives. The current implementation supports unit variants:
+
+```text
+enum Color
+{
+    Red,
+    Green,
+    Blue,
+}
+
+let $color = Color::Green
+echo $color                       # Color::Green
+echo ($color == Color::Green)      # true
+let $labels = [Color::Red: "stop", Color::Green: "go"]
+echo $labels[$color]               # go
+
+fn is_green($value) { $value == Color::Green }
+echo (is_green $color)             # true
+```
+
+Commas separate variants; trailing commas and newlines are allowed. Names contain
+letters, digits, or underscores and cannot start with a digit or use a reserved
+keyword. Empty enums, duplicate variants, and duplicate type declarations in the
+same scope and submission are errors. Unit variants have no constructor arguments:
+use `Color::Red`, not `Color::Red()`. Payload variants and pattern matching are
+not implemented yet.
+
+Enum names are lexical: a declaration is available throughout its containing block,
+including earlier expressions and function definitions. Inner declarations can
+shadow outer types. The name does not escape its block, but returned or assigned
+values retain their definition. Repeated calls and loop iterations reuse the same
+compiled declaration's identity.
+
+Enums compare by declaration identity and variant. A variant differs from its
+printed string and from identically named variants of other declarations. Enums
+can be array elements, map keys, function arguments, and return values. They always
+convert to true, even if a variant is named `False` or `Error`. Arithmetic,
+indexing, iteration, and using an enum as a command are errors. Expansion with
+`...` passes one value; enum text such as `Color::Green` is display output, not
+serialized source.
+
+The shared type registry persists across REPL submissions. Redeclaring a type in
+a later submission creates a new identity; existing values and previously compiled
+functions retain the old definition. Checking resolves enum names and variants in
+the entire submitted AST, including unused functions and skipped branches, before
+bytecode generation. A parsing, checking, or compilation failure does not publish
+new types or functions. A runtime failure occurs after declarations are committed.
 
 ## Boolean expressions
 
@@ -265,6 +316,7 @@ or booleans.
 | String | False for empty text, exact `"false"`, or text parsing as numeric zero; true otherwise |
 | Array, hash map, or argument expansion | False when empty, true otherwise |
 | Range | False for an empty bounded range; true otherwise |
+| Enum | Always true, regardless of the variant name |
 | External command result | True for exit status 0; false for nonzero status or termination by signal |
 
 Logical operators always return a boolean. `&&` skips its right operand when
@@ -289,9 +341,9 @@ echo ((/usr/bin/false) || (/usr/bin/true))  # true
 Use parenthesized calls to make command results operands: `(foo 3) && (bar 4)`.
 These are value expressions, not shell command chains: `echo true && false`
 passes the single value `false` to `echo`. Bare words within boolean expressions
-are string operands; `foo == foo` compares text. Function parameters currently
-arrive as strings, so `!$parameter` converts that text, while `$parameter == "3"`
-compares it without numeric coercion.
+are string operands; `foo == foo` compares text. Function parameters preserve
+their argument types: passing `3` gives an integer, while passing `"3"` gives
+a string. Equality does not coerce one into the other.
 
 ## Strings and paths
 
@@ -377,8 +429,11 @@ echo $sources...
 ## Functions, calls, and return values
 
 Functions have named parameters and local variable scopes. Call them like
-commands. Arguments are evaluated left to right, then **converted to text** for
-the callee; numeric types and executable markers do not survive parameter binding.
+commands. Arguments are evaluated left to right and **retain their types** when
+passed to Shelly functions, including enums, arrays, maps, and executable markers.
+External commands and builtins receive text. Alias defaults and command-line
+`$args` remain strings. Arrays passed to a function remain one array argument
+unless expanded with `...`.
 
 ```text
 fn foo($a)
@@ -733,7 +788,6 @@ Useful predefined variables include `$args`, `$pwd`, `$HOSTNAME`, `$HOME`, `$PAT
 ## Current limitations and known issues
 
 - Arithmetic converts operands to integers rather than preserving floating-point values.
-- Function arguments become text, losing their original types and executable markers.
 - Variables use dynamic caller scope; function definitions are hoisted within each input.
 - Command results are statuses, not captured stdout. Shell errors in noninteractive
   execution return a general failure status; only explicit `exit N` selects a specific status.
@@ -748,7 +802,11 @@ Useful predefined variables include `$args`, `$pwd`, `$HOSTNAME`, `$HOME`, `$PAT
 `src/main.rs` selects the execution mode. `src/runtime/repl.rs` implements the
 Reedline editor, completion, and prompt. The active tokenizer, parser, AST,
 compiler, values, and interpreter live under `src/language/`. Source is tokenized
-and parsed into an AST, compiled to bytecode, optimized, linked, then executed.
+and parsed into an AST, checked against a staged type registry, compiled to
+bytecode, optimized, linked, then executed. The initial checking pass registers
+lexically scoped enum declarations and resolves their references; general type
+inference and annotations remain future work. Builtin types and enum definitions
+share the registry, with stable `TypeId`s independent of name visibility.
 
 Two optimization passes run before linking: adjacent `PopResult`/`PushResult`
 pairs are removed, and redundant `CheckResult` instructions are dropped only

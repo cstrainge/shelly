@@ -11,6 +11,26 @@ use crate::language::{ ast::{ * },
 
 
 
+pub(super) fn expect_type_name(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<crate::language::tokenizer::Token>
+{
+    let token = expect_token(buffer, TokenKind::Symbol)?;
+    let name = token.token_value_text();
+    if !valid_type_name(&name)
+    {
+        return Err(ParserError { location: Some(token.location),
+            kind: ParserErrorKind::InvalidEnum("Expected an identifier containing letters, digits, or underscores.".to_string()) });
+    }
+    Ok(token)
+}
+
+fn valid_type_name(name: &str) -> bool
+{
+    let mut chars = name.chars();
+    chars.next().is_some_and(|c| c.is_alphabetic() || c == '_')
+        && chars.all(|c| c.is_alphanumeric() || c == '_')
+}
+
+
 fn math_operator(kind: TokenKind) -> Option<(AstMathOperator, u8)>
 {
     match kind
@@ -36,6 +56,36 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
 
     let expression = match token.kind
         {
+            TokenKind::Symbol =>
+                {
+                    if try_expect_token(&mut *lookahead.buffer, TokenKind::Scope)?.is_none() { return Ok(None); }
+                    let name = token.token_value_text();
+                    if !valid_type_name(&name)
+                    {
+                        return Err(ParserError { location: Some(token.location),
+                            kind: ParserErrorKind::InvalidEnum("Invalid enum type name.".to_string()) });
+                    }
+                    let variant = expect_type_name(&mut *lookahead.buffer)?;
+                    let peek = Lookahead::new(&mut *lookahead.buffer);
+                    if let Some(next) = peek.buffer.next()?
+                    {
+                        if next.kind == TokenKind::Scope
+                        {
+                            return Err(ParserError { location: Some(next.location),
+                                kind: ParserErrorKind::InvalidEnum("Enum references require exactly Type::Variant.".to_string()) });
+                        }
+                        if next.kind == TokenKind::ParenOpen
+                            && next.location.line == variant.location.line
+                            && next.location.column == variant.location.column + variant.token_value_text().chars().count()
+                        {
+                            return Err(ParserError { location: Some(next.location),
+                                kind: ParserErrorKind::InvalidEnum("Unit enum variants do not take constructor arguments.".to_string()) });
+                        }
+                    }
+                    AstExpression { location: token.location,
+                        kind: AstExpressionKind::EnumVariant(name, variant.token_value_text()), string_flag: None }
+                },
+
             TokenKind::SquareOpen => AstExpression
                 {
                     location: token.location,
@@ -361,7 +411,7 @@ fn parse_math_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
     // A lone number/variable belongs to the existing expression rules. Explicit
     // parentheses also accept a single operand, e.g. (42) or ($count).
     if starts_with_group || matches!(&expression.kind,
-        AstExpressionKind::MathExpression(_, _, _) | AstExpressionKind::BooleanNot(_)
+        AstExpressionKind::EnumVariant(_, _) | AstExpressionKind::MathExpression(_, _, _) | AstExpressionKind::BooleanNot(_)
         | AstExpressionKind::IfExpression(_) | AstExpressionKind::Array(_)
         | AstExpressionKind::HashMap(_)
         | AstExpressionKind::Index(_, _) | AstExpressionKind::Splat(_))
@@ -779,7 +829,7 @@ pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
     {
         let mut lookahead = Lookahead::new(buffer);
         if let Some(expression) = parse_math_expression(&mut *lookahead.buffer)?
-            && matches!(expression.kind, AstExpressionKind::Index(_, _))
+            && matches!(expression.kind, AstExpressionKind::Index(_, _) | AstExpressionKind::EnumVariant(_, _))
         {
             reject_index_assignment(&mut *lookahead.buffer, &expression)?;
             lookahead.commit();

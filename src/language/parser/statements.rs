@@ -419,6 +419,35 @@ fn parse_for_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
 }
 
 
+fn parse_enum_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
+{
+    let keyword = expect_token(buffer, TokenKind::Enum)?;
+    let name = super::expressions::expect_type_name(buffer)?;
+    while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+    expect_token(buffer, TokenKind::BlockOpen)?;
+    let mut variants = Vec::new();
+    loop
+    {
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        if try_expect_token(buffer, TokenKind::BlockClose)?.is_some() { break; }
+        let variant = super::expressions::expect_type_name(buffer)?;
+        variants.push((variant.token_value_text(), variant.location));
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        if try_expect_token(buffer, TokenKind::Comma)?.is_some() { continue; }
+        expect_token(buffer, TokenKind::BlockClose)?;
+        break;
+    }
+    if variants.is_empty()
+    {
+        return Err(ParserError { location: Some(keyword.location),
+            kind: ParserErrorKind::InvalidEnum("An enum requires at least one variant.".to_string()) });
+    }
+    expect_statement_end(buffer)?;
+    Ok(Some(AstStatement::EnumDeclaration(Box::new(AstEnumDeclaration
+        { location: name.location.clone(), name: name.token_value_text(), variants }))))
+}
+
+
 pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     // EOF is normal between statements. Rewind a real token so the statement rules see it, and
@@ -434,6 +463,8 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     // A function's parameter list can also look like a parenthesized command argument. Once fn
     // starts a declaration, preserve its errors (including incomplete input) instead of falling
     // back to parsing it as a command.
+    if next_kind == TokenKind::Enum { return parse_enum_statement(buffer); }
+
     if next_kind == TokenKind::Function
     {
         return parse_function_statement(buffer);

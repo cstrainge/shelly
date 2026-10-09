@@ -207,6 +207,7 @@ pub struct Interpreter
     base_function_block: FunctionBlockRef,
     current_function_block: Option<FunctionBlockRef>,
     built_ins: BuiltIns<'static>,
+    types: crate::language::data::types::TypeRegistry,
     captured_stdout: Option<Vec<u8>>,
     pub last_result: Option<Value>,
     pub exit_code: u8,
@@ -280,6 +281,7 @@ impl Interpreter
                     })),
                 current_function_block: None,
                 built_ins,
+                types: crate::language::data::types::TypeRegistry::new(),
                 captured_stdout: None,
                 last_result: None,
                 exit_code: 0,
@@ -474,7 +476,8 @@ impl Interpreter
 
         if let Some(function) = function
         {
-            self.execute_function(&location, command, &function, &args)?;
+            self.execute_function(&location, command, &function,
+                &args.iter().cloned().map(Value::from_string).collect::<Vec<_>>())?;
         }
         else if let Some(built_in) = self.built_ins.get(command).cloned()
         {
@@ -495,9 +498,10 @@ impl Interpreter
     pub fn execute_from_buffer(&mut self, buffer: &mut dyn Buffer) -> InterpreterResult<()>
     {
         let mut tokenizer = Tokenizer::new(buffer);
-        let statements = parse_text(&mut tokenizer)?;
-        let instructions = compile_ast(&self.base_function_block,
-                                       &statements,
+        let mut statements = parse_text(&mut tokenizer)?;
+        let instructions = compile_ast(&mut self.types,
+                                       &self.base_function_block,
+                                       &mut statements,
                                        CompileTarget::Toplevel)?;
 
         self.execute_instructions(&instructions)
@@ -589,6 +593,11 @@ impl Interpreter
                                 location: location.clone(),
                                 what: ErrorWhat::NoResult
                             })?;
+                        if matches!(value, Value::Enum(_))
+                        {
+                            return Err(InterpreterError { location: location.clone(),
+                                what: ErrorWhat::InvalidOperand("Cannot execute an enum as a command".to_string()) });
+                        }
                         self.last_result = Some(Value::from_executable_string(value.as_text()));
                     },
 
@@ -602,7 +611,7 @@ impl Interpreter
                                     self.execute(&location, executable, Vec::new())?;
                                 },
 
-                            Some(value @ (Value::Array(_) | Value::ArgumentExpansion(_) | Value::HashMap(_) | Value::Range(_)))
+                            Some(value @ (Value::Array(_) | Value::ArgumentExpansion(_) | Value::HashMap(_) | Value::Range(_) | Value::Enum(_)))
                                 if matches!(instruction.operand, Some(Value::Boolean(true))) =>
                                 {
                                     Self::command_name(&location, value)?;
@@ -645,12 +654,12 @@ impl Interpreter
                                 {
                                     for expanded_arg in expanded_args.iter().rev()
                                     {
-                                        args.push(expanded_arg.as_text());
+                                        args.push(expanded_arg.clone());
                                     }
                                 }
                                 else
                                 {
-                                    args.push(arg.as_text());
+                                    args.push(arg);
                                 }
                             }
                         }
@@ -1277,6 +1286,10 @@ impl Interpreter
                             };
                         let rhs = Self::pop(&location, &mut stack)?;
                         let lhs = Self::pop(&location, &mut stack)?;
+                        if lhs.rejects_integer_conversion() || rhs.rejects_integer_conversion()
+                        {
+                            return Err(error("Enums cannot be used in arithmetic"));
+                        }
                         let rhs = rhs.checked_integer().ok_or_else(|| error("Integer overflow"))?;
                         let lhs = lhs.checked_integer().ok_or_else(|| error("Integer overflow"))?;
                         if rhs == 0 && matches!(instruction.code, Code::MathDivide | Code::MathModulo)
@@ -1466,7 +1479,7 @@ impl Interpreter
                         location: &Location,
                         name: &str,
                         function: &FunctionRef,
-                        args: &Vec<String>) -> InterpreterResult<()>
+                        args: &[Value]) -> InterpreterResult<()>
     {
         if function.arguments.len() != args.len()
         {
@@ -1489,7 +1502,7 @@ impl Interpreter
             let result = self.variables.create(function.arguments[index].clone(),
                 ScopedValue
                 {
-                    value: Value::from_string(args[index].clone()),
+                    value: args[index].clone(),
                     exported: ValueVisibility::Private
                 });
 
@@ -1517,7 +1530,7 @@ impl Interpreter
     fn find_and_execute_function(&mut self,
                         location: &Location,
                         executable: &str,
-                        args: &Vec<String>) -> InterpreterResult<bool>
+                        args: &[Value]) -> InterpreterResult<bool>
     {
         if    let Some(current_function_block) = self.current_function_block.clone()
            && let Some(function) = self.get_function(executable, &current_function_block)
@@ -1538,16 +1551,15 @@ impl Interpreter
     fn execute(&mut self,
                location: &Location,
                executable: String,
-               args: Vec<String>) -> InterpreterResult<()>
+               args: Vec<Value>) -> InterpreterResult<()>
     {
-        let (executable, mut resolved_args) = self.resolve_alias(location, &executable)?;
+        let (executable, resolved_args) = self.resolve_alias(location, &executable)?;
         let executable = self.eval_path_from(&executable);
-        resolved_args.extend(args);
-        let args = resolved_args;
+        let args: Vec<Value> = resolved_args.into_iter().map(Value::from_string).chain(args).collect();
 
         if let Some(built_in) = self.built_ins.get(executable.as_str()).cloned()
         {
-            return built_in(self, location, &args);
+            return built_in(self, location, &args.iter().map(Value::as_text).collect::<Vec<_>>());
         }
 
         if self.find_and_execute_function(location, &executable, &args)?
@@ -1588,7 +1600,7 @@ impl Interpreter
 
         let mut command = Command::new(&executable);
 
-        command.args(args.iter().map(|argument| self.eval_path_from(argument)))
+        command.args(args.iter().map(|argument| self.eval_path_from(&argument.as_text())))
             .env_clear().envs(env_vars);
 
         let status_result = if self.captured_stdout.is_some()
@@ -1638,6 +1650,9 @@ impl Interpreter
     {
         match value
         {
+            Value::Enum(_) => Err(InterpreterError
+                { location: location.clone(),
+                  what: ErrorWhat::InvalidOperand("Cannot execute an enum as a command".to_string()) }),
             Value::Range(_) => Err(InterpreterError
                 {
                     location: location.clone(),

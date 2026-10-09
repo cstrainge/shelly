@@ -22,6 +22,7 @@ pub enum ErrorWhat
 {
     ParserError(ParserError),
     InvalidJump(String),
+    TypeError(String),
 }
 
 
@@ -38,6 +39,15 @@ impl Display for CompileError
     {
         match &self.what
         {
+            ErrorWhat::TypeError(message) =>
+                {
+                    if let Some(location) = &self.location
+                    {
+                        write!(f, "Type error: {}: {}", location, message)
+                    }
+                    else { write!(f, "Type error: {}", message) }
+                },
+
             ErrorWhat::InvalidJump(message) =>
                 {
                     if let Some(location) = &self.location
@@ -88,6 +98,9 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
 {
     match &expression.kind
     {
+        AstExpressionKind::EnumVariant(_, _) => return Err(CompileError
+            { location: Some(expression.location.clone()),
+              what: ErrorWhat::TypeError("Unresolved enum reference reached code generation".to_string()) }),
         AstExpressionKind::Range(start, end, inclusive) =>
             {
                 for bound in [start, end].into_iter().flatten()
@@ -671,7 +684,7 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
             functions: HashMap::new()
         }));
 
-    let instructions = compile_ast(&function_block,
+    let instructions = compile_checked_ast(&function_block,
                                    &function_statement.body,
                                    CompileTarget::Function)?;
 
@@ -1037,7 +1050,7 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
 
         match ast_item
         {
-            AstStatement::NullStatement => { add_check = false; },
+            AstStatement::EnumDeclaration(_) | AstStatement::NullStatement => { add_check = false; },
 
             AstStatement::LetStatement(let_statement) =>
                 {
@@ -1158,7 +1171,7 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
 }
 
 
-pub fn compile_ast(function_block: &FunctionBlockRef,
+fn compile_checked_ast(function_block: &FunctionBlockRef,
                    ast: &AstTopLevel,
                    target: CompileTarget) -> CompileResult<Vec<Instruction>>
 {
@@ -1170,4 +1183,26 @@ pub fn compile_ast(function_block: &FunctionBlockRef,
     link_instructions(&mut instructions)?;
 
     Ok(instructions)
+}
+
+
+// Type names and definitions are committed together only after the complete
+// submission has passed AST checking and bytecode generation/linking.
+pub fn compile_ast(registry: &mut crate::language::data::types::TypeRegistry,
+                   function_block: &FunctionBlockRef,
+                   ast: &mut AstTopLevel,
+                   target: CompileTarget) -> CompileResult<Vec<Instruction>>
+{
+    let mut staged = registry.clone();
+    crate::language::typecheck::check_ast(&mut staged, ast)?;
+    let previous_functions = function_block.borrow().functions.clone();
+    match compile_checked_ast(function_block, ast, target)
+    {
+        Ok(code) => { *registry = staged; Ok(code) },
+        Err(error) =>
+            {
+                function_block.borrow_mut().functions = previous_functions;
+                Err(error)
+            }
+    }
 }

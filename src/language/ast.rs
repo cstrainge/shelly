@@ -51,6 +51,7 @@ pub enum AstBooleanOperator
 
 pub enum AstExpressionKind
 {
+    EnumVariant(String, String),
     Variable(AstSymbol),
     VariableSplat(AstSymbol),
     Array(Vec<AstExpression>),
@@ -152,6 +153,7 @@ impl AstExpression
         match &self.kind
         {
             AstExpressionKind::Symbol(symbol) => Ok(symbol.name.clone()),
+            AstExpressionKind::EnumVariant(_, _) => Err(AstError::ExpressionNotString(self.location.clone())),
             AstExpressionKind::Variable(variable) => Ok(variable.name.clone()),
             AstExpressionKind::VariableSplat(variable) => Ok(variable.name.clone()),
             AstExpressionKind::Literal(literal) => Ok(literal.value.as_text()),
@@ -353,8 +355,17 @@ pub struct AstConditionalLoopStatement
 }
 
 
+pub struct AstEnumDeclaration
+{
+    pub location: Location,
+    pub name: String,
+    pub variants: Vec<(String, Location)>
+}
+
+
 pub enum AstStatement
 {
+    EnumDeclaration(Box<AstEnumDeclaration>),
     LetStatement(Box<AstLetStatement>),
     SetStatement(Box<AstSetStatement>),
     AliasStatement(Box<AstAliasStatement>),

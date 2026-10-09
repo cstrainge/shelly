@@ -3,6 +3,7 @@ use std::{ collections::HashMap, rc::Rc };
 
 use super::map_key::MapKey;
 use super::range::Range;
+use super::types::EnumValue;
 
 
 
@@ -26,6 +27,7 @@ pub enum Executable
 pub enum Value
 {
     None,
+    Enum(Rc<EnumValue>),
     ExecResult(ExecResult),
     Integer(i64),
     Float(f64, Option<String>),
@@ -79,6 +81,7 @@ impl Value
         match self
         {
             Value::None => "()".to_string(),
+            Value::Enum(value) => value.to_string(),
             Value::Range(range) => range.to_string(),
             Value::ExecResult(code) => format!("ExecResult({})", match code
                 {
@@ -120,7 +123,7 @@ impl Value
         match self
         {
             Value::None => 0,
-            Value::HashMap(_) | Value::Range(_) => 0,
+            Value::HashMap(_) | Value::Range(_) | Value::Enum(_) => 0,
             Value::ExecResult(code) => match code
                 {
                     ExecResult::Value(v) => *v as i64,
@@ -140,6 +143,7 @@ impl Value
         match self
         {
             Value::None => false,
+            Value::Enum(_) => true,
             Value::Range(range) => !range.is_empty(),
             Value::ExecResult(ExecResult::Value(code)) => *code == 0,
             Value::ExecResult(ExecResult::Signaled) => false,
@@ -159,6 +163,7 @@ impl Value
         match (self, other)
         {
             (Value::None, Value::None) => true,
+            (Value::Enum(left), Value::Enum(right)) => left == right,
             (Value::Range(left), Value::Range(right)) => left == right,
             (Value::ExecResult(left), Value::ExecResult(right)) => left == right,
             (Value::Integer(left), Value::Integer(right)) => left == right,
@@ -182,10 +187,21 @@ impl Value
         }
     }
 
+    pub fn rejects_integer_conversion(&self) -> bool
+    {
+        match self
+        {
+            Value::Enum(_) => true,
+            Value::Array(values) | Value::ArgumentExpansion(values) => values.iter().any(Self::rejects_integer_conversion),
+            _ => false
+        }
+    }
+
     pub fn checked_integer(&self) -> Option<i64>
     {
         match self
         {
+            Value::Enum(_) => None,
             Value::Array(values) | Value::ArgumentExpansion(values) => values.iter()
                 .try_fold(0i64, |sum, value| sum.checked_add(value.checked_integer()?)),
             _ => Some(self.as_integer())

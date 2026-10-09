@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use super::value::{ ExecResult, Value };
 use super::range::Range;
+use super::types::EnumValue;
 
 
 // Immutable, canonical keys keep hashing consistent with language equality.
@@ -11,6 +12,7 @@ use super::range::Range;
 pub enum MapKey
 {
     None,
+    Enum(Rc<EnumValue>),
     ExecResult(u8),
     Signaled,
     Integer(i64),
@@ -31,6 +33,7 @@ impl MapKey
         match value
         {
             Value::None => Self::None,
+            Value::Enum(value) => Self::Enum(value.clone()),
             Value::Range(range) => Self::Range(*range),
             Value::ExecResult(ExecResult::Value(code)) => Self::ExecResult(*code),
             Value::ExecResult(ExecResult::Signaled) => Self::Signaled,
@@ -67,6 +70,7 @@ impl MapKey
         match self
         {
             Self::None => Value::None,
+            Self::Enum(value) => Value::Enum(value.clone()),
             Self::Range(range) => Value::Range(*range),
             Self::ExecResult(code) => Value::ExecResult(ExecResult::Value(*code)),
             Self::Signaled => Value::ExecResult(ExecResult::Signaled),
