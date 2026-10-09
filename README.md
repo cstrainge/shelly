@@ -339,20 +339,20 @@ new types or functions. A runtime failure occurs after declarations are committe
 
 ## Structs
 
-Structs declare fields with `$name`, an optional `optional` modifier, and an
-optional type annotation. There is no colon in a field declaration:
+Structs declare bare field names without `$`. A type annotation follows a colon:
+`name: Type`. Omitting the annotation makes the field accept any value:
 
 ```text
 enum Status { Ready, Busy }
 
 struct Item
 {
-    $quantity Number,
-    $state Status,
-    $children [Item],
-    $labels [String: String],
-    $next optional Item,
-    $payload any,
+    quantity: Number,
+    state: Status,
+    children: [Item],
+    labels: [String: String],
+    next: optional Item,
+    payload: any,
 }
 
 let $item = Item(
@@ -369,8 +369,8 @@ $item.labels["name"] = "updated"
 ```
 
 Commas separate declarations and constructor arguments; newlines, comments, and
-trailing commas are allowed. Constructor labels omit `$`. The opening parenthesis
-can touch the type name, be separated by spaces (`Item (quantity: 42, ...)`),
+trailing commas are allowed. Declaration names and constructor labels omit `$`.
+The opening parenthesis can touch the type name, be separated by spaces (`Item (quantity: 42, ...)`),
 or follow it on a new line, including across blank lines and comments:
 
 ```text
@@ -394,13 +394,13 @@ calls retain space-separated arguments, including `foo (expression)` on one line
 
 | Declaration | Meaning |
 | --- | --- |
-| `$field` or `$field any` | Required field accepting any value, including `()` |
-| `$field optional` or `$field optional any` | Any value; defaults to `()` when omitted |
-| `$field Number` | Integer or float; strings and booleans do not qualify |
-| `$field MyEnum` or `$field MyStruct` | A value of that specific type declaration |
-| `$field [T]` | Array whose elements satisfy `T` |
-| `$field [K: V]` | Map whose keys satisfy `K` and values satisfy `V` |
-| `$field optional T` | Either `T` or `()`; defaults to `()` when omitted |
+| `field` or `field: any` | Required field accepting any value, including `()` |
+| `field: optional` or `field: optional any` | Any value; defaults to `()` when omitted |
+| `field: Number` | Integer or float; strings and booleans do not qualify |
+| `field: MyEnum` or `field: MyStruct` | A value of that specific type declaration |
+| `field: [T]` | Array whose elements satisfy `T` |
+| `field: [K: V]` | Map whose keys satisfy `K` and values satisfy `V` |
+| `field: optional T` | Either `T` or `()`; defaults to `()` when omitted |
 
 The existing builtin names also work, including `Integer`, `Float`, `String`,
 `Boolean`, `None`, `Range`, `Array`, `HashMap`, and `ExecResult`. Annotations check
@@ -446,8 +446,8 @@ old definitions.
 
 Self and mutual references are supported through optional fields or containers.
 Cycles consisting entirely of required struct fields are rejected because they
-cannot form a finite, fully initialized value. For example, `$next optional Item`
-and `$children [Item]` are valid; a required `$next Item` inside `Item` is not.
+cannot form a finite, fully initialized value. For example, `next: optional Item`
+and `children: [Item]` are valid; a required `next: Item` inside `Item` is not.
 
 Equality compares declaration identity and all field values. Structs can be map
 keys, using immutable snapshots and normal value equality. They always convert
@@ -615,7 +615,7 @@ echo (foo 3) + 1            # 6145
 Parameters and return values can also be annotated:
 
 ```text
-struct Item { $value Number }
+struct Item { value: Number }
 
 fn make_item($value: Number): Item
 {
