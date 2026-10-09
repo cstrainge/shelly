@@ -15,10 +15,10 @@ use crate::language::{ ast::*,
                                                 parse_condition_expression,
                                                 parse_command_arguments,
                                                 expect_type_name,
+                                                expect_field_label,
                                                 parse_indexes,
                                                 parse_parameter_type,
-                                                parse_type,
-                                                valid_type_name },
+                                                parse_type },
                                  results::{ ParseResult, ParserError, ParserErrorKind } } };
 
 fn expect_statement_end(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<()>
@@ -448,28 +448,27 @@ fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
     {
         while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
         if try_expect_token(buffer, TokenKind::BlockClose)?.is_some() { break; }
-        let field = expect_token(buffer, TokenKind::Identifier)?;
-        let field_name = field.token_value_text()[1..].to_string();
-        if !valid_type_name(&field_name)
+        let field = expect_field_label(buffer)?;
+        let field_name = field.token_value_text();
+        let mut optional = false;
+        let mut annotation = AstType::Named("any".to_string());
+        if try_expect_token(buffer, TokenKind::TypeDelimiter)?.is_some()
         {
-            return Err(ParserError { location: Some(field.location),
-                kind: ParserErrorKind::InvalidType("Invalid struct field name.".to_string()) });
+            optional =
+                {
+                    let mut peek = Lookahead::new(buffer);
+                    if peek.buffer.next()?.is_some_and(|token| token.kind == TokenKind::Symbol
+                        && token.token_value_text() == "optional")
+                    { peek.commit(); true } else { false }
+                };
+            let has_type =
+                {
+                    let peek = Lookahead::new(buffer);
+                    peek.buffer.next()?.is_some_and(|token| !matches!(token.kind,
+                        TokenKind::Comma | TokenKind::BlockClose | TokenKind::LineBreak))
+                };
+            if !optional || has_type { annotation = parse_type(buffer)?; }
         }
-        let optional =
-            {
-                let mut peek = Lookahead::new(buffer);
-                if peek.buffer.next()?.is_some_and(|token| token.kind == TokenKind::Symbol
-                    && token.token_value_text() == "optional")
-                { peek.commit(); true } else { false }
-            };
-        let has_type =
-            {
-                let peek = Lookahead::new(buffer);
-                peek.buffer.next()?.is_some_and(|token| !matches!(token.kind,
-                    TokenKind::Comma | TokenKind::BlockClose | TokenKind::LineBreak))
-            };
-        let annotation = if has_type { parse_type(buffer)? }
-            else { AstType::Named("any".to_string()) };
         fields.push(AstFieldDeclaration
             {
                 name: field_name,
