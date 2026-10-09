@@ -407,6 +407,79 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                 return Ok(());
             },
 
+        AstExpressionKind::Redirect(source, redirects) =>
+            {
+                // Evaluate all endpoints before installing any of the stream overrides.
+                for redirect in redirects
+                {
+                    let variable = matches!(redirect.target.kind, AstExpressionKind::Variable(_));
+                    if variable
+                    {
+                        instructions.push(Instruction
+                            {
+                                location: Some(redirect.target.location.clone()),
+                                code: Code::Push,
+                                operand: Some(Value::from_string(
+                                    redirect.target.resolve_as_text().map_err(ParserError::from)?)),
+                            });
+                    }
+                    else
+                    {
+                        compile_expression(instructions, function_block, &redirect.target)?;
+                        instructions.push(Instruction
+                            {
+                                location: None,
+                                code: Code::PushResult,
+                                operand: None,
+                            });
+                    }
+                }
+                for (index, redirect) in redirects.iter().enumerate()
+                {
+                    let stream = match redirect.stream
+                        {
+                            RedirectStream::Output => 1,
+                            RedirectStream::Error => 2,
+                            RedirectStream::Both => 3,
+                        };
+                    instructions.push(Instruction
+                        {
+                            location: Some(redirect.location.clone()),
+                            code: Code::BeginRedirect,
+                            operand: Some(Value::from_array(vec![
+                                    Value::Integer(stream),
+                                    Value::Boolean(matches!(redirect.target.kind,
+                                        AstExpressionKind::Variable(_))),
+                                    Value::Integer((redirects.len() - index) as i64),
+                                ])),
+                        });
+                }
+                compile_expression(instructions, function_block, source)?;
+                if matches!(source.kind, AstExpressionKind::Symbol(_)
+                    | AstExpressionKind::Variable(_) | AstExpressionKind::Literal(_)
+                    | AstExpressionKind::ExecutableReference(_))
+                {
+                    instructions.push(Instruction
+                        {
+                            location: Some(source.location.clone()),
+                            code: Code::RedirectSource,
+                            // Only bare command words have implicit command resolution.
+                            operand: Some(Value::Boolean(matches!(source.kind,
+                                AstExpressionKind::Symbol(_)))),
+                        });
+                }
+                for _ in redirects
+                {
+                    instructions.push(Instruction
+                        {
+                            location: Some(expression.location.clone()),
+                            code: Code::EndRedirect,
+                            operand: None,
+                        });
+                }
+                return Ok(());
+            },
+
         AstExpressionKind::ExecutableReference(inner) =>
             {
                 compile_expression_mode(instructions, function_block, inner, true)?;
@@ -1086,6 +1159,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     Code::PushResult | Code::CheckResult | Code::EndIteration => true,
 
                     Code::PopResult | Code::Execute | Code::TryExecute
+                    | Code::RedirectSource
                     | Code::ExecuteIfExecutable | Code::MakeExecutable
                     | Code::ToBoolean | Code::ConvertType | Code::BooleanNot
                     | Code::NextIteration => false,
@@ -1097,6 +1171,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
 
                     // These instructions operate on the value stack or other VM state.
                     Code::Push
+                    | Code::BeginRedirect | Code::EndRedirect
                     | Code::NewVariable
                     | Code::SetVariable
                     | Code::GetVariable

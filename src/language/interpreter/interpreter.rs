@@ -10,7 +10,7 @@ use std::{ cell::RefCell,
                   split_paths },
            fmt::{ self, Debug, Display, Formatter },
            fs::File,
-           io::{ BufReader, ErrorKind },
+           io::{ BufReader, ErrorKind, Write, copy, stdout, stderr },
            path::{ Path, PathBuf, Component, MAIN_SEPARATOR_STR, is_separator },
            process::{ Command, Stdio },
            rc::Rc,
@@ -37,7 +37,8 @@ use crate::{ language::{ bytecode::{ Code,
                          parser::{ ParserError, parse_text },
                          tokenizer::Tokenizer,
                          text::{ buffer::Buffer, location::Location, read_buffer::ReadBuffer },
-                         interpreter::iteration::Iteration },
+                         interpreter::{ iteration::Iteration,
+                                        redirection::{ Redirection, Output, configure } } },
              runtime::color::TtyColorMode };
 
 const BANNER_TRUECOLOR: &str = include_str!("../../../banner_truecolor.txt");
@@ -53,6 +54,7 @@ struct LoopFrame
     stack_depth: usize,
     iteration_depth: usize,
     reference_depth: usize,
+    redirection_depth: usize,
 }
 
 
@@ -75,6 +77,7 @@ pub enum ErrorWhat
     ReturnOutsideFunction,
     ExecutableNotFound(String),
     ExecutableIoError(String),
+    RedirectionError(String),
     ExecutableBadReturn(u8),
     ExecutableSignaled,
     InitialScopePopAttempt
@@ -108,6 +111,7 @@ impl Display for ErrorWhat
             ErrorWhat::ExecutableNotFound(name) => write!(f, "Executable not found: {}.", name),
             ErrorWhat::ExecutableIoError(message) =>
                 write!(f, "Executable I/O error: {}.", message),
+            ErrorWhat::RedirectionError(message) => write!(f, "Redirection error: {}.", message),
             ErrorWhat::ExecutableBadReturn(code) =>
                 {
                     write!(f, "Executable returned error code: {}.", code)
@@ -225,6 +229,7 @@ pub struct Interpreter
     built_ins: BuiltIns<'static>,
     types: TypeRegistry,
     captured_stdout: Option<Vec<u8>>,
+    redirections: Vec<Redirection>,
     pub last_result: Option<Value>,
     pub exit_code: u8,
     pub halted: bool
@@ -302,6 +307,7 @@ impl Interpreter
                 built_ins,
                 types: TypeRegistry::new(),
                 captured_stdout: None,
+                redirections: Vec::new(),
                 last_result: None,
                 exit_code: 0,
                 halted: false
@@ -540,8 +546,12 @@ impl Interpreter
                                            -> InterpreterResult<()>
     {
         let initial_scope = self.variables.current_scope();
+        let initial_redirections = self.redirections.len();
         let result =
             self.execute_instructions_scoped(instructions, initial_scope, arguments, receiver);
+
+        let cleanup = self.finish_redirections(initial_redirections);
+        let result = result.and(cleanup);
 
         self.variables.reset_to_scope(initial_scope);
         if result.is_err() { self.last_result = None; }
@@ -574,6 +584,35 @@ impl Interpreter
 
             match instruction.code
             {
+                Code::BeginRedirect =>
+                    {
+                        let Some(Value::Array(parts)) = &instruction.operand else
+                        { unreachable!("Invalid redirection operand"); };
+                        let [Value::Integer(stream), Value::Boolean(variable),
+                             Value::Integer(pending)] = parts.as_slice()
+                        else { unreachable!("Invalid redirection operand"); };
+                        let index = stack.len().checked_sub(*pending as usize)
+                            .ok_or_else(|| InterpreterError
+                                { location: location.clone(), what: ErrorWhat::StackUnderflow })?;
+                        let target = stack.remove(index).ok_or_else(|| InterpreterError
+                            { location: location.clone(), what: ErrorWhat::StackUnderflow })?;
+                        self.begin_redirection(&location, *stream, *variable, target)?;
+                    },
+
+                Code::EndRedirect =>
+                    {
+                        self.finish_redirections(self.redirections.len() - 1)?;
+                    },
+
+                Code::RedirectSource =>
+                    {
+                        let Some(Value::Boolean(command_word)) = &instruction.operand
+                        else { unreachable!("Invalid redirection source operand"); };
+                        let value = self.last_result.take().ok_or_else(|| InterpreterError
+                            { location: location.clone(), what: ErrorWhat::NoResult })?;
+                        self.redirect_source(&location, value, *command_word)?;
+                    },
+
                 Code::Push =>
                     {
                         if let Some(operand) = &instruction.operand
@@ -1611,6 +1650,7 @@ impl Interpreter
                                 stack_depth: stack.len(),
                                 iteration_depth: iterations.len(),
                                 reference_depth: references.len(),
+                                redirection_depth: self.redirections.len(),
                             });
                     },
 
@@ -1643,6 +1683,7 @@ impl Interpreter
                             })?;
                         // A transfer may abandon nested blocks and partially evaluated
                         // expressions. Restore the state saved before the iteration body.
+                        self.finish_redirections(frame.redirection_depth)?;
                         self.variables.reset_to_scope(frame.scope);
                         stack.truncate(frame.stack_depth);
                         iterations.truncate(frame.iteration_depth);
@@ -2289,12 +2330,13 @@ impl Interpreter
         command.args(args.iter().map(|argument| self.eval_path_from(&argument.as_text())))
             .env_clear().envs(env_vars);
 
-        let status_result = if self.captured_stdout.is_some()
+        command.stdin(Stdio::inherit()).stdout(Stdio::inherit()).stderr(Stdio::inherit());
+        let redirected_output = configure(&mut command, &self.redirections)
+            .map_err(|error| Self::redirection_error(location, error))?;
+        let status_result = if self.captured_stdout.is_some() && !redirected_output
             {
                 command
-                    .stdin(Stdio::inherit())
                     .stdout(Stdio::piped())
-                    .stderr(Stdio::inherit())
                     .output()
                     .map(|output|
                         {
@@ -2330,6 +2372,116 @@ impl Interpreter
         self.last_result = Some(value);
 
         Ok(())
+    }
+
+    fn redirection_error(location: &Location, error: impl Display) -> InterpreterError
+    {
+        InterpreterError
+            {
+                location: location.clone(),
+                what: ErrorWhat::RedirectionError(error.to_string()),
+            }
+    }
+
+    fn begin_redirection(&mut self, location: &Location, stream: i64,
+                          variable: bool, target: Value) -> InterpreterResult<()>
+    {
+        let Value::String(text, _) = target else
+        {
+            return Err(Self::redirection_error(location,
+                "A redirection requires a string path or string variable"));
+        };
+        let mut redirect = Redirection::new(location.clone());
+        let target_name = text.clone();
+        let output = if variable
+            {
+                // Validate before running commands or replacing the binding.
+                let binding = self.variables.get(&text).ok_or_else(||
+                    Self::redirection_error(location,
+                        format!("Variable '{}' not found; declare it with let", text)))?;
+                if let Some(id) = binding.type_id
+                {
+                    self.types.validate(id, &Value::from_string(String::new()))
+                        .map_err(|error| Self::redirection_error(location, error))?;
+                }
+                drop(binding);
+                redirect.capture(text)
+            }
+            else
+            {
+                File::create(self.eval_path_from(&text))
+                    .map(|file| Rc::new(Output::File(file)))
+            };
+        let result = output.map(|output|
+            {
+                if stream == 1 || stream == 3 { redirect.output = Some(output.clone()); }
+                if stream == 2 || stream == 3 { redirect.error = Some(output); }
+            });
+        result.map_err(|error| Self::redirection_error(location,
+            format!("'{}': {}", target_name, error)))?;
+        self.redirections.push(redirect);
+        Ok(())
+    }
+
+    fn finish_redirections(&mut self, depth: usize) -> InterpreterResult<()>
+    {
+        let mut result = Ok(());
+        while self.redirections.len() > depth
+        {
+            let redirect = self.redirections.pop().unwrap();
+            let location = redirect.location.clone();
+            let finished = redirect.finish()
+                .map_err(|error| Self::redirection_error(&location, error))
+                .and_then(|capture|
+                    {
+                        if let Some((name, text)) = capture
+                        { self.write_variable(&location, &name, Value::from_string(text))?; }
+                        Ok(())
+                    });
+            result = result.and(finished);
+        }
+        result
+    }
+
+    fn redirect_source(&mut self, location: &Location, value: Value,
+                        command_word: bool) -> InterpreterResult<()>
+    {
+        if    matches!(&value, Value::String(_, executable) if *executable != Executable::No)
+           || (command_word && self.can_execute(&value.as_text()))
+        {
+            return self.execute_value(location, value, Vec::new());
+        }
+        let Value::String(path, _) = value else
+        {
+            return Err(Self::redirection_error(location, "A file path must be a string"));
+        };
+        let path = self.eval_path_from(&path);
+        let result = File::open(&path).and_then(|mut file|
+            {
+                if let Some(output) = self.redirections.iter().rev()
+                    .find_map(|redirect| redirect.output.as_ref())
+                {
+                    output.copy_from(&mut file)
+                }
+                else if let Some(capture) = self.captured_stdout.as_mut()
+                {
+                    copy(&mut file, capture)
+                }
+                else { copy(&mut file, &mut stdout().lock()) }
+            });
+        result.map_err(|error| Self::redirection_error(location,
+            format!("'{}': {}", path, error)))?;
+        self.last_result = Some(Value::from_status_code(Some(0)));
+        Ok(())
+    }
+
+    fn write_stderr(&self, location: &Location, text: &str) -> InterpreterResult<()>
+    {
+        let result = if let Some(output) = self.redirections.iter().rev()
+            .find_map(|redirect| redirect.error.as_ref())
+            { output.copy_from(&mut text.as_bytes()).map(|_| ()) }
+            else { stderr().lock().write_all(text.as_bytes()) };
+        result.map_err(|error| Self::redirection_error(location, error))
     }
 
     fn command_name(location: &Location, value: Value) -> InterpreterResult<String>
@@ -2915,18 +3067,19 @@ impl Interpreter
         Ok((name.to_string(), arguments.into_iter().collect()))
     }
 
-    fn handle_cd(&mut self, _location: &Location, args: &[String]) -> InterpreterResult<()>
+    fn handle_cd(&mut self, location: &Location, args: &[String]) -> InterpreterResult<()>
     {
         if args.len() != 1
         {
-            eprintln!("Usage: cd <directory>");
+            self.write_stderr(location, "Usage: cd <directory>\n")?;
             self.last_result = Some(Value::ExecResult(ExecResult::Value(1)));
             return Ok(());
         }
 
         if let Err(error) = set_current_dir(self.eval_path_from(&args[0]))
         {
-            eprintln!("Failed to change directory to {}: {}", self.eval_path_to(&args[0]), error);
+            self.write_stderr(location, &format!("Failed to change directory to {}: {}\n",
+                self.eval_path_to(&args[0]), error))?;
             self.last_result = Some(Value::ExecResult(ExecResult::Value(1)));
             return Ok(());
         }

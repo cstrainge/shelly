@@ -68,6 +68,7 @@ pub enum AstExpressionKind
     // Preserve the referenced value without implicitly invoking it as an argument.
     ExecutableReference(Box<AstExpression>),
     Execute(Box<AstExecuteStatement>),
+    Redirect(Box<AstExpression>, Vec<AstRedirection>),
     TryExecute(Box<AstExpression>),
     MathExpression(AstMathOperator, Box<AstExpression>, Box<AstExpression>),
     BooleanExpression(AstBooleanOperator, Box<AstExpression>, Box<AstExpression>),
@@ -174,6 +175,7 @@ impl AstExpression
             | AstExpressionKind::Splat(_)
             | AstExpressionKind::ExecutableReference(_)
             | AstExpressionKind::Execute(_)
+            | AstExpressionKind::Redirect(_, _)
             | AstExpressionKind::TryExecute(_)
             | AstExpressionKind::MathExpression(_, _, _)
             | AstExpressionKind::BooleanExpression(_, _, _)
@@ -212,6 +214,23 @@ pub struct AstExecuteStatement
     pub executable: AstExpression,
     pub expand_path: bool,
     pub arguments: Vec<AstExpression>
+}
+
+
+#[derive(Clone, Copy)]
+pub enum RedirectStream
+{
+    Output,
+    Error,
+    Both
+}
+
+
+pub struct AstRedirection
+{
+    pub location: Location,
+    pub stream: RedirectStream,
+    pub target: AstExpression
 }
 
 

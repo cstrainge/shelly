@@ -15,6 +15,7 @@ pub enum ParserErrorKind
     SplatExecutable,
     InvalidAssignmentTarget,
     InvalidRange,
+    InvalidRedirection(String),
     InvalidEnum(String),
     InvalidType(String),
     UnexpectedElse,
@@ -62,6 +63,8 @@ impl Display for ParserErrorKind
 
             ParserErrorKind::InvalidType(message) | ParserErrorKind::InvalidEnum(message) =>
                 write!(f, "{}", message),
+
+            ParserErrorKind::InvalidRedirection(message) => write!(f, "{}", message),
 
             ParserErrorKind::InvalidRange =>
                 write!(f, "Ranges cannot be chained and inclusive ranges require an end bound."),

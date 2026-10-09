@@ -10,6 +10,7 @@ use crate::language::{ ast::*,
                                                try_expect_token,
                                                expect_block_list_of },
                                  expressions::{ parse_expression,
+                                                parse_redirection_tail,
                                                 parse_exec_expression,
                                                 parse_value_expression,
                                                 parse_condition_expression,
@@ -204,6 +205,18 @@ fn parse_value_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
 {
     let Some(expression) = parse_expression(buffer)? else { return Ok(None); };
 
+    let redirected =
+        {
+            let peek = Lookahead::new(buffer);
+            matches!(peek.buffer.next()?, Some(token) if matches!(token.kind,
+                TokenKind::RedirectTo | TokenKind::RedirectErrorTo | TokenKind::RedirectBothTo))
+        };
+    if redirected
+    {
+        return Ok(parse_redirection_tail(buffer, expression)?
+            .map(AstStatement::ExpressionStatement));
+    }
+
     if matches!(expression.kind, AstExpressionKind::Symbol(_) | AstExpressionKind::VariableSplat(_)
         | AstExpressionKind::Splat(_))
     {
@@ -231,6 +244,37 @@ fn parse_execute_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
     let Some(exec_expression) = parse_exec_expression(buffer)? else { return Ok(None); };
     let location = exec_expression.location.clone();
     let parameter_expressions = parse_command_arguments(buffer)?;
+
+    let redirected =
+        {
+            let peek = Lookahead::new(buffer);
+            matches!(peek.buffer.next()?, Some(token) if matches!(token.kind,
+                TokenKind::RedirectTo | TokenKind::RedirectErrorTo | TokenKind::RedirectBothTo))
+        };
+    if redirected
+    {
+        let source = if parameter_expressions.is_empty()
+            { exec_expression }
+            else
+            {
+                AstExpression
+                    {
+                        location: location.clone(),
+                        string_flag: None,
+                        kind: AstExpressionKind::Execute(Box::new(AstExecuteStatement
+                            {
+                                location,
+                                expand_path: matches!(&exec_expression.kind,
+                                    AstExpressionKind::Symbol(symbol)
+                                        if symbol.name.starts_with('~')),
+                                executable: exec_expression,
+                                arguments: parameter_expressions,
+                            })),
+                    }
+            };
+        return Ok(parse_redirection_tail(buffer, source)?
+            .map(AstStatement::ExpressionStatement));
+    }
 
     Ok(new_ast_execute_statement(location,
                             matches!(&exec_expression.kind,

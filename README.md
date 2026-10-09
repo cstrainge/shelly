@@ -1190,7 +1190,7 @@ syntax, but do not execute their loop-control statements.
 programs found through `PATH`.
 
 External commands return an `ExecResult` status. Their stdout is inherited by
-Shelly; assigning a command result does **not** capture its printed output.
+Shelly unless redirected; assigning a command result does **not** capture its printed output.
 
 ```text
 let $status = /usr/bin/false
@@ -1229,13 +1229,62 @@ Useful predefined variables include `$args`, `$pwd`, `$HOSTNAME`, `$HOME`, `$PAT
 `$rc_path` is the configured init path, `<not found>` when missing, or
 `<unloaded>` when init loading is disabled.
 
+### File and variable redirection
+
+`->` redirects stdout, `~->` redirects stderr, and `~+->` sends both streams to
+the same destination. Data flows from left to right. These operators can be
+combined on one command:
+
+```text
+let $output: String
+let $errors: String
+input.txt -> $output
+sh -c 'echo output; echo error >&2' -> $output ~-> $errors
+let $status = sh -c 'echo failed >&2; exit 1' ~+-> $output
+echo $status                         # ExecResult(1)
+```
+
+A bare variable on the right of an output operator receives text; declare it
+first, with a type that accepts `String`. Captures preserve all UTF-8 text,
+including trailing newlines. Invalid UTF-8 produces an error. File-to-file and
+process-to-file transfers preserve arbitrary bytes. Capturing output does not
+change the command's return value or its normal failure handling.
+
+Other destinations are file paths, created or truncated when opened. Quote a
+variable to use its value as a filename instead of capturing into the variable:
+
+```text
+echo hello -> output.txt
+let $log = 'command.log'
+sh -c 'echo output; echo error >&2' ~+-> "$log"
+```
+
+A file can also supply text directly to a variable. A variable used as this
+source holds the filename, matching `test.shy`:
+
+```text
+let $contents: String
+input.txt -> $contents
+let $path = 'input.txt'
+$path -> $contents
+```
+
+A bare source word that resolves to a command runs that command; otherwise it
+names a file. Quote the source path to force file access when its name matches a
+command. Redirections also apply to commands called inside Shelly functions and
+to builtin diagnostics. Streams are restored on completion, errors, and returns.
+Each stream may be redirected once per expression. Left-facing redirection
+operators are not supported. Input from files or variables into a process will
+use `|` pipelines, which are not implemented yet. Append redirection is also
+not implemented.
+
 ## Current limitations and known issues
 
 - Arithmetic converts operands to integers rather than preserving floating-point values.
 - Variables use dynamic caller scope; function definitions are hoisted within each input.
 - Command results are statuses, not captured stdout. Shell errors in noninteractive
   execution return a general failure status; only explicit `exit N` selects a specific status.
-- Pipelines, redirection, ordering comparisons (`<`, `>`, `<=`, `>=`), array slicing,
+- Pipelines, append redirection, ordering comparisons (`<`, `>`, `<=`, `>=`), array slicing,
   and array append syntax are not implemented.
 - Iterating or expanding a range requires both bounds. `break` cannot carry a value
   or target a named loop. Standalone blocks are statements, not general expressions.
@@ -1277,9 +1326,8 @@ scripts, or the REPL. `cargo clippy --locked --all-targets` runs the Rust lints.
 
 The draft [test.shy](test.shy) is a sketch for a future Shelly-native test runner,
 not a working test suite. Collection methods `sort`, `zip`, and `count` now work.
-The runner still requires redirection, tuple destructuring in `for` bindings,
-and transparent newlines in boolean conditions. Its referenced test directories
-are also absent.
+Redirection now supports its file reads and command captures. Its referenced
+test directories are still absent.
 The plan is to update this runner and write the suite in Shelly as the language
 stabilizes.
 

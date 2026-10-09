@@ -7,6 +7,11 @@ pub enum Code
 {
     Push,
     Execute,
+    // Operand: [stream (1 stdout, 2 stderr, 3 both), variable, pending targets].
+    BeginRedirect,
+    EndRedirect,
+    // Execute a command reference/name, or read bytes from a file path.
+    RedirectSource,
     // Pop a command name; leave its result, or the unresolved string, in last_result.
     TryExecute,
     // Execute last_result only when it is a string marked executable; preserve other values.

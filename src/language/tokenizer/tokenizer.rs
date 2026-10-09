@@ -247,29 +247,14 @@ pub enum TokenKind
     RedirectTo,
 
     /**
-     * Represents redirection in the source code from a file or variable, the `<-` symbol.
-     */
-    RedirectFrom,
-
-    /**
      * Represents redirection of stderr to a file or variable, the `~->` symbol.
      */
     RedirectErrorTo,
 
     /**
-     * Represents redirection of both stdout and stderr to a file or variable, the `+~->` symbol.
+     * Represents redirection of both stdout and stderr to a file or variable, the `~+->` symbol.
      */
     RedirectBothTo,
-
-    /**
-     * Represents redirection of stderr from a file or variable, the `<-~` symbol.
-     */
-    RedirectErrorFrom,
-
-    /**
-     * Represents redirection of both stdout and stderr from a file or variable, the `<-+~` symbol.
-     */
-    RedirectBothFrom,
 
     /**
      * Represents the splat operator, `...`, used for argument expansion.
@@ -495,11 +480,8 @@ impl Token
             TokenKind::Pipe              => "|".to_string(),
             TokenKind::ErrorSource       => "~".to_string(),
             TokenKind::RedirectTo        => "->".to_string(),
-            TokenKind::RedirectFrom      => "<-".to_string(),
             TokenKind::RedirectErrorTo   => "~->".to_string(),
-            TokenKind::RedirectBothTo    => "+~->".to_string(),
-            TokenKind::RedirectErrorFrom => "<-~".to_string(),
-            TokenKind::RedirectBothFrom  => "<-+~".to_string(),
+            TokenKind::RedirectBothTo    => "~+->".to_string(),
             TokenKind::Splat             => "...".to_string(),
             TokenKind::Range             => "..".to_string(),
             TokenKind::RangeInclusive    => "..=".to_string()
@@ -1468,11 +1450,14 @@ impl<'a> Tokenizer<'a>
             "/"    => return operator_token(location, TokenKind::Slash),
             "%"    => return operator_token(location, TokenKind::Percent),
             "->"   => return operator_token(location, TokenKind::RedirectTo),
-            "<-"   => return operator_token(location, TokenKind::RedirectFrom),
             "~->"  => return operator_token(location, TokenKind::RedirectErrorTo),
             "~+->" => return operator_token(location, TokenKind::RedirectBothTo),
-            "<-~"  => return operator_token(location, TokenKind::RedirectErrorFrom),
-            "<-+~" => return operator_token(location, TokenKind::RedirectBothFrom),
+            "<-" | "<-~" | "<-+~" => return Err(TokenizerError
+                {
+                    location,
+                    message: "Left-facing redirection is not supported; data flows left to right."
+                        .to_string(),
+                }),
             "{}"   => return operator_token(location, TokenKind::EmptyBlock),
             "**"   => return operator_token(location, TokenKind::Glob),
             "..."  => return operator_token(location, TokenKind::Splat),

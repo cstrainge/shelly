@@ -1030,7 +1030,7 @@ fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
                             stop_at_block: bool,
                             stop_at_colon: bool) -> ParseResult<Option<AstExpression>>
 {
-    let Some(expression) = parse_expression(buffer)? else { return Ok(None); };
+    let Some(mut expression) = parse_expression(buffer)? else { return Ok(None); };
 
     if matches!(&expression.kind, AstExpressionKind::Symbol(_) | AstExpressionKind::Variable(_)
         | AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _)
@@ -1042,7 +1042,7 @@ fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
 
         if !arguments.is_empty()
         {
-            return Ok(Some(AstExpression
+            expression = AstExpression
                 {
                     location: location.clone(),
                     kind: AstExpressionKind::Execute(Box::new(AstExecuteStatement
@@ -1054,21 +1054,72 @@ fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
                             arguments
                         })),
                     string_flag: None
-                }));
-        }
-
-        // Globs remain collection values. Only a lone command word is ambiguous.
-        if matches!(&expression.kind, AstExpressionKind::Symbol(symbol) if !symbol.is_glob())
-        {
-            return Ok(Some(AstExpression
-                {
-                    location,
-                    kind: AstExpressionKind::TryExecute(Box::new(expression)),
-                    string_flag: None
-                }));
+                };
         }
     }
 
+    parse_redirection_tail(buffer, expression)
+}
+
+
+pub(super) fn parse_redirection_tail(buffer: &mut TokenBuffer<'_, '_>,
+                                    expression: AstExpression)
+                                    -> ParseResult<Option<AstExpression>>
+{
+    let mut redirects = Vec::new();
+    let mut streams = 0;
+    while let Some(operator) = try_expect_one_of_tokens(buffer, &[
+            TokenKind::RedirectTo, TokenKind::RedirectErrorTo, TokenKind::RedirectBothTo,
+        ])?
+    {
+        let (stream, mask) = match operator.kind
+            {
+                TokenKind::RedirectTo => (RedirectStream::Output, 2),
+                TokenKind::RedirectErrorTo => (RedirectStream::Error, 4),
+                TokenKind::RedirectBothTo => (RedirectStream::Both, 6),
+                _ => unreachable!("Expected an output redirection operator")
+            };
+        if streams & mask != 0
+        {
+            return Err(ParserError
+                {
+                    location: Some(operator.location),
+                    kind: ParserErrorKind::InvalidRedirection(
+                        "A stream can only be redirected once per expression.".to_string()),
+                });
+        }
+        streams |= mask;
+        let target = parse_expression(buffer).map_err(|mut error|
+            {
+                if error.location.is_none() { error.location = Some(operator.location.clone()); }
+                error
+            })?.ok_or_else(|| ParserError
+            {
+                location: Some(operator.location.clone()),
+                kind: ParserErrorKind::ExpectedExpression,
+            })?;
+        redirects.push(AstRedirection { location: operator.location, stream, target });
+    }
+    if !redirects.is_empty()
+    {
+        return Ok(Some(AstExpression
+            {
+                location: expression.location.clone(),
+                kind: AstExpressionKind::Redirect(Box::new(expression), redirects),
+                string_flag: None,
+            }));
+    }
+
+    // Globs remain collection values. Only a lone command word is ambiguous.
+    if matches!(&expression.kind, AstExpressionKind::Symbol(symbol) if !symbol.is_glob())
+    {
+        return Ok(Some(AstExpression
+            {
+                location: expression.location.clone(),
+                kind: AstExpressionKind::TryExecute(Box::new(expression)),
+                string_flag: None,
+            }));
+    }
     Ok(Some(expression))
 }
 
@@ -1098,7 +1149,9 @@ fn parse_arguments_before_block(buffer: &mut TokenBuffer<'_, '_>,
                     TokenKind::TypeDelimiter if stop_at_colon => break,
 
                     TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockClose
-                    | TokenKind::ParenClose | TokenKind::SquareClose | TokenKind::Comma => break,
+                    | TokenKind::ParenClose | TokenKind::SquareClose | TokenKind::Comma
+                    | TokenKind::RedirectTo | TokenKind::RedirectErrorTo
+                    | TokenKind::RedirectBothTo => break,
 
                     TokenKind::LineContinue =>
                         {

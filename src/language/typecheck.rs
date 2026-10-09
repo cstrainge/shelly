@@ -514,6 +514,12 @@ fn check_expression(
         | AstExpressionKind::ExecutableReference(value) | AstExpressionKind::TryExecute(value)
         | AstExpressionKind::BooleanNot(value) => check_expression(registry, value, names)?,
         AstExpressionKind::Execute(call) => check_call(registry, call, names)?,
+        AstExpressionKind::Redirect(source, redirects) =>
+            {
+                check_expression(registry, source, names)?;
+                for redirect in redirects
+                { check_expression(registry, &mut redirect.target, names)?; }
+            },
         AstExpressionKind::IfExpression(conditional) =>
             {
                 for branch in &mut conditional.branches
@@ -838,6 +844,15 @@ fn check_binding_expression(
             { check_binding_expression(registry, inner, bindings, return_type, expected)?; },
         AstExpressionKind::Execute(call) =>
             check_binding_call(registry, call, bindings, return_type)?,
+        AstExpressionKind::Redirect(source, redirects) =>
+            {
+                check_binding_expression(registry, source, bindings, return_type, None)?;
+                for redirect in redirects
+                {
+                    check_binding_expression(registry, &redirect.target, bindings,
+                                             return_type, None)?;
+                }
+            },
         AstExpressionKind::Array(values) =>
             {
                 for value in values
