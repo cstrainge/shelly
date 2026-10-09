@@ -733,8 +733,19 @@ impl Interpreter
                                     })
                             };
 
-                        let value = if matches!(instruction.code, Code::BindIteration)
-                            { Self::pop(&location, &mut stack)? } else { Value::None };
+                        let mut value = if matches!(instruction.code, Code::BindIteration)
+                            { Self::pop(&location, &mut stack)? }
+                            else if variable_name == "$HOME"
+                            {
+                                // Keep the old anchor until SetVariable resolves a shortened
+                                // initializer, including `let $HOME = $HOME` in a nested scope.
+                                self.read_raw_variable("$HOME", &location).unwrap_or(Value::None)
+                            }
+                            else { Value::None };
+                        if variable_name == "$HOME" && let Value::String(path, _) = &mut value
+                        {
+                            *path = self.eval_path_from(path);
+                        }
                         if let Err(error) = self.variables.create(variable_name,
                             ScopedValue
                                 {
@@ -770,6 +781,11 @@ impl Interpreter
                         {
                             Value::ArgumentExpansion(array) => { value = Value::Array(array); }
                             _ => {}
+                        }
+
+                        if variable_name == "$HOME" && let Value::String(path, _) = &mut value
+                        {
+                            *path = self.eval_path_from(path);
                         }
 
                         if let Some(variable) = self.variables.get_mut(&variable_name)
@@ -959,7 +975,7 @@ impl Interpreter
                                     })
                             };
 
-                        let value = self.read_raw_variable(&variable_name, &location)?;
+                        let value = self.read_variable(&variable_name, &location)?;
                         Self::push(&mut stack, value);
                     },
 
@@ -1312,13 +1328,13 @@ impl Interpreter
         }
 
         let location = Location::new(name, 1, 1);
-        let value = self.eval_value_paths_to(self.read_raw_variable(name, &location)?);
+        let value = self.read_variable(name, &location)?;
 
         self.interpolate_string_at(&location, &value.as_text(), &[], true, false)
     }
 
     /**
-     * Read a filesystem setting without converting it to its display form.
+     * Read a filesystem setting, expanding its home-shortened form.
      */
     pub fn evaluate_path_variable(&self, name: &str) -> InterpreterResult<String>
     {
@@ -1334,7 +1350,7 @@ impl Interpreter
             }
             else
             {
-                value
+                self.eval_path_from(&value)
             })
     }
 
@@ -1356,6 +1372,11 @@ impl Interpreter
                 .map(|(key, value)| (key, self.eval_value_paths_to(value))).collect()),
             value => value
         }
+    }
+
+    fn read_variable(&self, name: &str, location: &Location) -> InterpreterResult<Value>
+    {
+        Ok(self.eval_value_paths_to(self.read_raw_variable(name, location)?))
     }
 
     fn read_raw_variable(&self, name: &str, location: &Location) -> InterpreterResult<Value>
@@ -1429,7 +1450,7 @@ impl Interpreter
 
         if executable.contains('/')
         {
-            return is_executable(Path::new(executable));
+            return is_executable(Path::new(&self.eval_path_from(executable)));
         }
 
         // Command uses the child's exported PATH, or the system default when it is absent.
@@ -1520,6 +1541,7 @@ impl Interpreter
                args: Vec<String>) -> InterpreterResult<()>
     {
         let (executable, mut resolved_args) = self.resolve_alias(location, &executable)?;
+        let executable = self.eval_path_from(&executable);
         resolved_args.extend(args);
         let args = resolved_args;
 
@@ -1556,7 +1578,7 @@ impl Interpreter
                         }
                         else
                         {
-                            text
+                            self.eval_path_from(&text)
                         };
 
                     (key.strip_prefix('$').unwrap_or(key.as_str()).to_string(), text)
@@ -1566,7 +1588,8 @@ impl Interpreter
 
         let mut command = Command::new(&executable);
 
-        command.args(args).env_clear().envs(env_vars);
+        command.args(args.iter().map(|argument| self.eval_path_from(argument)))
+            .env_clear().envs(env_vars);
 
         let status_result = if self.captured_stdout.is_some()
             {
@@ -1782,14 +1805,14 @@ impl Interpreter
                 "Expected a string for InterpolateString instruction.".to_string()));
         };
 
-        let interpolated = self.interpolate_string_at(location, &text, escaped_dollars, false, escape_glob)?;
+        let interpolated = self.interpolate_string_at(location, &text, escaped_dollars, !escape_glob, escape_glob)?;
         Self::push(stack, Value::String(interpolated, executable));
         Ok(())
     }
 
     fn interpolate_string(&self, location: &Location, text: &str) -> InterpreterResult<String>
     {
-        self.interpolate_string_at(location, text, &[], false, false)
+        self.interpolate_string_at(location, text, &[], true, false)
     }
 
     fn interpolate_string_at(&self, location: &Location, text: &str,
@@ -1870,6 +1893,7 @@ impl Interpreter
 
             // Append values directly so their contents are not interpolated again.
             let text = value.as_text();
+            let text = if escape_glob { self.eval_path_from(&text) } else { text };
             interpolated.push_str(&if escape_glob { glob::Pattern::escape(&text) } else { text });
         }
 
@@ -2100,7 +2124,7 @@ impl Interpreter
             return Ok(());
         }
 
-        if let Err(error) = std::env::set_current_dir(&args[0])
+        if let Err(error) = std::env::set_current_dir(self.eval_path_from(&args[0]))
         {
             eprintln!("Failed to change directory to {}: {}", self.eval_path_to(&args[0]), error);
             self.last_result = Some(Value::ExecResult(ExecResult::Value(1)));

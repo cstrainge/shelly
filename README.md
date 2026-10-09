@@ -334,12 +334,18 @@ echo "*
 The double-quoted form interpolates variables; the single-quoted form keeps them
 literal. Ordinary single-line quotes cannot contain a raw newline.
 
-An unquoted source word beginning with `~` or `~/` expands to the home directory.
-Quoted tildes and tildes obtained from variables remain literal. Variables,
-interpolated strings, and command arguments retain real filesystem paths, so both
-`cd $p` and `cat "$p/file"` work with a stored absolute path. Shelly shortens home
-paths to `~/` in its own display formatting, such as the prompt; an external
-command like `echo $p` receives and prints the real path.
+Reading variables and interpolating strings shortens paths under the current
+`$HOME` to `~` or `~/...`, including `$pwd`, collection values, and stored paths.
+Only complete home-directory prefixes match; similarly named sibling directories
+stay unchanged. Stored values are not rewritten by reading them.
+
+Shelly expands leading `~` or `~/` at filesystem boundaries: `cd`, executable
+lookup, glob variable prefixes, path settings, and external-command arguments.
+This also applies to quoted or variable-derived arguments. Thus `cd $p` and
+`cat "$p/file"` work with shortened paths, and `echo $pwd` prints an absolute
+path. Embedded text such as `echo "cwd: ${pwd}"` retains the shortened path,
+as does a custom prompt using `${pwd}` after its label or color codes. `~someone`
+is not expanded. Shell functions receive the shortened argument values.
 
 Unquoted paths can begin with a variable. Its value and the suffix remain one
 argument, including spaces in the value:
