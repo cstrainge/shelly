@@ -16,6 +16,7 @@ use crate::{ language::{ bytecode::{ Code,
                                      FunctionBlock },
                          compiler::{ compile_ast, CompileError, CompileTarget },
                          data::{ value::{ ExecResult, Executable, Value },
+                                 map_key::MapKey,
                                  scoped_variables::{ ScopedValue,
                                                      ScopedVariables,
                                                      ValueVisibility } },
@@ -40,6 +41,7 @@ pub enum ErrorWhat
     InvalidOperand(String),
     ArithmeticError(String),
     ArrayError(String),
+    HashMapError(String),
     CommandNotFound(String, Location),
     ArgumentMismatch(String),
     FileGlobError(String),
@@ -65,6 +67,7 @@ impl Display for ErrorWhat
             ErrorWhat::InvalidOperand(message) => write!(f, "Invalid operand: {}.", message),
             ErrorWhat::ArithmeticError(message) => write!(f, "Arithmetic error: {}.", message),
             ErrorWhat::ArrayError(message) => write!(f, "Array error: {}.", message),
+            ErrorWhat::HashMapError(message) => write!(f, "Hash map error: {}.", message),
             ErrorWhat::CommandNotFound(command, location) => write!(f, "Command not found: {} at {}.", command, location),
             ErrorWhat::FileGlobError(message) => write!(f, "File glob error: {}.", message),
             ErrorWhat::StackUnderflow => write!(f, "Stack underflow"),
@@ -580,7 +583,7 @@ impl Interpreter
                                     self.execute(&location, executable, Vec::new())?;
                                 },
 
-                            Some(value @ (Value::Array(_) | Value::ArgumentExpansion(_)))
+                            Some(value @ (Value::Array(_) | Value::ArgumentExpansion(_) | Value::HashMap(_)))
                                 if matches!(instruction.operand, Some(Value::Boolean(true))) =>
                                 {
                                     Self::command_name(&location, value)?;
@@ -763,6 +766,28 @@ impl Interpreter
                         }
                     },
 
+                Code::MakeHashMap =>
+                    {
+                        let count = match instruction.operand
+                            {
+                                Some(Value::Integer(count)) if count >= 0 => count as usize,
+                                _ => return Err(InterpreterError
+                                    {
+                                        location: location.clone(),
+                                        what: ErrorWhat::InvalidOperand("Invalid MakeHashMap count.".to_string())
+                                    })
+                            };
+                        let mut pairs = Vec::new();
+                        for _ in 0..count
+                        {
+                            let value = Self::pop(&location, &mut stack)?;
+                            let key = Self::pop(&location, &mut stack)?;
+                            pairs.push((MapKey::from_value(&key), value));
+                        }
+                        // Restore source order so the last duplicate key wins.
+                        Self::push(&mut stack, Value::from_hash_map(pairs.into_iter().rev().collect()));
+                    },
+
                 Code::MakeArray =>
                     {
                         let count = match instruction.operand
@@ -789,17 +814,15 @@ impl Interpreter
                         Self::push(&mut stack, Value::from_array(array));
                     },
 
-                Code::GetArrayElement =>
+                Code::GetElement =>
                     {
                         let index = Self::pop(&location, &mut stack)?;
-                        let array = Self::pop(&location, &mut stack)?;
-                        let index = Self::array_index(&location, &array, &index)?;
-                        let Value::Array(elements) = array else { unreachable!(); };
-                        let value = elements[index].clone();
+                        let collection = Self::pop(&location, &mut stack)?;
+                        let value = Self::get_element(&location, &collection, &index)?;
                         Self::push(&mut stack, value);
                     },
 
-                Code::SetArrayElement =>
+                Code::SetElement =>
                     {
                         let (name, count) = match &instruction.operand
                             {
@@ -810,13 +833,13 @@ impl Interpreter
                                         _ => return Err(InterpreterError
                                             {
                                                 location: location.clone(),
-                                                what: ErrorWhat::InvalidOperand("Invalid SetArrayElement operand.".to_string())
+                                                what: ErrorWhat::InvalidOperand("Invalid SetElement operand.".to_string())
                                             })
                                     },
                                 _ => return Err(InterpreterError
                                     {
                                         location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand("Missing SetArrayElement operand.".to_string())
+                                        what: ErrorWhat::InvalidOperand("Missing SetElement operand.".to_string())
                                     })
                             };
                         let value = Self::pop(&location, &mut stack)?;
@@ -827,19 +850,13 @@ impl Interpreter
                                 location: location.clone(),
                                 what: ErrorWhat::InvalidOperand(format!("Variable {} not found", name))
                             })?;
-                        let mut element = &mut variable.value;
-                        for index in indexes.iter().rev()
-                        {
-                            let index = Self::array_index(&location, element, index)?;
-                            let Value::Array(elements) = element else { unreachable!(); };
-                            element = &mut Rc::make_mut(elements)[index];
-                        }
-                        // Traverse and validate the complete path before changing any element.
-                        *element = match value
+                        let value = match value
                             {
                                 Value::ArgumentExpansion(values) => Value::Array(values),
                                 value => value
                             };
+                        indexes.reverse();
+                        Self::set_element(&location, &mut variable.value, &indexes, value)?;
                     },
 
                 Code::GetVariable =>
@@ -1190,6 +1207,8 @@ impl Interpreter
             Value::ArgumentExpansion(values) =>
                 Value::from_argument_expansion(Rc::unwrap_or_clone(values).into_iter()
                     .map(|value| self.eval_value_paths_to(value)).collect()),
+            Value::HashMap(values) => Value::from_hash_map(Rc::unwrap_or_clone(values).into_iter()
+                .map(|(key, value)| (key, self.eval_value_paths_to(value))).collect()),
             value => value
         }
     }
@@ -1451,6 +1470,11 @@ impl Interpreter
     {
         match value
         {
+            Value::HashMap(_) => Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::HashMapError("Cannot execute a hash map as a command".to_string())
+                }),
             Value::Array(_) | Value::ArgumentExpansion(_) => Err(InterpreterError
                 {
                     location: location.clone(),
@@ -1467,7 +1491,7 @@ impl Interpreter
 
     // Validate without detaching shared storage. Reads only clone the selected
     // value; writes use Rc::make_mut on each array along the indexed path.
-    fn array_index(location: &Location, value: &Value,
+    fn array_index(location: &Location, elements: &[Value],
                     index: &Value) -> InterpreterResult<usize>
     {
         let error = |message| InterpreterError
@@ -1475,10 +1499,6 @@ impl Interpreter
                 location: location.clone(),
                 what: ErrorWhat::ArrayError(message)
             };
-        let Value::Array(elements) = value else
-        {
-            return Err(error("Cannot index a non-array value".to_string()));
-        };
         let Value::Integer(index) = index else
         {
             return Err(error("Array index must be an integer".to_string()));
@@ -1491,6 +1511,63 @@ impl Interpreter
             return Err(error(format!("Array index {} is out of bounds for length {}", index, length)));
         }
         Ok(index)
+    }
+
+    fn get_element(location: &Location, collection: &Value, index: &Value) -> InterpreterResult<Value>
+    {
+        match collection
+        {
+            Value::HashMap(values) => Ok(values.get(&MapKey::from_value(index)).cloned().unwrap_or(Value::None)),
+            Value::Array(values) => Ok(values[Self::array_index(location, values, index)?].clone()),
+            _ => Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::ArrayError("Cannot index a value that is not an array or hash map".to_string())
+                })
+        }
+    }
+
+    fn set_element(location: &Location, collection: &mut Value,
+                    indexes: &[Value], value: Value) -> InterpreterResult<()>
+    {
+        let Some((index, rest)) = indexes.split_first() else
+        {
+            *collection = value;
+            return Ok(());
+        };
+        match collection
+        {
+            Value::HashMap(values) =>
+                {
+                    let key = MapKey::from_value(index);
+                    if rest.is_empty()
+                    {
+                        Rc::make_mut(values).insert(key, value);
+                        return Ok(());
+                    }
+                    // Missing intermediate keys do not implicitly create containers.
+                    if !values.contains_key(&key)
+                    {
+                        return Err(InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::HashMapError("Missing intermediate key in indexed assignment".to_string())
+                            });
+                    }
+                    let child = Rc::make_mut(values).get_mut(&key).unwrap();
+                    Self::set_element(location, child, rest, value)
+                },
+            Value::Array(values) =>
+                {
+                    let index = Self::array_index(location, values, index)?;
+                    Self::set_element(location, &mut Rc::make_mut(values)[index], rest, value)
+                },
+            _ => Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::ArrayError("Cannot index a value that is not an array or hash map".to_string())
+                })
+        }
     }
 
     fn pop(location: &Location, stack: &mut VecDeque<Value>) -> InterpreterResult<Value>

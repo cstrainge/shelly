@@ -1,5 +1,9 @@
 
-use std::rc::Rc;
+use std::{ collections::HashMap, rc::Rc };
+
+use super::map_key::MapKey;
+
+
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExecResult
@@ -27,12 +31,18 @@ pub enum Value
     Boolean(bool),
     String(String, Executable),
     Array(Rc<Vec<Value>>),
+    HashMap(Rc<HashMap<MapKey, Value>>),
     ArgumentExpansion(Rc<Vec<Value>>)
 }
 
 
 impl Value
 {
+    pub fn from_hash_map(values: HashMap<MapKey, Value>) -> Value
+    {
+        Value::HashMap(Rc::new(values))
+    }
+
     pub fn from_array(values: Vec<Value>) -> Value
     {
         Value::Array(Rc::new(values))
@@ -79,6 +89,26 @@ impl Value
             Value::String(s, _) => s.clone(),
             Value::Array(arr) => arr.iter().map(|v| v.as_text()).collect::<Vec<String>>().join(":"),
             Value::ArgumentExpansion(args) => args.iter().map(|v| v.as_text()).collect::<Vec<String>>().join(":"),
+            Value::HashMap(values) =>
+                {
+                    if values.is_empty() { return "[:]".to_string(); }
+                    let mut entries: Vec<_> = values.iter().collect();
+                    entries.sort_by(|(left, _), (right, _)| left.cmp(right));
+                    format!("[{}]", entries.into_iter()
+                        .map(|(key, value)| format!("{}: {}", key.to_value().collection_text(), value.collection_text()))
+                        .collect::<Vec<_>>().join(", "))
+                },
+        }
+    }
+
+    fn collection_text(&self) -> String
+    {
+        match self
+        {
+            Value::String(text, _) => format!("{:?}", text),
+            Value::Array(values) | Value::ArgumentExpansion(values) => format!("[{}]", values.iter()
+                .map(Self::collection_text).collect::<Vec<_>>().join(", ")),
+            value => value.as_text()
         }
     }
 
@@ -87,6 +117,7 @@ impl Value
         match self
         {
             Value::None => 0,
+            Value::HashMap(_) => 0,
             Value::ExecResult(code) => match code
                 {
                     ExecResult::Value(v) => *v as i64,
@@ -113,7 +144,8 @@ impl Value
             Value::Boolean(value) => *value,
             Value::String(value, _) => !value.is_empty()
                 && value != "false" && value.parse::<f64>() != Ok(0.0),
-            Value::Array(values) | Value::ArgumentExpansion(values) => !values.is_empty()
+            Value::Array(values) | Value::ArgumentExpansion(values) => !values.is_empty(),
+            Value::HashMap(values) => !values.is_empty()
         }
     }
 
@@ -135,6 +167,8 @@ impl Value
                 },
             (Value::Boolean(left), Value::Boolean(right)) => left == right,
             (Value::String(left, _), Value::String(right, _)) => left == right,
+            (Value::HashMap(left), Value::HashMap(right)) => left.len() == right.len()
+                && left.iter().all(|(key, value)| right.get(key).is_some_and(|other| value.equals(other))),
             (Value::Array(left), Value::Array(right))
             | (Value::ArgumentExpansion(left), Value::ArgumentExpansion(right)) =>
                 left.len() == right.len()

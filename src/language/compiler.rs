@@ -88,6 +88,23 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
 {
     match &expression.kind
     {
+        AstExpressionKind::HashMap(pairs) =>
+            {
+                for (key, value) in pairs
+                {
+                    compile_expression(instructions, function_block, key)?;
+                    instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                    compile_expression(instructions, function_block, value)?;
+                    instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                }
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()),
+                        code: Code::MakeHashMap,
+                        operand: Some(Value::Integer(pairs.len() as i64))
+                    });
+            },
+
         AstExpressionKind::Array(elements) =>
             {
                 for element in elements
@@ -112,7 +129,7 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
                 instructions.push(Instruction
                     {
                         location: Some(index.location.clone()),
-                        code: Code::GetArrayElement,
+                        code: Code::GetElement,
                         operand: None
                     });
             },
@@ -483,7 +500,7 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>,
     instructions.push(Instruction
         {
             location: Some(set_statement.location.clone()),
-            code: if set_statement.indexes.is_empty() { Code::SetVariable } else { Code::SetArrayElement },
+            code: if set_statement.indexes.is_empty() { Code::SetVariable } else { Code::SetElement },
             operand: Some(if set_statement.indexes.is_empty()
                 {
                     Value::from_string(set_statement.identifier.clone())
@@ -716,7 +733,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     Code::Push | Code::NewVariable | Code::SetVariable | Code::GetVariable
                     | Code::NewAlias | Code::ExportVariable | Code::GlobFiles
                     | Code::ExpandArray | Code::ExpandPath | Code::InterpolateString
-                    | Code::MakeArray | Code::GetArrayElement | Code::SetArrayElement
+                    | Code::MakeArray | Code::MakeHashMap | Code::GetElement | Code::SetElement
                     | Code::InterpolateGlob | Code::EnterScope | Code::ExitScope
                     | Code::MathAdd | Code::MathSubtract | Code::MathMultiply
                     | Code::MathDivide | Code::MathModulo | Code::CompareEqual

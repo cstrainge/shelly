@@ -9,13 +9,11 @@ commands, structured data, and network services in the same place.
 
 Shelly is early work. Development of the shell is already being done in the shell:
 running builds, using development tools, and trying new features from its prompt.
-The examples below describe the current implementation. The
-[language audit](audit/language/REPORT.md) records working features, known defects,
-and the results of the repairs following that audit.
+The examples below describe the current implementation.
 
 ## Build and run
 
-Use a Rust toolchain supporting edition 2024. The current audit was run on Linux.
+Use a Rust toolchain supporting edition 2024.
 
 ```sh
 git clone https://github.com/cstrainge/shelly.git
@@ -70,7 +68,7 @@ Variable names cannot contain `=`, including braced names and function parameter
 Keep spaces around assignment `=`; adjacent `==` and `!=` remain comparisons.
 
 Values include signed 64-bit integers, floating-point values, booleans, strings,
-arrays, the no-value result displayed as `()`, and external command statuses such
+arrays, hash maps, the no-value result displayed as `()`, and external command statuses such
 as `ExecResult(0)`. Arrays come from literals, `$args`, and file globs. Without `...`, an array becomes
 colon-separated text when passed to a command. `()` is also a literal that
 evaluates to `None`, including in assignments and returns.
@@ -147,6 +145,51 @@ values, conditional results, and arguments (`echo $a` or `echo $a...`).
 A leading `[` starts an array. For bracket globs use a path prefix, such as
 `./[ab].txt` or `fixtures/[ab].txt`; quote brackets to pass literal text.
 
+## Hash maps
+
+Use `[key: value, key: value]` to create a map and `[:]` for an empty map.
+`[]` remains an empty array. Keys and values are expressions, evaluated left to
+right, key before value. Newlines and a trailing comma are allowed; array elements
+and map pairs cannot be mixed in one literal. Quote literal string keys to avoid
+the usual bare-word command lookup rules.
+
+```text
+let $myHash = ["key": 42, "items": [1, 2]]
+let $x = $myHash["key"]          # 42
+echo $myHash["missing"]          # ()
+$myHash["new"] = 7              # Insert
+$myHash["key"] = 99             # Replace
+$myHash["items"][0] = 8         # Nested write
+```
+
+Any value can be a key, including arrays and maps:
+
+```text
+let $lookup = [[1, 2]: "array key", ["a": 1]: "map key"]
+echo $lookup[[1.0, 2]]           # array key
+echo $lookup[["a": 1.0]]         # map key
+```
+
+Keys compare by value. `1` and `1.0` identify the same key, while `"1"` is distinct.
+String execution flags and float source spelling do not affect key identity;
+array order matters and map entry order does not. Collection keys are immutable
+snapshots: modifying the original array or map leaves its stored key unchanged.
+NaN keys are canonicalized to one key so they can be looked up reliably. Duplicate
+keys keep the last value, while all key and value expressions still execute.
+
+Maps use reference-counted storage and copy-on-write, like arrays. Indexed writes
+insert or replace the final key; missing intermediate containers cause an error.
+A missing read returns `()` without inserting an entry. Maps compare by their
+entries, convert to false only when empty, and convert to zero for integer
+arithmetic. Text conversion produces a bracketed list of key/value pairs in a
+stable order, with quoted strings and bracketed nested collections. Passing a map
+as an argument uses that text; `...` treats a map as one value and does not iterate
+its entries. A map cannot be executed as a command.
+
+Inside a collection literal, `:` separates map keys and values. Use parentheses
+for a nested call that takes an unquoted colon argument, such as
+`["result": (command :)]`.
+
 ## Boolean expressions
 
 `==` and `!=` compare values and produce booleans. Numbers compare numerically,
@@ -164,7 +207,7 @@ or booleans.
 | Boolean | Its existing value |
 | Integer or float | False for zero, true otherwise |
 | String | False for empty text, exact `"false"`, or text parsing as numeric zero; true otherwise |
-| Array or argument expansion | False when empty, true otherwise |
+| Array, hash map, or argument expansion | False when empty, true otherwise |
 | External command result | True for exit status 0; false for nonzero status or termination by signal |
 
 Logical operators always return a boolean. `&&` skips its right operand when
@@ -514,12 +557,6 @@ Useful predefined variables include `$args`, `$pwd`, `$HOSTNAME`, `$HOME`, `$PAT
 
 ## Current limitations
 
-The [audit report](audit/language/REPORT.md) records current checks and unresolved
-findings. The [temporary Python suite](audit/language/README.md) runs with
-`python3 audit/language/run_suite.py` (add `--release` for the optimized build).
-It exits nonzero while known mismatches remain. Its cases will migrate to Shelly
-under root `test.shy` when the required language support exists.
-
 The language still has deliberate limits:
 
 - Arithmetic converts operands to integers rather than preserving floating-point values.
@@ -531,8 +568,7 @@ The language still has deliberate limits:
 
 Malformed declarations, missing statement separators, duplicate parameters, and
 invalid UTF-8 source now produce errors. Arithmetic errors no longer panic the
-shell. The audit covers language behavior on Linux; it is not exhaustive testing
-of terminal editing or other operating systems.
+shell.
 
 ## Where Shelly is going
 
@@ -547,7 +583,7 @@ useful inside a function or a longer program.
 - **Pipelines for text and structured data.** Connect Unix tools with commands
   that consume and produce structs, with conversions at command boundaries.
 - **Control flow and collections.** Loops and ordering comparisons (`<`, `>`)
-  remain planned; array literals and indexing are implemented.
+  remain planned; array/map literals and indexing are implemented.
 
 The draft [test.shy](test.shy) sketches how Shelly could test itself by discovering
 scripts, looping over them, inspecting results, and reporting failures. It is a

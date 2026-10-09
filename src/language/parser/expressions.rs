@@ -39,7 +39,7 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
             TokenKind::SquareOpen => AstExpression
                 {
                     location: token.location,
-                    kind: AstExpressionKind::Array(parse_array(&mut *lookahead.buffer)?),
+                    kind: parse_collection(&mut *lookahead.buffer)?,
                     string_flag: None
                 },
 
@@ -220,25 +220,61 @@ fn parse_postfix(buffer: &mut TokenBuffer<'_, '_>,
 }
 
 
-fn parse_array(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Vec<AstExpression>>
+fn parse_collection_value(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<AstExpression>
 {
-    let mut elements = Vec::new();
+    parse_value_before_block(buffer, false, true)?.ok_or_else(|| ParserError
+        {
+            location: None,
+            kind: ParserErrorKind::ExpectedExpression
+        })
+}
+
+
+fn parse_collection(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<AstExpressionKind>
+{
     skip_array_newlines(buffer)?;
-    if try_expect_token(buffer, TokenKind::SquareClose)?.is_some() { return Ok(elements); }
+    if try_expect_token(buffer, TokenKind::SquareClose)?.is_some()
+    {
+        return Ok(AstExpressionKind::Array(Vec::new()));
+    }
+    // [] remains an array; [:] denotes an empty map.
+    if try_expect_token(buffer, TokenKind::TypeDelimiter)?.is_some()
+    {
+        skip_array_newlines(buffer)?;
+        expect_token(buffer, TokenKind::SquareClose)?;
+        return Ok(AstExpressionKind::HashMap(Vec::new()));
+    }
+
+    let first = parse_collection_value(buffer)?;
+    skip_array_newlines(buffer)?;
+    let is_map = try_expect_token(buffer, TokenKind::TypeDelimiter)?.is_some();
+    let mut elements = Vec::new();
+    let mut pairs = Vec::new();
+    let mut item = first;
     loop
     {
-        elements.push(parse_value_expression(buffer)?.ok_or_else(|| ParserError
-            {
-                location: None,
-                kind: ParserErrorKind::ExpectedExpression
-            })?);
+        if is_map
+        {
+            skip_array_newlines(buffer)?;
+            pairs.push((item, parse_collection_value(buffer)?));
+        }
+        else
+        {
+            elements.push(item);
+        }
         skip_array_newlines(buffer)?;
         if try_expect_token(buffer, TokenKind::SquareClose)?.is_some() { break; }
         expect_token(buffer, TokenKind::Comma)?;
         skip_array_newlines(buffer)?;
         if try_expect_token(buffer, TokenKind::SquareClose)?.is_some() { break; }
+        item = parse_collection_value(buffer)?;
+        if is_map
+        {
+            skip_array_newlines(buffer)?;
+            expect_token(buffer, TokenKind::TypeDelimiter)?;
+        }
     }
-    Ok(elements)
+    Ok(if is_map { AstExpressionKind::HashMap(pairs) } else { AstExpressionKind::Array(elements) })
 }
 
 
@@ -327,6 +363,7 @@ fn parse_math_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
     if starts_with_group || matches!(&expression.kind,
         AstExpressionKind::MathExpression(_, _, _) | AstExpressionKind::BooleanNot(_)
         | AstExpressionKind::IfExpression(_) | AstExpressionKind::Array(_)
+        | AstExpressionKind::HashMap(_)
         | AstExpressionKind::Index(_, _) | AstExpressionKind::Splat(_))
     {
         lookahead.commit();
@@ -577,18 +614,19 @@ pub fn parse_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
  */
 pub fn parse_value_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
-    parse_value_before_block(buffer, false)
+    parse_value_before_block(buffer, false, false)
 }
 
 
 pub fn parse_condition_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
-    parse_value_before_block(buffer, true)
+    parse_value_before_block(buffer, true, false)
 }
 
 
 fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
-                            stop_at_block: bool) -> ParseResult<Option<AstExpression>>
+                            stop_at_block: bool,
+                            stop_at_colon: bool) -> ParseResult<Option<AstExpression>>
 {
     let Some(expression) = parse_expression(buffer)? else { return Ok(None); };
 
@@ -596,7 +634,7 @@ fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
         | AstExpressionKind::Index(_, _))
     {
         reject_index_assignment(buffer, &expression)?;
-        let arguments = parse_arguments_before_block(buffer, stop_at_block)?;
+        let arguments = parse_arguments_before_block(buffer, stop_at_block, stop_at_colon)?;
         let location = expression.location.clone();
 
         if !arguments.is_empty()
@@ -634,12 +672,13 @@ fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
 
 pub fn parse_command_arguments(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Vec<AstExpression>>
 {
-    parse_arguments_before_block(buffer, false)
+    parse_arguments_before_block(buffer, false, false)
 }
 
 
 fn parse_arguments_before_block(buffer: &mut TokenBuffer<'_, '_>,
-                                stop_at_block: bool) -> ParseResult<Vec<AstExpression>>
+                                stop_at_block: bool,
+                                stop_at_colon: bool) -> ParseResult<Vec<AstExpression>>
 {
     let mut parameter_expressions = Vec::new();
 
@@ -653,6 +692,7 @@ fn parse_arguments_before_block(buffer: &mut TokenBuffer<'_, '_>,
                 match token.kind
                 {
                     TokenKind::BlockOpen if stop_at_block => break,
+                    TokenKind::TypeDelimiter if stop_at_colon => break,
 
                     TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockClose
                     | TokenKind::ParenClose | TokenKind::SquareClose | TokenKind::Comma => break,

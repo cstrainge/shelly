@@ -54,6 +54,7 @@ pub enum AstExpressionKind
     Variable(AstSymbol),
     VariableSplat(AstSymbol),
     Array(Vec<AstExpression>),
+    HashMap(Vec<(AstExpression, AstExpression)>),
     Index(Box<AstExpression>, Box<AstExpression>),
     Splat(Box<AstExpression>),
     Symbol(AstSymbol),
@@ -155,6 +156,7 @@ impl AstExpression
             AstExpressionKind::Literal(literal) => Ok(literal.value.as_text()),
             AstExpressionKind::Grouped(_)
             | AstExpressionKind::Array(_)
+            | AstExpressionKind::HashMap(_)
             | AstExpressionKind::Index(_, _)
             | AstExpressionKind::Splat(_)
             | AstExpressionKind::ExecutableReference(_)
