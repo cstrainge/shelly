@@ -1,11 +1,13 @@
 
-use std::{ fs::File, io::{ BufReader, IsTerminal, stdin, stderr }, path::PathBuf, process::ExitCode };
+use std::{ fs::File,
+           io::{ BufReader, IsTerminal, stdin, stderr },
+           path::PathBuf,
+           process::ExitCode,
+           env::args_os };
 
 use clap::Parser;
-use supports_color::Stream;
 
-mod language;
-mod runtime;
+use supports_color::{ Stream, on };
 
 use crate::{ language::{ interpreter::{ Interpreter, Startup, Interactive, RcFile },
                          text::{ buffer::{ Buffer, SimpleBuffer }, read_buffer::ReadBuffer } },
@@ -13,7 +15,8 @@ use crate::{ language::{ interpreter::{ Interpreter, Startup, Interactive, RcFil
                         repl::Repl,
                         result::{ RuntimeResult, RuntimeError } } };
 
-
+mod language;
+mod runtime;
 
 #[derive(Parser, Debug)]
 #[command(name = env!("CARGO_BIN_NAME"),
@@ -113,7 +116,10 @@ fn determine_running_mode(args: &CommandArguments) -> (RunningMode, Vec<String>)
     // Or are we executing code passed via the command line?
     if args.code.is_some()
     {
-        return (RunningMode::Code(args.code.as_ref().unwrap().clone()), args.script_arguments.clone());
+        return (
+            RunningMode::Code(args.code.as_ref().unwrap().clone()),
+            args.script_arguments.clone(),
+        );
     }
 
     // Or are we executing a script?
@@ -150,7 +156,7 @@ fn determine_color_mode(args: &CommandArguments) -> TtyColorMode
         return TtyColorMode::TtyMonochrome;
     }
 
-    match supports_color::on(Stream::Stdout)
+    match on(Stream::Stdout)
     {
         Some(c) if c.has_16m   => TtyColorMode::TtyTrueColor,
         Some(c) if c.has_256   => TtyColorMode::Tty256,
@@ -267,7 +273,7 @@ fn main() -> RuntimeResult<ExitCode>
 
     let color_mode = determine_color_mode(&args);
 
-    let invoked_as_login = std::env::args_os()
+    let invoked_as_login = args_os()
         .next()
         .is_some_and(|name| name.as_encoded_bytes().starts_with(b"-"));
 

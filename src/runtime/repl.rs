@@ -1,11 +1,10 @@
 
 use std::{ borrow::Cow,
            collections::BTreeMap,
-           fs,
            process::ExitCode,
-           path::{ Path, PathBuf } };
-
-use rustix::process::geteuid;
+           path::{ Path, PathBuf },
+           fs::read_dir,
+           env::{ current_dir, home_dir, split_paths } };
 
 use reedline::{ Color,
                 ColumnarMenu,
@@ -30,11 +29,12 @@ use reedline::{ Color,
                 ReedlineEvent,
                 EditCommand };
 
+use rustix::process::geteuid;
+
 use crate::{ language::{ interpreter::{ Interpreter, Interactive, RcFile, Startup },
                          text::buffer::SimpleBuffer },
-             runtime::{ color::TtyColorMode, result::RuntimeResult } };
-
-
+             runtime::{ color::TtyColorMode, result::RuntimeResult },
+             location_here };
 
 struct ShellyPrompt
 {
@@ -314,8 +314,15 @@ impl Completer for ShellyCompleter
         {
             for directory in &self.search_path
             {
-                let directory = if directory.as_os_str().is_empty() { Path::new(".") } else { directory };
-                let Ok(entries) = fs::read_dir(directory) else { continue; };
+                let directory = if directory.as_os_str().is_empty()
+                {
+                    Path::new(".")
+                }
+                else
+                {
+                    directory
+                };
+                let Ok(entries) = read_dir(directory) else { continue; };
                 for entry in entries.flatten()
                 {
                     let Ok(name) = entry.file_name().into_string() else { continue; };
@@ -334,7 +341,9 @@ impl Completer for ShellyCompleter
                       || word.starts_with("$HOME/")
             {
                 let Some(home) = &self.home else { return CompletionResult::fresh(Vec::new()); };
-                let suffix = word.strip_prefix('~').unwrap_or_else(|| word.strip_prefix("$HOME").unwrap());
+                let suffix = word
+                    .strip_prefix('~')
+                    .unwrap_or_else(|| word.strip_prefix("$HOME").unwrap());
                 format!("{}/{}", home.display(), suffix.trim_start_matches('/'))
             }
             else
@@ -346,12 +355,13 @@ impl Completer for ShellyCompleter
             |index| (&path[..=index], &path[index + 1..]));
         let directory = if prefix.is_empty() { Path::new(".") } else { Path::new(prefix) };
 
-        if let Ok(entries) = fs::read_dir(directory)
+        if let Ok(entries) = read_dir(directory)
         {
             for entry in entries.flatten()
             {
                 let Ok(name) = entry.file_name().into_string() else { continue; };
-                if !name.starts_with(filename) || (name.starts_with('.') && !filename.starts_with('.'))
+                if    !name.starts_with(filename)
+                   || (name.starts_with('.') && !filename.starts_with('.'))
                 {
                     continue;
                 }
@@ -449,9 +459,9 @@ impl EditMode for ShellyEditMode
         if first_tab
         {
             ReedlineEvent::UntilFound(vec![
-                ReedlineEvent::Menu("first_tab".to_string()),
-                ReedlineEvent::MenuNext
-            ])
+                    ReedlineEvent::Menu("first_tab".to_string()),
+                    ReedlineEvent::MenuNext
+                ])
         }
         else { event }
     }
@@ -466,7 +476,7 @@ impl EditMode for ShellyEditMode
 fn default_prompt(interpreter: &Interpreter) -> String
 {
     let cwd = interpreter.evaluate_variable("$pwd").unwrap_or_else(|_|
-        std::env::current_dir().unwrap_or_else(|_| ".".into()).display().to_string());
+        current_dir().unwrap_or_else(|_| ".".into()).display().to_string());
 
     let formatted = format!("\n{} [{}]\n",
                             Color::Yellow.bold().paint("<shelly>"),
@@ -537,7 +547,7 @@ impl Repl
                 {
                     let (result, bytes) = self.interpreter.capture_stdout(|interpreter|
                         {
-                            interpreter.execute_command(crate::location_here!(),
+                            interpreter.execute_command(location_here!(),
                                                         "prompt",
                                                         vec![])
                         });
@@ -561,10 +571,10 @@ impl Repl
             // Refresh after each command so changes to PATH, HOME, and cwd are respected.
             let search_path = self.interpreter.evaluate_path_variable("$PATH").unwrap_or_default();
             let home = self.interpreter.evaluate_path_variable("$HOME").ok()
-                .filter(|home| !home.is_empty()).map(PathBuf::from).or_else(std::env::home_dir);
+                .filter(|home| !home.is_empty()).map(PathBuf::from).or_else(home_dir);
             let completer = ShellyCompleter
                 {
-                    search_path: std::env::split_paths(&search_path).collect(),
+                    search_path: split_paths(&search_path).collect(),
                     home,
                     variables: self.interpreter.variable_names()
                 };
@@ -649,23 +659,23 @@ impl Repl
 
         binding(keybindings, KeyCode::Enter, ReedlineEvent::Enter);
         binding(keybindings, KeyCode::Tab, ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("completion_menu".to_string()),
-            ReedlineEvent::MenuNext
-        ]));
+                ReedlineEvent::Menu("completion_menu".to_string()),
+                ReedlineEvent::MenuNext
+            ]));
         shift_binding(keybindings, KeyCode::BackTab, ReedlineEvent::MenuPrevious);
 
         binding(keybindings, KeyCode::Left, ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::MenuLeft, ReedlineEvent::Left
-        ]));
+                ReedlineEvent::MenuLeft, ReedlineEvent::Left
+            ]));
         binding(keybindings, KeyCode::Right, ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::MenuRight, ReedlineEvent::Right
-        ]));
+                ReedlineEvent::MenuRight, ReedlineEvent::Right
+            ]));
         binding(keybindings, KeyCode::Up, ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::MenuUp, ReedlineEvent::Up
-        ]));
+                ReedlineEvent::MenuUp, ReedlineEvent::Up
+            ]));
         binding(keybindings, KeyCode::Down, ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::MenuDown, ReedlineEvent::Down
-        ]));
+                ReedlineEvent::MenuDown, ReedlineEvent::Down
+            ]));
 
         binding(keybindings, KeyCode::Backspace, simple(EditCommand::Backspace));
         binding(keybindings, KeyCode::Delete, simple(EditCommand::Delete));
@@ -676,8 +686,16 @@ impl Repl
         ctrl_binding(keybindings, KeyCode::Char('d'), ReedlineEvent::CtrlD);
         ctrl_binding(keybindings, KeyCode::Char('z'), simple(EditCommand::Undo));
         ctrl_binding(keybindings, KeyCode::Char('y'), simple(EditCommand::Redo));
-        ctrl_binding(keybindings, KeyCode::Left, simple(EditCommand::MoveWordLeft { select: false }));
-        ctrl_binding(keybindings, KeyCode::Right, simple(EditCommand::MoveWordRight { select: false }));
+        ctrl_binding(
+            keybindings,
+            KeyCode::Left,
+            simple(EditCommand::MoveWordLeft { select: false }),
+        );
+        ctrl_binding(
+            keybindings,
+            KeyCode::Right,
+            simple(EditCommand::MoveWordRight { select: false }),
+        );
         ctrl_binding(keybindings, KeyCode::Backspace, simple(EditCommand::BackspaceWord));
         ctrl_binding(keybindings, KeyCode::Delete, simple(EditCommand::DeleteWord));
 

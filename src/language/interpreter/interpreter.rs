@@ -1,13 +1,24 @@
 
 use std::{ cell::RefCell,
            collections::{ HashMap, HashSet, VecDeque },
-           env::consts::OS,
+           env::{ consts::OS,
+                  current_dir,
+                  current_exe,
+                  home_dir,
+                  join_paths,
+                  set_current_dir,
+                  split_paths },
            fmt::{ self, Debug, Display, Formatter },
            fs::File,
-           io::{ self, BufReader },
-           path::{ Path, PathBuf },
+           io::{ BufReader, ErrorKind },
+           path::{ Path, PathBuf, Component, MAIN_SEPARATOR_STR, is_separator },
            process::{ Command, Stdio },
-           rc::Rc };
+           rc::Rc,
+           mem::replace };
+
+use glob::{ MatchOptions, Pattern, glob };
+
+use hostname::get as get_hostname;
 
 use crate::{ language::{ bytecode::{ Code,
                                      Instruction,
@@ -20,15 +31,13 @@ use crate::{ language::{ bytecode::{ Code,
                                  range::Range,
                                  scoped_variables::{ ScopedValue,
                                                      ScopedVariables,
-                                                     ValueVisibility } },
+                                                     ValueVisibility },
+                                 types::{ StructValue, TypeId, TypeKind, TypeRegistry } },
                          parser::{ ParserError, parse_text },
                          tokenizer::Tokenizer,
-                         text::{ buffer::Buffer,
-                                 location::Location,
-                                 read_buffer::ReadBuffer } },
-             runtime::{ color::TtyColorMode } };
-
-
+                         text::{ buffer::Buffer, location::Location, read_buffer::ReadBuffer },
+                         interpreter::iteration::Iteration },
+             runtime::color::TtyColorMode };
 
 const BANNER_TRUECOLOR: &str = include_str!("../../../banner_truecolor.txt");
 const BANNER_256: &str = include_str!("../../../banner_256.txt");
@@ -85,13 +94,18 @@ impl Display for ErrorWhat
             ErrorWhat::RangeError(message) => write!(f, "Range error: {}.", message),
             ErrorWhat::IterationError(message) => write!(f, "Iteration error: {}.", message),
             ErrorWhat::LoopControlError(message) => write!(f, "Loop control error: {}.", message),
-            ErrorWhat::CommandNotFound(command, location) => write!(f, "Command not found: {} at {}.", command, location),
+            ErrorWhat::CommandNotFound(command, location) =>
+                write!(f, "Command not found: {} at {}.", command, location),
             ErrorWhat::FileGlobError(message) => write!(f, "File glob error: {}.", message),
             ErrorWhat::StackUnderflow => write!(f, "Stack underflow"),
-            ErrorWhat::NoResult => write!(f, "Attempted to access the last result, but there was none."),
+            ErrorWhat::NoResult => write!(
+                f,
+                "Attempted to access the last result, but there was none."
+            ),
             ErrorWhat::ReturnOutsideFunction => write!(f, "Cannot return outside a function."),
             ErrorWhat::ExecutableNotFound(name) => write!(f, "Executable not found: {}.", name),
-            ErrorWhat::ExecutableIoError(message) => write!(f, "Executable I/O error: {}.", message),
+            ErrorWhat::ExecutableIoError(message) =>
+                write!(f, "Executable I/O error: {}.", message),
             ErrorWhat::ExecutableBadReturn(code) =>
                 {
                     write!(f, "Executable returned error code: {}.", code)
@@ -121,10 +135,10 @@ impl From<ParserError> for InterpreterError
     fn from(error: ParserError) -> Self
     {
         InterpreterError
-        {
-            location: Location::default(),
-            what: ErrorWhat::ParserError(error)
-        }
+            {
+                location: Location::default(),
+                what: ErrorWhat::ParserError(error)
+            }
     }
 }
 
@@ -134,10 +148,10 @@ impl From<CompileError> for InterpreterError
     fn from(error: CompileError) -> Self
     {
         InterpreterError
-        {
-            location: Location::default(),
-            what: ErrorWhat::CompileError(error)
-        }
+            {
+                location: Location::default(),
+                what: ErrorWhat::CompileError(error)
+            }
     }
 }
 
@@ -207,7 +221,7 @@ pub struct Interpreter
     base_function_block: FunctionBlockRef,
     current_function_block: Option<FunctionBlockRef>,
     built_ins: BuiltIns<'static>,
-    types: crate::language::data::types::TypeRegistry,
+    types: TypeRegistry,
     captured_stdout: Option<Vec<u8>>,
     pub last_result: Option<Value>,
     pub exit_code: u8,
@@ -252,7 +266,7 @@ impl Interpreter
                     "$pwd",
                     Rc::new(|_interpreter: &Interpreter|
                         {
-                            let cwd = std::env::current_dir().unwrap_or_else(|_| ".".into());
+                            let cwd = current_dir().unwrap_or_else(|_| ".".into());
                             Ok(Value::from_string(cwd.display().to_string()))
                         }) as ReadFunction
                 ),
@@ -260,7 +274,7 @@ impl Interpreter
                     "$HOSTNAME",
                     Rc::new(|_interpreter: &Interpreter|
                         {
-                            let name = hostname::get()
+                            let name = get_hostname()
                                 .map(|name| name.to_string_lossy().into_owned())
                                 .unwrap_or_else(|_| "unknown".to_string());
 
@@ -284,7 +298,7 @@ impl Interpreter
                     })),
                 current_function_block: None,
                 built_ins,
-                types: crate::language::data::types::TypeRegistry::new(),
+                types: TypeRegistry::new(),
                 captured_stdout: None,
                 last_result: None,
                 exit_code: 0,
@@ -319,12 +333,15 @@ impl Interpreter
                 TtyColorMode::TtyBasic | TtyColorMode::TtyMonochrome => BANNER_MONO
             };
 
-        let is_interactive = matches!(interactive, Interactive::Yes | Interactive::YesWithoutBanner);
+        let is_interactive = matches!(
+            interactive,
+            Interactive::Yes | Interactive::YesWithoutBanner
+        );
 
         self.set_variable("$build_date", Value::from_string(env!("SHELLY_BUILD_DATE").to_string()));
         self.set_variable("$build_time", Value::from_string(env!("SHELLY_BUILD_TIME").to_string()));
         self.set_variable("$version", Value::from_string(env!("CARGO_PKG_VERSION").to_string()));
-        self.set_variable("$shelly", std::env::current_exe()
+        self.set_variable("$shelly", current_exe()
             .map(|path| Value::from_executable_string(path.display().to_string()))
             .unwrap_or_else(|_| Value::from_string(".".to_string())));
         self.set_variable("$OS",  Value::from_string(OS.to_string()));
@@ -351,7 +368,7 @@ impl Interpreter
             self.set_variable("$login", Value::Boolean(true));
             self.load_startup_script(Path::new("/etc/shelly/profile.shy"), tab_width);
 
-            if let Some(home) = std::env::home_dir()
+            if let Some(home) = home_dir()
             {
                 self.load_startup_script(&home.join(".shelly_profile.shy"), tab_width);
             }
@@ -370,7 +387,7 @@ impl Interpreter
                 }
                 else
                 {
-                    if let Some(home) = std::env::home_dir()
+                    if let Some(home) = home_dir()
                     {
                         Some(home.join(".shelly_init.shy"))
                     }
@@ -430,7 +447,7 @@ impl Interpreter
         let file = match File::open(path)
         {
             Ok(file) => file,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return,
+            Err(error) if error.kind() == ErrorKind::NotFound => return,
             Err(error) =>
                 {
                     eprintln!("Error opening startup file {}: {}", origin, error);
@@ -454,8 +471,8 @@ impl Interpreter
         let previous = self.captured_stdout.replace(Vec::new());
         let result = run(self);
 
-        let captured = std::mem::replace(&mut self.captured_stdout,
-                                         previous).expect("Capture buffer must be installed.");
+        let captured = replace(&mut self.captured_stdout,
+                               previous).expect("Capture buffer must be installed.");
 
         (result, captured)
     }
@@ -533,7 +550,7 @@ impl Interpreter
                                    function_arguments: &[Value]) -> InterpreterResult<()>
     {
         let mut stack: VecDeque<Value> = VecDeque::new();
-        let mut iterations: Vec<super::iteration::Iteration> = Vec::new();
+        let mut iterations: Vec<Iteration> = Vec::new();
         let mut loops: Vec<LoopFrame> = Vec::new();
         let mut instruction_pointer: usize = 0;
         let mut location: Location = Location::default();
@@ -595,7 +612,8 @@ impl Interpreter
 
                         if self.can_execute(&executable)
                         {
-                            let value = self.bind_executable(Value::from_executable_string(executable));
+                            let value =
+                                self.bind_executable(Value::from_executable_string(executable));
                             self.execute_value(&location, value, Vec::new())?;
                         }
                         else
@@ -613,13 +631,28 @@ impl Interpreter
                             })?;
                         if matches!(value, Value::Enum(_) | Value::Struct(_))
                         {
-                            return Err(InterpreterError { location: location.clone(),
-                                what: ErrorWhat::InvalidOperand(format!("Cannot execute {} as a command", if matches!(value, Value::Enum(_)) { "an enum" } else { "a struct" })) });
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(format!(
+                                        "Cannot execute {} as a command",
+                                        if matches!(value, Value::Enum(_))
+                                        {
+                                            "an enum"
+                                        }
+                                        else
+                                        {
+                                            "a struct"
+                                        }
+                                    )),
+                                });
                         }
                         self.last_result = Some(match value
                             {
                                 value @ Value::String(_, Executable::Function(_)) => value,
-                                value => self.bind_executable(Value::from_executable_string(value.as_text()))
+                                value =>
+                                    self.bind_executable(
+                                        Value::from_executable_string(value.as_text()))
                             });
                     },
 
@@ -627,12 +660,21 @@ impl Interpreter
                     {
                         match self.last_result.take()
                         {
-                            Some(value @ Value::String(_, Executable::Yes | Executable::Function(_))) =>
+                            Some(value @ Value::String(_,
+                                                       Executable::Yes
+                                                           | Executable::Function(_))) =>
                                 {
                                     self.execute_value(&location, value, Vec::new())?;
                                 },
 
-                            Some(value @ (Value::Array(_) | Value::ArgumentExpansion(_) | Value::HashMap(_) | Value::Range(_) | Value::Enum(_) | Value::Struct(_)))
+                            Some(
+                                value @ (Value::Array(_)
+                                | Value::ArgumentExpansion(_)
+                                | Value::HashMap(_)
+                                | Value::Range(_)
+                                | Value::Enum(_)
+                                | Value::Struct(_)),
+                            )
                                 if matches!(instruction.operand, Some(Value::Boolean(true))) =>
                                 {
                                     Self::command_name(&location, value)?;
@@ -704,7 +746,9 @@ impl Interpreter
                         {
                             if name.contains('/')
                             {
-                                executable = Value::from_executable_string(self.interpolate_string(&location, &name)?);
+                                executable = Value::from_executable_string(
+                                    self.interpolate_string(&location, &name)?,
+                                );
                             }
                             else
                             {
@@ -722,7 +766,8 @@ impl Interpreter
                                 Some(Value::Array(values)) => match values.as_slice()
                                     {
                                         [Value::String(alias, _), Value::Integer(count)]
-                                            if !alias.is_empty() && *count >= 0 => Some((alias, *count)),
+                                            if !alias.is_empty() && *count >= 0 =>
+                                                Some((alias, *count)),
                                         _ => None
                                     },
                                 _ => None
@@ -734,7 +779,8 @@ impl Interpreter
                                 {
                                     location: location.clone(),
                                     what: ErrorWhat::InvalidOperand(
-                                        "NewAlias requires a nonempty alias name and a nonnegative argument count."
+                                        "NewAlias requires a nonempty alias name and a \
+                                            nonnegative argument count."
                                             .to_string())
                                 });
                         };
@@ -756,27 +802,52 @@ impl Interpreter
                             what: ErrorWhat::ArgumentMismatch(message) };
                         let Some(Value::Array(parts)) = &instruction.operand else
                         { return Err(invalid("Invalid parameter binding operand".to_string())); };
-                        let [Value::String(name, _), constraint, Value::Integer(index), defaults @ ..] = parts.as_slice() else
-                        { return Err(invalid("Invalid parameter binding operand".to_string())); };
+                        let [
+                            Value::String(name, _),
+                            constraint,
+                            Value::Integer(index),
+                            defaults @ ..,
+                        ] = parts.as_slice()
+                        else
+                        {
+                            return Err(invalid("Invalid parameter binding operand".to_string()));
+                        };
                         let value = if matches!(instruction.code, Code::BindRestParameter)
-                            { Value::from_array(function_arguments.get(*index as usize..).unwrap_or(&[]).to_vec()) }
+                            {
+                                Value::from_array(
+                                    function_arguments.get(*index as usize..).unwrap_or(&[])
+                                        .to_vec())
+                            }
                             else
                             {
-                                function_arguments.get(*index as usize).or_else(|| defaults.first()).cloned()
-                                    .ok_or_else(|| invalid(format!("Missing argument for parameter '{}'", name)))?
+                                function_arguments.get(*index as usize).or_else(|| defaults.first())
+                                    .cloned()
+                                    .ok_or_else(
+                                        || invalid(format!("Missing argument for parameter '{}'",
+                                                           name)))?
                             };
                         let type_id = match constraint
                             {
-                                Value::Integer(id) => Some(crate::language::data::types::TypeId(*id as usize)),
+                                Value::Integer(id) => Some(TypeId(*id as usize)),
                                 Value::None => None,
                                 _ => return Err(invalid("Invalid parameter constraint".to_string()))
                             };
                         if let Some(id) = type_id
                         {
                             self.types.validate(id, &value).map_err(|message|
-                                invalid(format!("Type error for parameter '{}': {}", name, message)))?;
+                                invalid(format!("Type error for parameter '{}': {}", name,
+                                                message)))?;
                         }
-                        self.variables.create(name.clone(), ScopedValue { value, type_id, exported: ValueVisibility::Private })
+                        self.variables
+                            .create(
+                                name.clone(),
+                                ScopedValue
+                                    {
+                                        value,
+                                        type_id,
+                                        exported: ValueVisibility::Private,
+                                    },
+                            )
                             .map_err(invalid)?;
                     },
 
@@ -785,18 +856,24 @@ impl Interpreter
                         let (variable_name, type_id) = match &instruction.operand
                             {
                                 Some(Value::String(name, _)) => (name.clone(), None),
-                                Some(Value::Array(parts)) if matches!(instruction.code, Code::NewVariable) =>
+                                Some(Value::Array(parts)) if matches!(instruction.code,
+                                    Code::NewVariable) =>
                                     {
-                                        let [Value::String(name, _), Value::Integer(id)] = parts.as_slice() else
+                                        let [Value::String(name, _),
+                                             Value::Integer(id)] = parts.as_slice() else
                                         { return Err(InterpreterError { location: location.clone(),
-                                            what: ErrorWhat::InvalidOperand("Invalid typed variable operand".to_string()) }); };
-                                        (name.clone(), Some(crate::language::data::types::TypeId(*id as usize)))
+                                            what: ErrorWhat::InvalidOperand(
+                                                "Invalid typed variable operand".to_string()) }); };
+                                        (name.clone(), Some(TypeId(*id as usize)))
                                     },
                                 _ => return Err(InterpreterError
                                     {
                                         location: location.clone(),
                                         what: ErrorWhat::InvalidOperand(
-                                            "Missing or invalid operand for NewVariable instruction.".to_string())
+                                            "Missing or invalid operand for NewVariable \
+                                                instruction."
+                                                .to_string(),
+                                        )
                                     })
                             };
 
@@ -832,14 +909,32 @@ impl Interpreter
 
                 Code::ValidateType =>
                     {
-                        let Some(Value::Integer(id)) = instruction.operand else
-                        { return Err(InterpreterError { location: location.clone(),
-                            what: ErrorWhat::InvalidOperand("Invalid ValidateType operand".to_string()) }); };
-                        let value = stack.back().ok_or_else(|| InterpreterError { location: location.clone(),
-                            what: ErrorWhat::InvalidOperand("Missing value for type validation".to_string()) })?;
-                        self.types.validate(crate::language::data::types::TypeId(id as usize), value)
-                            .map_err(|message| InterpreterError { location: location.clone(),
-                                what: ErrorWhat::InvalidOperand(format!("Type error: {}", message)) })?;
+                        let Some(Value::Integer(id)) = instruction.operand
+                        else
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(
+                                        "Invalid ValidateType operand".to_string(),
+                                    ),
+                                });
+                        };
+                        let value = stack.back().ok_or_else(|| InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::InvalidOperand(
+                                    "Missing value for type validation".to_string(),
+                                ),
+                            })?;
+                        self.types
+                            .validate(TypeId(id as usize), value)
+                            .map_err(|message| InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(
+                                        format!("Type error: {}", message)),
+                                })?;
                     },
 
                 Code::SetVariable =>
@@ -851,16 +946,25 @@ impl Interpreter
                                     {
                                         location: location.clone(),
                                         what: ErrorWhat::InvalidOperand(
-                                            "Missing or invalid operand for SetVariable instruction.".to_string())
+                                            "Missing or invalid operand for SetVariable \
+                                                instruction."
+                                                .to_string(),
+                                        )
                                     })
                             };
 
                         let mut value = Self::pop(&location, &mut stack)?;
 
-                        let type_id = self.variables.get(&variable_name).and_then(|variable| variable.type_id);
+                        let type_id = self
+                            .variables
+                            .get(&variable_name)
+                            .and_then(|variable| variable.type_id);
                         match value
                         {
-                            Value::ArgumentExpansion(array) if type_id.is_none() => { value = Value::Array(array); }
+                            Value::ArgumentExpansion(array) if type_id.is_none() =>
+                            {
+                                value = Value::Array(array);
+                            }
                             _ => {}
                         }
 
@@ -873,8 +977,14 @@ impl Interpreter
                         {
                             if let Some(id) = variable.type_id
                             {
-                                self.types.validate(id, &value).map_err(|message| InterpreterError { location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(format!("Type error for '{}': {}", variable_name, message)) })?;
+                                self.types.validate(id,
+                                                    &value).map_err(|message
+                                                        | InterpreterError
+                                                            {
+                                                                location: location.clone(),
+                                        what: ErrorWhat::InvalidOperand(
+                                            format!("Type error for '{}': {}", variable_name,
+                                                    message)) })?;
                             }
                             variable.value = value;
                         }
@@ -884,7 +994,9 @@ impl Interpreter
                                 {
                                     location: location.clone(),
                                     what: ErrorWhat::InvalidOperand(
-                                        "Variable not found for SetVariable instruction.".to_string())
+                                        "Variable not found for SetVariable instruction."
+                                            .to_string(),
+                                    )
                                 });
                         }
                     },
@@ -896,11 +1008,13 @@ impl Interpreter
                             return Err(InterpreterError
                                 {
                                     location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand("Expected one or two loop bindings".to_string())
+                                    what: ErrorWhat::InvalidOperand(
+                                        "Expected one or two loop bindings".to_string(),
+                                    ),
                                 });
                         };
                         let value = Self::pop(&location, &mut stack)?;
-                        let iteration = super::iteration::Iteration::new(value, bindings)
+                        let iteration = Iteration::new(value, bindings)
                             .map_err(|message| InterpreterError
                                 {
                                     location: location.clone(),
@@ -947,12 +1061,42 @@ impl Interpreter
                                 _ => return Err(InterpreterError
                                     {
                                         location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand("Invalid MakeRange flags.".to_string())
+                                        what: ErrorWhat::InvalidOperand(
+                                            "Invalid MakeRange flags.".to_string(),
+                                        ),
                                     })
                             };
-                        let end = if flags & 2 != 0 { Some(Self::range_bound(&location, Self::pop(&location, &mut stack)?)?) } else { None };
-                        let start = if flags & 1 != 0 { Some(Self::range_bound(&location, Self::pop(&location, &mut stack)?)?) } else { None };
-                        Self::push(&mut stack, Value::Range(Range { start, end, inclusive: flags & 4 != 0 }));
+                        let end = if flags & 2 != 0
+                        {
+                            Some(Self::range_bound(
+                                &location,
+                                Self::pop(&location, &mut stack)?,
+                            )?)
+                        }
+                        else
+                        {
+                            None
+                        };
+                        let start = if flags & 1 != 0
+                        {
+                            Some(Self::range_bound(
+                                &location,
+                                Self::pop(&location, &mut stack)?,
+                            )?)
+                        }
+                        else
+                        {
+                            None
+                        };
+                        Self::push(
+                            &mut stack,
+                            Value::Range(Range
+                                {
+                                    start,
+                                    end,
+                                    inclusive: flags & 4 != 0,
+                                }),
+                        );
                     },
 
                 Code::MakeHashMap =>
@@ -963,7 +1107,9 @@ impl Interpreter
                                 _ => return Err(InterpreterError
                                     {
                                         location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand("Invalid MakeHashMap count.".to_string())
+                                        what: ErrorWhat::InvalidOperand(
+                                            "Invalid MakeHashMap count.".to_string(),
+                                        ),
                                     })
                             };
                         let mut pairs = Vec::new();
@@ -974,7 +1120,10 @@ impl Interpreter
                             pairs.push((MapKey::from_value(&key), value));
                         }
                         // Restore source order so the last duplicate key wins.
-                        Self::push(&mut stack, Value::from_hash_map(pairs.into_iter().rev().collect()));
+                        Self::push(
+                            &mut stack,
+                            Value::from_hash_map(pairs.into_iter().rev().collect()),
+                        );
                     },
 
                 Code::MakeArray =>
@@ -985,7 +1134,9 @@ impl Interpreter
                                 _ => return Err(InterpreterError
                                     {
                                         location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand("Invalid MakeArray count.".to_string())
+                                        what: ErrorWhat::InvalidOperand(
+                                            "Invalid MakeArray count.".to_string(),
+                                        ),
                                     })
                             };
                         let mut elements = Vec::new();
@@ -996,7 +1147,8 @@ impl Interpreter
                         {
                             match element
                             {
-                                Value::ArgumentExpansion(values) => array.extend(Rc::unwrap_or_clone(values)),
+                                Value::ArgumentExpansion(values) =>
+                                    array.extend(Rc::unwrap_or_clone(values)),
                                 value => array.push(value)
                             }
                         }
@@ -1005,22 +1157,36 @@ impl Interpreter
 
                 Code::MakeStruct =>
                     {
-                        let invalid = |message| InterpreterError { location: location.clone(), what: ErrorWhat::InvalidOperand(message) };
+                        let invalid = |message| InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::InvalidOperand(message),
+                            };
                         let Some(Value::Array(parts)) = &instruction.operand else
                         { return Err(invalid("Invalid MakeStruct operand".to_string())); };
                         let [Value::Integer(id), Value::Array(indexes)] = parts.as_slice() else
                         { return Err(invalid("Invalid MakeStruct operand".to_string())); };
-                        let definition = self.types.get(crate::language::data::types::TypeId(*id as usize));
-                        let crate::language::data::types::TypeKind::Struct(fields) = &definition.kind else
+                        let definition = self.types.get(TypeId(*id as usize));
+                        let TypeKind::Struct(fields) = &definition.kind else
                         { return Err(invalid("Expected a struct definition".to_string())); };
                         let mut values = vec![Value::None; fields.len()];
                         for index in indexes.iter().rev()
                         {
-                            let Value::Integer(index) = index else { return Err(invalid("Invalid field index".to_string())); };
+                            let Value::Integer(index) = index
+                            else
+                            {
+                                return Err(invalid("Invalid field index".to_string()));
+                            };
                             values[*index as usize] = Self::pop(&location, &mut stack)?;
                         }
-                        let value = Value::Struct(Rc::new(crate::language::data::types::StructValue { definition, fields: values }));
-                        self.types.validate_value(&value).map_err(|message| invalid(format!("Type error: {}", message)))?;
+                        let value = Value::Struct(Rc::new(StructValue
+                            {
+                                definition,
+                                fields: values,
+                            }));
+                        self.types
+                            .validate_value(&value)
+                            .map_err(|message| invalid(format!("Type error: {}", message)))?;
                         Self::push(&mut stack, value);
                     },
 
@@ -1028,11 +1194,30 @@ impl Interpreter
                     {
                         let value = Self::pop(&location, &mut stack)?;
                         let Value::Struct(item) = value else
-                        { return Err(InterpreterError { location: location.clone(), what: ErrorWhat::InvalidOperand(
-                            format!("Cannot access a field on {}", value.type_name())) }); };
-                        let index = Self::struct_field_index(&location, &item,
-                            instruction.operand.as_ref().ok_or_else(|| InterpreterError { location: location.clone(),
-                                what: ErrorWhat::InvalidOperand("Missing field operand".to_string()) })?)?;
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(format!(
+                                        "Cannot access a field on {}",
+                                        value.type_name()
+                                    )),
+                                });
+                        };
+                        let index = Self::struct_field_index(
+                            &location,
+                            &item,
+                            instruction
+                                .operand
+                                .as_ref()
+                                .ok_or_else(|| InterpreterError
+                                    {
+                                        location: location.clone(),
+                                        what: ErrorWhat::InvalidOperand(
+                                            "Missing field operand".to_string(),
+                                        ),
+                                    })?,
+                        )?;
                         Self::push(&mut stack, item.fields[index].clone());
                     },
 
@@ -1050,42 +1235,68 @@ impl Interpreter
                             {
                                 Some(Value::Array(parts)) => match parts.as_slice()
                                     {
-                                        [Value::String(name, _), Value::Array(fields)] if !fields.is_empty() =>
+                                        [Value::String(name, _),
+                                         Value::Array(fields)] if !fields.is_empty() =>
                                             (name, fields),
                                         _ => return Err(InterpreterError
                                             {
                                                 location: location.clone(),
-                                                what: ErrorWhat::InvalidOperand("Invalid SetElement operand.".to_string())
+                                                what: ErrorWhat::InvalidOperand(
+                                                    "Invalid SetElement operand.".to_string(),
+                                                ),
                                             })
                                     },
                                 _ => return Err(InterpreterError
                                     {
                                         location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand("Missing SetElement operand.".to_string())
+                                        what: ErrorWhat::InvalidOperand(
+                                            "Missing SetElement operand.".to_string(),
+                                        ),
                                     })
                             };
                         let value = Self::pop(&location, &mut stack)?;
                         let mut indexes = Vec::new();
-                        for _ in 0..fields.len() { indexes.push(Self::pop(&location, &mut stack)?); }
+                        for _ in 0..fields.len()
+                        {
+                            indexes.push(Self::pop(&location, &mut stack)?);
+                        }
                         let variable = self.variables.get_mut(name).ok_or_else(|| InterpreterError
                             {
                                 location: location.clone(),
-                                what: ErrorWhat::InvalidOperand(format!("Variable {} not found", name))
+                                what: ErrorWhat::InvalidOperand(format!(
+                                    "Variable {} not found",
+                                    name
+                                )),
                             })?;
                         let value = match value
                             {
-                                Value::ArgumentExpansion(values) if !matches!(fields.last(), Some(Value::Boolean(true))) => Value::Array(values),
+                                Value::ArgumentExpansion(values) if !matches!(fields.last(),
+                                    Some(Value::Boolean(true))) => Value::Array(values),
                                 value => value
                             };
                         indexes.reverse();
                         let mut updated = variable.value.clone();
                         Self::set_element(&location, &mut updated, &indexes, fields, value)?;
-                        self.types.validate_value(&updated).map_err(|message| InterpreterError { location: location.clone(),
-                            what: ErrorWhat::InvalidOperand(format!("Type error: {}", message)) })?;
+                        self.types
+                            .validate_value(&updated)
+                            .map_err(|message| InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(
+                                        format!("Type error: {}", message)),
+                                })?;
                         if let Some(id) = variable.type_id
                         {
-                            self.types.validate(id, &updated).map_err(|message| InterpreterError { location: location.clone(),
-                                what: ErrorWhat::InvalidOperand(format!("Type error for '{}': {}", name, message)) })?;
+                            self.types
+                                .validate(id, &updated)
+                                .map_err(|message| InterpreterError
+                                    {
+                                        location: location.clone(),
+                                        what: ErrorWhat::InvalidOperand(format!(
+                                            "Type error for '{}': {}",
+                                            name, message
+                                        )),
+                                    })?;
                         }
                         variable.value = updated;
                     },
@@ -1099,7 +1310,10 @@ impl Interpreter
                                     {
                                         location: location.clone(),
                                         what: ErrorWhat::InvalidOperand(
-                                            "Missing or invalid operand for GetVariable instruction.".to_string())
+                                            "Missing or invalid operand for GetVariable \
+                                                instruction."
+                                                .to_string(),
+                                        )
                                     })
                             };
 
@@ -1182,7 +1396,10 @@ impl Interpreter
                                     {
                                         location: location.clone(),
                                         what: ErrorWhat::InvalidOperand(
-                                            "Missing or invalid operand for ExportVariable instruction.".to_string())
+                                            "Missing or invalid operand for ExportVariable \
+                                                instruction."
+                                                .to_string(),
+                                        )
                                     })
                             };
 
@@ -1196,7 +1413,9 @@ impl Interpreter
                                 {
                                     location: location.clone(),
                                     what: ErrorWhat::InvalidOperand(
-                                        "Variable not found for ExportVariable instruction.".to_string())
+                                        "Variable not found for ExportVariable \
+                                            instruction.".to_string(),
+                                    )
                                 });
                         }
                     },
@@ -1204,13 +1423,14 @@ impl Interpreter
                 Code::GlobFiles =>
                     {
                         let pattern = Self::pop_as_text(&location, &mut stack)?;
-                        let expand_tilde = matches!(instruction.operand, Some(Value::Boolean(true)));
+                        let expand_tilde = matches!(instruction.operand,
+                                                    Some(Value::Boolean(true)));
                         stack.push_back(self.handle_file_glob(&pattern, expand_tilde)
                             .map_err(|mut error|
-                            {
-                                error.location = location.clone();
-                                error
-                            })?);
+                                {
+                                    error.location = location.clone();
+                                    error
+                                })?);
                     },
 
                 Code::ExpandPath =>
@@ -1240,10 +1460,15 @@ impl Interpreter
                                             location: location.clone(),
                                             what: ErrorWhat::RangeError(message.to_string())
                                         };
-                                    let length = range.len().ok_or_else(|| error("Cannot expand a range with omitted bounds"))?;
-                                    let length = usize::try_from(length).map_err(|_| error("Range is too large to expand"))?;
+                                    let length = range.len()
+                                        .ok_or_else(
+                                            || error("Cannot expand a range with omitted bounds"))?;
+                                    let length = usize::try_from(length)
+                                        .map_err(|_| error("Range is too large to expand"))?;
                                     let mut values = Vec::new();
-                                    values.try_reserve_exact(length).map_err(|_| error("Range is too large to expand"))?;
+                                    values
+                                        .try_reserve_exact(length)
+                                        .map_err(|_| error("Range is too large to expand"))?;
                                     values.extend(range.iter().unwrap().map(Value::Integer));
                                     value = Value::from_argument_expansion(values);
                                 },
@@ -1297,7 +1522,9 @@ impl Interpreter
                             return Err(InterpreterError
                                 {
                                     location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand("Expected two linked loop targets".to_string())
+                                    what: ErrorWhat::InvalidOperand(
+                                        "Expected two linked loop targets".to_string(),
+                                    ),
                                 });
                         };
                         if targets.len() != 2
@@ -1305,16 +1532,23 @@ impl Interpreter
                             return Err(InterpreterError
                                 {
                                     location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand("Expected two linked loop targets".to_string())
+                                    what: ErrorWhat::InvalidOperand(
+                                        "Expected two linked loop targets".to_string(),
+                                    ),
                                 });
                         }
                         loops.push(LoopFrame
                             {
-                                continue_target: Self::jump_target(instructions, targets.first(), &location)?,
-                                break_target: Self::jump_target(instructions, targets.get(1), &location)?,
+                                continue_target: Self::jump_target(
+                                    instructions,
+                                    targets.first(),
+                                    &location,
+                                )?,
+                                break_target: Self::jump_target(instructions, targets.get(1),
+                                                                &location)?,
                                 scope: self.variables.current_scope(),
                                 stack_depth: stack.len(),
-                                iteration_depth: iterations.len()
+                                iteration_depth: iterations.len(),
                             });
                     },
 
@@ -1323,7 +1557,8 @@ impl Interpreter
                         loops.pop().ok_or_else(|| InterpreterError
                             {
                                 location: location.clone(),
-                                what: ErrorWhat::InvalidOperand("No active loop to exit".to_string())
+                                what: ErrorWhat::InvalidOperand(
+                                    "No active loop to exit".to_string()),
                             })?;
                     },
 
@@ -1332,8 +1567,17 @@ impl Interpreter
                         let frame = loops.last().ok_or_else(|| InterpreterError
                             {
                                 location: location.clone(),
-                                what: ErrorWhat::LoopControlError(format!("Cannot {} outside a loop",
-                                    if matches!(instruction.code, Code::Break) { "break" } else { "continue" }))
+                                what: ErrorWhat::LoopControlError(format!(
+                                    "Cannot {} outside a loop",
+                                    if matches!(instruction.code, Code::Break)
+                                    {
+                                        "break"
+                                    }
+                                    else
+                                    {
+                                        "continue"
+                                    }
+                                )),
                             })?;
                         // A transfer may abandon nested blocks and partially evaluated
                         // expressions. Restore the state saved before the iteration body.
@@ -1350,7 +1594,9 @@ impl Interpreter
 
                 Code::Jump | Code::JumpIfFalse | Code::JumpIfTrue =>
                     {
-                        let target = Self::jump_target(instructions, instruction.operand.as_ref(), &location)?;
+                        let target =
+                            Self::jump_target(instructions, instruction.operand.as_ref(),
+                                              &location)?;
                         let jump = if matches!(instruction.code, Code::Jump)
                             {
                                 true
@@ -1362,7 +1608,9 @@ impl Interpreter
                                     return Err(InterpreterError
                                         {
                                             location: location.clone(),
-                                            what: ErrorWhat::InvalidOperand("Expected a boolean jump condition".to_string())
+                                            what: ErrorWhat::InvalidOperand(
+                                                "Expected a boolean jump condition".to_string(),
+                                            ),
                                         });
                                 };
                                 *condition == matches!(instruction.code, Code::JumpIfTrue)
@@ -1383,7 +1631,15 @@ impl Interpreter
                             })?;
                         let value = value.as_bool();
                         self.last_result = Some(Value::Boolean(
-                            if matches!(instruction.code, Code::BooleanNot) { !value } else { value }));
+                            if matches!(instruction.code, Code::BooleanNot)
+                            {
+                                !value
+                            }
+                            else
+                            {
+                                value
+                            },
+                        ));
                     },
 
                 Code::CompareEqual | Code::CompareNotEqual =>
@@ -1391,8 +1647,19 @@ impl Interpreter
                         let rhs = Self::pop(&location, &mut stack)?;
                         let lhs = Self::pop(&location, &mut stack)?;
                         let equal = lhs.equals(&rhs);
-                        Self::push(&mut stack, Value::Boolean(
-                            if matches!(instruction.code, Code::CompareEqual) { equal } else { !equal }));
+                        Self::push(
+                            &mut stack,
+                            Value::Boolean(
+                                if matches!(instruction.code, Code::CompareEqual)
+                                {
+                                    equal
+                                }
+                                else
+                                {
+                                    !equal
+                                },
+                            ),
+                        );
                     },
 
                 Code::MathAdd | Code::MathSubtract | Code::MathMultiply
@@ -1405,13 +1672,16 @@ impl Interpreter
                             };
                         let rhs = Self::pop(&location, &mut stack)?;
                         let lhs = Self::pop(&location, &mut stack)?;
-                        if let Some(message) = lhs.integer_conversion_error().or_else(|| rhs.integer_conversion_error())
+                        if let Some(message) = lhs
+                            .integer_conversion_error()
+                            .or_else(|| rhs.integer_conversion_error())
                         {
                             return Err(error(message));
                         }
                         let rhs = rhs.checked_integer().ok_or_else(|| error("Integer overflow"))?;
                         let lhs = lhs.checked_integer().ok_or_else(|| error("Integer overflow"))?;
-                        if rhs == 0 && matches!(instruction.code, Code::MathDivide | Code::MathModulo)
+                        if    rhs == 0
+                           && matches!(instruction.code, Code::MathDivide | Code::MathModulo)
                         {
                             return Err(error("Division or remainder by zero"));
                         }
@@ -1496,7 +1766,12 @@ impl Interpreter
         {
             Value::Struct(mut item) =>
                 {
-                    let fields = item.fields.iter().cloned().map(|value| self.eval_value_paths_to(value)).collect();
+                    let fields = item
+                        .fields
+                        .iter()
+                        .cloned()
+                        .map(|value| self.eval_value_paths_to(value))
+                        .collect();
                     Rc::make_mut(&mut item).fields = fields;
                     Value::Struct(item)
                 },
@@ -1558,8 +1833,8 @@ impl Interpreter
 
     fn bind_executable(&self, value: Value) -> Value
     {
-        if let Value::String(name, Executable::Yes) = &value
-            && !self.built_ins.contains_key(name.as_str())
+        if    let Value::String(name, Executable::Yes) = &value
+           && !self.built_ins.contains_key(name.as_str())
         {
             let function = self.current_function_block.as_ref()
                 .and_then(|block| self.get_function(name, block))
@@ -1570,7 +1845,9 @@ impl Interpreter
         value
     }
 
-    fn execute_value(&mut self, location: &Location, value: Value, args: Vec<Value>) -> InterpreterResult<()>
+    fn execute_value(
+        &mut self, location: &Location, value: Value, args: Vec<Value>,
+    ) -> InterpreterResult<()>
     {
         if let Value::String(name, Executable::Function(function)) = value
         { return self.execute_function(location, &name, &function, &args); }
@@ -1619,7 +1896,7 @@ impl Interpreter
             .map(|value| self.eval_path_list_from(&value.value.as_text()))
             .unwrap_or_else(|| "/bin:/usr/bin".to_string());
 
-        std::env::split_paths(&path).any(|directory| is_executable(&directory.join(executable)))
+        split_paths(&path).any(|directory| is_executable(&directory.join(executable)))
     }
 
     fn execute_function(&mut self,
@@ -1628,13 +1905,36 @@ impl Interpreter
                         function: &FunctionRef,
                         args: &[Value]) -> InterpreterResult<()>
     {
-        if args.len() < function.minimum_arguments || !function.variadic && args.len() > function.arguments.len()
+        if    args.len() < function.minimum_arguments
+           || !function.variadic
+           && args.len() > function.arguments.len()
         {
-            let expected = if function.variadic { format!("at least {}", function.minimum_arguments) }
-                else if function.minimum_arguments == function.arguments.len() { function.arguments.len().to_string() }
-                else { format!("{} to {}", function.minimum_arguments, function.arguments.len()) };
-            return Err(InterpreterError { location: location.clone(),
-                what: ErrorWhat::ArgumentMismatch(format!("Function {} expected {} arguments, but got {}.", name, expected, args.len())) });
+            let expected = if function.variadic
+            {
+                format!("at least {}", function.minimum_arguments)
+            }
+            else if function.minimum_arguments == function.arguments.len()
+            {
+                function.arguments.len().to_string()
+            }
+            else
+            {
+                format!(
+                    "{} to {}",
+                    function.minimum_arguments,
+                    function.arguments.len()
+                )
+            };
+            return Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::ArgumentMismatch(format!(
+                        "Function {} expected {} arguments, but got {}.",
+                        name,
+                        expected,
+                        args.len()
+                    )),
+                });
         }
 
         self.variables.push_scope();
@@ -1654,8 +1954,14 @@ impl Interpreter
             if let Err(message) = self.types.validate(id, value)
             {
                 self.last_result = None;
-                return Err(InterpreterError { location: location.clone(),
-                    what: ErrorWhat::ArgumentMismatch(format!("Type error for return value of '{}': {}", name, message)) });
+                return Err(InterpreterError
+                    {
+                        location: location.clone(),
+                        what: ErrorWhat::ArgumentMismatch(format!(
+                            "Type error for return value of '{}': {}",
+                            name, message
+                        )),
+                    });
             }
         }
         Ok(())
@@ -1689,7 +1995,11 @@ impl Interpreter
     {
         let (executable, resolved_args) = self.resolve_alias(location, &executable)?;
         let executable = self.eval_path_from(&executable);
-        let args: Vec<Value> = resolved_args.into_iter().map(Value::from_string).chain(args).collect();
+        let args: Vec<Value> = resolved_args
+            .into_iter()
+            .map(Value::from_string)
+            .chain(args)
+            .collect();
 
         if let Some(built_in) = self.built_ins.get(executable.as_str()).cloned()
         {
@@ -1765,7 +2075,7 @@ impl Interpreter
                     location: location.clone(),
                     what: match error.kind()
                     {
-                        std::io::ErrorKind::NotFound =>
+                        ErrorKind::NotFound =>
                             ErrorWhat::ExecutableNotFound(self.eval_path_to(&executable)),
 
                         _ => ErrorWhat::ExecutableIoError(
@@ -1785,10 +2095,17 @@ impl Interpreter
         match value
         {
             Value::Struct(_) => Err(InterpreterError
-                { location: location.clone(), what: ErrorWhat::InvalidOperand("Cannot execute a struct as a command".to_string()) }),
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::InvalidOperand(
+                        "Cannot execute a struct as a command".to_string()),
+                }),
             Value::Enum(_) => Err(InterpreterError
-                { location: location.clone(),
-                  what: ErrorWhat::InvalidOperand("Cannot execute an enum as a command".to_string()) }),
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::InvalidOperand(
+                        "Cannot execute an enum as a command".to_string()),
+                }),
             Value::Range(_) => Err(InterpreterError
                 {
                     location: location.clone(),
@@ -1797,7 +2114,8 @@ impl Interpreter
             Value::HashMap(_) => Err(InterpreterError
                 {
                     location: location.clone(),
-                    what: ErrorWhat::HashMapError("Cannot execute a hash map as a command".to_string())
+                    what: ErrorWhat::HashMapError(
+                        "Cannot execute a hash map as a command".to_string()),
                 }),
             Value::Array(_) | Value::ArgumentExpansion(_) => Err(InterpreterError
                 {
@@ -1859,38 +2177,59 @@ impl Interpreter
         };
         let length = elements.len();
         let index = usize::try_from(*index)
-            .map_err(|_| error(format!("Array index {} is out of bounds for length {}", index, length)))?;
+            .map_err(
+                |_| error(format!("Array index {} is out of bounds for length {}", index,
+                                  length)))?;
         if index >= length
         {
-            return Err(error(format!("Array index {} is out of bounds for length {}", index, length)));
+            return Err(error(format!(
+                "Array index {} is out of bounds for length {}",
+                index, length
+            )));
         }
         Ok(index)
     }
 
-    fn struct_field_index(location: &Location, item: &crate::language::data::types::StructValue,
+    fn struct_field_index(location: &Location, item: &StructValue,
                            field: &Value) -> InterpreterResult<usize>
     {
-        let crate::language::data::types::TypeKind::Struct(fields) = &item.definition.kind else { unreachable!(); };
+        let TypeKind::Struct(fields) = &item.definition.kind else { unreachable!(); };
         let index = match field
             {
-                Value::Integer(index) => usize::try_from(*index).ok().filter(|index| *index < fields.len()),
+                Value::Integer(index) => usize::try_from(*index)
+                    .ok()
+                    .filter(|index| *index < fields.len()),
                 Value::String(name, _) => fields.iter().position(|field| field.name == *name),
                 _ => None
             };
-        index.ok_or_else(|| InterpreterError { location: location.clone(), what: ErrorWhat::InvalidOperand(
-            format!("Unknown field '{}.{}'", item.definition.name, field.as_text())) })
+        index.ok_or_else(|| InterpreterError
+            {
+                location: location.clone(),
+                what: ErrorWhat::InvalidOperand(format!(
+                    "Unknown field '{}.{}'",
+                    item.definition.name,
+                    field.as_text()
+                )),
+            })
     }
 
-    fn get_element(location: &Location, collection: &Value, index: &Value) -> InterpreterResult<Value>
+    fn get_element(
+        location: &Location, collection: &Value, index: &Value,
+    ) -> InterpreterResult<Value>
     {
         match collection
         {
-            Value::HashMap(values) => Ok(values.get(&MapKey::from_value(index)).cloned().unwrap_or(Value::None)),
+            Value::HashMap(values) => Ok(values
+                .get(&MapKey::from_value(index))
+                .cloned()
+                .unwrap_or(Value::None)),
             Value::Array(values) => Ok(values[Self::array_index(location, values, index)?].clone()),
             _ => Err(InterpreterError
                 {
                     location: location.clone(),
-                    what: ErrorWhat::ArrayError("Cannot index a value that is not an array or hash map".to_string())
+                    what: ErrorWhat::ArrayError(
+                        "Cannot index a value that is not an array or hash map".to_string(),
+                    ),
                 })
         }
     }
@@ -1906,10 +2245,24 @@ impl Interpreter
         if matches!(fields.first(), Some(Value::Boolean(true)))
         {
             let Value::Struct(item) = collection else
-            { return Err(InterpreterError { location: location.clone(), what: ErrorWhat::InvalidOperand(
-                format!("Cannot assign a field on {}", collection.type_name())) }); };
+            {
+                return Err(InterpreterError
+                    {
+                        location: location.clone(),
+                        what: ErrorWhat::InvalidOperand(format!(
+                            "Cannot assign a field on {}",
+                            collection.type_name()
+                        )),
+                    });
+            };
             let index = Self::struct_field_index(location, item, index)?;
-            return Self::set_element(location, &mut Rc::make_mut(item).fields[index], rest, &fields[1..], value);
+            return Self::set_element(
+                location,
+                &mut Rc::make_mut(item).fields[index],
+                rest,
+                &fields[1..],
+                value,
+            );
         }
         match collection
         {
@@ -1927,7 +2280,9 @@ impl Interpreter
                         return Err(InterpreterError
                             {
                                 location: location.clone(),
-                                what: ErrorWhat::HashMapError("Missing intermediate key in indexed assignment".to_string())
+                                what: ErrorWhat::HashMapError(
+                                    "Missing intermediate key in indexed assignment".to_string(),
+                                ),
                             });
                     }
                     let child = Rc::make_mut(values).get_mut(&key).unwrap();
@@ -1936,12 +2291,20 @@ impl Interpreter
             Value::Array(values) =>
                 {
                     let index = Self::array_index(location, values, index)?;
-                    Self::set_element(location, &mut Rc::make_mut(values)[index], rest, &fields[1..], value)
+                    Self::set_element(
+                        location,
+                        &mut Rc::make_mut(values)[index],
+                        rest,
+                        &fields[1..],
+                        value,
+                    )
                 },
             _ => Err(InterpreterError
                 {
                     location: location.clone(),
-                    what: ErrorWhat::ArrayError("Cannot index a value that is not an array or hash map".to_string())
+                    what: ErrorWhat::ArrayError(
+                        "Cannot index a value that is not an array or hash map".to_string(),
+                    ),
                 })
         }
     }
@@ -1961,10 +2324,10 @@ impl Interpreter
         Ok(Self::pop(location, stack)?.as_text())
     }
 
-    fn handle_string_interpolation(&self,
-                                   location: &Location,
-                                   stack: &mut VecDeque<Value>,
-                                   escaped_dollars: &[usize], escape_glob: bool) -> InterpreterResult<()>
+    fn handle_string_interpolation(
+        &self, location: &Location, stack: &mut VecDeque<Value>, escaped_dollars: &[usize],
+        escape_glob: bool,
+    ) -> InterpreterResult<()>
     {
         let invalid_operand = |message| InterpreterError
             {
@@ -1978,7 +2341,13 @@ impl Interpreter
                 "Expected a string for InterpolateString instruction.".to_string()));
         };
 
-        let interpolated = self.interpolate_string_at(location, &text, escaped_dollars, !escape_glob, escape_glob)?;
+        let interpolated = self.interpolate_string_at(
+            location,
+            &text,
+            escaped_dollars,
+            !escape_glob,
+            escape_glob,
+        )?;
         Self::push(stack, Value::String(interpolated, executable));
         Ok(())
     }
@@ -2067,7 +2436,7 @@ impl Interpreter
             // Append values directly so their contents are not interpolated again.
             let text = value.as_text();
             let text = if escape_glob { self.eval_path_from(&text) } else { text };
-            interpolated.push_str(&if escape_glob { glob::Pattern::escape(&text) } else { text });
+            interpolated.push_str(&if escape_glob { Pattern::escape(&text) } else { text });
         }
 
         Ok(interpolated)
@@ -2081,7 +2450,7 @@ impl Interpreter
         self.variables.get("$HOME")
             .map(|home| home.value.as_text())
             .filter(|home| !home.is_empty())
-            .or_else(|| std::env::home_dir().map(|home| home.to_string_lossy().into_owned()))
+            .or_else(|| home_dir().map(|home| home.to_string_lossy().into_owned()))
             .filter(|home| Path::new(home).is_absolute())
     }
 
@@ -2091,16 +2460,16 @@ impl Interpreter
     fn eval_path_to(&self, path: &str) -> String
     {
         let Some(home) = self.home_path() else { return path.to_string(); };
-        let home = home.trim_end_matches(std::path::is_separator);
+        let home = home.trim_end_matches(is_separator);
 
         // A root home must not become an empty prefix that matches relative paths.
         if home.is_empty()
         {
-            return if path == std::path::MAIN_SEPARATOR_STR
+            return if path == MAIN_SEPARATOR_STR
                 {
                     "~".to_string()
                 }
-                else if path.starts_with(std::path::is_separator)
+                else if path.starts_with(is_separator)
                 {
                     format!("~{}", path)
                 }
@@ -2115,8 +2484,8 @@ impl Interpreter
             return "~".to_string();
         }
 
-        if let Some(suffix) = path.strip_prefix(home)
-           && suffix.starts_with(std::path::is_separator)
+        if    let Some(suffix) = path.strip_prefix(home)
+           && suffix.starts_with(is_separator)
         {
             return format!("~{}", suffix);
         }
@@ -2131,7 +2500,7 @@ impl Interpreter
     fn eval_path_from(&self, path: &str) -> String
     {
         let Some(suffix) = path.strip_prefix('~') else { return path.to_string(); };
-        if !suffix.is_empty() && !suffix.starts_with(std::path::is_separator)
+        if !suffix.is_empty() && !suffix.starts_with(is_separator)
         {
             return path.to_string();
         }
@@ -2142,7 +2511,7 @@ impl Interpreter
             return home;
         }
 
-        format!("{}{}", home.trim_end_matches(std::path::is_separator), suffix)
+        format!("{}{}", home.trim_end_matches(is_separator), suffix)
     }
 
     /**
@@ -2150,10 +2519,10 @@ impl Interpreter
      */
     fn eval_path_list_from(&self, paths: &str) -> String
     {
-        let expanded = std::env::split_paths(paths)
+        let expanded = split_paths(paths)
             .map(|path| PathBuf::from(self.eval_path_from(&path.to_string_lossy())));
 
-        std::env::join_paths(expanded)
+        join_paths(expanded)
             .map(|paths| paths.to_string_lossy().into_owned())
             .unwrap_or_else(|_| paths.to_string())
     }
@@ -2162,31 +2531,38 @@ impl Interpreter
     {
         // Glob results may omit an explicit "./" prefix or normalize separators.
         // Normalize both sides for matching without resolving parent directories.
-        fn normalized_path(path: &std::path::Path) -> std::path::PathBuf
+        fn normalized_path(path: &Path) -> PathBuf
         {
             path.components()
-                .filter(|component| !matches!(component, std::path::Component::CurDir))
+                .filter(|component| !matches!(component, Component::CurDir))
                 .collect()
         }
 
         let display_pattern = self.eval_path_to(pattern);
-        let expanded = if expand_tilde { self.eval_path_from(pattern) } else { pattern.to_string() };
+        let expanded = if expand_tilde
+        {
+            self.eval_path_from(pattern)
+        }
+        else
+        {
+            pattern.to_string()
+        };
         let pattern = if expanded != pattern
             {
                 let suffix = pattern.strip_prefix('~').unwrap();
                 let home = expanded.strip_suffix(suffix).unwrap();
-                format!("{}{}", glob::Pattern::escape(home), suffix)
+                format!("{}{}", Pattern::escape(home), suffix)
             }
             else
             {
                 expanded
             };
 
-        let options = glob::MatchOptions
+        let options = MatchOptions
             {
                 require_literal_separator: true,
                 require_literal_leading_dot: true,
-                ..glob::MatchOptions::new()
+                ..MatchOptions::new()
             };
 
         let invalid_pattern = |error| InterpreterError
@@ -2196,13 +2572,13 @@ impl Interpreter
                     format!("Invalid glob pattern '{}': {}", display_pattern, error))
             };
 
-        let matcher = glob::Pattern::new(
-            &normalized_path(std::path::Path::new(&pattern)).to_string_lossy())
+        let matcher = Pattern::new(
+            &normalized_path(Path::new(&pattern)).to_string_lossy())
             .map_err(&invalid_pattern)?;
 
         // glob_with's leading-dot option prunes even explicitly requested hidden
         // entries. Enumerate normally, then enforce that rule with Pattern instead.
-        let paths = glob::glob(&pattern).map_err(invalid_pattern)?;
+        let paths = glob(&pattern).map_err(invalid_pattern)?;
 
         let mut arguments = Vec::new();
 
@@ -2219,8 +2595,8 @@ impl Interpreter
 
             // Inspect the final entry as written: Path::file_name normalizes
             // away a trailing "/.", which would hide that special entry.
-            let entry_name = path_text.trim_end_matches(std::path::is_separator)
-                .rsplit(std::path::is_separator).next();
+            let entry_name = path_text.trim_end_matches(is_separator)
+                .rsplit(is_separator).next();
 
             if matches!(entry_name, Some(".") | Some(".."))
             {
@@ -2297,7 +2673,7 @@ impl Interpreter
             return Ok(());
         }
 
-        if let Err(error) = std::env::set_current_dir(self.eval_path_from(&args[0]))
+        if let Err(error) = set_current_dir(self.eval_path_from(&args[0]))
         {
             eprintln!("Failed to change directory to {}: {}", self.eval_path_to(&args[0]), error);
             self.last_result = Some(Value::ExecResult(ExecResult::Value(1)));
@@ -2316,12 +2692,16 @@ impl Interpreter
                 [code] => code.parse::<u8>().map_err(|_| InterpreterError
                     {
                         location: location.clone(),
-                        what: ErrorWhat::ArgumentMismatch("exit expects a status from 0 to 255.".to_string())
+                        what: ErrorWhat::ArgumentMismatch(
+                            "exit expects a status from 0 to 255.".to_string(),
+                        ),
                     })?,
                 _ => return Err(InterpreterError
                     {
                         location: location.clone(),
-                        what: ErrorWhat::ArgumentMismatch("exit expects at most one argument.".to_string())
+                        what: ErrorWhat::ArgumentMismatch(
+                            "exit expects at most one argument.".to_string(),
+                        ),
                     })
             };
         self.halted = true;

@@ -1,18 +1,15 @@
 
-use crate::language::{ ast::AstTopLevel, tokenizer::{ TokenBuffer, Tokenizer } };
-
+use crate::language::{ ast::AstTopLevel,
+                       tokenizer::{ TokenBuffer, Tokenizer },
+                       parser::{ statements::parse_statement, results::ParseResult } };
+pub use crate::language::parser::results::ParserError;
 
 mod results;
 mod base_utils;
 mod expressions;
 mod statements;
 
-pub use results::ParserError;
-use statements::parse_statement;
-
-
-
-pub type ParserResult<T> = results::ParseResult<T>;
+pub type ParserResult<T> = ParseResult<T>;
 
 
 

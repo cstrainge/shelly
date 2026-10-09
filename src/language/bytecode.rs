@@ -1,9 +1,7 @@
 
-use std::{ cell::RefCell, collections::{HashMap, HashSet}, rc::Rc };
+use std::{ cell::RefCell, collections::{ HashMap, HashSet }, rc::Rc };
 
-use super::{ data::value::Value, text::location::Location };
-
-
+use crate::language::{ data::{ value::Value, types::TypeId }, text::location::Location };
 
 pub enum Code
 {
@@ -12,7 +10,8 @@ pub enum Code
     // Pop a command name; leave its result, or the unresolved string, in last_result.
     TryExecute,
     // Execute last_result only when it is a string marked executable; preserve other values.
-    // Boolean(true) rejects collections in a standalone variable statement whose value is discarded.
+    // Boolean(true) rejects collections in a standalone variable statement whose value is
+    // discarded.
     ExecuteIfExecutable,
     MakeExecutable,
     ExitFunction,
@@ -97,7 +96,7 @@ pub struct Function
     pub arguments: Vec<String>,
     pub minimum_arguments: usize,
     pub variadic: bool,
-    pub return_type: Option<super::data::types::TypeId>,
+    pub return_type: Option<TypeId>,
     pub code: Vec<Instruction>
 }
 

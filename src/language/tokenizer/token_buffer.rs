@@ -3,8 +3,6 @@ use std::collections::VecDeque;
 
 use crate::language::tokenizer::tokenizer::{ Token, Tokenizer, TokenizerError };
 
-
-
 /**
  * Simple buffer that provides lookahead functionality for a parser. The tokenizer just focuses on
  * producing tokens, while this buffer allows the parser to peek ahead without consuming them

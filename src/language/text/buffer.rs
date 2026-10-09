@@ -1,9 +1,7 @@
 
 use std::str::Chars;
 
-use super::location::Location;
-
-
+use crate::language::text::location::Location;
 
 /**
  * A trait representing a buffer of characters with location tracking. Used by the parser to read
@@ -109,12 +107,12 @@ impl<'a> SimpleBuffer<'a>
     pub fn new(origin: &str, source: &'a str, tab_width: Option<usize>) -> Self
     {
         Self
-        {
-            text: source.chars(),
-            location: Location::new(origin, 1, 1),
-            tab_width: tab_width.unwrap_or(4),
-            current_char: None
-        }
+            {
+                text: source.chars(),
+                location: Location::new(origin, 1, 1),
+                tab_width: tab_width.unwrap_or(4),
+                current_char: None
+            }
     }
 }
 

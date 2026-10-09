@@ -1,8 +1,7 @@
 
-use std::io::BufRead;
+use std::{ io::{ BufRead, ErrorKind }, str::from_utf8 };
 
 use crate::language::text::{ buffer::Buffer, location::Location };
-
 
 /**
  * A buffer that can read bytes from a BufRead source.
@@ -41,14 +40,14 @@ impl<'a, R: BufRead> ReadBuffer<'a, R>
     pub fn new(origin: &str, reader: &'a mut R, tab_width: Option<usize>) -> Self
     {
         Self
-        {
-            reader,
-            location: Location::new(origin, 1, 1),
-            tab_width: tab_width.unwrap_or(4),
-            current_char: None,
-            exhausted: false,
-            error: None
-        }
+            {
+                reader,
+                location: Location::new(origin, 1, 1),
+                tab_width: tab_width.unwrap_or(4),
+                current_char: None,
+                exhausted: false,
+                error: None
+            }
     }
 
     /**
@@ -67,14 +66,14 @@ impl<'a, R: BufRead> ReadBuffer<'a, R>
             if let Err(error) = self.reader.read_exact(&mut buffer[length - 1..length])
             {
                 self.exhausted = true;
-                if error.kind() != std::io::ErrorKind::UnexpectedEof || length != 1
+                if error.kind() != ErrorKind::UnexpectedEof || length != 1
                 {
                     self.error = Some(format!("Failed to read UTF-8 source: {}", error));
                 }
                 return None;
             }
 
-            match std::str::from_utf8(&buffer[..length])
+            match from_utf8(&buffer[..length])
             {
                 Ok(text) => return text.chars().next(),
                 Err(error) if error.error_len().is_none() => continue,

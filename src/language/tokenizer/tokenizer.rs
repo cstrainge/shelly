@@ -3,8 +3,6 @@ use std::fmt::{ self, Display, Formatter };
 
 use crate::language::text::{ buffer::Buffer, location::Location };
 
-
-
 /**
  * Represents all the different types of tokens that can be recognized in the Shelly script
  * language.
@@ -650,10 +648,13 @@ impl<'a> Tokenizer<'a>
         {
             self.member_follows = false;
             let dot = self.parse_dot();
-            if dot.kind != TokenKind::Symbol || dot.token_value_text() != "." { return Ok(Some(dot)); }
+            if dot.kind != TokenKind::Symbol || dot.token_value_text() != "."
+            {
+                return Ok(Some(dot));
+            }
             let mut name = String::new();
-            while let Some(c) = self.input.peek_next()
-                && (c.is_alphanumeric() || c == '_')
+            while    let Some(c) = self.input.peek_next()
+                  && (c.is_alphanumeric() || c == '_')
             {
                 name.push(c);
                 self.input.next();
@@ -663,7 +664,12 @@ impl<'a> Tokenizer<'a>
                 return Err(TokenizerError { location: dot.location,
                     message: "Expected a field name after '.'.".to_string() });
             }
-            return Ok(Some(Token { location: dot.location, kind: TokenKind::Member, value: TokenValue::Symbol(name) }));
+            return Ok(Some(Token
+                {
+                    location: dot.location,
+                    kind: TokenKind::Member,
+                    value: TokenValue::Symbol(name),
+                }));
         }
 
         // Skip past any whitespace and comments.
@@ -703,15 +709,16 @@ impl<'a> Tokenizer<'a>
             '.'                         =>
                 {
                     let mut token = self.parse_dot();
-                    if token.kind == TokenKind::Splat
-                        && self.input.peek_next().is_some_and(|next|
-                            !Self::is_separator_char(&next) && !matches!(next, ']' | '=' | '!' | '&'))
+                    if    token.kind == TokenKind::Splat
+                       && self.input.peek_next().is_some_and(|next|
+                            !Self::is_separator_char(&next)
+                                && !matches!(next, ']' | '=' | '!' | '&'))
                     {
                         let word = "...".to_string() + &self.extract_to_separator(None);
                         token = Self::symbol_str_to_token(token.location, word);
                     }
-                    if let TokenValue::Symbol(word) = &mut token.value
-                        && word == "."
+                    if    let TokenValue::Symbol(word) = &mut token.value
+                       && word == "."
                     {
                         *word += &self.extract_to_separator(None);
                     }
@@ -840,8 +847,8 @@ impl<'a> Tokenizer<'a>
 
         // Variable-prefixed paths and braced-variable suffixes are one word.
         // Indexing, assignment, quotes, and statement delimiters remain separate.
-        if self.pending_operator.is_none()
-            && (!suffix.is_empty() || self.input.peek_next().is_some_and(|next|
+        if    self.pending_operator.is_none()
+           && (!suffix.is_empty() || self.input.peek_next().is_some_and(|next|
                 next == '/' || (braced && !Self::is_separator_char(&next)
                     && !matches!(next, '[' | ']' | '=' | '\'' | '"'))))
         {
@@ -927,7 +934,10 @@ impl<'a> Tokenizer<'a>
             if ranges && next == '.'
             {
                 let token = self.parse_dot();
-                if matches!(token.kind, TokenKind::Range | TokenKind::RangeInclusive | TokenKind::Splat)
+                if matches!(
+                    token.kind,
+                    TokenKind::Range | TokenKind::RangeInclusive | TokenKind::Splat
+                )
                 {
                     self.pending_operator = Some(token);
                     break;
@@ -1088,7 +1098,11 @@ impl<'a> Tokenizer<'a>
                 {
                     location,
                     kind: TokenKind::Literal,
-                    value: TokenValue::Literal(TokenLiteral::String(literal_string, flag, escaped_dollars))
+                    value: TokenValue::Literal(TokenLiteral::String(
+                        literal_string,
+                        flag,
+                        escaped_dollars,
+                    )),
                 }))
         }
     }
@@ -1107,9 +1121,9 @@ impl<'a> Tokenizer<'a>
                                             target_column: usize)
                                             -> Result<(), TokenizerError>
         {
-            while   let Some(next) = buffer.peek_next()
-                 && Tokenizer::<'a>::is_whitespace_char(&next)
-                 && buffer.location().column < target_column
+            while    let Some(next) = buffer.peek_next()
+                  && Tokenizer::<'a>::is_whitespace_char(&next)
+                  && buffer.location().column < target_column
             {
                 let _ = buffer.next();
             }
@@ -1135,7 +1149,8 @@ impl<'a> Tokenizer<'a>
             }
         }
 
-        // We expect that the " has already be processed and that we need to consume the following *.
+        // We expect that the " has already be processed and that we need to consume the following
+        // *.
         let next = self.input.next().unwrap();
         assert!(next == '*');
 
@@ -1162,8 +1177,8 @@ impl<'a> Tokenizer<'a>
                     if let Some(quote) = self.input.peek_next()
                     {
                         // We're at the end of the string.
-                        if   (quote == '"' && flag == StringFlag::Interpolated)
-                          || (quote == '\'' && flag == StringFlag::NonInterpolated)
+                        if    (quote == '"' && flag == StringFlag::Interpolated)
+                           || (quote == '\'' && flag == StringFlag::NonInterpolated)
                         {
                             let _ = self.input.next();
                             closed = true;
@@ -1193,7 +1208,8 @@ impl<'a> Tokenizer<'a>
                         text.push(escaped);
                     },
 
-                // Process the new line skipping any extra whitespace until we hit the target column.
+                // Process the new line skipping any extra whitespace until we hit the target
+                // column.
                 '\n' =>
                 {
                     text.push('\n');
@@ -1313,7 +1329,8 @@ impl<'a> Tokenizer<'a>
                     parse_number(&location, self.input, |next| ('0'..='7').contains(&next), 8)
                 }
 
-            // The escape was on a non-special character so just pass it through without translation.
+            // The escape was on a non-special character so just pass it through without
+            // translation.
             Some(next) => Ok(next),
 
             // Looks like we hit the end of the buffer while processing a string.

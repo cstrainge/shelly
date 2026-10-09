@@ -2,8 +2,6 @@
 use crate::language::{ tokenizer::{ Token, TokenBuffer, TokenKind },
                        parser::results::{ ParserError, ParserErrorKind, ParseResult } };
 
-
-
 pub struct Lookahead<'buffer, 'tokenizer, 'input>
 {
     pub buffer: &'buffer mut TokenBuffer<'tokenizer, 'input>,
@@ -200,10 +198,10 @@ pub fn expect_block_list_of<T>(buffer: &mut TokenBuffer<'_, '_>,
                     if lookahead.buffer.position() == start
                     {
                         return Err(ParserError
-                        {
-                            location,
-                            kind: ParserErrorKind::NoProgress
-                        });
+                            {
+                                location,
+                                kind: ParserErrorKind::NoProgress
+                            });
                     }
 
                     items.push(item);

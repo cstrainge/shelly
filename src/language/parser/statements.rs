@@ -1,5 +1,7 @@
 
-use crate::language::{ ast::{ * },
+use std::collections::HashSet;
+
+use crate::language::{ ast::*,
                        text::location::Location,
                        data::value::Value,
                        tokenizer::{ TokenBuffer, TokenKind, TokenValue, TokenLiteral },
@@ -11,15 +13,22 @@ use crate::language::{ ast::{ * },
                                                 parse_exec_expression,
                                                 parse_value_expression,
                                                 parse_condition_expression,
-                                                parse_command_arguments },
+                                                parse_command_arguments,
+                                                expect_type_name,
+                                                parse_indexes,
+                                                parse_parameter_type,
+                                                parse_type,
+                                                valid_type_name },
                                  results::{ ParseResult, ParserError, ParserErrorKind } } };
-
 
 fn expect_statement_end(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<()>
 {
     let lookahead = Lookahead::new(buffer);
-    if let Some(token) = lookahead.buffer.next()?
-       && !matches!(token.kind, TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockClose)
+    if    let Some(token) = lookahead.buffer.next()?
+       && !matches!(
+            token.kind,
+            TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockClose
+        )
     {
         return Err(ParserError
             {
@@ -39,7 +48,8 @@ fn parse_return_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
         {
             let lookahead = Lookahead::new(buffer);
             lookahead.buffer.next()?.is_some_and(|token|
-                !matches!(token.kind, TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockClose))
+                !matches!(token.kind,
+                          TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockClose))
         };
 
     let expression = if has_expression
@@ -71,7 +81,7 @@ fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
         { AstExportFlag::Exported } else { AstExportFlag::NonExported };
     let identifier = expect_token(buffer, TokenKind::Identifier)?;
     let annotation = if try_expect_token(buffer, TokenKind::TypeDelimiter)?.is_some()
-        { Some(super::expressions::parse_type(buffer)?) } else { None };
+        { Some(parse_type(buffer)?) } else { None };
     let initialized = try_expect_token(buffer, TokenKind::Assign)?.is_some();
     if !initialized && annotation.is_none()
     {
@@ -81,7 +91,10 @@ fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     let expression = if initialized
         {
             parse_value_expression(buffer)?.ok_or_else(|| ParserError
-                { location: Some(identifier.location.clone()), kind: ParserErrorKind::ExpectedExpression })?
+                {
+                    location: Some(identifier.location.clone()),
+                    kind: ParserErrorKind::ExpectedExpression,
+                })?
         }
         else { new_ast_literal(identifier.location.clone(), Value::None, None) };
     expect_statement_end(buffer)?;
@@ -100,7 +113,7 @@ fn parse_set_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
 {
     let mut lookahead = Lookahead::new(buffer);
     let identifier = expect_token(&mut *lookahead.buffer, TokenKind::Identifier)?;
-    let indexes = super::expressions::parse_indexes(&mut *lookahead.buffer)?;
+    let indexes = parse_indexes(&mut *lookahead.buffer)?;
     if try_expect_token(&mut *lookahead.buffer, TokenKind::Assign)?.is_none()
     {
         return Ok(None);
@@ -200,7 +213,10 @@ fn parse_value_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
     let lookahead = Lookahead::new(buffer);
     if let Some(token) = lookahead.buffer.next()?
     {
-        if !matches!(token.kind, TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockClose)
+        if !matches!(
+            token.kind,
+            TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockClose
+        )
         {
             return Ok(None);
         }
@@ -244,11 +260,14 @@ fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
     let name = expect_token(buffer, TokenKind::Symbol)?;
     expect_token(buffer, TokenKind::ParenOpen)?;
     let mut parameters = Vec::new();
-    let mut names = std::collections::HashSet::new();
+    let mut names = HashSet::new();
     loop
     {
         while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
-        if parameters.is_empty() && try_expect_token(buffer, TokenKind::ParenClose)?.is_some() { break; }
+        if parameters.is_empty() && try_expect_token(buffer, TokenKind::ParenClose)?.is_some()
+        {
+            break;
+        }
         let parameter = expect_token(buffer, TokenKind::Identifier)?;
         let parameter_name = parameter.token_value_text();
         let mut variadic = try_expect_token(buffer, TokenKind::Splat)?.is_some();
@@ -261,10 +280,15 @@ fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
             {
                 if variadic
                 {
-                    return Err(ParserError { location: Some(parameter.location),
-                        kind: ParserErrorKind::InvalidType("Put '...' after the element type: $rest: Number...".to_string()) });
+                    return Err(ParserError
+                        {
+                            location: Some(parameter.location),
+                            kind: ParserErrorKind::InvalidType(
+                                "Put '...' after the element type: $rest: Number...".to_string(),
+                            ),
+                        });
                 }
-                let (annotation, typed_variadic) = super::expressions::parse_parameter_type(buffer)?;
+                let (annotation, typed_variadic) = parse_parameter_type(buffer)?;
                 variadic = typed_variadic;
                 Some(if variadic { AstType::Array(Box::new(annotation)) } else { annotation })
             }
@@ -275,13 +299,18 @@ fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
         if try_expect_token(buffer, TokenKind::ParenClose)?.is_some() { break; }
         if variadic
         {
-            return Err(ParserError { location: Some(parameters.last().unwrap().location.clone()),
-                kind: ParserErrorKind::InvalidType("A variadic parameter must be last.".to_string()) });
+            return Err(ParserError
+                {
+                    location: Some(parameters.last().unwrap().location.clone()),
+                    kind: ParserErrorKind::InvalidType(
+                        "A variadic parameter must be last.".to_string(),
+                    ),
+                });
         }
         expect_token(buffer, TokenKind::Comma)?;
     }
     let return_annotation = if try_expect_token(buffer, TokenKind::TypeDelimiter)?.is_some()
-        { Some(super::expressions::parse_type(buffer)?) } else { None };
+        { Some(parse_type(buffer)?) } else { None };
 
     while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
 
@@ -411,7 +440,7 @@ fn parse_for_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
 fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     expect_token(buffer, TokenKind::Struct)?;
-    let name = super::expressions::expect_type_name(buffer)?;
+    let name = expect_type_name(buffer)?;
     while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
     expect_token(buffer, TokenKind::BlockOpen)?;
     let mut fields = Vec::new();
@@ -421,7 +450,7 @@ fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
         if try_expect_token(buffer, TokenKind::BlockClose)?.is_some() { break; }
         let field = expect_token(buffer, TokenKind::Identifier)?;
         let field_name = field.token_value_text()[1..].to_string();
-        if !super::expressions::valid_type_name(&field_name)
+        if !valid_type_name(&field_name)
         {
             return Err(ParserError { location: Some(field.location),
                 kind: ParserErrorKind::InvalidType("Invalid struct field name.".to_string()) });
@@ -429,7 +458,8 @@ fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
         let optional =
             {
                 let mut peek = Lookahead::new(buffer);
-                if peek.buffer.next()?.is_some_and(|token| token.kind == TokenKind::Symbol && token.token_value_text() == "optional")
+                if peek.buffer.next()?.is_some_and(|token| token.kind == TokenKind::Symbol
+                    && token.token_value_text() == "optional")
                 { peek.commit(); true } else { false }
             };
         let has_type =
@@ -438,9 +468,15 @@ fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
                 peek.buffer.next()?.is_some_and(|token| !matches!(token.kind,
                     TokenKind::Comma | TokenKind::BlockClose | TokenKind::LineBreak))
             };
-        let annotation = if has_type { super::expressions::parse_type(buffer)? }
+        let annotation = if has_type { parse_type(buffer)? }
             else { AstType::Named("any".to_string()) };
-        fields.push(AstFieldDeclaration { name: field_name, annotation, optional, location: field.location });
+        fields.push(AstFieldDeclaration
+            {
+                name: field_name,
+                annotation,
+                optional,
+                location: field.location,
+            });
         while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
         if try_expect_token(buffer, TokenKind::Comma)?.is_some() { continue; }
         expect_token(buffer, TokenKind::BlockClose)?;
@@ -455,7 +491,7 @@ fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
 fn parse_enum_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     let keyword = expect_token(buffer, TokenKind::Enum)?;
-    let name = super::expressions::expect_type_name(buffer)?;
+    let name = expect_type_name(buffer)?;
     while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
     expect_token(buffer, TokenKind::BlockOpen)?;
     let mut variants = Vec::new();
@@ -463,7 +499,7 @@ fn parse_enum_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
     {
         while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
         if try_expect_token(buffer, TokenKind::BlockClose)?.is_some() { break; }
-        let variant = super::expressions::expect_type_name(buffer)?;
+        let variant = expect_type_name(buffer)?;
         variants.push((variant.token_value_text(), variant.location));
         while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
         if try_expect_token(buffer, TokenKind::Comma)?.is_some() { continue; }
@@ -472,8 +508,13 @@ fn parse_enum_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
     }
     if variants.is_empty()
     {
-        return Err(ParserError { location: Some(keyword.location),
-            kind: ParserErrorKind::InvalidEnum("An enum requires at least one variant.".to_string()) });
+        return Err(ParserError
+            {
+                location: Some(keyword.location),
+                kind: ParserErrorKind::InvalidEnum(
+                    "An enum requires at least one variant.".to_string(),
+                ),
+            });
     }
     expect_statement_end(buffer)?;
     Ok(Some(AstStatement::EnumDeclaration(Box::new(AstEnumDeclaration

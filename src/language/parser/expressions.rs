@@ -1,24 +1,34 @@
 
-use crate::language::{ ast::{ * },
+use crate::language::{ ast::*,
                        data::value::Value,
-                       tokenizer::{ TokenBuffer, TokenKind, TokenLiteral, TokenValue, StringFlag },
+                       tokenizer::{ TokenBuffer,
+                                    TokenKind,
+                                    TokenLiteral,
+                                    TokenValue,
+                                    StringFlag,
+                                    Token },
                        parser::{ base_utils::{ expect_token,
                                                match_one_of,
                                                Lookahead,
                                                try_expect_token,
                                                try_expect_one_of_tokens },
-                       results::{ ParseResult, ParserError, ParserErrorKind } } };
+                                 results::{ ParseResult, ParserError, ParserErrorKind },
+                                 statements::parse_if_expression } };
 
-
-
-pub(super) fn expect_type_name(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<crate::language::tokenizer::Token>
+pub(super) fn expect_type_name(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Token>
 {
     let token = expect_token(buffer, TokenKind::Symbol)?;
     let name = token.token_value_text();
     if !valid_type_name(&name)
     {
-        return Err(ParserError { location: Some(token.location),
-            kind: ParserErrorKind::InvalidEnum("Expected an identifier containing letters, digits, or underscores.".to_string()) });
+        return Err(ParserError
+            {
+                location: Some(token.location),
+                kind: ParserErrorKind::InvalidEnum(
+                    "Expected an identifier containing letters, digits, or underscores."
+                        .to_string(),
+                ),
+            });
     }
     Ok(token)
 }
@@ -52,14 +62,21 @@ enum ConstructorStart
 }
 
 
-fn constructor_follows(buffer: &mut TokenBuffer<'_, '_>, name: &crate::language::tokenizer::Token) -> ParseResult<Option<ConstructorStart>>
+fn constructor_follows(
+    buffer: &mut TokenBuffer<'_, '_>, name: &Token,
+) -> ParseResult<Option<ConstructorStart>>
 {
     let peek = Lookahead::new(buffer);
     let multiline = try_expect_token(&mut *peek.buffer, TokenKind::LineBreak)?.is_some();
     if multiline { skip_array_newlines(&mut *peek.buffer)?; }
-    let Some(open) = try_expect_token(&mut *peek.buffer, TokenKind::ParenOpen)? else { return Ok(None); };
-    if !multiline && open.location.line == name.location.line
-        && open.location.column == name.location.column + name.token_value_text().chars().count()
+    let Some(open) = try_expect_token(&mut *peek.buffer, TokenKind::ParenOpen)?
+    else
+    {
+        return Ok(None);
+    };
+    if    !multiline
+       && open.location.line == name.location.line
+       && open.location.column == name.location.column + name.token_value_text().chars().count()
     {
         return Ok(Some(ConstructorStart::Fields));
     }
@@ -74,7 +91,10 @@ fn constructor_follows(buffer: &mut TokenBuffer<'_, '_>, name: &crate::language:
         return Ok((!multiline && valid_type_name(&name.token_value_text()))
             .then_some(ConstructorStart::SpacedEmpty));
     }
-    if first.kind != TokenKind::Identifier && !valid_type_name(&first.token_value_text()) { return Ok(None); }
+    if first.kind != TokenKind::Identifier && !valid_type_name(&first.token_value_text())
+    {
+        return Ok(None);
+    }
     Ok(try_expect_token(&mut *peek.buffer, TokenKind::TypeDelimiter)?
         .map(|_| ConstructorStart::Fields))
 }
@@ -98,8 +118,12 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                     {
                         if !valid_type_name(&name)
                         {
-                            return Err(ParserError { location: Some(token.location),
-                                kind: ParserErrorKind::InvalidType("Invalid struct name.".to_string()) });
+                            return Err(ParserError
+                                {
+                                    location: Some(token.location),
+                                    kind: ParserErrorKind::InvalidType(
+                                        "Invalid struct name.".to_string()),
+                                });
                         }
                         skip_array_newlines(&mut *lookahead.buffer)?;
                         expect_token(&mut *lookahead.buffer, TokenKind::ParenOpen)?;
@@ -107,32 +131,55 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                         loop
                         {
                             skip_array_newlines(&mut *lookahead.buffer)?;
-                            if try_expect_token(&mut *lookahead.buffer, TokenKind::ParenClose)?.is_some() { break; }
+                            if try_expect_token(&mut *lookahead.buffer,
+                                                TokenKind::ParenClose)?.is_some()
+                            {
+                                break;
+                            }
                             let field = expect_field_label(&mut *lookahead.buffer)?;
                             expect_token(&mut *lookahead.buffer, TokenKind::TypeDelimiter)?;
                             skip_array_newlines(&mut *lookahead.buffer)?;
                             let value = parse_collection_value(&mut *lookahead.buffer)?;
                             fields.push((field.token_value_text(), field.location, value));
                             skip_array_newlines(&mut *lookahead.buffer)?;
-                            if try_expect_token(&mut *lookahead.buffer, TokenKind::ParenClose)?.is_some() { break; }
+                            if try_expect_token(&mut *lookahead.buffer,
+                                                TokenKind::ParenClose)?.is_some()
+                            {
+                                break;
+                            }
                             expect_token(&mut *lookahead.buffer, TokenKind::Comma)?;
                         }
                         let kind = match start
                             {
-                                ConstructorStart::SpacedEmpty => AstExpressionKind::SpacedEmptyCall(name),
-                                ConstructorStart::Fields => AstExpressionKind::StructConstructor(Box::new(AstStructConstructor
+                                ConstructorStart::SpacedEmpty =>
+                                    AstExpressionKind::SpacedEmptyCall(name),
+                                ConstructorStart::Fields =>
+                                    AstExpressionKind::StructConstructor(
+                                        Box::new(AstStructConstructor
                                     { name, fields, type_id: None, field_indexes: Vec::new() }))
                             };
-                        let expression = AstExpression { location: token.location, kind, string_flag: None };
+                        let expression = AstExpression
+                            {
+                                location: token.location,
+                                kind,
+                                string_flag: None,
+                            };
                         let expression = parse_postfix(&mut *lookahead.buffer, expression)?;
                         lookahead.commit();
                         return Ok(Some(expression));
                     }
-                    if try_expect_token(&mut *lookahead.buffer, TokenKind::Scope)?.is_none() { return Ok(None); }
+                    if try_expect_token(&mut *lookahead.buffer, TokenKind::Scope)?.is_none()
+                    {
+                        return Ok(None);
+                    }
                     if !valid_type_name(&name)
                     {
-                        return Err(ParserError { location: Some(token.location),
-                            kind: ParserErrorKind::InvalidEnum("Invalid enum type name.".to_string()) });
+                        return Err(ParserError
+                            {
+                                location: Some(token.location),
+                                kind: ParserErrorKind::InvalidEnum(
+                                    "Invalid enum type name.".to_string()),
+                            });
                     }
                     let variant = expect_type_name(&mut *lookahead.buffer)?;
                     let peek = Lookahead::new(&mut *lookahead.buffer);
@@ -140,19 +187,37 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                     {
                         if next.kind == TokenKind::Scope
                         {
-                            return Err(ParserError { location: Some(next.location),
-                                kind: ParserErrorKind::InvalidEnum("Enum references require exactly Type::Variant.".to_string()) });
+                            return Err(ParserError
+                                {
+                                    location: Some(next.location),
+                                    kind: ParserErrorKind::InvalidEnum(
+                                        "Enum references require exactly Type::Variant."
+                                            .to_string(),
+                                    ),
+                                });
                         }
-                        if next.kind == TokenKind::ParenOpen
-                            && next.location.line == variant.location.line
-                            && next.location.column == variant.location.column + variant.token_value_text().chars().count()
+                        if    next.kind == TokenKind::ParenOpen
+                           && next.location.line == variant.location.line
+                           && next.location.column
+                                == variant.location.column + variant.token_value_text().chars()
+                                    .count()
                         {
-                            return Err(ParserError { location: Some(next.location),
-                                kind: ParserErrorKind::InvalidEnum("Unit enum variants do not take constructor arguments.".to_string()) });
+                            return Err(ParserError
+                                {
+                                    location: Some(next.location),
+                                    kind: ParserErrorKind::InvalidEnum(
+                                        "Unit enum variants do not take constructor \
+                                            arguments.".to_string(),
+                                    ),
+                                });
                         }
                     }
-                    AstExpression { location: token.location,
-                        kind: AstExpressionKind::EnumVariant(name, variant.token_value_text()), string_flag: None }
+                    AstExpression
+                        {
+                            location: token.location,
+                            kind: AstExpressionKind::EnumVariant(name, variant.token_value_text()),
+                            string_flag: None,
+                        }
                 },
 
             TokenKind::SquareOpen => AstExpression
@@ -162,7 +227,7 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                     string_flag: None
                 },
 
-            TokenKind::If => super::statements::parse_if_expression(
+            TokenKind::If => parse_if_expression(
                 &mut *lookahead.buffer, token.location)?,
 
             TokenKind::Literal =>
@@ -181,9 +246,11 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                                     Value::Float(value, Some(text))
                                 },
 
-                            TokenValue::Literal(TokenLiteral::Boolean(value)) => Value::Boolean(value),
+                            TokenValue::Literal(TokenLiteral::Boolean(value)) =>
+                                Value::Boolean(value),
 
-                            TokenValue::Literal(TokenLiteral::String(value, flag, escaped_dollars)) =>
+                            TokenValue::Literal(TokenLiteral::String(value, flag,
+                                escaped_dollars)) =>
                                 {
                                     string_flag = Some(match flag
                                         {
@@ -319,7 +386,9 @@ pub fn parse_indexes(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Vec<AstAcc
 }
 
 
-fn parse_postfix(buffer: &mut TokenBuffer<'_, '_>, mut expression: AstExpression) -> ParseResult<AstExpression>
+fn parse_postfix(
+    buffer: &mut TokenBuffer<'_, '_>, mut expression: AstExpression,
+) -> ParseResult<AstExpression>
 {
     for access in parse_indexes(buffer)?
     {
@@ -328,8 +397,10 @@ fn parse_postfix(buffer: &mut TokenBuffer<'_, '_>, mut expression: AstExpression
                 location: expression.location.clone(),
                 kind: match access
                     {
-                        AstAccess::Index(index) => AstExpressionKind::Index(Box::new(expression), Box::new(index)),
-                        AstAccess::Field(name) => AstExpressionKind::Field(Box::new(expression), name, None)
+                        AstAccess::Index(index) =>
+                            AstExpressionKind::Index(Box::new(expression), Box::new(index)),
+                        AstAccess::Field(name) =>
+                            AstExpressionKind::Field(Box::new(expression), name, None)
                     },
                 string_flag: None
             };
@@ -343,12 +414,14 @@ fn parse_postfix(buffer: &mut TokenBuffer<'_, '_>, mut expression: AstExpression
 }
 
 
-pub(super) fn expect_field_label(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<crate::language::tokenizer::Token>
+pub(super) fn expect_field_label(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Token>
 {
     let token = buffer.next()?.ok_or(ParserError { location: None,
         kind: ParserErrorKind::UnexpectedEOF(TokenKind::Symbol) })?;
-    if !valid_type_name(&token.token_value_text()) || token.kind == TokenKind::Identifier
-        || token.kind == TokenKind::Literal && !matches!(token.value, TokenValue::Literal(TokenLiteral::Boolean(_)))
+    if    !valid_type_name(&token.token_value_text())
+       || token.kind == TokenKind::Identifier
+       || token.kind == TokenKind::Literal
+       && !matches!(token.value, TokenValue::Literal(TokenLiteral::Boolean(_)))
     {
         return Err(ParserError { location: Some(token.location),
             kind: ParserErrorKind::InvalidType("Expected a field name.".to_string()) });
@@ -372,7 +445,9 @@ pub(super) fn parse_parameter_type(buffer: &mut TokenBuffer<'_, '_>) -> ParseRes
 }
 
 
-fn parse_type_inner(buffer: &mut TokenBuffer<'_, '_>, allow_variadic: bool, variadic: &mut bool) -> ParseResult<AstType>
+fn parse_type_inner(
+    buffer: &mut TokenBuffer<'_, '_>, allow_variadic: bool, variadic: &mut bool,
+) -> ParseResult<AstType>
 {
     if try_expect_token(buffer, TokenKind::SquareOpen)?.is_some()
     {
@@ -486,7 +561,10 @@ fn parse_math_binary_tail(buffer: &mut TokenBuffer<'_, '_>,
         let mut lookahead = Lookahead::new(buffer);
         let Some(token) = lookahead.buffer.next()? else { break; };
 
-        if matches!(token.kind, TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::ParenClose)
+        if matches!(
+            token.kind,
+            TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::ParenClose
+        )
         {
             break;
         }
@@ -549,12 +627,21 @@ fn parse_math_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
 
     // A lone number/variable belongs to the existing expression rules. Explicit
     // parentheses also accept a single operand, e.g. (42) or ($count).
-    if starts_with_group || matches!(&expression.kind,
-        AstExpressionKind::StructConstructor(_) | AstExpressionKind::SpacedEmptyCall(_)
-        | AstExpressionKind::EnumVariant(_, _) | AstExpressionKind::MathExpression(_, _, _) | AstExpressionKind::BooleanNot(_)
-        | AstExpressionKind::IfExpression(_) | AstExpressionKind::Array(_)
-        | AstExpressionKind::HashMap(_)
-        | AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _) | AstExpressionKind::Splat(_))
+    if    starts_with_group
+       || matches!(
+        &expression.kind,
+        AstExpressionKind::StructConstructor(_)
+            | AstExpressionKind::SpacedEmptyCall(_)
+            | AstExpressionKind::EnumVariant(_, _)
+            | AstExpressionKind::MathExpression(_, _, _)
+            | AstExpressionKind::BooleanNot(_)
+            | AstExpressionKind::IfExpression(_)
+            | AstExpressionKind::Array(_)
+            | AstExpressionKind::HashMap(_)
+            | AstExpressionKind::Index(_, _)
+            | AstExpressionKind::Field(_, _, _)
+            | AstExpressionKind::Splat(_)
+    )
     {
         lookahead.commit();
         return Ok(Some(expression));
@@ -649,7 +736,8 @@ fn parse_literal_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
                 {
                     string_flag = match flag
                         {
-                            StringFlag::Interpolated => Some(AstStringFlag::Interpolated(escaped_dollars)),
+                            StringFlag::Interpolated =>
+                                Some(AstStringFlag::Interpolated(escaped_dollars)),
                             StringFlag::NonInterpolated => Some(AstStringFlag::NonInterpolated),
                         };
                     Value::from_string(value)
@@ -660,7 +748,9 @@ fn parse_literal_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
 }
 
 
-fn parse_lonely_glob_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
+fn parse_lonely_glob_expression(
+    buffer: &mut TokenBuffer<'_, '_>,
+) -> ParseResult<Option<AstExpression>>
 {
     let glob_operator = try_expect_token(buffer, TokenKind::Glob)?;
 
@@ -728,9 +818,12 @@ fn parse_scalar_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
         // spaced empty parentheses; it cannot name a struct constructor.
         {
             let mut peek = Lookahead::new(buffer);
-            if let Some(name) = peek.buffer.next()?
-                && name.kind == TokenKind::Symbol
-                && matches!(constructor_follows(&mut *peek.buffer, &name)?, Some(ConstructorStart::SpacedEmpty))
+            if    let Some(name) = peek.buffer.next()?
+               && name.kind == TokenKind::Symbol
+               && matches!(
+                    constructor_follows(&mut *peek.buffer, &name)?,
+                    Some(ConstructorStart::SpacedEmpty)
+                )
             {
                 peek.commit();
                 return Ok(Some(new_ast_literal(escape.location,
@@ -743,13 +836,18 @@ fn parse_scalar_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
                 kind: ParserErrorKind::ExpectedExpression
             })?;
 
-        if matches!(executable.kind, AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _))
+        if matches!(
+            executable.kind,
+            AstExpressionKind::Variable(_)
+                | AstExpressionKind::Index(_, _)
+                | AstExpressionKind::Field(_, _, _)
+        )
         {
             return Ok(Some(AstExpression
                 {
                     location: escape.location,
                     kind: AstExpressionKind::ExecutableReference(Box::new(executable)),
-                    string_flag: None
+                    string_flag: None,
                 }));
         }
 
@@ -801,8 +899,9 @@ fn parse_boolean_tail(buffer: &mut TokenBuffer<'_, '_>,
         left = AstExpression
             {
                 location: token.location,
-                kind: AstExpressionKind::BooleanExpression(operator, Box::new(left), Box::new(right)),
-                string_flag: None
+                kind: AstExpressionKind::BooleanExpression(
+                    operator, Box::new(left), Box::new(right)),
+                string_flag: None,
             };
         lookahead.commit();
     }
@@ -832,7 +931,8 @@ fn parse_range_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
     let operator = match leading
         {
             Some(operator) => Some(operator),
-            None => try_expect_one_of_tokens(buffer, &[TokenKind::Range, TokenKind::RangeInclusive])?
+            None => try_expect_one_of_tokens(buffer,
+                                             &[TokenKind::Range, TokenKind::RangeInclusive])?
         };
     let Some(operator) = operator else { return Ok(start); };
     let inclusive = operator.kind == TokenKind::RangeInclusive;
@@ -846,14 +946,23 @@ fn parse_range_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
                 | TokenKind::NotEqual | TokenKind::And | TokenKind::Or))
         };
     let end = if at_end { None } else { parse_scalar_expression(buffer)? };
-    if (inclusive && end.is_none())
-        || try_expect_one_of_tokens(buffer, &[TokenKind::Range, TokenKind::RangeInclusive])?.is_some()
+    if    (inclusive && end.is_none())
+       || try_expect_one_of_tokens(buffer, &[TokenKind::Range, TokenKind::RangeInclusive])?
+            .is_some()
     {
-        return Err(ParserError { location: Some(operator.location), kind: ParserErrorKind::InvalidRange });
+        return Err(ParserError
+            {
+                location: Some(operator.location),
+                kind: ParserErrorKind::InvalidRange,
+            });
     }
     if !at_end && end.is_none()
     {
-        return Err(ParserError { location: Some(operator.location), kind: ParserErrorKind::ExpectedExpression });
+        return Err(ParserError
+            {
+                location: Some(operator.location),
+                kind: ParserErrorKind::ExpectedExpression,
+            });
     }
     Ok(Some(AstExpression
         {
@@ -867,13 +976,15 @@ fn parse_range_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
 /**
  * Parse a value with the command-call rules shared by assignments, returns, and parentheses.
  */
-pub fn parse_value_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
+pub fn parse_value_expression(buffer: &mut TokenBuffer<'_,
+                              '_>) -> ParseResult<Option<AstExpression>>
 {
     parse_value_before_block(buffer, false, false)
 }
 
 
-pub fn parse_condition_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
+pub fn parse_condition_expression(buffer: &mut TokenBuffer<'_,
+                                  '_>) -> ParseResult<Option<AstExpression>>
 {
     parse_value_before_block(buffer, true, false)
 }
@@ -982,10 +1093,15 @@ pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
 {
     {
         let mut lookahead = Lookahead::new(buffer);
-        if let Some(expression) = parse_math_expression(&mut *lookahead.buffer)?
-            && matches!(expression.kind, AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _)
-                | AstExpressionKind::EnumVariant(_, _) | AstExpressionKind::StructConstructor(_)
-                | AstExpressionKind::SpacedEmptyCall(_))
+        if    let Some(expression) = parse_math_expression(&mut *lookahead.buffer)?
+           && matches!(
+                expression.kind,
+                AstExpressionKind::Index(_, _)
+                    | AstExpressionKind::Field(_, _, _)
+                    | AstExpressionKind::EnumVariant(_, _)
+                    | AstExpressionKind::StructConstructor(_)
+                    | AstExpressionKind::SpacedEmptyCall(_)
+            )
         {
             reject_index_assignment(&mut *lookahead.buffer, &expression)?;
             lookahead.commit();
@@ -997,8 +1113,11 @@ pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
                            parse_literal_expression,
                            parse_operator_to_symbol])?;
 
-    if let Some(expression) = &expression
-        && matches!(expression.kind, AstExpressionKind::VariableSplat(_) | AstExpressionKind::Splat(_))
+    if    let Some(expression) = &expression
+       && matches!(
+            expression.kind,
+            AstExpressionKind::VariableSplat(_) | AstExpressionKind::Splat(_)
+        )
     {
         return Err(ParserError
             {
@@ -1016,8 +1135,9 @@ pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
 fn reject_index_assignment(buffer: &mut TokenBuffer<'_, '_>,
                             expression: &AstExpression) -> ParseResult<()>
 {
-    if matches!(expression.kind, AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _))
-        && let Some(assign) = try_expect_token(buffer, TokenKind::Assign)?
+    if    matches!(expression.kind,
+                   AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _))
+       && let Some(assign) = try_expect_token(buffer, TokenKind::Assign)?
     {
         return Err(ParserError
             {

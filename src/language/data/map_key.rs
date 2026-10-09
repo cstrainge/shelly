@@ -1,9 +1,9 @@
-use std::rc::Rc;
 
-use super::value::{ ExecResult, Value };
-use super::range::Range;
-use super::types::{EnumValue, StructValue};
+use std::{ rc::Rc, cmp::Ordering, hash::{ Hash, Hasher } };
 
+use crate::language::data::{ value::{ ExecResult, Value },
+                             range::Range,
+                             types::{ EnumValue, StructValue } };
 
 // Immutable, canonical keys keep hashing consistent with language equality.
 // Collections are snapshots; map entry order and string execution flags do not
@@ -36,26 +36,40 @@ impl MapKey
             Value::None => Self::None,
             Value::Enum(value) => Self::Enum(value.clone()),
             Value::Struct(value) => Self::Struct(Rc::new(StructKey
-                { value: value.clone(), fields: value.fields.iter().map(Self::from_value).collect() })),
+                {
+                    value: value.clone(),
+                    fields: value.fields.iter().map(Self::from_value).collect(),
+                })),
             Value::Range(range) => Self::Range(*range),
             Value::ExecResult(ExecResult::Value(code)) => Self::ExecResult(*code),
             Value::ExecResult(ExecResult::Signaled) => Self::Signaled,
             Value::Integer(value) => Self::Integer(*value),
             Value::Float(value, _) =>
                 {
-                    if value.fract() == 0.0 && *value >= i64::MIN as f64
-                        && *value < -(i64::MIN as f64)
+                    if    value.fract() == 0.0
+                       && *value >= i64::MIN as f64
+                       && *value < -(i64::MIN as f64)
                     {
                         Self::Integer(*value as i64)
                     }
                     else
                     {
-                        Self::Float(if value.is_nan() { f64::NAN.to_bits() } else { value.to_bits() })
+                        Self::Float(
+                            if value.is_nan()
+                            {
+                                f64::NAN.to_bits()
+                            }
+                            else
+                            {
+                                value.to_bits()
+                            },
+                        )
                     }
                 },
             Value::Boolean(value) => Self::Boolean(*value),
             Value::String(value, _) => Self::String(value.clone()),
-            Value::Array(values) => Self::Array(Rc::new(values.iter().map(Self::from_value).collect())),
+            Value::Array(values) =>
+                Self::Array(Rc::new(values.iter().map(Self::from_value).collect())),
             Value::ArgumentExpansion(values) =>
                 Self::ArgumentExpansion(Rc::new(values.iter().map(Self::from_value).collect())),
             Value::HashMap(values) =>
@@ -110,21 +124,21 @@ impl PartialEq for StructKey
 impl Eq for StructKey {}
 impl PartialOrd for StructKey
 {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering>
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering>
     {
         Some(self.cmp(other))
     }
 }
 impl Ord for StructKey
 {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering
+    fn cmp(&self, other: &Self) -> Ordering
     {
         (self.value.definition.id, &self.fields).cmp(&(other.value.definition.id, &other.fields))
     }
 }
-impl std::hash::Hash for StructKey
+impl Hash for StructKey
 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
+    fn hash<H: Hasher>(&self, state: &mut H)
     {
         self.value.definition.id.hash(state);
         self.fields.hash(state);

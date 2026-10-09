@@ -1,7 +1,12 @@
-use std::{ collections::{HashMap, HashSet}, rc::Rc };
 
-use crate::language::text::location::Location;
+use std::{ collections::{ HashMap, HashSet },
+           rc::Rc,
+           cmp::Ordering,
+           fmt::{ self, Display, Error, Formatter },
+           hash::{ Hash, Hasher } };
 
+use crate::language::{ text::location::Location,
+                       data::{ value::{ Value, ExecResult }, map_key::MapKey, range::Range } };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypeId(pub usize);
@@ -52,7 +57,7 @@ pub struct FieldDefinition
 pub struct StructValue
 {
     pub definition: Rc<TypeDefinition>,
-    pub fields: Vec<super::value::Value>
+    pub fields: Vec<Value>
 }
 
 // Definitions compare by identity, including when embedded in canonical map keys.
@@ -66,21 +71,21 @@ impl PartialEq for TypeDefinition
 impl Eq for TypeDefinition {}
 impl PartialOrd for TypeDefinition
 {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering>
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering>
     {
         Some(self.cmp(other))
     }
 }
 impl Ord for TypeDefinition
 {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering
+    fn cmp(&self, other: &Self) -> Ordering
     {
         self.id.cmp(&other.id)
     }
 }
-impl std::hash::Hash for TypeDefinition
+impl Hash for TypeDefinition
 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
+    fn hash<H: Hasher>(&self, state: &mut H)
     {
         self.id.hash(state);
     }
@@ -108,7 +113,7 @@ impl Eq for EnumValue {}
 
 impl PartialOrd for EnumValue
 {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering>
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering>
     {
         Some(self.cmp(other))
     }
@@ -116,26 +121,26 @@ impl PartialOrd for EnumValue
 
 impl Ord for EnumValue
 {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering
+    fn cmp(&self, other: &Self) -> Ordering
     {
         (self.definition.id, self.variant).cmp(&(other.definition.id, other.variant))
     }
 }
 
-impl std::hash::Hash for EnumValue
+impl Hash for EnumValue
 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
+    fn hash<H: Hasher>(&self, state: &mut H)
     {
         self.definition.id.hash(state);
         self.variant.hash(state);
     }
 }
 
-impl std::fmt::Display for EnumValue
+impl Display for EnumValue
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
     {
-        let TypeKind::Enum(variants) = &self.definition.kind else { return Err(std::fmt::Error); };
+        let TypeKind::Enum(variants) = &self.definition.kind else { return Err(Error); };
         write!(f, "{}::{}", self.definition.name, variants[self.variant].name)
     }
 }
@@ -181,9 +186,8 @@ impl TypeRegistry
 
 impl TypeRegistry
 {
-    pub fn default_value(&self, id: TypeId) -> Result<super::value::Value, String>
+    pub fn default_value(&self, id: TypeId) -> Result<Value, String>
     {
-        use super::value::{Value, ExecResult};
         let definition = self.get(id);
         match &definition.kind
         {
@@ -201,7 +205,12 @@ impl TypeRegistry
                     "HashMap" => Ok(Value::from_hash_map(HashMap::new())),
                     "ArgumentExpansion" => Ok(Value::from_argument_expansion(Vec::new())),
                     "ExecResult" => Ok(Value::ExecResult(ExecResult::Value(0))),
-                    "Range" => Ok(Value::Range(super::range::Range { start: Some(0), end: Some(0), inclusive: false })),
+                    "Range" => Ok(Value::Range(Range
+                        {
+                            start: Some(0),
+                            end: Some(0),
+                            inclusive: false,
+                        })),
                     _ => Err(format!("Type '{}' requires an initializer", definition.name))
                 },
             _ => Err(format!("Type '{}' requires an initializer", definition.name))
@@ -213,12 +222,13 @@ impl TypeRegistry
     // and maps overlap even when their element constraints differ.
     pub fn may_overlap(&self, left: TypeId, right: TypeId) -> bool
     {
-        use super::value::Value;
         if left == right { return true; }
         let a = self.get(left);
         let b = self.get(right);
-        if matches!(a.kind, TypeKind::Builtin) && a.name == "any"
-            || matches!(b.kind, TypeKind::Builtin) && b.name == "any" { return true; }
+        if    matches!(a.kind, TypeKind::Builtin)
+           && a.name == "any"
+           || matches!(b.kind, TypeKind::Builtin)
+           && b.name == "any" { return true; }
         if let TypeKind::Optional(inner) = a.kind
         { return self.validate(right, &Value::None).is_ok() || self.may_overlap(inner, right); }
         if let TypeKind::Optional(inner) = b.kind
@@ -245,25 +255,32 @@ impl TypeRegistry
 
     pub fn intern(&mut self, kind: TypeKind) -> TypeId
     {
-        if let Some(existing) = self.definitions.iter().find(|definition| match (&definition.kind, &kind)
-            {
-                (TypeKind::Array(a), TypeKind::Array(b)) | (TypeKind::Optional(a), TypeKind::Optional(b)) => a == b,
-                (TypeKind::Map(a, b), TypeKind::Map(c, d)) => a == c && b == d,
-                _ => false
-            }) { return existing.id; }
+        if let Some(existing) =
+            self.definitions
+                .iter()
+                .find(|definition| match (&definition.kind, &kind)
+                {
+                    (TypeKind::Array(a), TypeKind::Array(b))
+                    | (TypeKind::Optional(a), TypeKind::Optional(b)) => a == b,
+                    (TypeKind::Map(a, b), TypeKind::Map(c, d)) => a == c && b == d,
+                    _ => false,
+                })
+        {
+            return existing.id;
+        }
         let name = match kind
             {
                 TypeKind::Array(id) => format!("[{}]", self.get(id).name),
-                TypeKind::Map(key, value) => format!("[{}: {}]", self.get(key).name, self.get(value).name),
+                TypeKind::Map(key, value) =>
+                    format!("[{}: {}]", self.get(key).name, self.get(value).name),
                 TypeKind::Optional(id) => format!("optional {}", self.get(id).name),
                 _ => unreachable!("Only anonymous container constraints are interned")
             };
         self.register(name, kind, None)
     }
 
-    pub fn validate(&self, id: TypeId, value: &super::value::Value) -> Result<(), String>
+    pub fn validate(&self, id: TypeId, value: &Value) -> Result<(), String>
     {
-        use super::value::Value;
         let definition = self.get(id);
         let valid = match &definition.kind
             {
@@ -292,7 +309,8 @@ impl TypeRegistry
                             for (field, value) in fields.iter().zip(&item.fields)
                             {
                                 self.validate(field.type_id, value).map_err(|error|
-                                    format!("Field '{}.{}' (declared at {}): {}", definition.name, field.name, field.location, error))?;
+                                    format!("Field '{}.{}' (declared at {}): {}", definition.name,
+                                            field.name, field.location, error))?;
                             }
                             fields.len() == item.fields.len()
                         }
@@ -306,7 +324,8 @@ impl TypeRegistry
                     {
                         for (index, value) in values.iter().enumerate()
                         {
-                            self.validate(*element, value).map_err(|error| format!("Array element {}: {}", index, error))?;
+                            self.validate(*element, value)
+                                .map_err(|error| format!("Array element {}: {}", index, error))?;
                         }
                         true
                     } else { false },
@@ -314,20 +333,32 @@ impl TypeRegistry
                     {
                         for (key, value) in values.iter()
                         {
-                            self.validate_key(*key_type, key).map_err(|error| format!("Map key: {}", error))?;
-                            self.validate(*value_type, value).map_err(|error| format!("Map value: {}", error))?;
+                            self.validate_key(*key_type, key)
+                                .map_err(|error| format!("Map key: {}", error))?;
+                            self.validate(*value_type, value)
+                                .map_err(|error| format!("Map value: {}", error))?;
                         }
                         true
                     } else { false },
                 TypeKind::Pending => false
             };
-        if valid { Ok(()) } else { Err(format!("Expected {}, got {}", definition.name, value.type_name())) }
+        if valid
+        {
+            Ok(())
+        }
+        else
+        {
+            Err(format!(
+                "Expected {}, got {}",
+                definition.name,
+                value.type_name()
+            ))
+        }
     }
 
     // Validate every struct touched by an update, including structs inside untyped containers.
-    pub fn validate_value(&self, value: &super::value::Value) -> Result<(), String>
+    pub fn validate_value(&self, value: &Value) -> Result<(), String>
     {
-        use super::value::Value;
         match value
         {
             Value::Struct(item) =>
@@ -337,7 +368,8 @@ impl TypeRegistry
                 },
             Value::Array(values) | Value::ArgumentExpansion(values) =>
                 { for value in values.iter() { self.validate_value(value)?; } },
-            Value::HashMap(values) => { for value in values.values() { self.validate_value(value)?; } },
+            Value::HashMap(values) =>
+                { for value in values.values() { self.validate_value(value)?; } },
             _ => {}
         }
         Ok(())
@@ -345,13 +377,22 @@ impl TypeRegistry
 
     pub fn check_required_cycles(&self, roots: &[TypeId]) -> Result<(), String>
     {
-        fn visit(registry: &TypeRegistry, id: TypeId, path: &mut Vec<TypeId>, done: &mut HashSet<TypeId>) -> Result<(), String>
+        fn visit(
+            registry: &TypeRegistry, id: TypeId, path: &mut Vec<TypeId>, done: &mut HashSet<TypeId>,
+        ) -> Result<(), String>
         {
             if let Some(start) = path.iter().position(|item| *item == id)
             {
-                let mut names: Vec<_> = path[start..].iter().map(|id| registry.get(*id).name.clone()).collect();
+                let mut names: Vec<_> = path[start..]
+                    .iter()
+                    .map(|id| registry.get(*id).name.clone())
+                    .collect();
                 names.push(registry.get(id).name.clone());
-                return Err(format!("Required struct field cycle: {}. Use optional or a container to terminate recursion", names.join(" -> ")));
+                return Err(format!(
+                    "Required struct field cycle: {}. Use optional or a container to terminate \
+                        recursion",
+                    names.join(" -> ")
+                ));
             }
             if done.contains(&id) { return Ok(()); }
             if let TypeKind::Struct(fields) = &registry.get(id).kind
@@ -378,9 +419,8 @@ impl TypeRegistry
 {
     // Key annotations describe equivalence classes: integral floats and integers
     // already share one canonical key, including within collection keys.
-    fn validate_key(&self, id: TypeId, key: &super::map_key::MapKey) -> Result<(), String>
+    fn validate_key(&self, id: TypeId, key: &MapKey) -> Result<(), String>
     {
-        use super::{ map_key::MapKey, value::Value };
         let definition = self.get(id);
         match (&definition.kind, key)
         {
@@ -389,7 +429,8 @@ impl TypeRegistry
                     let float = Value::Float(*integer as f64, None);
                     if float.equals(&Value::Integer(*integer)) { return Ok(()); }
                 },
-            (TypeKind::Optional(inner), _) if !matches!(key, MapKey::None) => return self.validate_key(*inner, key),
+            (TypeKind::Optional(inner), _) if !matches!(key, MapKey::None) =>
+                return self.validate_key(*inner, key),
             (TypeKind::Array(element), MapKey::Array(values)) =>
                 {
                     for value in values.iter() { self.validate_key(*element, value)?; }

@@ -1,6 +1,5 @@
 
-use crate::language::{ text::location::Location, data::value::Value };
-
+use crate::language::{ text::location::Location, data::{ value::Value, types::TypeId } };
 
 #[derive(Debug)]
 pub enum AstError
@@ -120,7 +119,8 @@ pub fn new_ast_variable_splat(location: Location, name: String) -> AstExpression
 }
 
 
-pub fn new_ast_symbol(location: Location, name: String, string_flag: Option<AstStringFlag>) -> AstExpression
+pub fn new_ast_symbol(location: Location, name: String,
+                      string_flag: Option<AstStringFlag>) -> AstExpression
 {
     AstExpression
         {
@@ -157,7 +157,8 @@ impl AstExpression
         match &self.kind
         {
             AstExpressionKind::Symbol(symbol) => Ok(symbol.name.clone()),
-            AstExpressionKind::EnumVariant(_, _) => Err(AstError::ExpressionNotString(self.location.clone())),
+            AstExpressionKind::EnumVariant(_, _) =>
+                Err(AstError::ExpressionNotString(self.location.clone())),
             AstExpressionKind::Variable(variable) => Ok(variable.name.clone()),
             AstExpressionKind::VariableSplat(variable) => Ok(variable.name.clone()),
             AstExpressionKind::Literal(literal) => Ok(literal.value.as_text()),
@@ -197,7 +198,7 @@ pub struct AstLetStatement
     pub export_flag: AstExportFlag,
     pub identifier: String,
     pub annotation: Option<AstType>,
-    pub type_id: Option<crate::language::data::types::TypeId>,
+    pub type_id: Option<TypeId>,
     pub default_initialize: bool,
     pub expression: AstExpression
 }
@@ -244,7 +245,7 @@ pub struct AstParameter
     pub annotation: Option<AstType>,
     pub optional: bool,
     pub variadic: bool,
-    pub type_id: Option<crate::language::data::types::TypeId>
+    pub type_id: Option<TypeId>
 }
 
 
@@ -254,7 +255,7 @@ pub struct AstFunctionStatement
     pub name: String,
     pub parameters: Vec<AstParameter>,
     pub return_annotation: Option<AstType>,
-    pub return_type: Option<crate::language::data::types::TypeId>,
+    pub return_type: Option<TypeId>,
     pub body: AstTopLevel
 }
 
@@ -413,7 +414,7 @@ pub struct AstStructConstructor
 {
     pub name: String,
     pub fields: Vec<(String, Location, AstExpression)>,
-    pub type_id: Option<crate::language::data::types::TypeId>,
+    pub type_id: Option<TypeId>,
     pub field_indexes: Vec<usize>
 }
 

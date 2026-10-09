@@ -1,14 +1,12 @@
 
 use std::{ cell::RefCell, collections::HashMap, fmt::{ self, Display, Formatter }, rc::Rc };
 
-
 use crate::language::{ ast::*,
                        bytecode::{ Code, Instruction, Function, FunctionBlock, FunctionBlockRef },
-                       data::value::{Value, Executable},
+                       data::{ value::{ Value, Executable }, types::TypeRegistry },
                        text::location::Location,
-                       parser::ParserError };
-
-
+                       parser::ParserError,
+                       typecheck::check_ast };
 
 #[derive(PartialEq, Eq)]
 pub enum CompileTarget
@@ -81,10 +79,10 @@ impl From<ParserError> for CompileError
     fn from(error: ParserError) -> Self
     {
         CompileError
-        {
-            location: None,
-            what: ErrorWhat::ParserError(error)
-        }
+            {
+                location: None,
+                what: ErrorWhat::ParserError(error)
+            }
     }
 }
 
@@ -104,7 +102,10 @@ fn bind_known_function(block: &FunctionBlockRef, value: Value) -> Value
         { return Value::String(name.clone(), Executable::Function(function.clone())); }
         // The current definition is installed after compiling its body. Do not
         // accidentally bind recursion to a previous definition of the same name.
-        if current.function_name.as_ref() == Some(name) || current.declared_functions.contains(name) { break; }
+        if current.function_name.as_ref() == Some(name) || current.declared_functions.contains(name)
+        {
+            break;
+        }
         scope = current.parent.clone();
     }
     value
@@ -119,36 +120,74 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
     {
         AstExpressionKind::SpacedEmptyCall(_) => return Err(CompileError
             { location: Some(expression.location.clone()),
-              what: ErrorWhat::TypeError("Unresolved spaced call reached code generation".to_string()) }),
+              what: ErrorWhat::TypeError(
+                  "Unresolved spaced call reached code generation".to_string()) }),
         AstExpressionKind::StructConstructor(item) =>
             {
-                let id = item.type_id.ok_or_else(|| CompileError { location: Some(expression.location.clone()),
-                    what: ErrorWhat::TypeError("Unresolved struct constructor".to_string()) })?;
+                let id = item.type_id.ok_or_else(|| CompileError
+                    {
+                        location: Some(expression.location.clone()),
+                        what: ErrorWhat::TypeError("Unresolved struct constructor".to_string()),
+                    })?;
                 for (_, _, value) in &item.fields
                 {
                     compile_expression(instructions, function_block, value)?;
-                    instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                    instructions.push(Instruction
+                        {
+                            location: None,
+                            code: Code::PushResult,
+                            operand: None,
+                        });
                 }
-                instructions.push(Instruction { location: Some(expression.location.clone()), code: Code::MakeStruct,
-                    operand: Some(Value::from_array(vec![Value::Integer(id.0 as i64), Value::from_array(
-                        item.field_indexes.iter().map(|index| Value::Integer(*index as i64)).collect())])) });
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()),
+                        code: Code::MakeStruct,
+                        operand: Some(Value::from_array(vec![
+                                Value::Integer(id.0 as i64),
+                                Value::from_array(
+                                    item.field_indexes
+                                        .iter()
+                                        .map(|index| Value::Integer(*index as i64))
+                                        .collect(),
+                                ),
+                            ])),
+                    });
             },
         AstExpressionKind::Field(object, name, index) =>
             {
                 compile_expression(instructions, function_block, object)?;
-                instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
-                instructions.push(Instruction { location: Some(expression.location.clone()), code: Code::GetField,
-                    operand: Some(index.map_or_else(|| Value::from_string(name.clone()), |index| Value::Integer(index as i64))) });
+                instructions.push(Instruction
+                    {
+                        location: None,
+                        code: Code::PushResult,
+                        operand: None,
+                    });
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()),
+                        code: Code::GetField,
+                        operand: Some(index.map_or_else(
+                            || Value::from_string(name.clone()),
+                            |index| Value::Integer(index as i64),
+                        )),
+                    });
             },
         AstExpressionKind::EnumVariant(_, _) => return Err(CompileError
             { location: Some(expression.location.clone()),
-              what: ErrorWhat::TypeError("Unresolved enum reference reached code generation".to_string()) }),
+              what: ErrorWhat::TypeError(
+                  "Unresolved enum reference reached code generation".to_string()) }),
         AstExpressionKind::Range(start, end, inclusive) =>
             {
                 for bound in [start, end].into_iter().flatten()
                 {
                     compile_expression(instructions, function_block, bound)?;
-                    instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                    instructions.push(Instruction
+                        {
+                            location: None,
+                            code: Code::PushResult,
+                            operand: None,
+                        });
                 }
                 let flags = i64::from(start.is_some()) | (i64::from(end.is_some()) << 1)
                     | (i64::from(*inclusive) << 2);
@@ -164,9 +203,19 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
                 for (key, value) in pairs
                 {
                     compile_expression(instructions, function_block, key)?;
-                    instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                    instructions.push(Instruction
+                        {
+                            location: None,
+                            code: Code::PushResult,
+                            operand: None,
+                        });
                     compile_expression(instructions, function_block, value)?;
-                    instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                    instructions.push(Instruction
+                        {
+                            location: None,
+                            code: Code::PushResult,
+                            operand: None,
+                        });
                 }
                 instructions.push(Instruction
                     {
@@ -181,7 +230,12 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
                 for element in elements
                 {
                     compile_expression(instructions, function_block, element)?;
-                    instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                    instructions.push(Instruction
+                        {
+                            location: None,
+                            code: Code::PushResult,
+                            operand: None,
+                        });
                 }
                 instructions.push(Instruction
                     {
@@ -194,9 +248,19 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
         AstExpressionKind::Index(array, index) =>
             {
                 compile_expression(instructions, function_block, array)?;
-                instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                instructions.push(Instruction
+                    {
+                        location: None,
+                        code: Code::PushResult,
+                        operand: None,
+                    });
                 compile_expression(instructions, function_block, index)?;
-                instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                instructions.push(Instruction
+                    {
+                        location: None,
+                        code: Code::PushResult,
+                        operand: None,
+                    });
                 instructions.push(Instruction
                     {
                         location: Some(index.location.clone()),
@@ -208,7 +272,12 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
         AstExpressionKind::Splat(inner) =>
             {
                 compile_expression(instructions, function_block, inner)?;
-                instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                instructions.push(Instruction
+                    {
+                        location: None,
+                        code: Code::PushResult,
+                        operand: None,
+                    });
                 instructions.push(Instruction
                     {
                         location: Some(expression.location.clone()),
@@ -288,7 +357,10 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
                     {
                         location: Some(expression.location.clone()),
                         code: Code::Push,
-                        operand: Some(bind_known_function(function_block, Value::from_string(symbol.name.clone())))
+                        operand: Some(bind_known_function(
+                            function_block,
+                            Value::from_string(symbol.name.clone()),
+                        )),
                     });
             },
 
@@ -317,11 +389,11 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
         AstExpressionKind::VariableSplat(variable) =>
             {
                 instructions.push(Instruction
-                        {
-                            location: Some(expression.location.clone()),
-                            code: Code::GetVariable,
-                            operand: Some(Value::from_string(variable.name.clone()))
-                        });
+                    {
+                        location: Some(expression.location.clone()),
+                        code: Code::GetVariable,
+                        operand: Some(Value::from_string(variable.name.clone()))
+                    });
 
                     instructions.push(Instruction
                         {
@@ -382,9 +454,19 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
                     return Ok(());
                 }
 
-                instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                instructions.push(Instruction
+                    {
+                        location: None,
+                        code: Code::PushResult,
+                        operand: None,
+                    });
                 compile_expression(instructions, function_block, rhs)?;
-                instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                instructions.push(Instruction
+                    {
+                        location: None,
+                        code: Code::PushResult,
+                        operand: None,
+                    });
                 instructions.push(Instruction
                     {
                         location: Some(expression.location.clone()),
@@ -437,7 +519,8 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
             instructions.push(Instruction
                 {
                     location: Some(expression.location.clone()),
-                    code: if matches!(&expression.kind, AstExpressionKind::Symbol(symbol) if symbol.is_glob())
+                    code: if matches!(&expression.kind,
+                                      AstExpressionKind::Symbol(symbol) if symbol.is_glob())
                         { Code::InterpolateGlob } else { Code::InterpolateString },
                     operand: Some(Value::from_array(escaped_dollars.iter()
                         .map(|offset| Value::Integer(*offset as i64)).collect()))
@@ -537,7 +620,10 @@ fn compile_let_statement(instructions: &mut Vec<Instruction>,
             code: Code::NewVariable,
             operand: Some(match let_statement.type_id
                 {
-                    Some(id) => Value::from_array(vec![Value::from_string(let_statement.identifier.clone()), Value::Integer(id.0 as i64)]),
+                    Some(id) => Value::from_array(vec![
+                            Value::from_string(let_statement.identifier.clone()),
+                            Value::Integer(id.0 as i64),
+                        ]),
                     None => Value::from_string(let_statement.identifier.clone())
                 })
         });
@@ -572,7 +658,12 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>,
             AstAccess::Index(index) =>
                 {
                     compile_expression(instructions, function_block, index)?;
-                    instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                    instructions.push(Instruction
+                        {
+                            location: None,
+                            code: Code::PushResult,
+                            operand: None,
+                        });
                 },
             AstAccess::Field(name) => instructions.push(Instruction { location: None,
                 code: Code::Push, operand: Some(Value::from_string(name.clone())) })
@@ -590,17 +681,34 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>,
     instructions.push(Instruction
         {
             location: Some(set_statement.location.clone()),
-            code: if set_statement.indexes.is_empty() { Code::SetVariable } else { Code::SetElement },
-            operand: Some(if set_statement.indexes.is_empty()
+            code: if set_statement.indexes.is_empty()
+            {
+                Code::SetVariable
+            }
+            else
+            {
+                Code::SetElement
+            },
+            operand: Some(
+                if set_statement.indexes.is_empty()
                 {
                     Value::from_string(set_statement.identifier.clone())
                 }
                 else
                 {
-                    Value::from_array(vec![Value::from_string(set_statement.identifier.clone()),
-                        Value::from_array(set_statement.indexes.iter().map(|access|
-                            Value::Boolean(matches!(access, AstAccess::Field(_)))).collect())])
-                })
+                    Value::from_array(vec![
+                            Value::from_string(set_statement.identifier.clone()),
+                            Value::from_array(
+                                set_statement
+                                    .indexes
+                                    .iter()
+                                    .map(|access|
+                                        Value::Boolean(matches!(access, AstAccess::Field(_))))
+                                    .collect(),
+                            ),
+                        ])
+                },
+            ),
         });
     Ok(())
 }
@@ -656,10 +764,18 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
                              function_block: &FunctionBlockRef,
                              execute_statement: &AstExecuteStatement) -> CompileResult<()>
 {
-    if matches!(execute_statement.executable.kind, AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _))
+    if matches!(
+        execute_statement.executable.kind,
+        AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _)
+    )
     {
         compile_expression(instructions, function_block, &execute_statement.executable)?;
-        instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+        instructions.push(Instruction
+            {
+                location: None,
+                code: Code::PushResult,
+                operand: None,
+            });
     }
     else
     {
@@ -667,8 +783,15 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
             {
                 location: None,
                 code: Code::Push,
-                    operand: Some(bind_known_function(function_block, Value::from_executable_string(execute_statement.executable
-                    .resolve_as_text().map_err(ParserError::from)?)))
+                operand: Some(bind_known_function(
+                    function_block,
+                    Value::from_executable_string(
+                        execute_statement
+                            .executable
+                            .resolve_as_text()
+                            .map_err(ParserError::from)?,
+                    ),
+                )),
             });
     }
 
@@ -704,7 +827,8 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
                         });
                 },
 
-            AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _) =>
+            AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _)
+                | AstExpressionKind::Field(_, _, _) =>
                 {
                     instructions.push(Instruction
                         {
@@ -743,9 +867,13 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
     // Keep versions already visible at this definition. The submission scope
     // remains a fallback for forward declarations and is frozen at publication.
     let captured = Rc::new(RefCell::new(FunctionBlock
-        { parent: Some(parent_block.clone()), function_name: None,
-          declared_functions: parent_block.borrow().declared_functions.clone(),
-          builtins: parent_block.borrow().builtins.clone(), functions: parent_block.borrow().functions.clone() }));
+        {
+            parent: Some(parent_block.clone()),
+            function_name: None,
+            declared_functions: parent_block.borrow().declared_functions.clone(),
+            builtins: parent_block.borrow().builtins.clone(),
+            functions: parent_block.borrow().functions.clone(),
+        }));
     let function_block = Rc::new(RefCell::new(FunctionBlock
         {
             parent: Some(captured.clone()),
@@ -758,8 +886,13 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
     let mut prologue = Vec::new();
     for (index, parameter) in function_statement.parameters.iter().enumerate()
     {
-        let mut operand = vec![Value::from_string(parameter.name.clone()),
-            parameter.type_id.map_or(Value::None, |id| Value::Integer(id.0 as i64)), Value::Integer(index as i64)];
+        let mut operand = vec![
+                Value::from_string(parameter.name.clone()),
+                parameter
+                    .type_id
+                    .map_or(Value::None, |id| Value::Integer(id.0 as i64)),
+                Value::Integer(index as i64),
+            ];
         if parameter.optional { operand.push(Value::None); }
         prologue.push(Instruction { location: Some(parameter.location.clone()),
             code: if parameter.variadic { Code::BindRestParameter } else { Code::BindParameter },
@@ -771,11 +904,22 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
     let new_function = Rc::new(Function
         {
             functions: function_block,
-            arguments: function_statement.parameters.iter().map(|parameter| parameter.name.clone()).collect(),
-            minimum_arguments: function_statement.parameters.iter().take_while(|parameter| !parameter.optional && !parameter.variadic).count(),
-            variadic: function_statement.parameters.last().is_some_and(|parameter| parameter.variadic),
+            arguments: function_statement
+                .parameters
+                .iter()
+                .map(|parameter| parameter.name.clone())
+                .collect(),
+            minimum_arguments: function_statement
+                .parameters
+                .iter()
+                .take_while(|parameter| !parameter.optional && !parameter.variadic)
+                .count(),
+            variadic: function_statement
+                .parameters
+                .last()
+                .is_some_and(|parameter| parameter.variadic),
             return_type: function_statement.return_type,
-            code: instructions
+            code: instructions,
         });
 
     captured.borrow_mut().functions.insert(function_statement.name.clone(), new_function.clone());
@@ -795,8 +939,8 @@ fn optimize_instructions(instructions: &mut Vec<Instruction>)
 
     while let Some(mut instruction) = input.next()
     {
-        if matches!(instruction.code, Code::PopResult)
-            && input.peek().is_some_and(|next| matches!(next.code, Code::PushResult))
+        if    matches!(instruction.code, Code::PopResult)
+           && input.peek().is_some_and(|next| matches!(next.code, Code::PushResult))
         {
             // Carry any removed source location to the next surviving instruction,
             // unless that instruction already establishes its own location.
@@ -844,14 +988,37 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     | Code::EnterLoop | Code::ExitLoop | Code::Break | Code::Continue => false,
 
                     // These instructions operate on the value stack or other VM state.
-                    Code::Push | Code::NewVariable | Code::SetVariable | Code::GetVariable | Code::ValidateType
-                    | Code::StartIteration | Code::BindIteration | Code::BindParameter | Code::BindRestParameter
-                    | Code::NewAlias | Code::ExportVariable | Code::GlobFiles
-                    | Code::ExpandArray | Code::ExpandPath | Code::InterpolateString
-                    | Code::MakeArray | Code::MakeHashMap | Code::MakeStruct | Code::GetField | Code::MakeRange | Code::GetElement | Code::SetElement
-                    | Code::InterpolateGlob | Code::EnterScope | Code::ExitScope
-                    | Code::MathAdd | Code::MathSubtract | Code::MathMultiply
-                    | Code::MathDivide | Code::MathModulo | Code::CompareEqual
+                    Code::Push
+                    | Code::NewVariable
+                    | Code::SetVariable
+                    | Code::GetVariable
+                    | Code::ValidateType
+                    | Code::StartIteration
+                    | Code::BindIteration
+                    | Code::BindParameter
+                    | Code::BindRestParameter
+                    | Code::NewAlias
+                    | Code::ExportVariable
+                    | Code::GlobFiles
+                    | Code::ExpandArray
+                    | Code::ExpandPath
+                    | Code::InterpolateString
+                    | Code::MakeArray
+                    | Code::MakeHashMap
+                    | Code::MakeStruct
+                    | Code::GetField
+                    | Code::MakeRange
+                    | Code::GetElement
+                    | Code::SetElement
+                    | Code::InterpolateGlob
+                    | Code::EnterScope
+                    | Code::ExitScope
+                    | Code::MathAdd
+                    | Code::MathSubtract
+                    | Code::MathMultiply
+                    | Code::MathDivide
+                    | Code::MathModulo
+                    | Code::CompareEqual
                     | Code::CompareNotEqual => result_is_empty
                 };
             true
@@ -947,7 +1114,12 @@ fn compile_for_statement(instructions: &mut Vec<Instruction>,
 {
     let location = Some(statement.location.clone());
     compile_expression(instructions, function_block, &statement.iterable)?;
-    instructions.push(Instruction { location: location.clone(), code: Code::PushResult, operand: None });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::PushResult,
+            operand: None,
+        });
     instructions.push(Instruction
         {
             location: location.clone(),
@@ -957,16 +1129,46 @@ fn compile_for_statement(instructions: &mut Vec<Instruction>,
 
     // Register once. Continue targets the next iteration, not EnterLoop itself.
     let enter = instructions.len();
-    instructions.push(Instruction { location: location.clone(), code: Code::EnterLoop, operand: None });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::EnterLoop,
+            operand: None,
+        });
     // Reserve labels using distinct emitted positions, just as conditionals do.
     let start = Value::Integer(instructions.len() as i64);
-    instructions.push(Instruction { location: location.clone(), code: Code::JumpTarget, operand: Some(start.clone()) });
-    instructions.push(Instruction { location: location.clone(), code: Code::NextIteration, operand: None });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::JumpTarget,
+            operand: Some(start.clone()),
+        });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::NextIteration,
+            operand: None,
+        });
     let end = Value::Integer(instructions.len() as i64);
     instructions[enter].operand = Some(Value::from_array(vec![start.clone(), end.clone()]));
-    instructions.push(Instruction { location: location.clone(), code: Code::JumpIfFalse, operand: Some(end.clone()) });
-    instructions.push(Instruction { location: location.clone(), code: Code::CheckResult, operand: None });
-    instructions.push(Instruction { location: location.clone(), code: Code::EnterScope, operand: None });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::JumpIfFalse,
+            operand: Some(end.clone()),
+        });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::CheckResult,
+            operand: None,
+        });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::EnterScope,
+            operand: None,
+        });
     // NextIteration pushes key before value; bind in reverse stack order.
     for name in statement.bindings.iter().rev()
     {
@@ -977,11 +1179,36 @@ fn compile_for_statement(instructions: &mut Vec<Instruction>,
                 operand: Some(Value::from_string(name.clone()))
             });
     }
-    compile_statements(instructions, function_block, &statement.body.body, CompileTarget::Toplevel)?;
-    instructions.push(Instruction { location: location.clone(), code: Code::ExitScope, operand: None });
-    instructions.push(Instruction { location: location.clone(), code: Code::Jump, operand: Some(start) });
-    instructions.push(Instruction { location: location.clone(), code: Code::JumpTarget, operand: Some(end) });
-    instructions.push(Instruction { location: location.clone(), code: Code::ExitLoop, operand: None });
+    compile_statements(
+        instructions,
+        function_block,
+        &statement.body.body,
+        CompileTarget::Toplevel,
+    )?;
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::ExitScope,
+            operand: None,
+        });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::Jump,
+            operand: Some(start),
+        });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::JumpTarget,
+            operand: Some(end),
+        });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::ExitLoop,
+            operand: None,
+        });
     instructions.push(Instruction { location, code: Code::EndIteration, operand: None });
     Ok(())
 }
@@ -1004,26 +1231,56 @@ fn compile_loop_statement(instructions: &mut Vec<Instruction>,
             code: Code::EnterLoop,
             operand: Some(Value::from_array(vec![start.clone(), end.clone()]))
         });
-    instructions.push(Instruction { location: location.clone(), code: Code::JumpTarget, operand: Some(start.clone()) });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::JumpTarget,
+            operand: Some(start.clone()),
+        });
     if let Some(condition) = condition
     {
         compile_expression(instructions, function_block, condition)?;
-        instructions.push(Instruction { location: location.clone(), code: Code::ToBoolean, operand: None });
+        instructions.push(Instruction
+            {
+                location: location.clone(),
+                code: Code::ToBoolean,
+                operand: None,
+            });
         instructions.push(Instruction
             {
                 location: location.clone(),
                 code: if until { Code::JumpIfTrue } else { Code::JumpIfFalse },
                 operand: Some(end.clone())
             });
-        instructions.push(Instruction { location: location.clone(), code: Code::CheckResult, operand: None });
+        instructions.push(Instruction
+            {
+                location: location.clone(),
+                code: Code::CheckResult,
+                operand: None,
+            });
     }
     compile_block(instructions, function_block, body, CompileTarget::Toplevel)?;
-    instructions.push(Instruction { location: location.clone(), code: Code::Jump, operand: Some(start) });
-    instructions.push(Instruction { location: location.clone(), code: Code::JumpTarget, operand: Some(end) });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::Jump,
+            operand: Some(start),
+        });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::JumpTarget,
+            operand: Some(end),
+        });
     if condition.is_some()
     {
         // Consume the stopping condition; a loop has no expression result.
-        instructions.push(Instruction { location: location.clone(), code: Code::CheckResult, operand: None });
+        instructions.push(Instruction
+            {
+                location: location.clone(),
+                code: Code::CheckResult,
+                operand: None,
+            });
     }
     instructions.push(Instruction { location, code: Code::ExitLoop, operand: None });
     Ok(())
@@ -1062,7 +1319,12 @@ fn compile_if_expression(instructions: &mut Vec<Instruction>,
     {
         let location = Some(branch.condition.location.clone());
         compile_expression(instructions, function_block, &branch.condition)?;
-        instructions.push(Instruction { location: location.clone(), code: Code::ToBoolean, operand: None });
+        instructions.push(Instruction
+            {
+                location: location.clone(),
+                code: Code::ToBoolean,
+                operand: None,
+            });
         let next_branch = Value::Integer(instructions.len() as i64);
         instructions.push(Instruction
             {
@@ -1072,10 +1334,20 @@ fn compile_if_expression(instructions: &mut Vec<Instruction>,
             });
         // Consume the condition on both paths. Only the selected block supplies
         // the expression's result; conditions must not leak into empty branches.
-        instructions.push(Instruction { location: location.clone(), code: Code::CheckResult, operand: None });
+        instructions.push(Instruction
+            {
+                location: location.clone(),
+                code: Code::CheckResult,
+                operand: None,
+            });
         compile_block(instructions, function_block, &branch.body, CompileTarget::Function)?;
         end_jumps.push(instructions.len());
-        instructions.push(Instruction { location: location.clone(), code: Code::Jump, operand: None });
+        instructions.push(Instruction
+            {
+                location: location.clone(),
+                code: Code::Jump,
+                operand: None,
+            });
         instructions.push(Instruction
             {
                 location: location.clone(),
@@ -1127,7 +1399,8 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
     // A forward local declaration shadows an outer function even before its
     // body is compiled. Once a local version exists, calls bind that version.
     function_block.borrow_mut().declared_functions.extend(ast.iter().filter_map(|statement|
-        if let AstStatement::FunctionDefinition(item) = statement { Some(item.name.clone()) } else { None }));
+        if let AstStatement::FunctionDefinition(item) = statement { Some(item.name.clone()) }
+        else { None }));
     let last_statement = ast.iter()
         .rposition(|statement| !matches!(statement, AstStatement::NullStatement));
 
@@ -1138,7 +1411,8 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
 
         match ast_item
         {
-            AstStatement::EnumDeclaration(_) | AstStatement::StructDeclaration(_) | AstStatement::NullStatement => { add_check = false; },
+            AstStatement::EnumDeclaration(_) | AstStatement::StructDeclaration(_)
+                | AstStatement::NullStatement => { add_check = false; },
 
             AstStatement::LetStatement(let_statement) =>
                 {
@@ -1167,13 +1441,18 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
                 {
                     compile_expression(instructions, function_block, expression)?;
 
-                    if matches!(&expression.kind, AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _))
+                    if matches!(
+                        &expression.kind,
+                        AstExpressionKind::Variable(_)
+                            | AstExpressionKind::Index(_, _)
+                            | AstExpressionKind::Field(_, _, _)
+                    )
                     {
                         instructions.push(Instruction
                             {
                                 location: Some(expression.location.clone()),
                                 code: Code::ExecuteIfExecutable,
-                                operand: Some(Value::Boolean(!implicit_return))
+                                operand: Some(Value::Boolean(!implicit_return)),
                             });
                     }
                 }
@@ -1192,8 +1471,19 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
 
             AstStatement::BlockStatement(block) =>
                 {
-                    compile_block(instructions, function_block, block,
-                        if implicit_return { CompileTarget::Function } else { CompileTarget::Toplevel })?;
+                    compile_block(
+                        instructions,
+                        function_block,
+                        block,
+                        if implicit_return
+                        {
+                            CompileTarget::Function
+                        }
+                        else
+                        {
+                            CompileTarget::Toplevel
+                        },
+                    )?;
                     // The block's statements already checked or preserved their results.
                     add_check = false;
                 }
@@ -1241,7 +1531,8 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
         }
     }
 
-    if target == CompileTarget::Function && last_statement.is_none_or(|index|
+    if    target == CompileTarget::Function
+       && last_statement.is_none_or(|index|
         !matches!(ast[index], AstStatement::ExpressionStatement(_)
             | AstStatement::ExecuteStatement(_) | AstStatement::ReturnStatement(_)
             | AstStatement::BlockStatement(_)))
@@ -1284,19 +1575,23 @@ fn compile_with_prologue(function_block: &FunctionBlockRef,
 
 // Type names and definitions are committed together only after the complete
 // submission has passed AST checking and bytecode generation/linking.
-pub fn compile_ast(registry: &mut crate::language::data::types::TypeRegistry,
+pub fn compile_ast(registry: &mut TypeRegistry,
                    function_block: &FunctionBlockRef,
                    ast: &mut AstTopLevel,
                    target: CompileTarget) -> CompileResult<Vec<Instruction>>
 {
     let mut staged = registry.clone();
-    crate::language::typecheck::check_ast(&mut staged, ast)?;
+    check_ast(&mut staged, ast)?;
     // Each submission gets a private function namespace. Function bodies retain
     // this snapshot as their parent; later submissions publish into a new one.
     let functions = Rc::new(RefCell::new(FunctionBlock
-        { parent: function_block.borrow().parent.clone(), function_name: function_block.borrow().function_name.clone(),
-          declared_functions: function_block.borrow().declared_functions.clone(),
-          builtins: function_block.borrow().builtins.clone(), functions: function_block.borrow().functions.clone() }));
+        {
+            parent: function_block.borrow().parent.clone(),
+            function_name: function_block.borrow().function_name.clone(),
+            declared_functions: function_block.borrow().declared_functions.clone(),
+            builtins: function_block.borrow().builtins.clone(),
+            functions: function_block.borrow().functions.clone(),
+        }));
     match compile_checked_ast(&functions, ast, target)
     {
         Ok(code) =>

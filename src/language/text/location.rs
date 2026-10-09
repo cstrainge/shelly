@@ -1,19 +1,17 @@
 
 use std::{ fmt::{ self, Debug, Display, Formatter }, sync::Arc };
 
-
-
 /**
  * Allow the caller to take the current location in the Rust source code.
  */
 #[macro_export]
 macro_rules! location_here
 {
-    () => {
-        $crate::language::text::location::Location::new(file!(),
-                                                        line!() as usize,
-                                                        column!() as usize)
-    };
+    () => {{
+        use $crate::language::text::location::Location;
+
+        Location::new(file!(), line!() as usize, column!() as usize)
+    }};
 }
 
 
@@ -71,7 +69,7 @@ impl Display for Location
     /**
      * Format the location as a string in the form "origin: (line, column)".
      */
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error>
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result
     {
         write!(formatter, "{}: ({}, {})", self.origin, self.line, self.column)
     }
@@ -83,7 +81,7 @@ impl Debug for Location
     /**
      * Format the location for debugging purposes.
      */
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), fmt::Error>
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result
     {
         write!(formatter, "{}", self)
     }

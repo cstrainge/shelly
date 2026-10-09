@@ -5,8 +5,6 @@ use crate::language::{ text::location::Location,
                        tokenizer::{ TokenKind, TokenizerError },
                        ast::AstError };
 
-
-
 pub enum ParserErrorKind
 {
     TokenizerError(TokenizerError),
@@ -45,7 +43,8 @@ impl Display for ParserErrorKind
                 {
                     match found
                     {
-                        Some(found) => write!(f, "Expected token: {}, but found: {}.", expected, found),
+                        Some(found) =>
+                            write!(f, "Expected token: {}, but found: {}.", expected, found),
                         None => write!(f, "Expected token: {}, but found end of file.", expected)
                     }
                 }
@@ -61,7 +60,8 @@ impl Display for ParserErrorKind
             ParserErrorKind::InvalidAssignmentTarget =>
                 write!(f, "Assignment requires a variable or an indexed variable."),
 
-            ParserErrorKind::InvalidType(message) | ParserErrorKind::InvalidEnum(message) => write!(f, "{}", message),
+            ParserErrorKind::InvalidType(message) | ParserErrorKind::InvalidEnum(message) =>
+                write!(f, "{}", message),
 
             ParserErrorKind::InvalidRange =>
                 write!(f, "Ranges cannot be chained and inclusive ranges require an end bound."),
@@ -71,8 +71,10 @@ impl Display for ParserErrorKind
                     write!(f, "Expression does not resolve to a string.")
                 },
 
-            ParserErrorKind::UnexpectedElse =>
-                write!(f, "Else must follow an if branch and may appear only once at the end of a chain."),
+            ParserErrorKind::UnexpectedElse => write!(
+                f,
+                "Else must follow an if branch and may appear only once at the end of a chain."
+            ),
 
             ParserErrorKind::DuplicateParameter(name) =>
                 write!(f, "Duplicate function parameter: {}.", name),

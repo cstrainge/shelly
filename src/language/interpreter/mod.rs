@@ -1,7 +1,5 @@
 
-pub mod function;
 mod interpreter;
 mod iteration;
 
-
-pub use interpreter::{ * };
+pub use crate::language::interpreter::interpreter::*;

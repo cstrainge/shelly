@@ -1,7 +1,7 @@
-use std::{ collections::hash_map, rc::Rc };
+
+use std::{ rc::Rc, collections::hash_map::IntoIter };
 
 use crate::language::data::{ map_key::MapKey, range::RangeIterator, value::Value };
-
 
 // Iterator state belongs to one execution frame, never to a user-visible Value.
 // Arrays retain their shared snapshot; maps own an entry iterator. Range iteration
@@ -9,7 +9,7 @@ use crate::language::data::{ map_key::MapKey, range::RangeIterator, value::Value
 pub(super) enum Iteration
 {
     Array { values: Rc<Vec<Value>>, index: usize },
-    Map(hash_map::IntoIter<MapKey, Value>),
+    Map(IntoIter<MapKey, Value>),
     Range(RangeIterator)
 }
 

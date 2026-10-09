@@ -1,11 +1,10 @@
 
-use std::{ collections::HashMap, rc::Rc };
+use std::{ collections::HashMap, rc::Rc, fmt::{ self, Debug, Formatter } };
 
-use super::map_key::MapKey;
-use super::range::Range;
-use super::types::{EnumValue, StructValue, TypeKind};
-
-
+use crate::language::{ data::{ map_key::MapKey,
+                               range::Range,
+                               types::{ EnumValue, StructValue, TypeKind } },
+                       bytecode::FunctionRef };
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExecResult
@@ -20,12 +19,12 @@ pub enum Executable
 {
     Yes,
     No,
-    Function(crate::language::bytecode::FunctionRef)
+    Function(FunctionRef)
 }
 
-impl std::fmt::Debug for Executable
+impl Debug for Executable
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
     {
         match self
         {
@@ -74,12 +73,18 @@ impl Value
     {
         match self
         {
-            Value::None => "None", Value::Integer(_) => "Integer", Value::Float(_, _) => "Float",
-            Value::Boolean(_) => "Boolean", Value::String(_, _) => "String", Value::Array(_) => "Array",
-            Value::HashMap(_) => "HashMap", Value::Range(_) => "Range", Value::ArgumentExpansion(_) => "ArgumentExpansion",
+            Value::None => "None",
+            Value::Integer(_) => "Integer",
+            Value::Float(_, _) => "Float",
+            Value::Boolean(_) => "Boolean",
+            Value::String(_, _) => "String",
+            Value::Array(_) => "Array",
+            Value::HashMap(_) => "HashMap",
+            Value::Range(_) => "Range",
+            Value::ArgumentExpansion(_) => "ArgumentExpansion",
             Value::ExecResult(_) => "ExecResult",
             Value::Enum(item) => return item.definition.name.clone(),
-            Value::Struct(item) => return item.definition.name.clone()
+            Value::Struct(item) => return item.definition.name.clone(),
         }.to_string()
     }
 
@@ -126,9 +131,20 @@ impl Value
             Value::Struct(value) =>
                 {
                     let TypeKind::Struct(fields) = &value.definition.kind else { unreachable!(); };
-                    format!("{}({})", value.definition.name, fields.iter().zip(&value.fields)
-                        .map(|(field, value)| format!("{}: {}", field.name, value.collection_text()))
-                        .collect::<Vec<_>>().join(", "))
+                    format!(
+                        "{}({})",
+                        value.definition.name,
+                        fields
+                            .iter()
+                            .zip(&value.fields)
+                            .map(|(field, value)| format!(
+                                "{}: {}",
+                                field.name,
+                                value.collection_text()
+                            ))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
                 },
             Value::Range(range) => range.to_string(),
             Value::ExecResult(code) => format!("ExecResult({})", match code
@@ -142,15 +158,28 @@ impl Value
             Value::Boolean(b) => b.to_string(),
             Value::String(s, _) => s.clone(),
             Value::Array(arr) => arr.iter().map(|v| v.as_text()).collect::<Vec<String>>().join(":"),
-            Value::ArgumentExpansion(args) => args.iter().map(|v| v.as_text()).collect::<Vec<String>>().join(":"),
+            Value::ArgumentExpansion(args) => args
+                .iter()
+                .map(|v| v.as_text())
+                .collect::<Vec<String>>()
+                .join(":"),
             Value::HashMap(values) =>
                 {
                     if values.is_empty() { return "[:]".to_string(); }
                     let mut entries: Vec<_> = values.iter().collect();
                     entries.sort_by(|(left, _), (right, _)| left.cmp(right));
-                    format!("[{}]", entries.into_iter()
-                        .map(|(key, value)| format!("{}: {}", key.to_value().collection_text(), value.collection_text()))
-                        .collect::<Vec<_>>().join(", "))
+                    format!(
+                        "[{}]",
+                        entries
+                            .into_iter()
+                            .map(|(key, value)| format!(
+                                "{}: {}",
+                                key.to_value().collection_text(),
+                                value.collection_text()
+                            ))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
                 },
         }
     }
@@ -229,7 +258,8 @@ impl Value
             (Value::Boolean(left), Value::Boolean(right)) => left == right,
             (Value::String(left, _), Value::String(right, _)) => left == right,
             (Value::HashMap(left), Value::HashMap(right)) => left.len() == right.len()
-                && left.iter().all(|(key, value)| right.get(key).is_some_and(|other| value.equals(other))),
+                && left.iter()
+                    .all(|(key, value)| right.get(key).is_some_and(|other| value.equals(other))),
             (Value::Array(left), Value::Array(right))
             | (Value::ArgumentExpansion(left), Value::ArgumentExpansion(right)) =>
                 left.len() == right.len()
@@ -244,7 +274,8 @@ impl Value
         {
             Value::Enum(_) => Some("Enums cannot be used in arithmetic"),
             Value::Struct(_) => Some("Structs cannot be used in arithmetic"),
-            Value::Array(values) | Value::ArgumentExpansion(values) => values.iter().find_map(Self::integer_conversion_error),
+            Value::Array(values) | Value::ArgumentExpansion(values) =>
+                values.iter().find_map(Self::integer_conversion_error),
             _ => None
         }
     }

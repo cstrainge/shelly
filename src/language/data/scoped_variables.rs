@@ -1,8 +1,7 @@
 
-use std::collections::{ HashMap, VecDeque };
+use std::{ collections::{ HashMap, VecDeque }, env::vars };
 
-use crate::language::data::value::Value;
-
+use crate::language::data::{ value::Value, types::TypeId };
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum ValueVisibility
@@ -16,7 +15,7 @@ pub enum ValueVisibility
 pub struct ScopedValue
 {
     pub value: Value,
-    pub type_id: Option<super::types::TypeId>,
+    pub type_id: Option<TypeId>,
     pub exported: ValueVisibility
 }
 
@@ -33,7 +32,7 @@ impl ScopedVariables
     {
         let mut variables = HashMap::new();
 
-        for (name, value) in std::env::vars()
+        for (name, value) in vars()
         {
             let scoped_value = ScopedValue
                 {
@@ -50,9 +49,9 @@ impl ScopedVariables
         scopes.push_back(variables);
 
         Self
-        {
-            scopes
-        }
+            {
+                scopes
+            }
     }
 
     pub fn push_scope(&mut self)

@@ -1,5 +1,5 @@
-use std::fmt::{ self, Display, Formatter };
 
+use std::fmt::{ self, Display, Formatter };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Range

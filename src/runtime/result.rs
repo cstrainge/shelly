@@ -3,8 +3,6 @@ use std::{ fmt::{ self, Debug, Formatter }, io::Error, path::PathBuf };
 
 use crate::language::interpreter::InterpreterError;
 
-
-
 pub enum RuntimeError
 {
     InvalidTabWidth,
