@@ -68,6 +68,7 @@ pub enum ErrorWhat
     ArrayError(String),
     HashMapError(String),
     RangeError(String),
+    MatchError,
     IterationError(String),
     LoopControlError(String),
     CommandNotFound(String, Location),
@@ -113,6 +114,7 @@ impl Display for ErrorWhat
             ErrorWhat::ExecutableIoError(message) =>
                 write!(f, "Executable I/O error: {}.", message),
             ErrorWhat::RedirectionError(message) => write!(f, "Redirection error: {}.", message),
+            ErrorWhat::MatchError => write!(f, "Match error: No arm matched the value."),
             ErrorWhat::ExecutableBadReturn(code) =>
                 {
                     write!(f, "Executable returned error code: {}.", code)
@@ -1874,6 +1876,27 @@ impl Interpreter
                                 value
                             },
                         ));
+                    },
+
+                Code::Discard => { Self::pop(&location, &mut stack)?; },
+
+                Code::MatchFail => return Err(InterpreterError
+                    { location: location.clone(), what: ErrorWhat::MatchError }),
+
+                Code::MatchPattern =>
+                    {
+                        let pattern = Self::pop(&location, &mut stack)?;
+                        let subject = stack.back().ok_or_else(|| InterpreterError
+                            { location: location.clone(), what: ErrorWhat::StackUnderflow })?;
+                        let matched = match (&pattern, subject)
+                            {
+                                (Value::Range(range), Value::Integer(value)) =>
+                                    range.contains(*value),
+                                (Value::Range(_), _) => false,
+                                _ => subject.equals(&pattern),
+                            };
+                        if matched { stack.pop_back(); }
+                        self.last_result = Some(Value::Boolean(matched));
                     },
 
                 Code::CompareEqual | Code::CompareNotEqual =>

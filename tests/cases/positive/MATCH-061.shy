@@ -1,0 +1,13 @@
+# MATCH-061: unselected bodies are not evaluated
+check ["id": "MATCH-061",
+    "name": "unselected bodies are not evaluated",
+    "source": "echo (match 2 { 1 => { echo \$missing } 2 => { \"ok\" } _ => { 1 / 0 } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

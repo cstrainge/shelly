@@ -1,0 +1,13 @@
+# MATCH-035: minimum integer
+check ["id": "MATCH-035",
+    "name": "minimum integer",
+    "source": "echo (match -9223372036854775808 { ..0 => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

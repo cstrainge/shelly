@@ -13,7 +13,7 @@ use crate::language::{ ast::*,
                                                try_expect_token,
                                                try_expect_one_of_tokens },
                                  results::{ ParseResult, ParserError, ParserErrorKind },
-                                 statements::parse_if_expression } };
+                                 statements::{ parse_if_expression, parse_match_expression } } };
 
 pub(super) fn expect_type_name(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Token>
 {
@@ -263,6 +263,9 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                 },
 
             TokenKind::If => parse_if_expression(
+                &mut *lookahead.buffer, token.location)?,
+
+            TokenKind::Match => parse_match_expression(
                 &mut *lookahead.buffer, token.location)?,
 
             TokenKind::Literal =>
@@ -672,6 +675,7 @@ fn parse_math_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
             | AstExpressionKind::BooleanNot(_)
             | AstExpressionKind::TypeConversion(_, _, _)
             | AstExpressionKind::IfExpression(_)
+            | AstExpressionKind::MatchExpression(_)
             | AstExpressionKind::Array(_)
             | AstExpressionKind::HashMap(_)
             | AstExpressionKind::Index(_, _)
@@ -987,7 +991,7 @@ fn parse_range_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
                 TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockOpen
                 | TokenKind::BlockClose | TokenKind::ParenClose | TokenKind::SquareClose
                 | TokenKind::Comma | TokenKind::TypeDelimiter | TokenKind::Equal
-                | TokenKind::NotEqual | TokenKind::And | TokenKind::Or))
+                | TokenKind::NotEqual | TokenKind::And | TokenKind::Or | TokenKind::MatchArrow))
         };
     let end = if at_end { None } else { parse_scalar_expression(buffer)? };
     if    (inclusive && end.is_none())
@@ -1159,7 +1163,7 @@ fn parse_arguments_before_block(buffer: &mut TokenBuffer<'_, '_>,
                     TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockClose
                     | TokenKind::ParenClose | TokenKind::SquareClose | TokenKind::Comma
                     | TokenKind::RedirectTo | TokenKind::RedirectErrorTo
-                    | TokenKind::RedirectBothTo => break,
+                    | TokenKind::RedirectBothTo | TokenKind::MatchArrow => break,
 
                     TokenKind::LineContinue =>
                         {

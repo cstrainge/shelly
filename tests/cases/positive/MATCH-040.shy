@@ -1,0 +1,13 @@
+# MATCH-040: variable range
+check ["id": "MATCH-040",
+    "name": "variable range",
+    "source": "let \$allowed = 1..10; echo (match 7 { \$allowed => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MATCH-017: half-open lower
+check ["id": "MATCH-017",
+    "name": "half-open lower",
+    "source": "echo (match 1 { 1..10 => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

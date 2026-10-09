@@ -1,0 +1,13 @@
+# MATCH-032: integer range excludes text
+check ["id": "MATCH-032",
+    "name": "integer range excludes text",
+    "source": "echo (match \"5\" { 0..10 => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "no\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

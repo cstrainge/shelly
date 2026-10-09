@@ -1,0 +1,13 @@
+# MATCH-070: implicit return
+check ["id": "MATCH-070",
+    "name": "implicit return",
+    "source": "fn f(\$x): String { match \$x { 1 => { \"ok\" } _ => { \"other\" } } }; echo (f 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

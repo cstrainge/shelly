@@ -1,0 +1,13 @@
+# MATCH-041: variable bounds
+check ["id": "MATCH-041",
+    "name": "variable bounds",
+    "source": "let \$a = 1; let \$b = 10; echo (match 7 { \$a..\$b => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

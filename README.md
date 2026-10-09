@@ -449,8 +449,8 @@ Commas separate variants; trailing commas and newlines are allowed. Names contai
 letters, digits, or underscores and cannot start with a digit or use a reserved
 keyword. Empty enums, duplicate variants, and duplicate type declarations in the
 same scope and submission are errors. Unit variants have no constructor arguments:
-use `Color::Red`, not `Color::Red()`. Payload variants and pattern matching are
-not implemented yet.
+use `Color::Red`, not `Color::Red()`. Payload variants are not implemented yet.
+Unit variants can be used as values in `match` arms.
 
 Enum names are lexical: a declaration is available throughout its containing block,
 including earlier expressions and function definitions. Inner declarations can
@@ -1087,6 +1087,45 @@ to the same chain; a semicolon ends the chain, so put `else` after the closing
 brace or on the next line, without a separating semicolon. To pass the literal
 word `if` as a command argument, quote it.
 
+## Match expressions
+
+`match` evaluates a subject once and tries arm expressions from top to bottom.
+The first matching arm runs; its block supplies the result:
+
+```text
+let $description = match $value
+{
+    0            => { "zero" }
+    1..10        => { "one through nine" }
+    $expected    => { "the expected value" }
+    $valid_range => { "inside the configured range" }
+    $a..$b       => { "inside the other configured range" }
+    _            => { "something else" }
+}
+```
+
+Non-range arm values use the same equality as `==`, including literal expressions,
+arrays, maps, structs, and enum values. Variables supply their current values;
+they do not introduce bindings. Arm expressions are evaluated only when reached,
+and later expressions and bodies are skipped after a match. Function calls and
+arithmetic can supply the subject, an arm value, or range bounds.
+
+A range-valued arm tests **integer membership**. `a..b` excludes `b`, `a..=b`
+includes it, and omitted bounds are unbounded. Reversed or empty ranges match
+nothing. Non-integer subjects do not match range arms; other arms can handle them.
+A variable holding a range has exactly the same behavior as a written range.
+
+A bare `_` is an optional fallback and must be last; `"_"` is an ordinary string
+pattern. Every arm requires a block. Commas after arm blocks are optional. An empty
+arm block returns `()`. An empty arm list is a syntax error. If no arm matches and
+there is no fallback, execution raises `Match error: No arm matched the value.`
+
+Arm blocks have the same variable scopes, function hoisting, and alias rules as
+other blocks. `return` exits the enclosing function; `break` and `continue` target
+the enclosing loop. All arms are parsed and type-checked, even when not selected.
+Match expressions also work in assignments, returns, collections, and grouped
+command arguments.
+
 ## Loops
 
 All loops require a block and are statements. Body results are discarded; a
@@ -1433,7 +1472,7 @@ scripts, or the REPL. `cargo clippy --locked --all-targets` runs the Rust lints.
 ./target/debug/shelly -m test.shy C001
 ```
 
-The suite includes 3,804 process cases, 85 stateful REPL scenarios, prompt/path
+The suite includes 3,920 process cases, 86 stateful REPL scenarios, prompt/path
 checks, watchdog probes, native API tests, and harness failure controls. All
 orchestration and assertions run in Shelly; no Python, pexpect, or other shell is
 needed. Standard Unix utilities still provide file operations and byte/regex

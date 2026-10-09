@@ -1,0 +1,13 @@
+# MATCH-087: failed pattern
+check ["id": "MATCH-087",
+    "name": "failed pattern",
+    "source": "match 1 { \$missing => {} _ => {} }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

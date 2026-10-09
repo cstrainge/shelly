@@ -1,0 +1,13 @@
+# MATCH-092: no variable leak
+check ["id": "MATCH-092",
+    "name": "no variable leak",
+    "source": "match 1 { _ => { let \$local = 9 } }; echo \$local",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

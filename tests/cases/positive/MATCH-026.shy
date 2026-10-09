@@ -1,0 +1,13 @@
+# MATCH-026: empty inclusive range
+check ["id": "MATCH-026",
+    "name": "empty inclusive range",
+    "source": "echo (match 3 { 9..=1 => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "no\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

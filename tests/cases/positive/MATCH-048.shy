@@ -1,0 +1,13 @@
+# MATCH-048: struct equality
+check ["id": "MATCH-048",
+    "name": "struct equality",
+    "source": "struct Point { x: Integer }; echo (match Point(x: 1) { Point(x: 1) => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

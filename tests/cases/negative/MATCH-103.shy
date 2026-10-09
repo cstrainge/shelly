@@ -1,0 +1,13 @@
+# MATCH-103: missing pattern
+check ["id": "MATCH-103",
+    "name": "missing pattern",
+    "source": "match 1 { => {} }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

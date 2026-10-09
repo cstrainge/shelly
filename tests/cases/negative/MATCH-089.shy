@@ -1,0 +1,13 @@
+# MATCH-089: bad dynamic range bound
+check ["id": "MATCH-089",
+    "name": "bad dynamic range bound",
+    "source": "let \$a = \"x\"; match 1 { \$a..3 => {} _ => {} }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Range error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

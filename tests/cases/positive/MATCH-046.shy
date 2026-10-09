@@ -1,0 +1,13 @@
+# MATCH-046: enum equality
+check ["id": "MATCH-046",
+    "name": "enum equality",
+    "source": "enum Color { Red, Blue }; echo (match Color::Red { Color::Red => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

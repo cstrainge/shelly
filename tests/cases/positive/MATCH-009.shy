@@ -1,0 +1,13 @@
+# MATCH-009: None
+check ["id": "MATCH-009",
+    "name": "None",
+    "source": "echo (match () { () => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

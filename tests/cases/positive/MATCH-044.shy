@@ -1,0 +1,13 @@
+# MATCH-044: indexed range
+check ["id": "MATCH-044",
+    "name": "indexed range",
+    "source": "let \$ranges = [1..10]; echo (match 7 { \$ranges[0] => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

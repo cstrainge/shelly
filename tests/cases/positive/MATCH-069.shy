@@ -1,0 +1,13 @@
+# MATCH-069: assignment and typed result
+check ["id": "MATCH-069",
+    "name": "assignment and typed result",
+    "source": "let \$x: Integer = match 1 { 1 => { 4 } _ => { 5 } }; \$x = match 2 { _ => { 7 } }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

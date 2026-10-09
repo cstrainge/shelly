@@ -377,6 +377,12 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                 return Ok(());
             },
 
+        AstExpressionKind::MatchExpression(matching) =>
+            {
+                compile_match_expression(instructions, function_block, matching)?;
+                return Ok(());
+            },
+
         AstExpressionKind::Grouped(inner) =>
             {
                 compile_expression_mode(instructions, function_block, inner,
@@ -1162,7 +1168,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     | Code::RedirectSource
                     | Code::ExecuteIfExecutable | Code::MakeExecutable
                     | Code::ToBoolean | Code::ConvertType | Code::BooleanNot
-                    | Code::NextIteration => false,
+                    | Code::NextIteration | Code::MatchPattern | Code::MatchFail => false,
 
                     // Do not carry a proof across control-flow boundaries.
                     Code::Jump | Code::JumpIfFalse | Code::JumpIfTrue
@@ -1171,6 +1177,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
 
                     // These instructions operate on the value stack or other VM state.
                     Code::Push
+                    | Code::Discard
                     | Code::BeginRedirect | Code::EndRedirect
                     | Code::NewVariable
                     | Code::SetVariable
@@ -1505,6 +1512,70 @@ fn compile_block(instructions: &mut Vec<Instruction>,
             code: Code::ExitScope,
             operand: None
         });
+    Ok(())
+}
+
+
+fn compile_match_expression(instructions: &mut Vec<Instruction>,
+                             function_block: &FunctionBlockRef,
+                             matching: &AstMatchExpression) -> CompileResult<()>
+{
+    compile_expression(instructions, function_block, &matching.value)?;
+    instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+    let mut end_jumps = Vec::new();
+    let mut fallback = false;
+    for arm in &matching.arms
+    {
+        let location = Some(arm.body.location.clone());
+        let next_arm = if let Some(pattern) = &arm.pattern
+            {
+                compile_expression(instructions, function_block, pattern)?;
+                instructions.push(Instruction
+                    { location: None, code: Code::PushResult, operand: None });
+                instructions.push(Instruction
+                    {
+                        location: Some(pattern.location.clone()),
+                        code: Code::MatchPattern,
+                        operand: None,
+                    });
+                let label = Value::Integer(instructions.len() as i64);
+                instructions.push(Instruction
+                    { location: None, code: Code::JumpIfFalse, operand: Some(label.clone()) });
+                instructions.push(Instruction
+                    { location: None, code: Code::CheckResult, operand: None });
+                Some(label)
+            }
+            else
+            {
+                fallback = true;
+                instructions.push(Instruction
+                    { location: location.clone(), code: Code::Discard, operand: None });
+                None
+            };
+        compile_block(instructions, function_block, &arm.body, CompileTarget::Function)?;
+        end_jumps.push(instructions.len());
+        instructions.push(Instruction
+            { location: location.clone(), code: Code::Jump, operand: None });
+        if let Some(label) = next_arm
+        {
+            instructions.push(Instruction
+                { location: location.clone(), code: Code::JumpTarget, operand: Some(label) });
+            instructions.push(Instruction { location, code: Code::CheckResult, operand: None });
+        }
+    }
+    if !fallback
+    {
+        instructions.push(Instruction
+            {
+                location: Some(matching.location.clone()),
+                code: Code::MatchFail,
+                operand: None,
+            });
+    }
+    let end_label = Value::Integer(end_jumps[0] as i64);
+    for index in end_jumps { instructions[index].operand = Some(end_label.clone()); }
+    instructions.push(Instruction
+        { location: None, code: Code::JumpTarget, operand: Some(end_label) });
     Ok(())
 }
 

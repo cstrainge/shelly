@@ -1,0 +1,13 @@
+# MATCH-072: return match
+check ["id": "MATCH-072",
+    "name": "return match",
+    "source": "fn f(): Integer { return match 1 { _ => { 7 } } }; echo (f)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

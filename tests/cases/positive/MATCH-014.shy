@@ -1,0 +1,13 @@
+# MATCH-014: executable word stays data
+check ["id": "MATCH-014",
+    "name": "executable word stays data",
+    "source": "echo (match \"echo\" { \"echo\" => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

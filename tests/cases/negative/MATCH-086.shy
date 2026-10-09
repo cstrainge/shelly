@@ -1,0 +1,13 @@
+# MATCH-086: failed subject
+check ["id": "MATCH-086",
+    "name": "failed subject",
+    "source": "match \$missing { _ => {} }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

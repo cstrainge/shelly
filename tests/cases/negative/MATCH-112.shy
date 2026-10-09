@@ -1,0 +1,13 @@
+# MATCH-112: inclusive needs end
+check ["id": "MATCH-112",
+    "name": "inclusive needs end",
+    "source": "match 1 { 1..= => {} }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

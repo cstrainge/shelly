@@ -1,0 +1,13 @@
+# MATCH-095: invalid function result
+check ["id": "MATCH-095",
+    "name": "invalid function result",
+    "source": "fn f(): Integer { match 1 { _ => { true } } }; f",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

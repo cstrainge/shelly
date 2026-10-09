@@ -1,0 +1,13 @@
+# MATCH-116: empty separator
+check ["id": "MATCH-116",
+    "name": "empty separator",
+    "source": "match 1 { , _ => {} }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

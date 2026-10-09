@@ -1,0 +1,13 @@
+# MATCH-002: negative integer
+check ["id": "MATCH-002",
+    "name": "negative integer",
+    "source": "echo (match -7 { -7 => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,13 @@
+# MATCH-067: postfix value
+check ["id": "MATCH-067",
+    "name": "postfix value",
+    "source": "echo (match 1 { _ => { [1,2] } }).count",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

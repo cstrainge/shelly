@@ -1,0 +1,13 @@
+# MATCH-066: map context
+check ["id": "MATCH-066",
+    "name": "map context",
+    "source": "let \$a = [\"x\": match 1 { _ => { \"ok\" } }]; echo \$a[\"x\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

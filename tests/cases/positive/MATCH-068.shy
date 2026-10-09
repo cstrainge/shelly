@@ -1,0 +1,13 @@
+# MATCH-068: arithmetic context
+check ["id": "MATCH-068",
+    "name": "arithmetic context",
+    "source": "echo 3 + match 1 { _ => { 4 } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

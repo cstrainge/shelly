@@ -1,0 +1,13 @@
+# MATCH-108: wildcard must be last
+check ["id": "MATCH-108",
+    "name": "wildcard must be last",
+    "source": "match 1 { _ => {} 1 => {} }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

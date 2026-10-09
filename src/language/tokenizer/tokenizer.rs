@@ -123,6 +123,7 @@ pub enum TokenKind
      * The `=` character used for assignment of values to variables.
      */
     Assign,
+    MatchArrow,
 
     Equal,
     NotEqual,
@@ -453,6 +454,7 @@ impl Token
             TokenKind::Import            => "import".to_string(),
             TokenKind::TypeDelimiter     => ":".to_string(),
             TokenKind::Assign            => "=".to_string(),
+            TokenKind::MatchArrow        => "=>".to_string(),
             TokenKind::Equal             => "==".to_string(),
             TokenKind::NotEqual          => "!=".to_string(),
             TokenKind::And               => "&&".to_string(),
@@ -952,6 +954,13 @@ impl<'a> Tokenizer<'a>
                 let location = self.input.location().clone();
                 self.input.next();
                 let second = if next == '&' { '&' } else { '=' };
+                if next == '=' && self.input.peek_next() == Some('>')
+                {
+                    self.input.next();
+                    self.pending_operator = Some(Token
+                        { location, kind: TokenKind::MatchArrow, value: TokenValue::None });
+                    break;
+                }
                 if self.input.peek_next() == Some(second)
                 {
                     self.input.next();
@@ -1371,6 +1380,11 @@ impl<'a> Tokenizer<'a>
                         return operator_token(location, TokenKind::NotEqual);
                     }
                     return operator_token(location, TokenKind::Not);
+                },
+            '=' if self.input.peek_next() == Some('>') =>
+                {
+                    self.input.next();
+                    return operator_token(location, TokenKind::MatchArrow);
                 },
             '=' | '&' if self.input.peek_next() == Some(next) =>
                 {

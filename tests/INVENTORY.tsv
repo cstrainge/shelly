@@ -3803,3 +3803,119 @@ STRUCT-137	negative	missing type at eof	tests/cases/negative/STRUCT-137.shy
 STRUCT-138	negative	double colon	tests/cases/negative/STRUCT-138.shy
 STRUCT-139	negative	quoted field name	tests/cases/negative/STRUCT-139.shy
 STRUCT-140	negative	numeric field name	tests/cases/negative/STRUCT-140.shy
+MATCH-001	positive	integer	tests/cases/positive/MATCH-001.shy
+MATCH-002	positive	negative integer	tests/cases/positive/MATCH-002.shy
+MATCH-003	positive	float	tests/cases/positive/MATCH-003.shy
+MATCH-004	positive	numeric equality	tests/cases/positive/MATCH-004.shy
+MATCH-005	positive	boolean	tests/cases/positive/MATCH-005.shy
+MATCH-006	positive	boolean is not integer	tests/cases/positive/MATCH-006.shy
+MATCH-007	positive	string	tests/cases/positive/MATCH-007.shy
+MATCH-008	positive	Unicode	tests/cases/positive/MATCH-008.shy
+MATCH-009	positive	None	tests/cases/positive/MATCH-009.shy
+MATCH-010	positive	array	tests/cases/positive/MATCH-010.shy
+MATCH-011	positive	map	tests/cases/positive/MATCH-011.shy
+MATCH-012	positive	literal underscore	tests/cases/positive/MATCH-012.shy
+MATCH-013	positive	string is not number	tests/cases/positive/MATCH-013.shy
+MATCH-014	positive	executable word stays data	tests/cases/positive/MATCH-014.shy
+MATCH-015	positive	arithmetic pattern	tests/cases/positive/MATCH-015.shy
+MATCH-016	positive	boolean expression pattern	tests/cases/positive/MATCH-016.shy
+MATCH-017	positive	half-open lower	tests/cases/positive/MATCH-017.shy
+MATCH-018	positive	half-open upper	tests/cases/positive/MATCH-018.shy
+MATCH-019	positive	inside range	tests/cases/positive/MATCH-019.shy
+MATCH-020	positive	below range	tests/cases/positive/MATCH-020.shy
+MATCH-021	positive	inclusive upper	tests/cases/positive/MATCH-021.shy
+MATCH-022	positive	above inclusive	tests/cases/positive/MATCH-022.shy
+MATCH-023	positive	negative range	tests/cases/positive/MATCH-023.shy
+MATCH-024	positive	empty range	tests/cases/positive/MATCH-024.shy
+MATCH-025	positive	reversed range	tests/cases/positive/MATCH-025.shy
+MATCH-026	positive	empty inclusive range	tests/cases/positive/MATCH-026.shy
+MATCH-027	positive	singleton range	tests/cases/positive/MATCH-027.shy
+MATCH-028	positive	open start	tests/cases/positive/MATCH-028.shy
+MATCH-029	positive	open inclusive end	tests/cases/positive/MATCH-029.shy
+MATCH-030	positive	open end	tests/cases/positive/MATCH-030.shy
+MATCH-031	positive	unbounded range	tests/cases/positive/MATCH-031.shy
+MATCH-032	positive	integer range excludes text	tests/cases/positive/MATCH-032.shy
+MATCH-033	positive	integer range excludes float	tests/cases/positive/MATCH-033.shy
+MATCH-034	positive	range pattern is membership	tests/cases/positive/MATCH-034.shy
+MATCH-035	positive	minimum integer	tests/cases/positive/MATCH-035.shy
+MATCH-036	positive	maximum integer	tests/cases/positive/MATCH-036.shy
+MATCH-037	positive	maximum exclusive	tests/cases/positive/MATCH-037.shy
+MATCH-038	positive	variable value	tests/cases/positive/MATCH-038.shy
+MATCH-039	positive	variable string	tests/cases/positive/MATCH-039.shy
+MATCH-040	positive	variable range	tests/cases/positive/MATCH-040.shy
+MATCH-041	positive	variable bounds	tests/cases/positive/MATCH-041.shy
+MATCH-042	positive	variable inclusive bounds	tests/cases/positive/MATCH-042.shy
+MATCH-043	positive	arithmetic range bounds	tests/cases/positive/MATCH-043.shy
+MATCH-044	positive	indexed range	tests/cases/positive/MATCH-044.shy
+MATCH-045	positive	field range	tests/cases/positive/MATCH-045.shy
+MATCH-046	positive	enum equality	tests/cases/positive/MATCH-046.shy
+MATCH-047	positive	enum mismatch	tests/cases/positive/MATCH-047.shy
+MATCH-048	positive	struct equality	tests/cases/positive/MATCH-048.shy
+MATCH-049	positive	command status	tests/cases/positive/MATCH-049.shy
+MATCH-050	positive	all requested patterns	tests/cases/positive/MATCH-050.shy
+MATCH-051	positive	first arm wins	tests/cases/positive/MATCH-051.shy
+MATCH-052	positive	optional wildcard	tests/cases/positive/MATCH-052.shy
+MATCH-053	positive	wildcard alone	tests/cases/positive/MATCH-053.shy
+MATCH-054	positive	empty selected block	tests/cases/positive/MATCH-054.shy
+MATCH-055	positive	empty wildcard block	tests/cases/positive/MATCH-055.shy
+MATCH-056	positive	single subject evaluation	tests/cases/positive/MATCH-056.shy
+MATCH-057	positive	subject command call	tests/cases/positive/MATCH-057.shy
+MATCH-058	positive	pattern side effects and laziness	tests/cases/positive/MATCH-058.shy
+MATCH-059	positive	subject snapshot survives mutation	tests/cases/positive/MATCH-059.shy
+MATCH-060	positive	unselected patterns are not evaluated	tests/cases/positive/MATCH-060.shy
+MATCH-061	positive	unselected bodies are not evaluated	tests/cases/positive/MATCH-061.shy
+MATCH-062	positive	nested subject	tests/cases/positive/MATCH-062.shy
+MATCH-063	positive	nested arm	tests/cases/positive/MATCH-063.shy
+MATCH-064	positive	nested pattern	tests/cases/positive/MATCH-064.shy
+MATCH-065	positive	array context	tests/cases/positive/MATCH-065.shy
+MATCH-066	positive	map context	tests/cases/positive/MATCH-066.shy
+MATCH-067	positive	postfix value	tests/cases/positive/MATCH-067.shy
+MATCH-068	positive	arithmetic context	tests/cases/positive/MATCH-068.shy
+MATCH-069	positive	assignment and typed result	tests/cases/positive/MATCH-069.shy
+MATCH-070	positive	implicit return	tests/cases/positive/MATCH-070.shy
+MATCH-071	positive	explicit return through match	tests/cases/positive/MATCH-071.shy
+MATCH-072	positive	return match	tests/cases/positive/MATCH-072.shy
+MATCH-073	positive	arm scopes and outer assignment	tests/cases/positive/MATCH-073.shy
+MATCH-074	positive	arm function hoisting	tests/cases/positive/MATCH-074.shy
+MATCH-075	positive	arm type scope	tests/cases/positive/MATCH-075.shy
+MATCH-076	positive	loop control from arms	tests/cases/positive/MATCH-076.shy
+MATCH-077	positive	loop control from pattern	tests/cases/positive/MATCH-077.shy
+MATCH-078	positive	nested matches retain caller stack	tests/cases/positive/MATCH-078.shy
+MATCH-079	positive	redirection inside branch	tests/cases/positive/MATCH-079.shy
+MATCH-080	positive	adjacent delimiters	tests/cases/positive/MATCH-080.shy
+MATCH-081	positive	comments newlines and commas	tests/cases/positive/MATCH-081.shy
+MATCH-082	positive	literal keyword	tests/cases/positive/MATCH-082.shy
+MATCH-083	positive	variable named match	tests/cases/positive/MATCH-083.shy
+MATCH-084	negative	unmatched value	tests/cases/negative/MATCH-084.shy
+MATCH-085	negative	unmatched result used in array	tests/cases/negative/MATCH-085.shy
+MATCH-086	negative	failed subject	tests/cases/negative/MATCH-086.shy
+MATCH-087	negative	failed pattern	tests/cases/negative/MATCH-087.shy
+MATCH-088	negative	bad range bound	tests/cases/negative/MATCH-088.shy
+MATCH-089	negative	bad dynamic range bound	tests/cases/negative/MATCH-089.shy
+MATCH-090	negative	arithmetic pattern failure	tests/cases/negative/MATCH-090.shy
+MATCH-091	negative	selected body failure	tests/cases/negative/MATCH-091.shy
+MATCH-092	negative	no variable leak	tests/cases/negative/MATCH-092.shy
+MATCH-093	negative	no arm type leak	tests/cases/negative/MATCH-093.shy
+MATCH-094	negative	invalid typed result	tests/cases/negative/MATCH-094.shy
+MATCH-095	negative	invalid function result	tests/cases/negative/MATCH-095.shy
+MATCH-096	negative	unselected invalid typed result	tests/cases/negative/MATCH-096.shy
+MATCH-097	negative	break outside loop	tests/cases/negative/MATCH-097.shy
+MATCH-098	negative	return outside function	tests/cases/negative/MATCH-098.shy
+MATCH-099	negative	empty arms	tests/cases/negative/MATCH-099.shy
+MATCH-100	negative	missing subject	tests/cases/negative/MATCH-100.shy
+MATCH-101	negative	missing open brace	tests/cases/negative/MATCH-101.shy
+MATCH-102	negative	missing close brace	tests/cases/negative/MATCH-102.shy
+MATCH-103	negative	missing pattern	tests/cases/negative/MATCH-103.shy
+MATCH-104	negative	missing arrow	tests/cases/negative/MATCH-104.shy
+MATCH-105	negative	wrong arrow	tests/cases/negative/MATCH-105.shy
+MATCH-106	negative	missing arm body	tests/cases/negative/MATCH-106.shy
+MATCH-107	negative	unbraced arm	tests/cases/negative/MATCH-107.shy
+MATCH-108	negative	wildcard must be last	tests/cases/negative/MATCH-108.shy
+MATCH-109	negative	duplicate wildcard	tests/cases/negative/MATCH-109.shy
+MATCH-110	negative	bad wildcard expression	tests/cases/negative/MATCH-110.shy
+MATCH-111	negative	malformed unselected arm	tests/cases/negative/MATCH-111.shy
+MATCH-112	negative	inclusive needs end	tests/cases/negative/MATCH-112.shy
+MATCH-113	negative	range chaining	tests/cases/negative/MATCH-113.shy
+MATCH-114	negative	missing pattern at EOF	tests/cases/negative/MATCH-114.shy
+MATCH-115	negative	two arrows	tests/cases/negative/MATCH-115.shy
+MATCH-116	negative	empty separator	tests/cases/negative/MATCH-116.shy

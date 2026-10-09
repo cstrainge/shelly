@@ -1,0 +1,13 @@
+# MATCH-037: maximum exclusive
+check ["id": "MATCH-037",
+    "name": "maximum exclusive",
+    "source": "echo (match 9223372036854775807 { 0..9223372036854775807 => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "no\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

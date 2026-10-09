@@ -1,0 +1,13 @@
+# MATCH-084: unmatched value
+check ["id": "MATCH-084",
+    "name": "unmatched value",
+    "source": "echo (match 1 { 2 => { \"bad\" } }); echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Match error:",
+    "stderr_contains": ["No arm matched"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

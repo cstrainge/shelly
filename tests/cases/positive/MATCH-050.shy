@@ -1,0 +1,13 @@
+# MATCH-050: all requested patterns
+check ["id": "MATCH-050",
+    "name": "all requested patterns",
+    "source": "let \$expected = 12; let \$valid_range = 20..30; let \$a = 40; let \$b = 50; for \$value in [0,5,12,22,45,90] { echo (match \$value { 0 => { \"zero\" } 1..10 => { \"one through nine\" } \$expected => { \"expected\" } \$valid_range => { \"range\" } \$a..\$b => { \"bounds\" } _ => { \"other\" } }) }",
+    "mode": "code",
+    "args": [],
+    "stdout": "zero\none through nine\nexpected\nrange\nbounds\nother\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

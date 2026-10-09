@@ -1,0 +1,13 @@
+# MATCH-054: empty selected block
+check ["id": "MATCH-054",
+    "name": "empty selected block",
+    "source": "echo ((match 5 { 5 => {} }) == ())",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

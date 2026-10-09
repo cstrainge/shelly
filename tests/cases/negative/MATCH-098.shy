@@ -1,0 +1,13 @@
+# MATCH-098: return outside function
+check ["id": "MATCH-098",
+    "name": "return outside function",
+    "source": "match 1 { _ => { return 1 } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Cannot return outside a function",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

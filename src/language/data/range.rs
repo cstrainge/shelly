@@ -12,6 +12,12 @@ pub struct Range
 
 impl Range
 {
+    pub fn contains(&self, value: i64) -> bool
+    {
+           self.start.is_none_or(|start| value >= start)
+        && self.end.is_none_or(|end| if self.inclusive { value <= end } else { value < end })
+    }
+
     pub fn is_empty(&self) -> bool
     {
         match (self.start, self.end)

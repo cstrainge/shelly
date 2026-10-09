@@ -1,0 +1,13 @@
+# MATCH-023: negative range
+check ["id": "MATCH-023",
+    "name": "negative range",
+    "source": "echo (match -5 { -10..0 => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

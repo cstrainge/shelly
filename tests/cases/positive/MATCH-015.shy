@@ -1,0 +1,13 @@
+# MATCH-015: arithmetic pattern
+check ["id": "MATCH-015",
+    "name": "arithmetic pattern",
+    "source": "echo (match 5 { 2 + 3 => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

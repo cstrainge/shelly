@@ -1,0 +1,13 @@
+# MATCH-060: unselected patterns are not evaluated
+check ["id": "MATCH-060",
+    "name": "unselected patterns are not evaluated",
+    "source": "echo (match 1 { 1 => { \"ok\" } \$missing => { \"bad\" } (1 / 0) => { \"bad\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

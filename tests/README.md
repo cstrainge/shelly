@@ -35,7 +35,8 @@ check [
 ]
 ```
 
-Add its ID/group/name/path to `INVENTORY.tsv`. Names in that TSV escape literal
+Add its ID/group/name/path to `INVENTORY.tsv` and update the expected process
+case count in `harness/inventory.shy`. Names in that TSV escape literal
 newlines/tabs as `\n`/`\t`; source and expected output retain their exact bytes in
 Shelly string literals. IDs use letters, digits, underscores, and hyphens.
 

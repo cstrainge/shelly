@@ -1,0 +1,13 @@
+# MATCH-078: nested matches retain caller stack
+check ["id": "MATCH-078",
+    "name": "nested matches retain caller stack",
+    "source": "fn f(\$a, \$b) { echo \$a \$b }; f (match 1 { _ => { 7 } }) (match 2 { _ => { 8 } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "7 8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

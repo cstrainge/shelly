@@ -1,0 +1,13 @@
+# MATCH-003: float
+check ["id": "MATCH-003",
+    "name": "float",
+    "source": "echo (match 1.5 { 1.5 => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

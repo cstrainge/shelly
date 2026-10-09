@@ -1,0 +1,13 @@
+# MATCH-059: subject snapshot survives mutation
+check ["id": "MATCH-059",
+    "name": "subject snapshot survives mutation",
+    "source": "let \$value = 1; fn change() { \$value = 2; 1 }; echo (match \$value { (change) => { \"ok\" } }); echo \$value",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

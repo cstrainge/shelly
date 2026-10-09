@@ -1,0 +1,13 @@
+# MATCH-058: pattern side effects and laziness
+check ["id": "MATCH-058",
+    "name": "pattern side effects and laziness",
+    "source": "let \$calls = 0; fn candidate(\$x) { \$calls = \$calls + 1; \$x }; echo (match 2 { (candidate 1) => { \"bad\" } (candidate 2) => { \"ok\" } (candidate 3) => { \"bad\" } }); echo \$calls",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

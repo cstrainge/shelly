@@ -1,0 +1,13 @@
+# MATCH-088: bad range bound
+check ["id": "MATCH-088",
+    "name": "bad range bound",
+    "source": "match 1 { \"x\"..3 => {} _ => {} }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Range error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

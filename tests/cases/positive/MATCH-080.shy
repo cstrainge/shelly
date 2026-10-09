@@ -1,0 +1,13 @@
+# MATCH-080: adjacent delimiters
+check ["id": "MATCH-080",
+    "name": "adjacent delimiters",
+    "source": "echo (match 1{0=>{\"no\"}1=>{\"ok\"}_=>{\"no\"}})",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

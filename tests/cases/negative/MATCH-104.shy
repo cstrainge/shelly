@@ -1,0 +1,13 @@
+# MATCH-104: missing arrow
+check ["id": "MATCH-104",
+    "name": "missing arrow",
+    "source": "match 1 { 1 {} }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

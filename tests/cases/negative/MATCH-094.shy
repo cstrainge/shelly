@@ -1,0 +1,13 @@
+# MATCH-094: invalid typed result
+check ["id": "MATCH-094",
+    "name": "invalid typed result",
+    "source": "let \$x: Integer = match 1 { _ => { true } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

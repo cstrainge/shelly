@@ -74,7 +74,8 @@ pub enum AstExpressionKind
     BooleanExpression(AstBooleanOperator, Box<AstExpression>, Box<AstExpression>),
     BooleanNot(Box<AstExpression>),
     TypeConversion(String, Box<AstExpression>, Option<TypeId>),
-    IfExpression(Box<AstIfExpression>)
+    IfExpression(Box<AstIfExpression>),
+    MatchExpression(Box<AstMatchExpression>)
 }
 
 
@@ -181,7 +182,8 @@ impl AstExpression
             | AstExpressionKind::BooleanExpression(_, _, _)
             | AstExpressionKind::BooleanNot(_)
             | AstExpressionKind::TypeConversion(_, _, _)
-            | AstExpressionKind::IfExpression(_) =>
+            | AstExpressionKind::IfExpression(_)
+            | AstExpressionKind::MatchExpression(_) =>
                 Err(AstError::ExpressionNotString(self.location.clone()))
         }
     }
@@ -392,6 +394,22 @@ pub struct AstIfExpression
     pub location: Location,
     pub branches: Vec<AstIfBranch>,
     pub else_body: Option<AstBlockStatement>
+}
+
+
+pub struct AstMatchArm
+{
+    // None denotes the bare wildcard, not a value expression.
+    pub pattern: Option<AstExpression>,
+    pub body: AstBlockStatement
+}
+
+
+pub struct AstMatchExpression
+{
+    pub location: Location,
+    pub value: AstExpression,
+    pub arms: Vec<AstMatchArm>
 }
 
 

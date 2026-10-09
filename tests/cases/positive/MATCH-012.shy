@@ -1,0 +1,13 @@
+# MATCH-012: literal underscore
+check ["id": "MATCH-012",
+    "name": "literal underscore",
+    "source": "echo (match \"_\" { \"_\" => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

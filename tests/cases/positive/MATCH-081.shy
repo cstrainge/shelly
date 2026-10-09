@@ -1,0 +1,13 @@
+# MATCH-081: comments newlines and commas
+check ["id": "MATCH-081",
+    "name": "comments newlines and commas",
+    "source": "let \$x = match 1\n{\n# arm\n0 => { \"no\" },\n1 =>\n{ \"ok\" },\n_ => { \"other\" },\n}; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

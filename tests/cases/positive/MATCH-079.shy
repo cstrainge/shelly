@@ -1,0 +1,13 @@
+# MATCH-079: redirection inside branch
+check ["id": "MATCH-079",
+    "name": "redirection inside branch",
+    "source": "let \$out: String; match 1 { _ => { echo \"ok\" -> \$out } }; printf \"%s\" \$out",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

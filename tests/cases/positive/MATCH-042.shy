@@ -1,0 +1,13 @@
+# MATCH-042: variable inclusive bounds
+check ["id": "MATCH-042",
+    "name": "variable inclusive bounds",
+    "source": "let \$a = 1; let \$b = 10; echo (match 10 { \$a..=\$b => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

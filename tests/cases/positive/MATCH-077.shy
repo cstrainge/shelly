@@ -1,0 +1,13 @@
+# MATCH-077: loop control from pattern
+check ["id": "MATCH-077",
+    "name": "loop control from pattern",
+    "source": "for \$i in 0..3 { match \$i { (if true { break } else { 0 }) => { echo \"bad\" } } }; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

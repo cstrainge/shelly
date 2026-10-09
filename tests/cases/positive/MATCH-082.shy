@@ -1,0 +1,13 @@
+# MATCH-082: literal keyword
+check ["id": "MATCH-082",
+    "name": "literal keyword",
+    "source": "echo (match \"match\" { \"match\" => { \"ok\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

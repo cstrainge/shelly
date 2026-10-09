@@ -1,0 +1,13 @@
+# MATCH-065: array context
+check ["id": "MATCH-065",
+    "name": "array context",
+    "source": "echo [match 1 { 1 => { \"ok\" } }, match 2 { _ => { \"fine\" } }]...",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok fine\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

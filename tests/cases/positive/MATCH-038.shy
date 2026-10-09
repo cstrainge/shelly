@@ -1,0 +1,13 @@
+# MATCH-038: variable value
+check ["id": "MATCH-038",
+    "name": "variable value",
+    "source": "let \$expected = 7; echo (match 7 { \$expected => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

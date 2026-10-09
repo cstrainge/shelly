@@ -1,0 +1,13 @@
+# MATCH-063: nested arm
+check ["id": "MATCH-063",
+    "name": "nested arm",
+    "source": "echo (match 1 { 1 => { match 2 { 2 => { \"ok\" } } } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

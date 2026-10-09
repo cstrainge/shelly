@@ -1,0 +1,13 @@
+# MATCH-016: boolean expression pattern
+check ["id": "MATCH-016",
+    "name": "boolean expression pattern",
+    "source": "echo (match false { 1 == 2 => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

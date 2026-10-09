@@ -1,0 +1,13 @@
+# MATCH-096: unselected invalid typed result
+check ["id": "MATCH-096",
+    "name": "unselected invalid typed result",
+    "source": "fn f(): Integer { match 1 { 1 => { 7 } _ => { true } } }; f",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

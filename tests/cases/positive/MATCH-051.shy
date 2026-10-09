@@ -1,0 +1,13 @@
+# MATCH-051: first arm wins
+check ["id": "MATCH-051",
+    "name": "first arm wins",
+    "source": "echo (match 5 { 1..10 => { \"first\" } 5 => { \"second\" } _ => { \"last\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "first\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -411,6 +411,74 @@ fn parse_block(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<AstBlockStatemen
 }
 
 
+pub(super) fn parse_match_expression(buffer: &mut TokenBuffer<'_, '_>,
+                                     location: Location) -> ParseResult<AstExpression>
+{
+    let value = parse_condition_expression(buffer)?.ok_or_else(|| ParserError
+        { location: Some(location.clone()), kind: ParserErrorKind::ExpectedExpression })?;
+    while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+    expect_token(buffer, TokenKind::BlockOpen)?;
+    let mut arms = Vec::new();
+    let mut wildcard = false;
+    loop
+    {
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        if try_expect_token(buffer, TokenKind::BlockClose)?.is_some() { break; }
+        if wildcard
+        {
+            return Err(ParserError
+                {
+                    location: Some(location.clone()),
+                    kind: ParserErrorKind::InvalidMatch(
+                        "The wildcard match arm must be last.".to_string()),
+                });
+        }
+        let pattern =
+            {
+                let mut peek = Lookahead::new(buffer);
+                let bare_wildcard = peek.buffer.next()?.is_some_and(|token|
+                    token.kind == TokenKind::Symbol && token.token_value_text() == "_");
+                if bare_wildcard
+                {
+                    wildcard = true;
+                    peek.commit();
+                    None
+                }
+                else
+                {
+                    drop(peek);
+                    Some(parse_condition_expression(buffer)?.ok_or_else(|| ParserError
+                        {
+                            location: Some(location.clone()),
+                            kind: ParserErrorKind::ExpectedExpression,
+                        })?)
+                }
+            };
+        expect_token(buffer, TokenKind::MatchArrow)?;
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        let body = parse_block(buffer)?;
+        arms.push(AstMatchArm { pattern, body });
+        try_expect_token(buffer, TokenKind::Comma)?;
+    }
+    if arms.is_empty()
+    {
+        return Err(ParserError
+            {
+                location: Some(location),
+                kind: ParserErrorKind::InvalidMatch(
+                    "A match expression requires at least one arm.".to_string()),
+            });
+    }
+    Ok(AstExpression
+        {
+            location: location.clone(),
+            kind: AstExpressionKind::MatchExpression(Box::new(AstMatchExpression
+                { location, value, arms })),
+            string_flag: None,
+        })
+}
+
+
 pub(super) fn parse_if_expression(buffer: &mut TokenBuffer<'_, '_>,
                                   location: Location) -> ParseResult<AstExpression>
 {

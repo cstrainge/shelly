@@ -1,0 +1,13 @@
+# MATCH-107: unbraced arm
+check ["id": "MATCH-107",
+    "name": "unbraced arm",
+    "source": "match 1 { 1 => 2 }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

@@ -1,0 +1,13 @@
+# MATCH-085: unmatched result used in array
+check ["id": "MATCH-085",
+    "name": "unmatched result used in array",
+    "source": "echo [1, match 2 { 3 => { 4 } }]; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Match error:",
+    "stderr_contains": ["No arm matched"],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

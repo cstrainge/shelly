@@ -1,0 +1,13 @@
+# MATCH-076: loop control from arms
+check ["id": "MATCH-076",
+    "name": "loop control from arms",
+    "source": "let \$sum = 0; for \$i in 0..10 { match \$i { 2 => { continue } 5 => { break } _ => { \$sum = \$sum + \$i } } }; echo \$sum",
+    "mode": "code",
+    "args": [],
+    "stdout": "8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

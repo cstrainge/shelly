@@ -1,0 +1,13 @@
+# MATCH-073: arm scopes and outer assignment
+check ["id": "MATCH-073",
+    "name": "arm scopes and outer assignment",
+    "source": "let \$x = 1; match 2 { 1 => { let \$local = 1 } 2 => { let \$local = 2; \$x = \$local } }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

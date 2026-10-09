@@ -84,6 +84,12 @@ pub enum Code
     MathModulo,
     CompareEqual,
     CompareNotEqual,
+    // Pop a pattern, compare against the retained subject, and set last_result.
+    // A successful comparison also consumes the subject; failure keeps it for the next arm.
+    MatchPattern,
+    // Discard the stack top without treating an ExecResult as a command failure.
+    Discard,
+    MatchFail,
     // Convert last_result in place; these instructions do not touch the value stack.
     ToBoolean,
     // Convert last_result using the resolved target TypeId operand.

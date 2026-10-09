@@ -1,0 +1,13 @@
+# MATCH-018: half-open upper
+check ["id": "MATCH-018",
+    "name": "half-open upper",
+    "source": "echo (match 10 { 1..10 => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "no\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

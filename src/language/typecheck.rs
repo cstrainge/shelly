@@ -532,6 +532,16 @@ fn check_expression(
                     check_scope(registry, &mut block.body, names)?;
                 }
             },
+        AstExpressionKind::MatchExpression(matching) =>
+            {
+                check_expression(registry, &mut matching.value, names)?;
+                for arm in &mut matching.arms
+                {
+                    if let Some(pattern) = &mut arm.pattern
+                    { check_expression(registry, pattern, names)?; }
+                    check_scope(registry, &mut arm.body.body, names)?;
+                }
+            },
         AstExpressionKind::Variable(_) | AstExpressionKind::VariableSplat(_)
         | AstExpressionKind::Symbol(_) | AstExpressionKind::Literal(_) => {}
     }
@@ -839,6 +849,16 @@ fn check_binding_expression(
                 }
                 if let Some(block) = &item.else_body
                 { check_binding_scope(registry, &block.body, bindings, return_type, expected)?; }
+            },
+        AstExpressionKind::MatchExpression(item) =>
+            {
+                check_binding_expression(registry, &item.value, bindings, return_type, None)?;
+                for arm in &item.arms
+                {
+                    if let Some(pattern) = &arm.pattern
+                    { check_binding_expression(registry, pattern, bindings, return_type, None)?; }
+                    check_binding_scope(registry, &arm.body.body, bindings, return_type, expected)?;
+                }
             },
         AstExpressionKind::Grouped(inner) =>
             { check_binding_expression(registry, inner, bindings, return_type, expected)?; },

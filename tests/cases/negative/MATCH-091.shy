@@ -1,0 +1,13 @@
+# MATCH-091: selected body failure
+check ["id": "MATCH-091",
+    "name": "selected body failure",
+    "source": "match 1 { 1 => { 1 / 0 } _ => { echo \"bad\" } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

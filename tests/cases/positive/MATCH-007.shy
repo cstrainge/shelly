@@ -1,0 +1,13 @@
+# MATCH-007: string
+check ["id": "MATCH-007",
+    "name": "string",
+    "source": "echo (match \"hello\" { \"hello\" => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

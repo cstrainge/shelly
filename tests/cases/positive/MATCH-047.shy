@@ -1,0 +1,13 @@
+# MATCH-047: enum mismatch
+check ["id": "MATCH-047",
+    "name": "enum mismatch",
+    "source": "enum Color { Red, Blue }; echo (match Color::Blue { Color::Red => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "no\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

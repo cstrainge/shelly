@@ -1,0 +1,13 @@
+# MATCH-093: no arm type leak
+check ["id": "MATCH-093",
+    "name": "no arm type leak",
+    "source": "match 1 { _ => { enum LocalMatchType { One } } }; echo LocalMatchType::One",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

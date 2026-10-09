@@ -1,0 +1,13 @@
+# MATCH-090: arithmetic pattern failure
+check ["id": "MATCH-090",
+    "name": "arithmetic pattern failure",
+    "source": "match 1 { (1 / 0) => {} _ => {} }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": ["AFTER_ERROR"]]

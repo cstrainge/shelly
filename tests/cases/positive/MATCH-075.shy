@@ -1,0 +1,13 @@
+# MATCH-075: arm type scope
+check ["id": "MATCH-075",
+    "name": "arm type scope",
+    "source": "echo (match 1 { 1 => { enum E { One }; E::One.index } _ => { enum E { Two }; E::Two.index } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "0\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

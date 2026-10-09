@@ -1,0 +1,13 @@
+# MATCH-005: boolean
+check ["id": "MATCH-005",
+    "name": "boolean",
+    "source": "echo (match true { true => { \"yes\" } _ => { \"no\" } })",
+    "mode": "code",
+    "args": [],
+    "stdout": "yes\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]
