@@ -20,6 +20,10 @@ use libc::{ fcntl, ioctl, kill, openpty, poll as poll_descriptors, pollfd, setsi
             F_SETFL, O_NONBLOCK, POLLIN, POLLOUT, P_PID, SIGKILL, SIGTERM, TIOCSCTTY,
             WEXITED, WNOHANG, WNOWAIT };
 
+#[cfg(target_os = "macos")]
+use libc::{ proc_bsdshortinfo, proc_listpgrppids, proc_pidinfo, EPERM,
+            PROC_PIDT_SHORTBSDINFO, SZOMB };
+
 use crate::language::data::{ value::Value, map_key::MapKey };
 
 fn record(entries: impl IntoIterator<Item = (&'static str, Value)>) -> Value
@@ -158,10 +162,57 @@ impl ManagedChild
         if unsafe { kill(-(self.child.id() as i32), signal) } == -1
         {
             let error = io::Error::last_os_error();
-            if error.raw_os_error() != Some(ESRCH) { return Err(error); }
+            if error.raw_os_error() == Some(ESRCH) { return Ok(()); }
+            // Darwin skips zombies when signalling a group, returning EPERM if
+            // none remain alive. Do not mistake that for a cleanup failure, or
+            // hide a genuine denial involving a live descendant.
+            #[cfg(target_os = "macos")]
+            if error.raw_os_error() == Some(EPERM) && self.group_exited()
+            { return Ok(()); }
+            return Err(io::Error::new(error.kind(), format!(
+                "Cannot send signal {} to process group {}: {}", signal, self.child.id(), error)));
         }
         Ok(())
     }
+
+    #[cfg(target_os = "macos")]
+    fn group_exited(&self) -> bool
+    {
+        // Keep the exited leader unreaped while inspecting its group: its PID
+        // cannot be recycled. If inspection fails, preserve the original EPERM.
+        if !self.exited().unwrap_or(false) { return false; }
+        let group = self.child.id() as i32;
+        // SAFETY: a null buffer requests the required PID count, including slack.
+        let capacity = unsafe { proc_listpgrppids(group, null_mut(), 0) };
+        if capacity <= 0 { return false; }
+        let mut members = vec![0_i32; capacity as usize];
+        let Ok(bytes) = i32::try_from(members.len() * size_of::<i32>())
+            else { return false; };
+        // SAFETY: members owns writable, correctly aligned storage of bytes length.
+        let count = unsafe { proc_listpgrppids(group, members.as_mut_ptr().cast(), bytes) };
+        // Zero also denotes an API error. A full buffer may have been truncated.
+        if count <= 0 || count as usize >= members.len() { return false; }
+        for &pid in &members[..count as usize]
+        {
+            // SAFETY: this C record consists of integers and byte arrays.
+            let mut information: proc_bsdshortinfo = unsafe { zeroed() };
+            let bytes = size_of::<proc_bsdshortinfo>() as i32;
+            // SAFETY: the output buffer has the declared size. Argument 1 includes
+            // zombies, which a normal proc_pidinfo lookup would omit.
+            let copied = unsafe { proc_pidinfo(pid, PROC_PIDT_SHORTBSDINFO, 1,
+                (&raw mut information).cast(), bytes) };
+            if copied != bytes
+            {
+                if copied == 0 && io::Error::last_os_error().raw_os_error() == Some(ESRCH)
+                { continue; }
+                return false;
+            }
+            if information.pbsi_pgid == group as u32 && information.pbsi_status != SZOMB
+            { return false; }
+        }
+        true
+    }
+
     fn stop(&mut self) -> io::Result<ExitStatus>
     {
         if !self.stopped
