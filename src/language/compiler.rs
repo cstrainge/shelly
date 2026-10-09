@@ -735,18 +735,20 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
             result_is_empty = match instruction.code
                 {
                     // On successful continuation, both instructions consume the result.
-                    Code::PushResult | Code::CheckResult => true,
+                    Code::PushResult | Code::CheckResult | Code::EndIteration => true,
 
                     Code::PopResult | Code::Execute | Code::TryExecute
                     | Code::ExecuteIfExecutable | Code::MakeExecutable
-                    | Code::ToBoolean | Code::BooleanNot => false,
+                    | Code::ToBoolean | Code::BooleanNot | Code::NextIteration => false,
 
                     // Do not carry a proof across control-flow boundaries.
                     Code::Jump | Code::JumpIfFalse | Code::JumpIfTrue
-                    | Code::JumpTarget | Code::ExitFunction => false,
+                    | Code::JumpTarget | Code::ExitFunction
+                    | Code::EnterLoop | Code::ExitLoop | Code::Break | Code::Continue => false,
 
                     // These instructions operate on the value stack or other VM state.
                     Code::Push | Code::NewVariable | Code::SetVariable | Code::GetVariable
+                    | Code::StartIteration | Code::BindIteration
                     | Code::NewAlias | Code::ExportVariable | Code::GlobFiles
                     | Code::ExpandArray | Code::ExpandPath | Code::InterpolateString
                     | Code::MakeArray | Code::MakeHashMap | Code::MakeRange | Code::GetElement | Code::SetElement
@@ -805,17 +807,85 @@ fn link_instructions(instructions: &mut [Instruction]) -> CompileResult<()>
                     location: instruction.location.clone(),
                     what: ErrorWhat::InvalidJump(format!("Missing jump label {}", id))
                 })?;
-            resolved.push((index, *target));
+            resolved.push((index, Value::Integer(*target as i64)));
+        }
+        if matches!(instruction.code, Code::EnterLoop)
+        {
+            let invalid = || CompileError
+                {
+                    location: instruction.location.clone(),
+                    what: ErrorWhat::InvalidJump("Expected continue and break labels".to_string())
+                };
+            let Some(Value::Array(labels)) = &instruction.operand else { return Err(invalid()); };
+            if labels.len() != 2 { return Err(invalid()); }
+            let mut addresses = Vec::new();
+            for label in labels.iter()
+            {
+                let Value::Integer(id) = label else { return Err(invalid()); };
+                let target = targets.get(id).ok_or_else(|| CompileError
+                    {
+                        location: instruction.location.clone(),
+                        what: ErrorWhat::InvalidJump(format!("Missing jump label {}", id))
+                    })?;
+                addresses.push(Value::Integer(*target as i64));
+            }
+            resolved.push((index, Value::from_array(addresses)));
         }
     }
     for (index, target) in resolved
     {
-        instructions[index].operand = Some(Value::Integer(target as i64));
+        instructions[index].operand = Some(target);
     }
     for instruction in instructions
     {
         if matches!(instruction.code, Code::JumpTarget) { instruction.operand = None; }
     }
+    Ok(())
+}
+
+
+fn compile_for_statement(instructions: &mut Vec<Instruction>,
+                          function_block: &FunctionBlockRef,
+                          statement: &AstForStatement) -> CompileResult<()>
+{
+    let location = Some(statement.location.clone());
+    compile_expression(instructions, function_block, &statement.iterable)?;
+    instructions.push(Instruction { location: location.clone(), code: Code::PushResult, operand: None });
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::StartIteration,
+            operand: Some(Value::Integer(statement.bindings.len() as i64))
+        });
+
+    // Register once. Continue targets the next iteration, not EnterLoop itself.
+    let enter = instructions.len();
+    instructions.push(Instruction { location: location.clone(), code: Code::EnterLoop, operand: None });
+    // Reserve labels using distinct emitted positions, just as conditionals do.
+    let start = Value::Integer(instructions.len() as i64);
+    instructions.push(Instruction { location: location.clone(), code: Code::JumpTarget, operand: Some(start.clone()) });
+    instructions.push(Instruction { location: location.clone(), code: Code::NextIteration, operand: None });
+    let end = Value::Integer(instructions.len() as i64);
+    instructions[enter].operand = Some(Value::from_array(vec![start.clone(), end.clone()]));
+    instructions.push(Instruction { location: location.clone(), code: Code::JumpIfFalse, operand: Some(end.clone()) });
+    instructions.push(Instruction { location: location.clone(), code: Code::CheckResult, operand: None });
+    instructions.push(Instruction { location: location.clone(), code: Code::EnterScope, operand: None });
+    // NextIteration pushes key before value; bind in reverse stack order.
+    for name in statement.bindings.iter().rev()
+    {
+        instructions.push(Instruction
+            {
+                location: location.clone(),
+                code: Code::BindIteration,
+                operand: Some(Value::from_string(name.clone()))
+            });
+    }
+    compile_statements(instructions, function_block, &statement.body.body, CompileTarget::Toplevel)?;
+    instructions.push(Instruction { location: location.clone(), code: Code::ExitScope, operand: None });
+    instructions.push(Instruction { location: location.clone(), code: Code::Jump, operand: Some(start) });
+    instructions.push(Instruction { location: location.clone(), code: Code::JumpTarget, operand: Some(end) });
+    instructions.push(Instruction { location: location.clone(), code: Code::ExitLoop, operand: None });
+    instructions.push(Instruction { location, code: Code::EndIteration, operand: None });
     Ok(())
 }
 
@@ -981,6 +1051,24 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
                     compile_block(instructions, function_block, block,
                         if implicit_return { CompileTarget::Function } else { CompileTarget::Toplevel })?;
                     // The block's statements already checked or preserved their results.
+                    add_check = false;
+                }
+
+            AstStatement::ForStatement(statement) =>
+                {
+                    compile_for_statement(instructions, function_block, statement)?;
+                    add_check = false;
+                }
+
+            AstStatement::BreakStatement(location) | AstStatement::ContinueStatement(location) =>
+                {
+                    instructions.push(Instruction
+                        {
+                            location: Some(location.clone()),
+                            code: if matches!(ast_item, AstStatement::BreakStatement(_))
+                                { Code::Break } else { Code::Continue },
+                            operand: None
+                        });
                     add_check = false;
                 }
         }

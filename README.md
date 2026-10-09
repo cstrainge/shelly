@@ -513,6 +513,81 @@ command arguments. Blocks scope variables; function definitions retain their
 existing hoisting into the enclosing function or top level, and aliases remain
 global.
 
+## For loops
+
+Use one binding for array elements or range integers, and two bindings for map
+keys and values. The expression after `in` can be a literal, a variable, an
+indexed value, a conditional, or a function call:
+
+```text
+for $index in 1..4
+{
+    echo $index              # 1, then 2, then 3
+}
+
+let $items = ["red", "green", "blue"]
+for $value in $items { echo $value }
+for $value in [10, 20] { echo $value }
+
+let $settings = ["width": 80, "height": 24]
+for $key, $value in $settings { echo $key $value }
+for $key, $value in ["answer": 42] { echo $key $value }
+```
+
+The iterable is evaluated once, before any loop bindings are created. Array
+elements retain their types and are visited in array order. Maps visit each
+key/value pair once in unspecified order; keys use the map's canonical value
+representation. Iteration uses a snapshot: assigning to the source collection or
+mutating it during the loop does not change the remaining iterations. Changing
+a collection held by a loop binding also leaves the original element unchanged.
+
+Range iteration is lazy and requires both integer bounds. `..` excludes the end,
+`..=` includes it, and reversed ranges are empty. Empty arrays, maps, and ranges
+skip the body. Other iterable types, two bindings for arrays/ranges, one binding
+for maps, and duplicate binding names produce errors.
+
+Every loop requires a block. Each iteration creates a fresh scope containing its
+bindings and body-local variables. These can shadow outer variables; assignment
+to other existing variables still updates the nearest visible binding. Neither
+the bindings nor body-local variables escape. Nested loops work, and `return`
+exits the enclosing function, cleaning up active loop scopes and iterators.
+Runtime errors also stop iteration and clean up those scopes.
+
+`for` is a statement; a function or conditional branch ending in a loop produces
+`()`. Body results are discarded and command failures propagate normally.
+Function definitions and aliases inside loops follow the existing hoisting and
+global-alias rules for blocks.
+
+`break` leaves the innermost active loop; `continue` skips the remainder of its
+current iteration and advances to the next element. Neither accepts a value or
+a loop label:
+
+```text
+for $i in 0..5
+{
+    if $i == 1 { continue }
+    if $i == 3 { break }
+    echo $i                  # 0, then 2
+}
+```
+
+Both statements unwind the current iteration's scopes, including nested blocks,
+and discard abandoned expression temporaries. Executing either without an active
+loop in the current function or top-level execution produces an error. A called
+function cannot control its caller's loop. Skipped branches still require valid
+syntax, but do not execute their loop-control statements.
+
+The compiler emits `StartIteration`, `NextIteration`, `BindIteration`, and
+`EndIteration` with scoped bindings and labeled jumps. `EnterLoop` carries the
+continue and break labels; after optimization, linking resolves both to numeric
+`JumpTarget` indexes, just like other jumps. It pushes those addresses and the
+scope/stack depths onto a loop stack. `Break` and `Continue` restore that saved
+state and jump to the appropriate address. Continue lands before advancing the
+iterator; break lands at loop cleanup, where `ExitLoop` pops the frame and
+`EndIteration` releases the iterator. Normal exhaustion uses the same cleanup.
+Loop and iterator stacks are local to each VM execution frame and are discarded
+on returns and errors.
+
 ## Conditional expressions
 
 `if condition { ... }`, `else if condition { ... }`, and `else { ... }` form a
@@ -633,8 +708,9 @@ useful inside a function or a longer program.
   directly from commands and functions.
 - **Pipelines for text and structured data.** Connect Unix tools with commands
   that consume and produce structs, with conversions at command boundaries.
-- **Control flow and collections.** Loops and ordering comparisons (`<`, `>`)
-  remain planned; array/map literals and indexing are implemented.
+- **Control flow and collections.** `for` loops, ranges, and array/map literals
+  and indexing are implemented. Further loop control and ordering comparisons
+  (`<`, `>`) remain planned.
 
 The draft [test.shy](test.shy) sketches how Shelly could test itself by discovering
 scripts, looping over them, inspecting results, and reporting failures. It is a

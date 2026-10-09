@@ -336,6 +336,15 @@ pub struct AstIfExpression
 }
 
 
+pub struct AstForStatement
+{
+    pub location: Location,
+    pub bindings: Vec<String>,
+    pub iterable: AstExpression,
+    pub body: AstBlockStatement
+}
+
+
 pub enum AstStatement
 {
     LetStatement(Box<AstLetStatement>),
@@ -346,6 +355,9 @@ pub enum AstStatement
     ReturnStatement(Box<AstReturnStatement>),
     FunctionDefinition(Box<AstFunctionStatement>),
     BlockStatement(Box<AstBlockStatement>),
+    ForStatement(Box<AstForStatement>),
+    BreakStatement(Location),
+    ContinueStatement(Location),
     NullStatement
 }
 

@@ -381,6 +381,44 @@ pub(super) fn parse_if_expression(buffer: &mut TokenBuffer<'_, '_>,
 }
 
 
+fn parse_for_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
+{
+    let keyword = expect_token(buffer, TokenKind::For)?;
+    let first = expect_token(buffer, TokenKind::Identifier)?;
+    let mut bindings = vec![first.token_value_text()];
+    if try_expect_token(buffer, TokenKind::Comma)?.is_some()
+    {
+        let second = expect_token(buffer, TokenKind::Identifier)?;
+        let name = second.token_value_text();
+        if name == bindings[0]
+        {
+            return Err(ParserError
+                {
+                    location: Some(second.location),
+                    kind: ParserErrorKind::DuplicateLoopBinding(name)
+                });
+        }
+        bindings.push(name);
+    }
+    expect_token(buffer, TokenKind::In)?;
+    let iterable = parse_condition_expression(buffer)?.ok_or_else(|| ParserError
+        {
+            location: Some(keyword.location.clone()),
+            kind: ParserErrorKind::ExpectedExpression
+        })?;
+    while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+    let body = parse_block(buffer)?;
+    expect_statement_end(buffer)?;
+    Ok(Some(AstStatement::ForStatement(Box::new(AstForStatement
+        {
+            location: keyword.location,
+            bindings,
+            iterable,
+            body
+        }))))
+}
+
+
 pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     // EOF is normal between statements. Rewind a real token so the statement rules see it, and
@@ -404,6 +442,17 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     if next_kind == TokenKind::Return
     {
         return parse_return_statement(buffer);
+    }
+
+    if next_kind == TokenKind::For { return parse_for_statement(buffer); }
+
+    if matches!(next_kind, TokenKind::Break | TokenKind::Continue)
+    {
+        let keyword = expect_token(buffer, next_kind)?;
+        expect_statement_end(buffer)?;
+        return Ok(Some(if next_kind == TokenKind::Break
+            { AstStatement::BreakStatement(keyword.location) }
+            else { AstStatement::ContinueStatement(keyword.location) }));
     }
 
     if next_kind == TokenKind::If

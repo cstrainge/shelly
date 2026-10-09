@@ -20,6 +20,7 @@ pub enum ParserErrorKind
     UnexpectedElse,
     ExpressionNotString,
     DuplicateParameter(String),
+    DuplicateLoopBinding(String),
     NoProgress,
 }
 
@@ -71,6 +72,9 @@ impl Display for ParserErrorKind
 
             ParserErrorKind::DuplicateParameter(name) =>
                 write!(f, "Duplicate function parameter: {}.", name),
+
+            ParserErrorKind::DuplicateLoopBinding(name) =>
+                write!(f, "Duplicate loop binding: {}.", name),
 
             ParserErrorKind::NoProgress =>
                 write!(f, "Repeated parser succeeded without consuming a token.")

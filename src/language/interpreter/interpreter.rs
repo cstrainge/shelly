@@ -35,6 +35,16 @@ const BANNER_256: &str = include_str!("../../../banner_256.txt");
 const BANNER_MONO: &str = include_str!("../../../banner_mono.txt");
 
 
+struct LoopFrame
+{
+    continue_target: usize,
+    break_target: usize,
+    scope: usize,
+    stack_depth: usize,
+    iteration_depth: usize
+}
+
+
 pub enum ErrorWhat
 {
     ParserError(ParserError),
@@ -44,6 +54,8 @@ pub enum ErrorWhat
     ArrayError(String),
     HashMapError(String),
     RangeError(String),
+    IterationError(String),
+    LoopControlError(String),
     CommandNotFound(String, Location),
     ArgumentMismatch(String),
     FileGlobError(String),
@@ -71,6 +83,8 @@ impl Display for ErrorWhat
             ErrorWhat::ArrayError(message) => write!(f, "Array error: {}.", message),
             ErrorWhat::HashMapError(message) => write!(f, "Hash map error: {}.", message),
             ErrorWhat::RangeError(message) => write!(f, "Range error: {}.", message),
+            ErrorWhat::IterationError(message) => write!(f, "Iteration error: {}.", message),
+            ErrorWhat::LoopControlError(message) => write!(f, "Loop control error: {}.", message),
             ErrorWhat::CommandNotFound(command, location) => write!(f, "Command not found: {} at {}.", command, location),
             ErrorWhat::FileGlobError(message) => write!(f, "File glob error: {}.", message),
             ErrorWhat::StackUnderflow => write!(f, "Stack underflow"),
@@ -505,6 +519,8 @@ impl Interpreter
                                    initial_scope: usize) -> InterpreterResult<()>
     {
         let mut stack: VecDeque<Value> = VecDeque::new();
+        let mut iterations: Vec<super::iteration::Iteration> = Vec::new();
+        let mut loops: Vec<LoopFrame> = Vec::new();
         let mut instruction_pointer: usize = 0;
         let mut location: Location = Location::default();
 
@@ -704,7 +720,7 @@ impl Interpreter
                         self.aliases.insert(alias.clone(), Alias { name: target, arguments });
                     },
 
-                Code::NewVariable =>
+                Code::NewVariable | Code::BindIteration =>
                     {
                         let variable_name = match &instruction.operand
                             {
@@ -717,10 +733,12 @@ impl Interpreter
                                     })
                             };
 
+                        let value = if matches!(instruction.code, Code::BindIteration)
+                            { Self::pop(&location, &mut stack)? } else { Value::None };
                         if let Err(error) = self.variables.create(variable_name,
                             ScopedValue
                                 {
-                                    value: Value::None,
+                                    value,
                                     exported: ValueVisibility::Private
                                 })
                         {
@@ -767,6 +785,55 @@ impl Interpreter
                                         "Variable not found for SetVariable instruction.".to_string())
                                 });
                         }
+                    },
+
+                Code::StartIteration =>
+                    {
+                        let Some(Value::Integer(bindings @ (1 | 2))) = instruction.operand else
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand("Expected one or two loop bindings".to_string())
+                                });
+                        };
+                        let value = Self::pop(&location, &mut stack)?;
+                        let iteration = super::iteration::Iteration::new(value, bindings)
+                            .map_err(|message| InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::IterationError(message.to_string())
+                                })?;
+                        iterations.push(iteration);
+                    },
+
+                Code::NextIteration =>
+                    {
+                        let iteration = iterations.last_mut().ok_or_else(|| InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::InvalidOperand("No active iteration".to_string())
+                            })?;
+                        if let Some((first, second)) = iteration.next()
+                        {
+                            Self::push(&mut stack, first);
+                            if let Some(second) = second { Self::push(&mut stack, second); }
+                            self.last_result = Some(Value::Boolean(true));
+                        }
+                        else
+                        {
+                            self.last_result = Some(Value::Boolean(false));
+                        }
+                    },
+
+                Code::EndIteration =>
+                    {
+                        iterations.pop().ok_or_else(|| InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::InvalidOperand("No active iteration".to_string())
+                            })?;
+                        self.last_result = None;
                     },
 
                 Code::MakeRange =>
@@ -1079,24 +1146,67 @@ impl Interpreter
                         self.variables.pop_scope();
                     },
 
+                Code::EnterLoop =>
+                    {
+                        let Some(Value::Array(targets)) = &instruction.operand else
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand("Expected two linked loop targets".to_string())
+                                });
+                        };
+                        if targets.len() != 2
+                        {
+                            return Err(InterpreterError
+                                {
+                                    location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand("Expected two linked loop targets".to_string())
+                                });
+                        }
+                        loops.push(LoopFrame
+                            {
+                                continue_target: Self::jump_target(instructions, targets.first(), &location)?,
+                                break_target: Self::jump_target(instructions, targets.get(1), &location)?,
+                                scope: self.variables.current_scope(),
+                                stack_depth: stack.len(),
+                                iteration_depth: iterations.len()
+                            });
+                    },
+
+                Code::ExitLoop =>
+                    {
+                        loops.pop().ok_or_else(|| InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::InvalidOperand("No active loop to exit".to_string())
+                            })?;
+                    },
+
+                Code::Break | Code::Continue =>
+                    {
+                        let frame = loops.last().ok_or_else(|| InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::LoopControlError(format!("Cannot {} outside a loop",
+                                    if matches!(instruction.code, Code::Break) { "break" } else { "continue" }))
+                            })?;
+                        // A transfer may abandon nested blocks and partially evaluated
+                        // expressions. Restore the state saved before the iteration body.
+                        self.variables.reset_to_scope(frame.scope);
+                        stack.truncate(frame.stack_depth);
+                        iterations.truncate(frame.iteration_depth);
+                        self.last_result = None;
+                        instruction_pointer = if matches!(instruction.code, Code::Break)
+                            { frame.break_target } else { frame.continue_target };
+                        continue;
+                    },
+
                 Code::JumpTarget => {},
 
                 Code::Jump | Code::JumpIfFalse | Code::JumpIfTrue =>
                     {
-                        let invalid_target = || InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::InvalidOperand("Expected a linked jump target".to_string())
-                            };
-                        let Some(Value::Integer(target)) = instruction.operand else
-                        {
-                            return Err(invalid_target());
-                        };
-                        let target = usize::try_from(target).map_err(|_| invalid_target())?;
-                        if !matches!(instructions.get(target), Some(Instruction { code: Code::JumpTarget, .. }))
-                        {
-                            return Err(invalid_target());
-                        }
+                        let target = Self::jump_target(instructions, instruction.operand.as_ref(), &location)?;
                         let jump = if matches!(instruction.code, Code::Jump)
                             {
                                 true
@@ -1527,6 +1637,23 @@ impl Interpreter
     fn push(stack: &mut VecDeque<Value>, value: Value)
     {
         stack.push_back(value);
+    }
+
+    fn jump_target(instructions: &[Instruction], operand: Option<&Value>,
+                    location: &Location) -> InterpreterResult<usize>
+    {
+        let invalid = || InterpreterError
+            {
+                location: location.clone(),
+                what: ErrorWhat::InvalidOperand("Expected a linked jump target".to_string())
+            };
+        let Some(Value::Integer(target)) = operand else { return Err(invalid()); };
+        let target = usize::try_from(*target).map_err(|_| invalid())?;
+        if !matches!(instructions.get(target), Some(Instruction { code: Code::JumpTarget, .. }))
+        {
+            return Err(invalid());
+        }
+        Ok(target)
     }
 
     fn range_bound(location: &Location, value: Value) -> InterpreterResult<i64>

@@ -31,6 +31,19 @@ pub enum Code
     MakeHashMap,
     // Operand bits indicate a supplied start (1), end (2), and inclusive end (4).
     MakeRange,
+    // Start consumes the iterable; operand is the binding count. Next pushes
+    // yielded bindings and sets a boolean result for the following linked jump.
+    StartIteration,
+    NextIteration,
+    // Pop a yielded value into a fresh scoped binding without assignment coercions.
+    BindIteration,
+    EndIteration,
+    // Operand is [continue target, break target]: labels before linking, numeric
+    // JumpTarget indexes afterwards. Enter pushes a loop frame; Exit pops it.
+    EnterLoop,
+    ExitLoop,
+    Break,
+    Continue,
     GetElement,
     SetElement,
     ExpandPath,
@@ -50,7 +63,7 @@ pub enum Code
     BooleanNot,
     // Before linking: label IDs local to this code vector. After linking: direct
     // instruction indexes pointing at JumpTarget. Preserve last_result and the stack.
-    // Unconditional branching is reserved for subsequent control-flow constructs.
+    // Unconditional jumps also form loop back edges.
     Jump,
     JumpIfFalse,
     JumpIfTrue,
