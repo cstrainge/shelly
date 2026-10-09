@@ -632,7 +632,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     Code::Push | Code::NewVariable | Code::SetVariable | Code::GetVariable
                     | Code::NewAlias | Code::ExportVariable | Code::GlobFiles
                     | Code::ExpandArray | Code::ExpandPath | Code::InterpolateString
-                    | Code::InterpolateGlob | Code::_EnterScope | Code::_ExitScope
+                    | Code::InterpolateGlob | Code::EnterScope | Code::ExitScope
                     | Code::MathAdd | Code::MathSubtract | Code::MathMultiply
                     | Code::MathDivide | Code::MathModulo | Code::CompareEqual
                     | Code::CompareNotEqual => result_is_empty
@@ -702,17 +702,20 @@ fn link_instructions(instructions: &mut [Instruction]) -> CompileResult<()>
 }
 
 
-pub fn compile_ast(function_block: &FunctionBlockRef,
-                   ast: &AstTopLevel,
-                   target: CompileTarget) -> CompileResult<Vec<Instruction>>
+// Inline scoped blocks into their enclosing code vector. Optimize and link only
+// after the entire vector has been emitted, so nested labels remain unique.
+fn compile_statements(instructions: &mut Vec<Instruction>,
+                       function_block: &FunctionBlockRef,
+                       ast: &AstTopLevel,
+                       target: CompileTarget) -> CompileResult<()>
 {
-    let mut instructions = Vec::new();
     let last_statement = ast.iter()
         .rposition(|statement| !matches!(statement, AstStatement::NullStatement));
 
     for (index, ast_item) in ast.iter().enumerate()
     {
         let mut add_check = true;
+        let implicit_return = target == CompileTarget::Function && last_statement == Some(index);
 
         match ast_item
         {
@@ -720,30 +723,30 @@ pub fn compile_ast(function_block: &FunctionBlockRef,
 
             AstStatement::LetStatement(let_statement) =>
                 {
-                    compile_let_statement(&mut instructions, let_statement);
+                    compile_let_statement(instructions, let_statement);
                     add_check = false;
                 },
 
             AstStatement::SetStatement(set_statement) =>
                 {
-                    compile_set_statement(&mut instructions, set_statement);
+                    compile_set_statement(instructions, set_statement);
                     add_check = false;
                 },
 
             AstStatement::AliasStatement(alias_statement) =>
                 {
-                    compile_alias_statement(&mut instructions, alias_statement);
+                    compile_alias_statement(instructions, alias_statement);
                     add_check = false;
                 },
 
             AstStatement::ExecuteStatement(execute_statement) =>
                 {
-                    compile_execute_statement(&mut instructions, execute_statement);
+                    compile_execute_statement(instructions, execute_statement);
                 }
 
             AstStatement::ExpressionStatement(expression) =>
                 {
-                    compile_expression(&mut instructions, expression);
+                    compile_expression(instructions, expression);
 
                     if matches!(&expression.kind, AstExpressionKind::Variable(_))
                     {
@@ -758,7 +761,7 @@ pub fn compile_ast(function_block: &FunctionBlockRef,
 
             AstStatement::ReturnStatement(return_statement) =>
                 {
-                    compile_return_statement(&mut instructions, return_statement);
+                    compile_return_statement(instructions, return_statement);
                     add_check = false;
                 }
 
@@ -767,10 +770,27 @@ pub fn compile_ast(function_block: &FunctionBlockRef,
                     compile_function_definition(&function_block, function_statement)?;
                     add_check = false;
                 }
-        }
 
-        let implicit_return =    target == CompileTarget::Function
-                              && last_statement == Some(index);
+            AstStatement::BlockStatement(block) =>
+                {
+                    instructions.push(Instruction
+                        {
+                            location: Some(block.location.clone()),
+                            code: Code::EnterScope,
+                            operand: None
+                        });
+                    compile_statements(instructions, function_block, &block.body,
+                        if implicit_return { CompileTarget::Function } else { CompileTarget::Toplevel })?;
+                    instructions.push(Instruction
+                        {
+                            location: Some(block.location.clone()),
+                            code: Code::ExitScope,
+                            operand: None
+                        });
+                    // The block's statements already checked or preserved their results.
+                    add_check = false;
+                }
+        }
 
         if add_check && !implicit_return
         {
@@ -785,7 +805,8 @@ pub fn compile_ast(function_block: &FunctionBlockRef,
 
     if target == CompileTarget::Function && last_statement.is_none_or(|index|
         !matches!(ast[index], AstStatement::ExpressionStatement(_)
-            | AstStatement::ExecuteStatement(_) | AstStatement::ReturnStatement(_)))
+            | AstStatement::ExecuteStatement(_) | AstStatement::ReturnStatement(_)
+            | AstStatement::BlockStatement(_)))
     {
         instructions.push(Instruction
             {
@@ -795,6 +816,17 @@ pub fn compile_ast(function_block: &FunctionBlockRef,
             });
         instructions.push(Instruction { location: None, code: Code::PopResult, operand: None });
     }
+
+    Ok(())
+}
+
+
+pub fn compile_ast(function_block: &FunctionBlockRef,
+                   ast: &AstTopLevel,
+                   target: CompileTarget) -> CompileResult<Vec<Instruction>>
+{
+    let mut instructions = Vec::new();
+    compile_statements(&mut instructions, function_block, ast, target)?;
 
     optimize_instructions(&mut instructions);
     remove_empty_result_checks(&mut instructions);

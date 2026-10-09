@@ -303,6 +303,24 @@ fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
 }
 
 
+fn parse_block_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
+{
+    let location =
+        {
+            let peek = Lookahead::new(buffer);
+            expect_token(peek.buffer, TokenKind::BlockOpen)?.location
+        };
+    let body = expect_block_list_of(buffer,
+                                    TokenKind::BlockOpen,
+                                    TokenKind::BlockClose,
+                                    None,
+                                    &(parse_statement as fn(&mut TokenBuffer<'_, '_>)
+                                      -> ParseResult<Option<AstStatement>>))?;
+
+    Ok(Some(AstStatement::BlockStatement(Box::new(AstBlockStatement { location, body }))))
+}
+
+
 pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     // EOF is normal between statements. Rewind a real token so the statement rules see it, and
@@ -328,6 +346,7 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
         return parse_return_statement(buffer);
     }
 
+    if next_kind == TokenKind::BlockOpen { return parse_block_statement(buffer); }
     if next_kind == TokenKind::Let { return parse_let_statement(buffer); }
     if next_kind == TokenKind::Alias { return parse_alias_statement(buffer); }
     if next_kind == TokenKind::Identifier

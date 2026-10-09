@@ -299,6 +299,13 @@ pub fn new_ast_alias_statement(location: Location,
 }
 
 
+pub struct AstBlockStatement
+{
+    pub location: Location,
+    pub body: AstTopLevel
+}
+
+
 pub enum AstStatement
 {
     LetStatement(Box<AstLetStatement>),
@@ -308,6 +315,7 @@ pub enum AstStatement
     ExpressionStatement(AstExpression),
     ReturnStatement(Box<AstReturnStatement>),
     FunctionDefinition(Box<AstFunctionStatement>),
+    BlockStatement(Box<AstBlockStatement>),
     NullStatement
 }
 

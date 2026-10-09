@@ -319,12 +319,42 @@ fn welcome($name)
 welcome 'world'
 ```
 
-Variable lookup searches active call scopes; assignment updates the nearest
+Variable lookup searches active block and call scopes; assignment updates the nearest
 visible binding. This currently gives variables dynamic caller scope. Nested
 function names follow their containing function blocks. `let` creates or replaces
 a binding in the current scope. The initializer runs before the binding is
 replaced, so `let $x = $x + 1` can read the old value. An initializer error does
 not overwrite the binding with an empty value.
+
+## Scoped code blocks
+
+Standalone `{ ... }` blocks create variable scopes and may be nested, both at the
+top level and inside functions. `let` creates a binding local to the block;
+assignment without `let` updates the nearest visible binding.
+
+```text
+let $x = 1
+{
+    let $x = $x + 1
+    { let $x = 3; echo $x }  # 3
+    echo $x                 # 2
+}
+echo $x                     # 1
+{ $x = 4 }
+echo $x                     # 4
+```
+
+The compiler emits `EnterScope` and `ExitScope` around each block. Returns and
+runtime errors also unwind any active block scopes. `return` inside a block exits
+the enclosing function; it remains an error at the top level. A block at the end
+of a function supplies its last expression as the implicit return value, including
+through nested blocks. An empty final block, or one ending in a declaration,
+supplies `()`.
+
+Blocks are statements; `{ ... }` is not yet an expression for assignments or
+command arguments. Blocks scope variables; function definitions retain their
+existing hoisting into the enclosing function or top level, and aliases remain
+global.
 
 ## Processes, aliases, and environment
 

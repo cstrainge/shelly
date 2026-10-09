@@ -921,12 +921,12 @@ impl Interpreter
                             matches!(instruction.code, Code::InterpolateGlob))?;
                     },
 
-                Code::_EnterScope =>
+                Code::EnterScope =>
                     {
                         self.variables.push_scope();
                     },
 
-                Code::_ExitScope =>
+                Code::ExitScope =>
                     {
                         if self.variables.current_scope() == initial_scope
                         {
