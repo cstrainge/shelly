@@ -1,6 +1,53 @@
 #!/usr/bin/env shelly
 
 
+fn run_test($test_file: String, $output_file: String, $expect_success: Boolean): Boolean
+{
+    let $test_name: String
+    let $output_name: String
+
+    basename -- $test_file .shy ~+-> $test_name
+    basename -- $output_file .txt ~+-> $output_name
+
+    if $test_name != $output_name
+    {
+        echo "$test_file has no matching expected output file; found $output_file."
+        return false
+    }
+
+    let $expected_output: String
+    $output_file -> $expected_output
+
+    let $output: String
+    let $result = $shelly $test_file ~+-> $output
+    let $succeeded: Boolean = !!$result
+
+    if $succeeded != $expect_success
+    {
+        if $expect_success
+        {
+            echo "$test_file failed (result: $result)."
+        }
+        else
+        {
+            echo "$test_file unexpectedly succeeded."
+        }
+
+        return false
+    }
+
+    # An empty expected-output file disables output comparison.
+    if    ($expected_output != "")
+       && ($output != $expected_output)
+    {
+        echo "$test_file produced unexpected output."
+        return false
+    }
+
+    true
+}
+
+
 let $must_succeed    = (./tests/must_succeed/*.shy).sort
 let $succeed_outputs = (./tests/must_succeed/*.txt).sort
 
@@ -8,12 +55,13 @@ let $must_fail       = (./tests/must_fail/*.shy).sort
 let $fail_outputs    = (./tests/must_fail/*.txt).sort
 
 
-if    ($must_succeed != $succeed_outputs)
-   || ($must_fail != $fail_outputs)
+if    ($must_succeed.count != $succeed_outputs.count)
+   || ($must_fail.count != $fail_outputs.count)
 {
     echo "* Missing expected output files for tests. Each test must have an expected output .txt
             If the output doesn't matter include an empty .txt file for that test.
           *"
+    exit 1
 }
 
 
@@ -36,50 +84,27 @@ echo "*
 
 let $success_count = 0
 
-for ($test_file, $output_file) in $must_succeed.map($succeed_outputs)
+for ($test_file, $output_file) in $must_succeed.map $succeed_outputs
 {
-    let $output
-    let $result = $test_file ~+-> $output
-    let $expected_output
-
-    $output_file -> $output
-
-    if    $result
-       && ($output == $expected_output)
+    if (run_test $test_file $output_file true)
     {
         $success_count = $success_count + 1
     }
-    else
-    {
-        echo "$file failed."
-    }
 }
 
-for $file in $must_fail
+for ($test_file, $output_file) in $must_fail.map $fail_outputs
 {
-    let $output
-    let $result = $test_file ~+-> $output
-    let $expected_output
-
-    $output_file -> $output
-
-    if    ! $result
-       && ($output == $expected_output)
+    if (run_test $test_file $output_file false)
     {
         $success_count = $success_count + 1
     }
-    else
-    {
-        echo "$file unexpectedly succeeded."
-    }
 }
-
 
 
 echo ${success_count} '/' ${total} tests passed.
 
 
-if ($total - $success_count) != 0
+if $success_count != $total
 {
     exit 1
 }
