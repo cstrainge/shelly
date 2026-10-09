@@ -795,12 +795,36 @@ impl<'a> Tokenizer<'a>
                 });
         }
 
-        // A variable-prefixed path is one interpolated word, not a variable name.
-        if self.pending_operator.is_none() && self.input.peek_next() == Some('/')
+        // A braced variable may start an interpolated word. Keep range and splat
+        // operators separate, but include a single dot (e.g. ${name}.txt).
+        let mut suffix = String::new();
+        if braced && self.pending_operator.is_none() && self.input.peek_next() == Some('.')
         {
-            // Keep braces in interpolated paths to preserve the variable boundary.
+            let dot = self.parse_dot();
+            if matches!(dot.kind, TokenKind::Range | TokenKind::RangeInclusive | TokenKind::Splat)
+            {
+                self.pending_operator = Some(dot);
+            }
+            else
+            {
+                suffix = dot.token_value_text();
+            }
+        }
+
+        // Variable-prefixed paths and braced-variable suffixes are one word.
+        // Indexing, assignment, quotes, and statement delimiters remain separate.
+        if self.pending_operator.is_none()
+            && (!suffix.is_empty() || self.input.peek_next().is_some_and(|next|
+                next == '/' || (braced && !Self::is_separator_char(&next)
+                    && !matches!(next, '[' | ']' | '=' | '\'' | '"'))))
+        {
+            suffix += &self.extract_to_separator(None);
+        }
+        if !suffix.is_empty()
+        {
+            // Preserve the variable boundary when the resulting word is interpolated.
             if braced { identifier = format!("${{{}}}", &identifier[1..]); }
-            identifier += &self.extract_to_separator(None);
+            identifier += &suffix;
             return Ok(Self::symbol_str_to_token(location, identifier));
         }
 

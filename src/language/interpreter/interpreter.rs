@@ -2131,7 +2131,7 @@ impl Interpreter
             return Ok(());
         }
 
-        self.last_result = Some(Value::None);
+        self.last_result = Some(Value::ExecResult(ExecResult::Value(0)));
         Ok(())
     }
 
