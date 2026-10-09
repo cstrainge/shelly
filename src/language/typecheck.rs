@@ -18,6 +18,7 @@ fn error(location: &Location, message: String) -> CompileError
 pub fn check_ast(registry: &mut TypeRegistry, ast: &mut AstTopLevel) -> CompileResult<()>
 {
     let names = check_scope(registry, ast, &registry.names.clone())?;
+    check_binding_scope(registry, ast, &Bindings::new(), None, None)?;
     registry.names = names;
     Ok(())
 }
@@ -94,7 +95,25 @@ fn check_scope(registry: &mut TypeRegistry, ast: &mut AstTopLevel, parent: &Name
             AstStatement::EnumDeclaration(_) | AstStatement::StructDeclaration(_) | AstStatement::NullStatement
             | AstStatement::AliasStatement(_) | AstStatement::BreakStatement(_)
             | AstStatement::ContinueStatement(_) => {},
-            AstStatement::LetStatement(statement) => check_expression(registry, &mut statement.expression, &names)?,
+            AstStatement::LetStatement(statement) =>
+                {
+                    if let Some(annotation) = &statement.annotation
+                    {
+                        let id = resolve_type(registry, annotation, &names, &statement.location)?;
+                        statement.type_id = Some(id);
+                        if statement.default_initialize
+                        {
+                            let value = registry.default_value(id).map_err(|message| error(&statement.location, message))?;
+                            statement.expression = new_ast_literal(statement.location.clone(), value, None);
+                        }
+                    }
+                    check_expression(registry, &mut statement.expression, &names)?;
+                    if let Some(id) = statement.type_id
+                    {
+                        check_known_value(registry, id, &statement.expression)
+                            .map_err(|message| error(&statement.location, format!("Variable '{}': {}", statement.identifier, message)))?;
+                    }
+                },
             AstStatement::SetStatement(statement) =>
                 {
                     for access in &mut statement.indexes
@@ -112,6 +131,25 @@ fn check_scope(registry: &mut TypeRegistry, ast: &mut AstTopLevel, parent: &Name
                 },
             AstStatement::FunctionDefinition(statement) =>
                 {
+                    let mut optional_seen = false;
+                    for parameter in &mut statement.parameters
+                    {
+                        if let Some(annotation) = &parameter.annotation
+                        {
+                            let id = resolve_type(registry, annotation, &names, &parameter.location)?;
+                            parameter.type_id = Some(id);
+                            let definition = registry.get(id);
+                            parameter.optional = matches!(definition.kind, TypeKind::Optional(_));
+                            if parameter.variadic && !matches!(definition.kind, TypeKind::Array(_))
+                                && !(matches!(definition.kind, TypeKind::Builtin) && matches!(definition.name.as_str(), "Array" | "any"))
+                            { return Err(error(&parameter.location, "A variadic parameter requires an array type or any".to_string())); }
+                        }
+                        if optional_seen && !parameter.optional && !parameter.variadic
+                        { return Err(error(&parameter.location, "Required parameters cannot follow optional parameters".to_string())); }
+                        optional_seen |= parameter.optional;
+                    }
+                    if let Some(annotation) = &statement.return_annotation
+                    { statement.return_type = Some(resolve_type(registry, annotation, &names, &statement.location)?); }
                     check_scope(registry, &mut statement.body, &names)?;
                 },
             AstStatement::BlockStatement(block) | AstStatement::LoopStatement(block) =>
@@ -392,4 +430,189 @@ fn check_known_value(registry: &TypeRegistry, expected: TypeId, expression: &Ast
         }
     }
     Ok(())
+}
+
+
+// Binding constraints follow lexical declarations within a body. Functions get
+// fresh binding information because free variables use dynamic scope at runtime.
+// Runtime guards remain authoritative for calls, writes, and all return paths.
+type Bindings = HashMap<String, Option<TypeId>>;
+
+fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bindings,
+                       return_type: Option<TypeId>, tail_type: Option<TypeId>) -> CompileResult<()>
+{
+    let mut bindings = parent.clone();
+    let last = ast.iter().rposition(|statement| !matches!(statement, AstStatement::NullStatement));
+    let mut reachable = true;
+    for (index, statement) in ast.iter().enumerate()
+    {
+        let expected = if reachable && last == Some(index) { tail_type } else { None };
+        match statement
+        {
+            AstStatement::LetStatement(item) =>
+                {
+                    check_binding_expression(registry, &item.expression, &bindings, return_type, item.type_id)?;
+                    bindings.insert(item.identifier.clone(), item.type_id);
+                },
+            AstStatement::SetStatement(item) =>
+                {
+                    for access in &item.indexes
+                    {
+                        if let AstAccess::Index(index) = access
+                        { check_binding_expression(registry, index, &bindings, return_type, None)?; }
+                    }
+                    let constraint = if item.indexes.is_empty()
+                        { bindings.get(&item.identifier).copied().flatten() } else { None };
+                    check_binding_expression(registry, &item.expression, &bindings, return_type, constraint)?;
+                },
+            AstStatement::ExpressionStatement(expression) =>
+                {
+                    check_binding_expression(registry, expression, &bindings, return_type, expected)?;
+                },
+            AstStatement::ExecuteStatement(call) =>
+                {
+                    check_binding_call(registry, call, &bindings, return_type)?;
+                },
+            AstStatement::ReturnStatement(item) =>
+                {
+                    if let Some(expression) = &item.expression
+                    { check_binding_expression(registry, expression, &bindings, return_type, return_type)?; }
+                    else if let Some(id) = return_type
+                    {
+                        registry.validate(id, &Value::None).map_err(|message|
+                            error(&item.location, format!("Return value: {}", message)))?;
+                    }
+                    reachable = false;
+                },
+            AstStatement::FunctionDefinition(item) =>
+                {
+                    let parameters = item.parameters.iter().map(|parameter| (parameter.name.clone(), parameter.type_id)).collect();
+                    check_binding_scope(registry, &item.body, &parameters, item.return_type, item.return_type)?;
+                    if item.body.iter().all(|statement| matches!(statement, AstStatement::NullStatement))
+                        && let Some(id) = item.return_type
+                    {
+                        registry.validate(id, &Value::None).map_err(|message|
+                            error(&item.location, format!("Return value of '{}': {}", item.name, message)))?;
+                    }
+                },
+            AstStatement::BlockStatement(block) =>
+                { check_binding_scope(registry, &block.body, &bindings, return_type, expected)?; },
+            AstStatement::LoopStatement(block) =>
+                { check_binding_scope(registry, &block.body, &bindings, return_type, None)?; },
+            AstStatement::ForStatement(item) =>
+                {
+                    check_binding_expression(registry, &item.iterable, &bindings, return_type, None)?;
+                    let mut loop_bindings = bindings.clone();
+                    for name in &item.bindings { loop_bindings.insert(name.clone(), None); }
+                    check_binding_scope(registry, &item.body.body, &loop_bindings, return_type, None)?;
+                },
+            AstStatement::ConditionalLoopStatement(item) =>
+                {
+                    check_binding_expression(registry, &item.condition, &bindings, return_type, None)?;
+                    check_binding_scope(registry, &item.body.body, &bindings, return_type, None)?;
+                },
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+
+fn check_binding_call(registry: &TypeRegistry, call: &AstExecuteStatement, bindings: &Bindings,
+                      return_type: Option<TypeId>) -> CompileResult<()>
+{
+    check_binding_expression(registry, &call.executable, bindings, return_type, None)?;
+    for argument in &call.arguments
+    { check_binding_expression(registry, argument, bindings, return_type, None)?; }
+    Ok(())
+}
+
+
+fn check_binding_expression(registry: &TypeRegistry, expression: &AstExpression, bindings: &Bindings,
+                            return_type: Option<TypeId>, expected: Option<TypeId>) -> CompileResult<()>
+{
+    if let Some(id) = expected
+    {
+        check_known_value(registry, id, expression)
+            .map_err(|message| error(&expression.location, message))?;
+        if let Some(actual) = binding_type(registry, expression, bindings)
+            // A string in an implicit return may execute and yield another type.
+            && registry.validate(actual, &Value::from_string(String::new())).is_err()
+            && !registry.may_overlap(id, actual)
+        {
+            return Err(error(&expression.location, format!("Expected {}, got {}",
+                registry.get(id).name, registry.get(actual).name)));
+        }
+    }
+    match &expression.kind
+    {
+        AstExpressionKind::IfExpression(item) =>
+            {
+                for branch in &item.branches
+                {
+                    check_binding_expression(registry, &branch.condition, bindings, return_type, None)?;
+                    check_binding_scope(registry, &branch.body.body, bindings, return_type, expected)?;
+                }
+                if let Some(block) = &item.else_body
+                { check_binding_scope(registry, &block.body, bindings, return_type, expected)?; }
+            },
+        AstExpressionKind::Grouped(inner) =>
+            { check_binding_expression(registry, inner, bindings, return_type, expected)?; },
+        AstExpressionKind::Execute(call) => check_binding_call(registry, call, bindings, return_type)?,
+        AstExpressionKind::Array(values) =>
+            {
+                for value in values { check_binding_expression(registry, value, bindings, return_type, None)?; }
+            },
+        AstExpressionKind::HashMap(entries) =>
+            {
+                for (key, value) in entries
+                {
+                    check_binding_expression(registry, key, bindings, return_type, None)?;
+                    check_binding_expression(registry, value, bindings, return_type, None)?;
+                }
+            },
+        AstExpressionKind::StructConstructor(item) =>
+            {
+                for (_, _, value) in &item.fields
+                { check_binding_expression(registry, value, bindings, return_type, None)?; }
+            },
+        AstExpressionKind::Range(start, end, _) =>
+            {
+                for value in [start, end].into_iter().flatten()
+                { check_binding_expression(registry, value, bindings, return_type, None)?; }
+            },
+        AstExpressionKind::MathExpression(_, left, right) | AstExpressionKind::BooleanExpression(_, left, right)
+        | AstExpressionKind::Index(left, right) =>
+            {
+                check_binding_expression(registry, left, bindings, return_type, None)?;
+                check_binding_expression(registry, right, bindings, return_type, None)?;
+            },
+        AstExpressionKind::Splat(value) | AstExpressionKind::Field(value, _, _) | AstExpressionKind::BooleanNot(value)
+        | AstExpressionKind::ExecutableReference(value) | AstExpressionKind::TryExecute(value) =>
+            { check_binding_expression(registry, value, bindings, return_type, None)?; },
+        _ => {}
+    }
+    Ok(())
+}
+
+
+fn binding_type(registry: &TypeRegistry, expression: &AstExpression, bindings: &Bindings) -> Option<TypeId>
+{
+    match &expression.kind
+    {
+        AstExpressionKind::Variable(variable) => bindings.get(&variable.name).copied().flatten(),
+        AstExpressionKind::Grouped(inner) => binding_type(registry, inner, bindings),
+        AstExpressionKind::Field(object, name, _) =>
+            {
+                let definition = registry.get(binding_type(registry, object, bindings)?);
+                let TypeKind::Struct(fields) = &definition.kind else { return None; };
+                fields.iter().find(|field| field.name == *name).map(|field| field.type_id)
+            },
+        AstExpressionKind::Index(object, _) => match registry.get(binding_type(registry, object, bindings)?).kind
+            {
+                TypeKind::Array(element) => Some(element),
+                _ => None
+            },
+        _ => known_type(registry, expression)
+    }
 }

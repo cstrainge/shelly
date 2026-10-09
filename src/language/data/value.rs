@@ -15,11 +15,38 @@ pub enum ExecResult
 }
 
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub enum Executable
 {
     Yes,
-    No
+    No,
+    Function(crate::language::bytecode::FunctionRef)
+}
+
+impl std::fmt::Debug for Executable
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    {
+        match self
+        {
+            Self::Yes => write!(f, "Yes"),
+            Self::No => write!(f, "No"),
+            Self::Function(function) => write!(f, "Function({:p})", Rc::as_ptr(function))
+        }
+    }
+}
+
+impl PartialEq for Executable
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        match (self, other)
+        {
+            (Self::Yes, Self::Yes) | (Self::No, Self::No) => true,
+            (Self::Function(left), Self::Function(right)) => Rc::ptr_eq(left, right),
+            _ => false
+        }
+    }
 }
 
 

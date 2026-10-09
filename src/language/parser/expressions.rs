@@ -359,6 +359,21 @@ pub(super) fn expect_field_label(buffer: &mut TokenBuffer<'_, '_>) -> ParseResul
 
 pub(super) fn parse_type(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<AstType>
 {
+    parse_type_inner(buffer, false, &mut false)
+}
+
+
+pub(super) fn parse_parameter_type(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<(AstType, bool)>
+{
+    let mut variadic = false;
+    let annotation = parse_type_inner(buffer, true, &mut variadic)?;
+    if !variadic && try_expect_token(buffer, TokenKind::Splat)?.is_some() { variadic = true; }
+    Ok((annotation, variadic))
+}
+
+
+fn parse_type_inner(buffer: &mut TokenBuffer<'_, '_>, allow_variadic: bool, variadic: &mut bool) -> ParseResult<AstType>
+{
     if try_expect_token(buffer, TokenKind::SquareOpen)?.is_some()
     {
         skip_array_newlines(buffer)?;
@@ -374,8 +389,22 @@ pub(super) fn parse_type(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<AstTyp
         expect_token(buffer, TokenKind::SquareClose)?;
         return Ok(result);
     }
-    let name = expect_type_name(buffer)?.token_value_text();
-    if name == "optional" { return Ok(AstType::Optional(Box::new(parse_type(buffer)?))); }
+    let token = expect_token(buffer, TokenKind::Symbol)?;
+    let mut name = token.token_value_text();
+    // Shell words retain dots, so recognize an attached type suffix here,
+    // without changing tokenization of ordinary command arguments like foo....
+    if allow_variadic && let Some(element) = name.strip_suffix("...")
+    {
+        name = element.to_string();
+        *variadic = true;
+    }
+    if !valid_type_name(&name) || name == "optional" && *variadic
+    {
+        return Err(ParserError { location: Some(token.location),
+            kind: ParserErrorKind::InvalidType("Expected a type name.".to_string()) });
+    }
+    if name == "optional"
+    { return Ok(AstType::Optional(Box::new(parse_type_inner(buffer, allow_variadic, variadic)?))); }
     Ok(AstType::Named(name))
 }
 

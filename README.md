@@ -72,6 +72,46 @@ echo $x                     # 512
 Variable names cannot contain `=`, including braced names and function parameters.
 Keep spaces around assignment `=`; adjacent `==` and `!=` remain comparisons.
 
+An optional `: Type` annotation constrains a variable's initializer and subsequent
+writes. Type names are case-sensitive: use `Number`, not `number`.
+
+```text
+let $count: Number                 # Defaults to 0
+let $label: String = "items"
+let $values: [Number] = [1, 2.5]
+let $lookup: [String: Number]
+let $maybe: optional Number        # Defaults to ()
+$count = 3.5
+$lookup["count"] = $count
+```
+
+Annotated declarations may omit `= expression`. Defaults are:
+
+| Type | Default |
+| --- | --- |
+| `Number`, `Integer`, `Float` | Zero of the appropriate numeric type |
+| `Boolean` | `false` |
+| `String` | Empty string |
+| `[T]`, `Array` | `[]` |
+| `[K: V]`, `HashMap` | `[:]` |
+| `optional T`, `None`, `any` | `()` |
+| `Range` | `0..0` |
+| `ExecResult` | `ExecResult(0)` |
+| `ArgumentExpansion` | Empty argument expansion |
+
+Structs and enums require an initializer unless wrapped in `optional`; empty
+containers of those types need no initializer. `let $x` without a type or an
+initializer remains an error. Annotations use the same types and nested container
+constraints as struct fields. `Number` accepts integers and floats, but does not
+coerce strings or booleans. Failed initializers and writes preserve the previous
+binding, including its constraint. Indexed and field writes validate the updated
+value before committing it.
+
+Unannotated bindings remain dynamically typed. A new `let` declaration may replace
+an existing binding and its annotation; inner declarations shadow outer bindings.
+Typed bindings preserve the assigned value's type, including `ArgumentExpansion`;
+untyped assignments retain their existing expansion-to-array conversion.
+
 Values include signed 64-bit integers, floating-point values, booleans, strings,
 arrays, hash maps, ranges, enums, structs, the no-value result displayed as `()`, and external
 command statuses such as `ExecResult(0)`. Arrays come from literals, `$args`, and
@@ -572,6 +612,74 @@ echo (foo 3)                # 6144
 echo (foo 3) + 1            # 6145
 ```
 
+Parameters and return values can also be annotated:
+
+```text
+struct Item { $value Number }
+
+fn make_item($value: Number): Item
+{
+    Item(value: $value)
+}
+
+let $item: Item = make_item 42
+echo $item.value
+```
+
+Parameter types are checked before the function body runs and remain constraints
+on assignments to those parameters. The return annotation applies to both explicit
+and implicit returns. Bare `return` and fallthrough returning `()` require a type
+that accepts `None`, such as `optional Number` or `any`. Unannotated parameters and
+returns remain unrestricted. Arguments are not coerced to meet annotations.
+
+Trailing parameters annotated `optional T` may be omitted from right to left:
+
+```text
+fn describe($value: Number, $label: optional String, $limit: optional Number)
+{
+    echo $value $label $limit
+}
+
+describe 7                       # 7 () ()
+describe 7 "items"               # 7 items ()
+describe 7 "items" 10            # 7 items 10
+```
+
+Required parameters cannot follow optional ones. Use `optional any` for an
+omittable parameter accepting any value. Explicit `()` occupies its argument
+position, so `describe 7 () 10` skips the label while supplying the limit.
+The compiler emits parameter-binding instructions containing `()` defaults;
+these apply equally to direct calls, aliases, executable variables, and calls
+whose arguments are expanded with `...`.
+
+The final parameter may collect extra arguments into an array. `$rest...` accepts
+elements of any type; `$rest: Number...` binds a `[Number]`:
+
+```text
+fn collect($rest...): Array
+{
+    return $rest
+}
+
+fn sum($values: Number...): Number
+{
+    let $total: Number
+    for $value in $values { $total = $total + $value }
+    return $total
+}
+
+echo (collect "hello" 3 true)...  # hello 3 true
+echo (sum 1 2 3)                 # 6
+echo (sum)                       # 0
+```
+
+A variadic parameter receives `[]` when there are no remaining arguments. It may
+follow required and optional parameters; fixed parameters consume their positions
+first, and all remaining arguments go into the array. Use `()` explicitly to skip
+an optional position before supplying variadic arguments. The suffix follows the
+element type: `$rows: [Number]...` receives `[[Number]]`, and
+`$values: optional Number...` receives `[optional Number]`.
+
 The final expression or command supplies the function's result. A trailing
 semicolon or newline does not discard it. `return expression` exits the current
 function immediately with that value; bare `return` returns `()`.
@@ -609,9 +717,11 @@ A bare name has different behavior depending on its context:
 | `echo (foo 3)` | Call `foo` with `3`, then pass its result directly to `echo`. |
 | `echo "foo"` | Pass literal text. |
 
-A backtick prefix creates a string marked executable and stores the name without
-calling it. There is no closing backtick. The name is resolved when invoked; it
-is not a captured function object.
+A backtick prefix creates a string marked executable without calling it. There is
+no closing backtick. For a known Shelly function, the reference retains that
+function's version, including its parameter and return constraints. Redefining
+the name does not change a previously stored reference. Builtins, external commands,
+and names without a known Shelly function remain name-based references.
 
 ```text
 fn answer() { 2048 }
@@ -650,8 +760,17 @@ command name. The executable marker controls implicit zero-argument calls; an
 explicit call does not require that check.
 
 Function definitions are registered before executing the submitted source, so
-forward calls work. The last definition of a name in that source wins even for
-earlier calls. Functions can contain helper functions:
+forward calls work. Once a function is known, compiled calls and references retain
+that version, including across later redefinitions in the same submission.
+Forward references with no known version resolve through that submission's
+completed function namespace. Later submissions cannot change that namespace.
+Redefinitions do not retarget existing direct, recursive, or sibling calls;
+newly compiled code sees the new definitions. Stored backtick
+references also retain their original versions when copied, passed to functions,
+returned, or stored in array elements, map values, and struct fields. A bound
+function reference is not redirected by an alias added later.
+
+Functions can contain helper functions:
 
 ```text
 fn welcome($name)
@@ -930,8 +1049,10 @@ compiler, values, and interpreter live under `src/language/`. Source is tokenize
 and parsed into an AST, checked against a staged type registry, compiled to
 bytecode, optimized, linked, then executed. The initial checking pass registers
 lexically scoped enum and struct identities before resolving field annotations.
-It checks constructors, required-field cycles, and known member accesses; general
-variable and function type inference remains future work. Builtin types, container
+It checks constructors, required-field cycles, annotations, known incompatible
+initializers, assignments and returns, and known member accesses. Runtime checks
+cover dynamic values, function arguments, return paths, and nested writes; general
+type inference remains future work. Builtin types, container
 constraints, enums, and structs share stable `TypeId`s independent of name visibility.
 
 Two optimization passes run before linking: adjacent `PopResult`/`PushResult`
@@ -964,5 +1085,5 @@ stabilizes.
 ## Direction
 
 The aim is to keep the immediacy of a shell while giving larger scripts a clear
-path to structure. Future work includes variable and function type annotations and contracts,
+path to structure. Future work includes broader type inference and contracts,
 network and JSON support, and pipelines for text and structured data.

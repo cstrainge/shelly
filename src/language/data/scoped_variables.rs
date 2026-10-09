@@ -16,6 +16,7 @@ pub enum ValueVisibility
 pub struct ScopedValue
 {
     pub value: Value,
+    pub type_id: Option<super::types::TypeId>,
     pub exported: ValueVisibility
 }
 
@@ -37,6 +38,7 @@ impl ScopedVariables
             let scoped_value = ScopedValue
                 {
                     value: Value::from_string(value),
+                    type_id: None,
                     exported: ValueVisibility::Exported
                 };
 

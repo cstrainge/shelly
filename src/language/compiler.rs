@@ -4,7 +4,7 @@ use std::{ cell::RefCell, collections::HashMap, fmt::{ self, Display, Formatter 
 
 use crate::language::{ ast::*,
                        bytecode::{ Code, Instruction, Function, FunctionBlock, FunctionBlockRef },
-                       data::value::Value,
+                       data::value::{Value, Executable},
                        text::location::Location,
                        parser::ParserError };
 
@@ -90,6 +90,25 @@ impl From<ParserError> for CompileError
 
 
 pub type CompileResult<T> = Result<T, CompileError>;
+
+
+fn bind_known_function(block: &FunctionBlockRef, value: Value) -> Value
+{
+    let Value::String(name, _) = &value else { return value; };
+    if block.borrow().builtins.contains(name.as_str()) { return value; }
+    let mut scope = Some(block.clone());
+    while let Some(current) = scope
+    {
+        let current = current.borrow();
+        if let Some(function) = current.functions.get(name)
+        { return Value::String(name.clone(), Executable::Function(function.clone())); }
+        // The current definition is installed after compiling its body. Do not
+        // accidentally bind recursion to a previous definition of the same name.
+        if current.function_name.as_ref() == Some(name) || current.declared_functions.contains(name) { break; }
+        scope = current.parent.clone();
+    }
+    value
+}
 
 
 fn compile_expression(instructions: &mut Vec<Instruction>,
@@ -269,7 +288,7 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
                     {
                         location: Some(expression.location.clone()),
                         code: Code::Push,
-                        operand: Some(Value::from_string(symbol.name.clone()))
+                        operand: Some(bind_known_function(function_block, Value::from_string(symbol.name.clone())))
                     });
             },
 
@@ -279,7 +298,9 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
                     {
                         location: Some(expression.location.clone()),
                         code: Code::Push,
-                        operand: Some(value.value.clone())
+                        operand: Some(if matches!(value.value, Value::String(_, Executable::Yes))
+                            { bind_known_function(function_block, value.value.clone()) }
+                            else { value.value.clone() })
                     });
             },
 
@@ -505,11 +526,20 @@ fn compile_let_statement(instructions: &mut Vec<Instruction>,
             operand: None
         });
 
+    if let Some(id) = let_statement.type_id
+    {
+        instructions.push(Instruction { location: Some(let_statement.location.clone()),
+            code: Code::ValidateType, operand: Some(Value::Integer(id.0 as i64)) });
+    }
     instructions.push(Instruction
         {
             location: Some(let_statement.location.clone()),
             code: Code::NewVariable,
-            operand: Some(Value::from_string(let_statement.identifier.clone()))
+            operand: Some(match let_statement.type_id
+                {
+                    Some(id) => Value::from_array(vec![Value::from_string(let_statement.identifier.clone()), Value::Integer(id.0 as i64)]),
+                    None => Value::from_string(let_statement.identifier.clone())
+                })
         });
 
     if let_statement.export_flag == AstExportFlag::Exported
@@ -637,8 +667,8 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
             {
                 location: None,
                 code: Code::Push,
-                operand: Some(Value::from_executable_string(execute_statement.executable
-                    .resolve_as_text().map_err(ParserError::from)?))
+                    operand: Some(bind_known_function(function_block, Value::from_executable_string(execute_statement.executable
+                    .resolve_as_text().map_err(ParserError::from)?)))
             });
     }
 
@@ -710,23 +740,45 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
 fn compile_function_definition(parent_block: &FunctionBlockRef,
                                function_statement: &AstFunctionStatement) -> CompileResult<()>
 {
+    // Keep versions already visible at this definition. The submission scope
+    // remains a fallback for forward declarations and is frozen at publication.
+    let captured = Rc::new(RefCell::new(FunctionBlock
+        { parent: Some(parent_block.clone()), function_name: None,
+          declared_functions: parent_block.borrow().declared_functions.clone(),
+          builtins: parent_block.borrow().builtins.clone(), functions: parent_block.borrow().functions.clone() }));
     let function_block = Rc::new(RefCell::new(FunctionBlock
         {
-            parent: Some(parent_block.clone()),
+            parent: Some(captured.clone()),
+            function_name: Some(function_statement.name.clone()),
+            declared_functions: Default::default(),
+            builtins: parent_block.borrow().builtins.clone(),
             functions: HashMap::new()
         }));
 
-    let instructions = compile_checked_ast(&function_block,
-                                   &function_statement.body,
-                                   CompileTarget::Function)?;
+    let mut prologue = Vec::new();
+    for (index, parameter) in function_statement.parameters.iter().enumerate()
+    {
+        let mut operand = vec![Value::from_string(parameter.name.clone()),
+            parameter.type_id.map_or(Value::None, |id| Value::Integer(id.0 as i64)), Value::Integer(index as i64)];
+        if parameter.optional { operand.push(Value::None); }
+        prologue.push(Instruction { location: Some(parameter.location.clone()),
+            code: if parameter.variadic { Code::BindRestParameter } else { Code::BindParameter },
+            operand: Some(Value::from_array(operand)) });
+    }
+    let instructions = compile_with_prologue(&function_block, &function_statement.body,
+        CompileTarget::Function, prologue)?;
 
     let new_function = Rc::new(Function
         {
             functions: function_block,
-            arguments: function_statement.parameters.clone(),
+            arguments: function_statement.parameters.iter().map(|parameter| parameter.name.clone()).collect(),
+            minimum_arguments: function_statement.parameters.iter().take_while(|parameter| !parameter.optional && !parameter.variadic).count(),
+            variadic: function_statement.parameters.last().is_some_and(|parameter| parameter.variadic),
+            return_type: function_statement.return_type,
             code: instructions
         });
 
+    captured.borrow_mut().functions.insert(function_statement.name.clone(), new_function.clone());
     parent_block.borrow_mut().functions.insert(function_statement.name.clone(), new_function);
 
     Ok(())
@@ -792,8 +844,8 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     | Code::EnterLoop | Code::ExitLoop | Code::Break | Code::Continue => false,
 
                     // These instructions operate on the value stack or other VM state.
-                    Code::Push | Code::NewVariable | Code::SetVariable | Code::GetVariable
-                    | Code::StartIteration | Code::BindIteration
+                    Code::Push | Code::NewVariable | Code::SetVariable | Code::GetVariable | Code::ValidateType
+                    | Code::StartIteration | Code::BindIteration | Code::BindParameter | Code::BindRestParameter
                     | Code::NewAlias | Code::ExportVariable | Code::GlobFiles
                     | Code::ExpandArray | Code::ExpandPath | Code::InterpolateString
                     | Code::MakeArray | Code::MakeHashMap | Code::MakeStruct | Code::GetField | Code::MakeRange | Code::GetElement | Code::SetElement
@@ -1072,6 +1124,10 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
                        ast: &AstTopLevel,
                        target: CompileTarget) -> CompileResult<()>
 {
+    // A forward local declaration shadows an outer function even before its
+    // body is compiled. Once a local version exists, calls bind that version.
+    function_block.borrow_mut().declared_functions.extend(ast.iter().filter_map(|statement|
+        if let AstStatement::FunctionDefinition(item) = statement { Some(item.name.clone()) } else { None }));
     let last_statement = ast.iter()
         .rposition(|statement| !matches!(statement, AstStatement::NullStatement));
 
@@ -1207,7 +1263,15 @@ fn compile_checked_ast(function_block: &FunctionBlockRef,
                    ast: &AstTopLevel,
                    target: CompileTarget) -> CompileResult<Vec<Instruction>>
 {
-    let mut instructions = Vec::new();
+    compile_with_prologue(function_block, ast, target, Vec::new())
+}
+
+
+fn compile_with_prologue(function_block: &FunctionBlockRef,
+                         ast: &AstTopLevel,
+                         target: CompileTarget,
+                         mut instructions: Vec<Instruction>) -> CompileResult<Vec<Instruction>>
+{
     compile_statements(&mut instructions, function_block, ast, target)?;
 
     optimize_instructions(&mut instructions);
@@ -1227,14 +1291,20 @@ pub fn compile_ast(registry: &mut crate::language::data::types::TypeRegistry,
 {
     let mut staged = registry.clone();
     crate::language::typecheck::check_ast(&mut staged, ast)?;
-    let previous_functions = function_block.borrow().functions.clone();
-    match compile_checked_ast(function_block, ast, target)
+    // Each submission gets a private function namespace. Function bodies retain
+    // this snapshot as their parent; later submissions publish into a new one.
+    let functions = Rc::new(RefCell::new(FunctionBlock
+        { parent: function_block.borrow().parent.clone(), function_name: function_block.borrow().function_name.clone(),
+          declared_functions: function_block.borrow().declared_functions.clone(),
+          builtins: function_block.borrow().builtins.clone(), functions: function_block.borrow().functions.clone() }));
+    match compile_checked_ast(&functions, ast, target)
     {
-        Ok(code) => { *registry = staged; Ok(code) },
-        Err(error) =>
+        Ok(code) =>
             {
-                function_block.borrow_mut().functions = previous_functions;
-                Err(error)
-            }
+                *registry = staged;
+                function_block.borrow_mut().functions = functions.borrow().functions.clone();
+                Ok(code)
+            },
+        Err(error) => Err(error)
     }
 }

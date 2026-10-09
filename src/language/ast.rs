@@ -196,6 +196,9 @@ pub struct AstLetStatement
     pub location: Location,
     pub export_flag: AstExportFlag,
     pub identifier: String,
+    pub annotation: Option<AstType>,
+    pub type_id: Option<crate::language::data::types::TypeId>,
+    pub default_initialize: bool,
     pub expression: AstExpression
 }
 
@@ -234,11 +237,24 @@ pub struct AstAliasStatement
 }
 
 
+pub struct AstParameter
+{
+    pub location: Location,
+    pub name: String,
+    pub annotation: Option<AstType>,
+    pub optional: bool,
+    pub variadic: bool,
+    pub type_id: Option<crate::language::data::types::TypeId>
+}
+
+
 pub struct AstFunctionStatement
 {
-    //pub location: Location,
+    pub location: Location,
     pub name: String,
-    pub parameters: Vec<String>,
+    pub parameters: Vec<AstParameter>,
+    pub return_annotation: Option<AstType>,
+    pub return_type: Option<crate::language::data::types::TypeId>,
     pub body: AstTopLevel
 }
 
@@ -260,6 +276,9 @@ pub fn new_ast_let_statement(location: Location,
             location,
             export_flag,
             identifier,
+            annotation: None,
+            type_id: None,
+            default_initialize: false,
             expression,
         })))
 }
@@ -295,14 +314,19 @@ pub fn new_ast_execute_statement(location: Location,
 }
 
 
-pub fn new_ast_function_statement(name: String,
-                                  parameters: Vec<String>,
+pub fn new_ast_function_statement(location: Location,
+                                  name: String,
+                                  parameters: Vec<AstParameter>,
+                                  return_annotation: Option<AstType>,
                                   body: Vec<AstStatement>) -> Option<AstStatement>
 {
     Some(AstStatement::FunctionDefinition(Box::new(AstFunctionStatement
         {
+            location,
             name,
             parameters,
+            return_annotation,
+            return_type: None,
             body,
         })))
 }

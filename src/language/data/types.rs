@@ -181,6 +181,60 @@ impl TypeRegistry
 
 impl TypeRegistry
 {
+    pub fn default_value(&self, id: TypeId) -> Result<super::value::Value, String>
+    {
+        use super::value::{Value, ExecResult};
+        let definition = self.get(id);
+        match &definition.kind
+        {
+            TypeKind::Optional(_) => Ok(Value::None),
+            TypeKind::Array(_) => Ok(Value::from_array(Vec::new())),
+            TypeKind::Map(_, _) => Ok(Value::from_hash_map(HashMap::new())),
+            TypeKind::Builtin => match definition.name.as_str()
+                {
+                    "Number" | "Integer" => Ok(Value::Integer(0)),
+                    "Float" => Ok(Value::Float(0.0, None)),
+                    "Boolean" => Ok(Value::Boolean(false)),
+                    "String" => Ok(Value::from_string(String::new())),
+                    "None" | "any" => Ok(Value::None),
+                    "Array" => Ok(Value::from_array(Vec::new())),
+                    "HashMap" => Ok(Value::from_hash_map(HashMap::new())),
+                    "ArgumentExpansion" => Ok(Value::from_argument_expansion(Vec::new())),
+                    "ExecResult" => Ok(Value::ExecResult(ExecResult::Value(0))),
+                    "Range" => Ok(Value::Range(super::range::Range { start: Some(0), end: Some(0), inclusive: false })),
+                    _ => Err(format!("Type '{}' requires an initializer", definition.name))
+                },
+            _ => Err(format!("Type '{}' requires an initializer", definition.name))
+        }
+    }
+
+    // Conservative overlap test for annotated variables: a mismatch is proven
+    // only if the two constraints cannot accept any common value. Empty arrays
+    // and maps overlap even when their element constraints differ.
+    pub fn may_overlap(&self, left: TypeId, right: TypeId) -> bool
+    {
+        use super::value::Value;
+        if left == right { return true; }
+        let a = self.get(left);
+        let b = self.get(right);
+        if matches!(a.kind, TypeKind::Builtin) && a.name == "any"
+            || matches!(b.kind, TypeKind::Builtin) && b.name == "any" { return true; }
+        if let TypeKind::Optional(inner) = a.kind
+        { return self.validate(right, &Value::None).is_ok() || self.may_overlap(inner, right); }
+        if let TypeKind::Optional(inner) = b.kind
+        { return self.validate(left, &Value::None).is_ok() || self.may_overlap(left, inner); }
+        let category = |definition: &TypeDefinition| match definition.kind
+            {
+                TypeKind::Array(_) => "Array".to_string(),
+                TypeKind::Map(_, _) => "HashMap".to_string(),
+                TypeKind::Builtin => definition.name.clone(),
+                _ => format!("nominal {}", definition.id.0)
+            };
+        let (a, b) = (category(&a), category(&b));
+        a == b || a == "Number" && matches!(b.as_str(), "Integer" | "Float")
+            || b == "Number" && matches!(a.as_str(), "Integer" | "Float")
+    }
+
     // Only uncommitted placeholders are completed; old definitions are immutable.
     pub fn finish(&mut self, id: TypeId, kind: TypeKind)
     {

@@ -66,41 +66,33 @@ fn parse_return_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
 
 fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
-    // let $var = <expression>
-
     expect_token(buffer, TokenKind::Let)?;
-
-    let export_flag = if let Some(_) = try_expect_token(buffer, TokenKind::Export)?
-        {
-            AstExportFlag::Exported
-        }
-        else
-        {
-            AstExportFlag::NonExported
-        };
-
+    let export_flag = if try_expect_token(buffer, TokenKind::Export)?.is_some()
+        { AstExportFlag::Exported } else { AstExportFlag::NonExported };
     let identifier = expect_token(buffer, TokenKind::Identifier)?;
-
-    expect_token(buffer, TokenKind::Assign)?;
-
-    let expression = parse_value_expression(buffer)?;
-
-    if let Some(expression) = expression
+    let annotation = if try_expect_token(buffer, TokenKind::TypeDelimiter)?.is_some()
+        { Some(super::expressions::parse_type(buffer)?) } else { None };
+    let initialized = try_expect_token(buffer, TokenKind::Assign)?.is_some();
+    if !initialized && annotation.is_none()
     {
-        expect_statement_end(buffer)?;
-        Ok(new_ast_let_statement(identifier.location.clone(),
-                                 export_flag,
-                                 identifier.token_value_text(),
-                                 expression))
+        return Err(ParserError { location: Some(identifier.location),
+            kind: ParserErrorKind::ExpectedToken(TokenKind::Assign, None) });
     }
-    else
+    let expression = if initialized
+        {
+            parse_value_expression(buffer)?.ok_or_else(|| ParserError
+                { location: Some(identifier.location.clone()), kind: ParserErrorKind::ExpectedExpression })?
+        }
+        else { new_ast_literal(identifier.location.clone(), Value::None, None) };
+    expect_statement_end(buffer)?;
+    let mut statement = new_ast_let_statement(identifier.location.clone(), export_flag,
+        identifier.token_value_text(), expression).unwrap();
+    if let AstStatement::LetStatement(item) = &mut statement
     {
-        Err(ParserError
-            {
-                location: Some(identifier.location.clone()),
-                kind: ParserErrorKind::ExpectedExpression
-            })
+        item.annotation = annotation;
+        item.default_initialize = !initialized;
     }
+    Ok(Some(statement))
 }
 
 
@@ -248,52 +240,48 @@ fn parse_null_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
 
 fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
-    fn parse_arg(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
-    {
-        let token = try_expect_token(buffer, TokenKind::Identifier)?;
-
-        if let Some(token) = token
-        {
-            Ok(Some(new_ast_symbol(token.location.clone(), token.token_value_text(), None)))
-        }
-        else
-        {
-            Ok(None)
-        }
-    }
-
     expect_token(buffer, TokenKind::Function)?;
-
     let name = expect_token(buffer, TokenKind::Symbol)?;
-
-    let parameters = expect_block_list_of(buffer,
-                                          TokenKind::ParenOpen,
-                                          TokenKind::ParenClose,
-                                          Some(TokenKind::Comma),
-                                          &(parse_arg as fn(&mut TokenBuffer<'_, '_>)
-                                            -> ParseResult<Option<AstExpression>>))?;
-
+    expect_token(buffer, TokenKind::ParenOpen)?;
+    let mut parameters = Vec::new();
     let mut names = std::collections::HashSet::new();
-    for parameter in &parameters
+    loop
     {
-        let name = parameter.resolve_as_text()?;
-        if !names.insert(name.clone())
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        if parameters.is_empty() && try_expect_token(buffer, TokenKind::ParenClose)?.is_some() { break; }
+        let parameter = expect_token(buffer, TokenKind::Identifier)?;
+        let parameter_name = parameter.token_value_text();
+        let mut variadic = try_expect_token(buffer, TokenKind::Splat)?.is_some();
+        if !names.insert(parameter_name.clone())
         {
-            return Err(ParserError
-                {
-                    location: Some(parameter.location.clone()),
-                    kind: ParserErrorKind::DuplicateParameter(name)
-                });
+            return Err(ParserError { location: Some(parameter.location),
+                kind: ParserErrorKind::DuplicateParameter(parameter_name) });
         }
+        let annotation = if try_expect_token(buffer, TokenKind::TypeDelimiter)?.is_some()
+            {
+                if variadic
+                {
+                    return Err(ParserError { location: Some(parameter.location),
+                        kind: ParserErrorKind::InvalidType("Put '...' after the element type: $rest: Number...".to_string()) });
+                }
+                let (annotation, typed_variadic) = super::expressions::parse_parameter_type(buffer)?;
+                variadic = typed_variadic;
+                Some(if variadic { AstType::Array(Box::new(annotation)) } else { annotation })
+            }
+            else { None };
+        parameters.push(AstParameter { location: parameter.location, name: parameter_name,
+            annotation, optional: false, variadic, type_id: None });
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        if try_expect_token(buffer, TokenKind::ParenClose)?.is_some() { break; }
+        if variadic
+        {
+            return Err(ParserError { location: Some(parameters.last().unwrap().location.clone()),
+                kind: ParserErrorKind::InvalidType("A variadic parameter must be last.".to_string()) });
+        }
+        expect_token(buffer, TokenKind::Comma)?;
     }
-
-    // Convert the list of AstExpression into a list of strings representing the parameter names.
-    let parameter_names: Vec<String> = parameters.into_iter()
-                                                .map(|expr|
-                                                    {
-                                                        expr.resolve_as_text().unwrap()
-                                                    })
-                                                .collect();
+    let return_annotation = if try_expect_token(buffer, TokenKind::TypeDelimiter)?.is_some()
+        { Some(super::expressions::parse_type(buffer)?) } else { None };
 
     while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
 
@@ -304,8 +292,9 @@ fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
                                    &(parse_statement as fn(&mut TokenBuffer<'_, '_>)
                                      -> ParseResult<Option<AstStatement>>))?;
 
-    Ok(new_ast_function_statement(name.token_value_text(),
-                                  parameter_names,
+    Ok(new_ast_function_statement(name.location.clone(), name.token_value_text(),
+                                  parameters,
+                                  return_annotation,
                                   code))
 }
 

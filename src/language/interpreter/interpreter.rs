@@ -277,6 +277,9 @@ impl Interpreter
                 base_function_block: Rc::new(RefCell::new(FunctionBlock
                     {
                         parent: None,
+                        function_name: None,
+                        declared_functions: HashSet::new(),
+                        builtins: Rc::new(built_ins.keys().copied().collect()),
                         functions: HashMap::new()
                     })),
                 current_function_block: None,
@@ -509,8 +512,14 @@ impl Interpreter
 
     pub fn execute_instructions(&mut self, instructions: &Vec<Instruction>) -> InterpreterResult<()>
     {
+        self.execute_instructions_with_arguments(instructions, &[])
+    }
+
+    fn execute_instructions_with_arguments(&mut self, instructions: &Vec<Instruction>,
+                                           arguments: &[Value]) -> InterpreterResult<()>
+    {
         let initial_scope = self.variables.current_scope();
-        let result = self.execute_instructions_scoped(instructions, initial_scope);
+        let result = self.execute_instructions_scoped(instructions, initial_scope, arguments);
 
         self.variables.reset_to_scope(initial_scope);
         if result.is_err() { self.last_result = None; }
@@ -520,7 +529,8 @@ impl Interpreter
 
     fn execute_instructions_scoped(&mut self,
                                    instructions: &Vec<Instruction>,
-                                   initial_scope: usize) -> InterpreterResult<()>
+                                   initial_scope: usize,
+                                   function_arguments: &[Value]) -> InterpreterResult<()>
     {
         let mut stack: VecDeque<Value> = VecDeque::new();
         let mut iterations: Vec<super::iteration::Iteration> = Vec::new();
@@ -544,7 +554,7 @@ impl Interpreter
                     {
                         if let Some(operand) = &instruction.operand
                         {
-                            Self::push(&mut stack, operand.clone());
+                            Self::push(&mut stack, self.bind_executable(operand.clone()));
                         }
                         else
                         {
@@ -574,11 +584,19 @@ impl Interpreter
 
                 Code::TryExecute =>
                     {
-                        let executable = Self::pop_as_text(&location, &mut stack)?;
+                        let value = Self::pop(&location, &mut stack)?;
+                        if matches!(value, Value::String(_, Executable::Function(_)))
+                        {
+                            self.execute_value(&location, value, Vec::new())?;
+                            instruction_pointer += 1;
+                            continue;
+                        }
+                        let executable = value.as_text();
 
                         if self.can_execute(&executable)
                         {
-                            self.execute(&location, executable, Vec::new())?;
+                            let value = self.bind_executable(Value::from_executable_string(executable));
+                            self.execute_value(&location, value, Vec::new())?;
                         }
                         else
                         {
@@ -598,17 +616,20 @@ impl Interpreter
                             return Err(InterpreterError { location: location.clone(),
                                 what: ErrorWhat::InvalidOperand(format!("Cannot execute {} as a command", if matches!(value, Value::Enum(_)) { "an enum" } else { "a struct" })) });
                         }
-                        self.last_result = Some(Value::from_executable_string(value.as_text()));
+                        self.last_result = Some(match value
+                            {
+                                value @ Value::String(_, Executable::Function(_)) => value,
+                                value => self.bind_executable(Value::from_executable_string(value.as_text()))
+                            });
                     },
 
                 Code::ExecuteIfExecutable =>
                     {
                         match self.last_result.take()
                         {
-                            Some(Value::String(executable, Executable::Yes)) =>
+                            Some(value @ Value::String(_, Executable::Yes | Executable::Function(_))) =>
                                 {
-                                    let executable = self.eval_path_from(&executable);
-                                    self.execute(&location, executable, Vec::new())?;
+                                    self.execute_value(&location, value, Vec::new())?;
                                 },
 
                             Some(value @ (Value::Array(_) | Value::ArgumentExpansion(_) | Value::HashMap(_) | Value::Range(_) | Value::Enum(_) | Value::Struct(_)))
@@ -675,23 +696,23 @@ impl Interpreter
 
                         args.reverse();
 
-                        let mut executable = Self::command_name(&location, Self::pop(&location, &mut stack)?)?;
+                        let mut executable = Self::pop(&location, &mut stack)?;
+                        let name = Self::command_name(&location, executable.clone())?;
 
                         // If the executable name starts with a $ eval as a variable first.
-                        if executable.starts_with('$')
+                        if name.starts_with('$')
                         {
-                            if executable.contains('/')
+                            if name.contains('/')
                             {
-                                executable = self.interpolate_string(&location, &executable)?;
+                                executable = Value::from_executable_string(self.interpolate_string(&location, &name)?);
                             }
                             else
                             {
-                                executable = Self::command_name(&location,
-                                    self.read_raw_variable(&executable, &location)?)?;
+                                executable = self.read_raw_variable(&name, &location)?;
                             }
                         }
 
-                        self.execute(&location, executable, args)?;
+                        self.execute_value(&location, executable, args)?;
                     }
 
                 Code::NewAlias =>
@@ -729,11 +750,48 @@ impl Interpreter
                         self.aliases.insert(alias.clone(), Alias { name: target, arguments });
                     },
 
+                Code::BindParameter | Code::BindRestParameter =>
+                    {
+                        let invalid = |message| InterpreterError { location: location.clone(),
+                            what: ErrorWhat::ArgumentMismatch(message) };
+                        let Some(Value::Array(parts)) = &instruction.operand else
+                        { return Err(invalid("Invalid parameter binding operand".to_string())); };
+                        let [Value::String(name, _), constraint, Value::Integer(index), defaults @ ..] = parts.as_slice() else
+                        { return Err(invalid("Invalid parameter binding operand".to_string())); };
+                        let value = if matches!(instruction.code, Code::BindRestParameter)
+                            { Value::from_array(function_arguments.get(*index as usize..).unwrap_or(&[]).to_vec()) }
+                            else
+                            {
+                                function_arguments.get(*index as usize).or_else(|| defaults.first()).cloned()
+                                    .ok_or_else(|| invalid(format!("Missing argument for parameter '{}'", name)))?
+                            };
+                        let type_id = match constraint
+                            {
+                                Value::Integer(id) => Some(crate::language::data::types::TypeId(*id as usize)),
+                                Value::None => None,
+                                _ => return Err(invalid("Invalid parameter constraint".to_string()))
+                            };
+                        if let Some(id) = type_id
+                        {
+                            self.types.validate(id, &value).map_err(|message|
+                                invalid(format!("Type error for parameter '{}': {}", name, message)))?;
+                        }
+                        self.variables.create(name.clone(), ScopedValue { value, type_id, exported: ValueVisibility::Private })
+                            .map_err(invalid)?;
+                    },
+
                 Code::NewVariable | Code::BindIteration =>
                     {
-                        let variable_name = match &instruction.operand
+                        let (variable_name, type_id) = match &instruction.operand
                             {
-                                Some(Value::String(name, _)) => name.clone(),
+                                Some(Value::String(name, _)) => (name.clone(), None),
+                                Some(Value::Array(parts)) if matches!(instruction.code, Code::NewVariable) =>
+                                    {
+                                        let [Value::String(name, _), Value::Integer(id)] = parts.as_slice() else
+                                        { return Err(InterpreterError { location: location.clone(),
+                                            what: ErrorWhat::InvalidOperand("Invalid typed variable operand".to_string()) }); };
+                                        (name.clone(), Some(crate::language::data::types::TypeId(*id as usize)))
+                                    },
                                 _ => return Err(InterpreterError
                                     {
                                         location: location.clone(),
@@ -759,6 +817,7 @@ impl Interpreter
                             ScopedValue
                                 {
                                     value,
+                                    type_id,
                                     exported: ValueVisibility::Private
                                 })
                         {
@@ -769,6 +828,18 @@ impl Interpreter
                                         format!("Failed to create variable: {}", error))
                                 });
                         }
+                    },
+
+                Code::ValidateType =>
+                    {
+                        let Some(Value::Integer(id)) = instruction.operand else
+                        { return Err(InterpreterError { location: location.clone(),
+                            what: ErrorWhat::InvalidOperand("Invalid ValidateType operand".to_string()) }); };
+                        let value = stack.back().ok_or_else(|| InterpreterError { location: location.clone(),
+                            what: ErrorWhat::InvalidOperand("Missing value for type validation".to_string()) })?;
+                        self.types.validate(crate::language::data::types::TypeId(id as usize), value)
+                            .map_err(|message| InterpreterError { location: location.clone(),
+                                what: ErrorWhat::InvalidOperand(format!("Type error: {}", message)) })?;
                     },
 
                 Code::SetVariable =>
@@ -786,9 +857,10 @@ impl Interpreter
 
                         let mut value = Self::pop(&location, &mut stack)?;
 
+                        let type_id = self.variables.get(&variable_name).and_then(|variable| variable.type_id);
                         match value
                         {
-                            Value::ArgumentExpansion(array) => { value = Value::Array(array); }
+                            Value::ArgumentExpansion(array) if type_id.is_none() => { value = Value::Array(array); }
                             _ => {}
                         }
 
@@ -799,6 +871,11 @@ impl Interpreter
 
                         if let Some(variable) = self.variables.get_mut(&variable_name)
                         {
+                            if let Some(id) = variable.type_id
+                            {
+                                self.types.validate(id, &value).map_err(|message| InterpreterError { location: location.clone(),
+                                    what: ErrorWhat::InvalidOperand(format!("Type error for '{}': {}", variable_name, message)) })?;
+                            }
                             variable.value = value;
                         }
                         else
@@ -1005,6 +1082,11 @@ impl Interpreter
                         Self::set_element(&location, &mut updated, &indexes, fields, value)?;
                         self.types.validate_value(&updated).map_err(|message| InterpreterError { location: location.clone(),
                             what: ErrorWhat::InvalidOperand(format!("Type error: {}", message)) })?;
+                        if let Some(id) = variable.type_id
+                        {
+                            self.types.validate(id, &updated).map_err(|message| InterpreterError { location: location.clone(),
+                                what: ErrorWhat::InvalidOperand(format!("Type error for '{}': {}", name, message)) })?;
+                        }
                         variable.value = updated;
                     },
 
@@ -1357,6 +1439,7 @@ impl Interpreter
         let _ = self.variables.create(name.to_string(), ScopedValue
             {
                 value,
+                type_id: None,
                 exported: ValueVisibility::Private
             });
     }
@@ -1473,6 +1556,27 @@ impl Interpreter
         None
     }
 
+    fn bind_executable(&self, value: Value) -> Value
+    {
+        if let Value::String(name, Executable::Yes) = &value
+            && !self.built_ins.contains_key(name.as_str())
+        {
+            let function = self.current_function_block.as_ref()
+                .and_then(|block| self.get_function(name, block))
+                .or_else(|| self.get_function(name, &self.base_function_block));
+            if let Some(function) = function
+            { return Value::String(name.clone(), Executable::Function(function)); }
+        }
+        value
+    }
+
+    fn execute_value(&mut self, location: &Location, value: Value, args: Vec<Value>) -> InterpreterResult<()>
+    {
+        if let Value::String(name, Executable::Function(function)) = value
+        { return self.execute_function(location, &name, &function, &args); }
+        self.execute(location, Self::command_name(location, value)?, args)
+    }
+
     fn can_execute(&self, executable: &str) -> bool
     {
         if    self.built_ins.contains_key(executable)
@@ -1524,50 +1628,37 @@ impl Interpreter
                         function: &FunctionRef,
                         args: &[Value]) -> InterpreterResult<()>
     {
-        if function.arguments.len() != args.len()
+        if args.len() < function.minimum_arguments || !function.variadic && args.len() > function.arguments.len()
         {
-            let message = format!("Function {} expected {} arguments, but got {}.",
-                                  name,
-                                  function.arguments.len(),
-                                  args.len());
-
-            return Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::ArgumentMismatch(message)
-                });
+            let expected = if function.variadic { format!("at least {}", function.minimum_arguments) }
+                else if function.minimum_arguments == function.arguments.len() { function.arguments.len().to_string() }
+                else { format!("{} to {}", function.minimum_arguments, function.arguments.len()) };
+            return Err(InterpreterError { location: location.clone(),
+                what: ErrorWhat::ArgumentMismatch(format!("Function {} expected {} arguments, but got {}.", name, expected, args.len())) });
         }
 
         self.variables.push_scope();
 
-        for index in 0..function.arguments.len()
-        {
-            let result = self.variables.create(function.arguments[index].clone(),
-                ScopedValue
-                {
-                    value: args[index].clone(),
-                    exported: ValueVisibility::Private
-                });
-
-            if let Err(error) = result
-            {
-                return Err(InterpreterError
-                    {
-                        location: location.clone(),
-                        what: ErrorWhat::ArgumentMismatch(error)
-                    });
-            }
-        }
-
         let caller_function_block = self.current_function_block.replace(function.functions.clone());
 
-        let call_result = self.execute_instructions(&function.code);
+        let call_result = self.execute_instructions_with_arguments(&function.code, args);
 
         self.current_function_block = caller_function_block;
 
         self.variables.pop_scope();
 
-        call_result
+        call_result?;
+        if !self.halted && let Some(id) = function.return_type
+        {
+            let value = self.last_result.as_ref().unwrap_or(&Value::None);
+            if let Err(message) = self.types.validate(id, value)
+            {
+                self.last_result = None;
+                return Err(InterpreterError { location: location.clone(),
+                    what: ErrorWhat::ArgumentMismatch(format!("Type error for return value of '{}': {}", name, message)) });
+            }
+        }
+        Ok(())
     }
 
     fn find_and_execute_function(&mut self,

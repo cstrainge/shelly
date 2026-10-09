@@ -1,5 +1,5 @@
 
-use std::{ cell::RefCell, collections::HashMap, rc::Rc };
+use std::{ cell::RefCell, collections::{HashMap, HashSet}, rc::Rc };
 
 use super::{ data::value::Value, text::location::Location };
 
@@ -17,6 +17,12 @@ pub enum Code
     MakeExecutable,
     ExitFunction,
     NewVariable,
+    // Validate the stack top without consuming it, before replacing a binding.
+    ValidateType,
+    // Operand: [name, type ID or None, argument index, optional default value].
+    BindParameter,
+    // Operand: [name, type ID or None, first extra argument index].
+    BindRestParameter,
     SetVariable,
     GetVariable,
     PushResult,
@@ -89,6 +95,9 @@ pub struct Function
     pub functions: FunctionBlockRef,
 
     pub arguments: Vec<String>,
+    pub minimum_arguments: usize,
+    pub variadic: bool,
+    pub return_type: Option<super::data::types::TypeId>,
     pub code: Vec<Instruction>
 }
 
@@ -96,6 +105,9 @@ pub struct Function
 pub struct FunctionBlock
 {
     pub parent: Option<FunctionBlockRef>,
+    pub function_name: Option<String>,
+    pub declared_functions: HashSet<String>,
+    pub builtins: Rc<HashSet<&'static str>>,
     pub functions: HashMap<String, FunctionRef>
 }
 
