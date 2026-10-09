@@ -1,0 +1,13 @@
+# DISCARD-002: values stay data
+check ["id": "DISCARD-002",
+    "name": "values stay data",
+    "source": "let _ = [1, 2]; let _ = [\"x\": 1]; let _ = \"missing_discard_command\"; let _ = (); echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

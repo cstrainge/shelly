@@ -482,6 +482,7 @@ pub enum AstStatement
     EnumDeclaration(Box<AstEnumDeclaration>),
     StructDeclaration(Box<AstStructDeclaration>),
     LetStatement(Box<AstLetStatement>),
+    DiscardStatement(AstExpression),
     SetStatement(Box<AstSetStatement>),
     AliasStatement(Box<AstAliasStatement>),
     ExecuteStatement(Box<AstExecuteStatement>),

@@ -1,0 +1,13 @@
+# DISCARD-004: printed output preserved
+check ["id": "DISCARD-004",
+    "name": "printed output preserved",
+    "source": "let _ = (echo \"visible\"); echo \"after\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "visible\nafter\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

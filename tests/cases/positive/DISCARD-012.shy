@@ -1,0 +1,13 @@
+# DISCARD-012: multiline initializer
+check ["id": "DISCARD-012",
+    "name": "multiline initializer",
+    "source": "let _ = match 1\n{\n _ => { 7 }\n}\necho \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

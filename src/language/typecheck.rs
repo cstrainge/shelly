@@ -198,7 +198,8 @@ fn check_scope(
                     }
                     check_expression(registry, &mut statement.expression, &names)?;
                 },
-            AstStatement::ExpressionStatement(expression) =>
+            AstStatement::ExpressionStatement(expression)
+            | AstStatement::DiscardStatement(expression) =>
                 check_expression(registry, expression, &names)?,
             AstStatement::ExecuteStatement(statement) => check_call(registry, statement, &names)?,
             AstStatement::ReturnStatement(statement) =>
@@ -740,6 +741,11 @@ fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bind
                 {
                     check_binding_expression(registry, expression, &bindings, return_type,
                                              expected)?;
+                },
+            AstStatement::DiscardStatement(expression) =>
+                {
+                    check_binding_expression(registry, expression, &bindings, return_type,
+                                             None)?;
                 },
             AstStatement::ExecuteStatement(call) =>
                 {

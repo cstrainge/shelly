@@ -1,0 +1,13 @@
+# DISCARD-023: annotation rejected
+check ["id": "DISCARD-023",
+    "name": "annotation rejected",
+    "source": "let _: Integer = 42",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

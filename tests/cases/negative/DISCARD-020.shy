@@ -1,0 +1,13 @@
+# DISCARD-020: missing assignment
+check ["id": "DISCARD-020",
+    "name": "missing assignment",
+    "source": "let _ 42",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

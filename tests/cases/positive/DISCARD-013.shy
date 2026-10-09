@@ -1,0 +1,13 @@
+# DISCARD-013: direct command call
+check ["id": "DISCARD-013",
+    "name": "direct command call",
+    "source": "let _ = /usr/bin/false; echo \"after\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "after\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

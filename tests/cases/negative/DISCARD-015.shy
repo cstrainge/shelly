@@ -1,0 +1,13 @@
+# DISCARD-015: evaluation error
+check ["id": "DISCARD-015",
+    "name": "evaluation error",
+    "source": "let _ = \$discard_missing; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

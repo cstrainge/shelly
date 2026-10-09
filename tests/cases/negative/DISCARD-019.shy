@@ -1,0 +1,13 @@
+# DISCARD-019: missing expression
+check ["id": "DISCARD-019",
+    "name": "missing expression",
+    "source": "let _ =",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

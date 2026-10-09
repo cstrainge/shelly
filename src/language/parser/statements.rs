@@ -78,6 +78,22 @@ fn parse_return_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
 fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     expect_token(buffer, TokenKind::Let)?;
+    let mut lookahead = Lookahead::new(buffer);
+    let discard = lookahead.buffer.next()?.is_some_and(|token|
+        token.kind == TokenKind::Symbol && token.token_value_text() == "_");
+    if discard { lookahead.commit(); }
+    drop(lookahead);
+    if discard
+    {
+        let assignment = expect_token(buffer, TokenKind::Assign)?;
+        let expression = parse_value_expression(buffer)?.ok_or(ParserError
+            {
+                location: Some(assignment.location),
+                kind: ParserErrorKind::ExpectedExpression,
+            })?;
+        expect_statement_end(buffer)?;
+        return Ok(Some(AstStatement::DiscardStatement(expression)));
+    }
     let export_flag = if try_expect_token(buffer, TokenKind::Export)?.is_some()
         { AstExportFlag::Exported } else { AstExportFlag::NonExported };
     let identifier = expect_token(buffer, TokenKind::Identifier)?;

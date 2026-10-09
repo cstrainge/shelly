@@ -1,0 +1,13 @@
+# DISCARD-003: evaluated once
+check ["id": "DISCARD-003",
+    "name": "evaluated once",
+    "source": "let \$calls = 0; fn once() { \$calls = \$calls + 1; 7 }; let _ = once; echo \$calls",
+    "mode": "code",
+    "args": [],
+    "stdout": "1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

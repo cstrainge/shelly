@@ -1,0 +1,13 @@
+# DISCARD-017: unmatched expression
+check ["id": "DISCARD-017",
+    "name": "unmatched expression",
+    "source": "let _ = match 1 { 2 => { 9 } }; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Match error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

@@ -1,0 +1,13 @@
+# DISCARD-011: loop control and stack
+check ["id": "DISCARD-011",
+    "name": "loop control and stack",
+    "source": "let \$sum = 0; for \$n in 0..5 { let _ = match \$n { 1 => { continue } 4 => { break } _ => { \$sum = \$sum + \$n; \$n } } }; echo \$sum",
+    "mode": "code",
+    "args": [],
+    "stdout": "5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

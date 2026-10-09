@@ -1,0 +1,16 @@
+check_repl [
+    "id": "DISCARD-REPL",
+    "name": "Discard binding and recovery",
+    "steps": [
+        ["let \$_: Integer = 42", "quiet", ""],
+        ["let _ = 1 + 2", "quiet", ""],
+        ["echo \$_", "output", "42"],
+        ["let _ = (/usr/bin/false)", "quiet", ""],
+        ["let _ = \$discard_missing", "error", "not found"],
+        ["echo \$_", "output", "42"],
+        ["let _ = match 1 { _ => { 7 } }", "quiet", ""],
+        ["let _ =", "error", "Parser error:"],
+        ["echo \"recovered\"", "output", "recovered"]
+    ],
+    "exit": 0
+]

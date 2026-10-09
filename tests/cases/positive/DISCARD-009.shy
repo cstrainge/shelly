@@ -1,0 +1,13 @@
+# DISCARD-009: function tail yields none
+check ["id": "DISCARD-009",
+    "name": "function tail yields none",
+    "source": "fn discard_tail() { let _ = 9 }; echo ((discard_tail) == ())",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

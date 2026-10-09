@@ -1,0 +1,13 @@
+# DISCARD-021: quoted underscore rejected
+check ["id": "DISCARD-021",
+    "name": "quoted underscore rejected",
+    "source": "let \"_\" = 42",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

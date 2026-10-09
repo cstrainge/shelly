@@ -1,0 +1,13 @@
+# DISCARD-014: discarded expression still type checked
+check ["id": "DISCARD-014",
+    "name": "discarded expression still type checked",
+    "source": "let _ = match 1 { _ => { let \$n: Integer = \"bad\"; \$n } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

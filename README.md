@@ -72,6 +72,12 @@ echo $x                     # 512
 Variable names cannot contain `=`, including braced names and function parameters.
 Keep spaces around assignment `=`; adjacent `==` and `!=` remain comparisons.
 
+Use `let _ = expression` to evaluate an expression once and discard its value
+without creating a variable. This also consumes a command's exit status, just as
+assigning it to a variable does; evaluation errors still propagate. Printed output
+is unaffected. The discard requires an initializer and has no type annotation or
+`export` modifier. `let $_ = expression` remains an ordinary named binding.
+
 An optional `: Type` annotation constrains a variable's initializer and subsequent
 writes. Type names are case-sensitive: use `Number`, not `number`.
 
@@ -1472,7 +1478,7 @@ scripts, or the REPL. `cargo clippy --locked --all-targets` runs the Rust lints.
 ./target/debug/shelly -m test.shy C001
 ```
 
-The suite includes 3,920 process cases, 86 stateful REPL scenarios, prompt/path
+The suite includes 3,946 process cases, 87 stateful REPL scenarios, prompt/path
 checks, watchdog probes, native API tests, and harness failure controls. All
 orchestration and assertions run in Shelly; no Python, pexpect, or other shell is
 needed. Standard Unix utilities still provide file operations and byte/regex

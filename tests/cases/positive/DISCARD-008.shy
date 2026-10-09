@@ -1,0 +1,13 @@
+# DISCARD-008: match result
+check ["id": "DISCARD-008",
+    "name": "match result",
+    "source": "let _ = match 3 { 1..5 => { 99 } }; echo \"ok\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

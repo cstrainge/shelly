@@ -1697,6 +1697,20 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
                     add_check = false;
                 },
 
+            AstStatement::DiscardStatement(expression) =>
+                {
+                    compile_expression(instructions, function_block, expression)?;
+                    instructions.push(Instruction
+                        { location: None, code: Code::PushResult, operand: None });
+                    instructions.push(Instruction
+                        {
+                            location: Some(expression.location.clone()),
+                            code: Code::Discard,
+                            operand: None,
+                        });
+                    add_check = false;
+                },
+
             AstStatement::AliasStatement(alias_statement) =>
                 {
                     compile_alias_statement(instructions, alias_statement);

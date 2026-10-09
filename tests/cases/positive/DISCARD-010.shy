@@ -1,0 +1,13 @@
+# DISCARD-010: return through initializer
+check ["id": "DISCARD-010",
+    "name": "return through initializer",
+    "source": "fn early(): Integer { let _ = match 1 { _ => { return 7 } }; 9 }; echo (early)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

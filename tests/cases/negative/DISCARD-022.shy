@@ -1,0 +1,13 @@
+# DISCARD-022: other bare names rejected
+check ["id": "DISCARD-022",
+    "name": "other bare names rejected",
+    "source": "let unused = 42",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

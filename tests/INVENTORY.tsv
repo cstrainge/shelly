@@ -3919,3 +3919,29 @@ MATCH-113	negative	range chaining	tests/cases/negative/MATCH-113.shy
 MATCH-114	negative	missing pattern at EOF	tests/cases/negative/MATCH-114.shy
 MATCH-115	negative	two arrows	tests/cases/negative/MATCH-115.shy
 MATCH-116	negative	empty separator	tests/cases/negative/MATCH-116.shy
+DISCARD-001	positive	scalar and arithmetic	tests/cases/positive/DISCARD-001.shy
+DISCARD-002	positive	values stay data	tests/cases/positive/DISCARD-002.shy
+DISCARD-003	positive	evaluated once	tests/cases/positive/DISCARD-003.shy
+DISCARD-004	positive	printed output preserved	tests/cases/positive/DISCARD-004.shy
+DISCARD-005	positive	failed command status consumed	tests/cases/positive/DISCARD-005.shy
+DISCARD-006	positive	named underscore preserved	tests/cases/positive/DISCARD-006.shy
+DISCARD-007	positive	repeat and branch scopes	tests/cases/positive/DISCARD-007.shy
+DISCARD-008	positive	match result	tests/cases/positive/DISCARD-008.shy
+DISCARD-009	positive	function tail yields none	tests/cases/positive/DISCARD-009.shy
+DISCARD-010	positive	return through initializer	tests/cases/positive/DISCARD-010.shy
+DISCARD-011	positive	loop control and stack	tests/cases/positive/DISCARD-011.shy
+DISCARD-012	positive	multiline initializer	tests/cases/positive/DISCARD-012.shy
+DISCARD-013	positive	direct command call	tests/cases/positive/DISCARD-013.shy
+DISCARD-014	negative	discarded expression still type checked	tests/cases/negative/DISCARD-014.shy
+DISCARD-015	negative	evaluation error	tests/cases/negative/DISCARD-015.shy
+DISCARD-016	negative	arithmetic error	tests/cases/negative/DISCARD-016.shy
+DISCARD-017	negative	unmatched expression	tests/cases/negative/DISCARD-017.shy
+DISCARD-018	negative	missing initializer	tests/cases/negative/DISCARD-018.shy
+DISCARD-019	negative	missing expression	tests/cases/negative/DISCARD-019.shy
+DISCARD-020	negative	missing assignment	tests/cases/negative/DISCARD-020.shy
+DISCARD-021	negative	quoted underscore rejected	tests/cases/negative/DISCARD-021.shy
+DISCARD-022	negative	other bare names rejected	tests/cases/negative/DISCARD-022.shy
+DISCARD-023	negative	annotation rejected	tests/cases/negative/DISCARD-023.shy
+DISCARD-024	negative	export rejected	tests/cases/negative/DISCARD-024.shy
+DISCARD-025	negative	named underscore constraint retained	tests/cases/negative/DISCARD-025.shy
+DISCARD-026	negative	typed function tail cannot return discarded value	tests/cases/negative/DISCARD-026.shy

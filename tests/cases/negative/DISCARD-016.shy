@@ -1,0 +1,13 @@
+# DISCARD-016: arithmetic error
+check ["id": "DISCARD-016",
+    "name": "arithmetic error",
+    "source": "let _ = 1 / 0; echo \"AFTER_ERROR\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]

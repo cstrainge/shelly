@@ -1,0 +1,13 @@
+# DISCARD-026: typed function tail cannot return discarded value
+check ["id": "DISCARD-026",
+    "name": "typed function tail cannot return discarded value",
+    "source": "fn discarded(): Integer { let _ = 9 }; echo (discarded)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": ["Type error for return value", "Expected Integer, got None"],
+    "stderr_excludes": [],
+    "stdout_excludes": ["AFTER_ERROR"]]
