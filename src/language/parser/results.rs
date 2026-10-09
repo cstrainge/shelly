@@ -14,6 +14,7 @@ pub enum ParserErrorKind
     MatchError(Vec<ParserError>),
     ExpectedToken(TokenKind, Option<TokenKind>),
     ExpectedExpression,
+    SplatExecutable,
     UnexpectedElse,
     ExpressionNotString,
     DuplicateParameter(String),
@@ -48,6 +49,9 @@ impl Display for ParserErrorKind
                 {
                     write!(f, "Expected expression.")
                 },
+
+            ParserErrorKind::SplatExecutable =>
+                write!(f, "A variable splat cannot be used as an executable."),
 
             ParserErrorKind::ExpressionNotString =>
                 {

@@ -735,6 +735,15 @@ impl<'a> Tokenizer<'a>
             identifier += &self.extract_to_separator(Some(&['.', '/']));
         }
 
+        if identifier.contains('=')
+        {
+            return Err(TokenizerError
+                {
+                    location,
+                    message: "Invalid variable name: '=' is not allowed.".to_string()
+                });
+        }
+
         // A variable-prefixed path is one interpolated word, not a variable name.
         if self.pending_operator.is_none() && self.input.peek_next() == Some('/')
         {

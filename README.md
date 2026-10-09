@@ -66,12 +66,20 @@ $x = ($x - 4) / 2
 echo $x                     # 512
 ```
 
+Variable names cannot contain `=`, including braced names and function parameters.
+Keep spaces around assignment `=`; adjacent `==` and `!=` remain comparisons.
+
 Values include signed 64-bit integers, floating-point values, booleans, strings,
 arrays, the no-value result displayed as `()`, and external command statuses such
 as `ExecResult(0)`. Arrays currently come from `$args` and file globs; array
 literals and indexing are not implemented. Without `...`, an array becomes
 colon-separated text when passed to a command. `()` is also a literal that
 evaluates to `None`, including in assignments and returns.
+
+Use `$args...` or `${args}...` to expand command arguments. A splat cannot be
+the executable: `$cmd... 2` is a parse error; use `$cmd 2` to call a stored command.
+Bracket-containing names such as `$args[0]` currently refer to a variable with
+that exact name, not an array element; this syntax will be revisited with indexing.
 
 Arithmetic supports `+`, `-`, `*`, `/`, and `%`, with normal precedence,
 left associativity, and parentheses. **Operations currently convert operands to
@@ -452,8 +460,13 @@ Useful predefined variables include `$args`, `$pwd`, `$HOSTNAME`, `$HOME`, `$PAT
 
 ## Current limitations
 
-The [audit report](audit/language/REPORT.md) records the repaired defects and
-reproducible checks. The language still has deliberate limits:
+The [audit report](audit/language/REPORT.md) records current checks and unresolved
+findings. The [temporary Python suite](audit/language/README.md) runs with
+`python3 audit/language/run_suite.py` (add `--release` for the optimized build).
+It exits nonzero while known mismatches remain. Its cases will migrate to Shelly
+under root `test.shy` when the required language support exists.
+
+The language still has deliberate limits:
 
 - Arithmetic converts operands to integers rather than preserving floating-point values.
 - Function arguments become text, losing their original types and executable markers.

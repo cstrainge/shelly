@@ -1473,6 +1473,12 @@ impl Interpreter
                 }
             }
 
+            if variable_name.contains('=')
+            {
+                return Err(invalid_operand(
+                    "Invalid variable name: '=' is not allowed.".to_string()));
+            }
+
             let value = self.read_raw_variable(&variable_name, &location)?;
             let value = if display_paths { self.eval_value_paths_to(value) } else { value };
 

@@ -597,8 +597,20 @@ fn parse_arguments_before_block(buffer: &mut TokenBuffer<'_, '_>,
 
 pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
-    match_one_of(buffer, &[parse_variable_expression,
+    let expression = match_one_of(buffer, &[parse_variable_expression,
                            parse_symbol_expression,
                            parse_literal_expression,
-                           parse_operator_to_symbol])
+                           parse_operator_to_symbol])?;
+
+    if let Some(expression) = &expression
+        && matches!(expression.kind, AstExpressionKind::VariableSplat(_))
+    {
+        return Err(ParserError
+            {
+                location: Some(expression.location.clone()),
+                kind: ParserErrorKind::SplatExecutable
+            });
+    }
+
+    Ok(expression)
 }
