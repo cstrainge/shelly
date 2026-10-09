@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use super::value::{ ExecResult, Value };
 use super::range::Range;
-use super::types::EnumValue;
+use super::types::{EnumValue, StructValue};
 
 
 // Immutable, canonical keys keep hashing consistent with language equality.
@@ -13,6 +13,7 @@ pub enum MapKey
 {
     None,
     Enum(Rc<EnumValue>),
+    Struct(Rc<StructKey>),
     ExecResult(u8),
     Signaled,
     Integer(i64),
@@ -34,6 +35,8 @@ impl MapKey
         {
             Value::None => Self::None,
             Value::Enum(value) => Self::Enum(value.clone()),
+            Value::Struct(value) => Self::Struct(Rc::new(StructKey
+                { value: value.clone(), fields: value.fields.iter().map(Self::from_value).collect() })),
             Value::Range(range) => Self::Range(*range),
             Value::ExecResult(ExecResult::Value(code)) => Self::ExecResult(*code),
             Value::ExecResult(ExecResult::Signaled) => Self::Signaled,
@@ -71,6 +74,7 @@ impl MapKey
         {
             Self::None => Value::None,
             Self::Enum(value) => Value::Enum(value.clone()),
+            Self::Struct(key) => Value::Struct(key.value.clone()),
             Self::Range(range) => Value::Range(*range),
             Self::ExecResult(code) => Value::ExecResult(ExecResult::Value(*code)),
             Self::Signaled => Value::ExecResult(ExecResult::Signaled),
@@ -84,5 +88,45 @@ impl MapKey
             Self::HashMap(values) => Value::from_hash_map(values.iter()
                 .map(|(key, value)| (key.clone(), value.to_value())).collect())
         }
+    }
+}
+
+
+// Preserve the typed snapshot for iteration; hash and compare canonical fields.
+// Rebuilding a Float field from an integral canonical key would lose its type.
+#[derive(Clone, Debug)]
+pub struct StructKey
+{
+    value: Rc<StructValue>,
+    fields: Vec<MapKey>
+}
+impl PartialEq for StructKey
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        self.value.definition.id == other.value.definition.id && self.fields == other.fields
+    }
+}
+impl Eq for StructKey {}
+impl PartialOrd for StructKey
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering>
+    {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for StructKey
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering
+    {
+        (self.value.definition.id, &self.fields).cmp(&(other.value.definition.id, &other.fields))
+    }
+}
+impl std::hash::Hash for StructKey
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H)
+    {
+        self.value.definition.id.hash(state);
+        self.fields.hash(state);
     }
 }

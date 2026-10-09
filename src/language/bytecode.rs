@@ -29,6 +29,10 @@ pub enum Code
     // Stack operations: collect values, read an element, or update a variable's element.
     MakeArray,
     MakeHashMap,
+    // Operand is [type ID, field indexes in evaluation order].
+    MakeStruct,
+    // Operand is a checked field index or a dynamic field name.
+    GetField,
     // Operand bits indicate a supplied start (1), end (2), and inclusive end (4).
     MakeRange,
     // Start consumes the iterable; operand is the binding count. Next pushes

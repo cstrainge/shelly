@@ -51,7 +51,11 @@ pub enum AstBooleanOperator
 
 pub enum AstExpressionKind
 {
+    // Same-line `name ()`: the checker resolves the type/command ambiguity.
+    SpacedEmptyCall(String),
     EnumVariant(String, String),
+    StructConstructor(Box<AstStructConstructor>),
+    Field(Box<AstExpression>, String, Option<usize>),
     Variable(AstSymbol),
     VariableSplat(AstSymbol),
     Array(Vec<AstExpression>),
@@ -161,6 +165,9 @@ impl AstExpression
             | AstExpressionKind::Array(_)
             | AstExpressionKind::HashMap(_)
             | AstExpressionKind::Range(_, _, _)
+            | AstExpressionKind::StructConstructor(_)
+            | AstExpressionKind::SpacedEmptyCall(_)
+            | AstExpressionKind::Field(_, _, _)
             | AstExpressionKind::Index(_, _)
             | AstExpressionKind::Splat(_)
             | AstExpressionKind::ExecutableReference(_)
@@ -206,7 +213,7 @@ pub struct AstSetStatement
 {
     pub location: Location,
     pub identifier: String,
-    pub indexes: Vec<AstExpression>,
+    pub indexes: Vec<AstAccess>,
     pub expression: AstExpression,
 }
 
@@ -260,7 +267,7 @@ pub fn new_ast_let_statement(location: Location,
 
 pub fn new_ast_set_statement(location: Location,
                              identifier: String,
-                             indexes: Vec<AstExpression>,
+                             indexes: Vec<AstAccess>,
                              expression: AstExpression) -> Option<AstStatement>
 {
     Some(AstStatement::SetStatement(Box::new(AstSetStatement
@@ -355,6 +362,44 @@ pub struct AstConditionalLoopStatement
 }
 
 
+pub enum AstType
+{
+    Named(String),
+    Array(Box<AstType>),
+    Map(Box<AstType>, Box<AstType>),
+    Optional(Box<AstType>)
+}
+
+pub struct AstFieldDeclaration
+{
+    pub name: String,
+    pub annotation: AstType,
+    pub optional: bool,
+    pub location: Location
+}
+
+pub struct AstStructDeclaration
+{
+    pub name: String,
+    pub fields: Vec<AstFieldDeclaration>,
+    pub location: Location
+}
+
+pub struct AstStructConstructor
+{
+    pub name: String,
+    pub fields: Vec<(String, Location, AstExpression)>,
+    pub type_id: Option<crate::language::data::types::TypeId>,
+    pub field_indexes: Vec<usize>
+}
+
+pub enum AstAccess
+{
+    Index(AstExpression),
+    Field(String)
+}
+
+
 pub struct AstEnumDeclaration
 {
     pub location: Location,
@@ -366,6 +411,7 @@ pub struct AstEnumDeclaration
 pub enum AstStatement
 {
     EnumDeclaration(Box<AstEnumDeclaration>),
+    StructDeclaration(Box<AstStructDeclaration>),
     LetStatement(Box<AstLetStatement>),
     SetStatement(Box<AstSetStatement>),
     AliasStatement(Box<AstAliasStatement>),

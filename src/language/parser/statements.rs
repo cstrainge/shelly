@@ -419,6 +419,50 @@ fn parse_for_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
 }
 
 
+fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
+{
+    expect_token(buffer, TokenKind::Struct)?;
+    let name = super::expressions::expect_type_name(buffer)?;
+    while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+    expect_token(buffer, TokenKind::BlockOpen)?;
+    let mut fields = Vec::new();
+    loop
+    {
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        if try_expect_token(buffer, TokenKind::BlockClose)?.is_some() { break; }
+        let field = expect_token(buffer, TokenKind::Identifier)?;
+        let field_name = field.token_value_text()[1..].to_string();
+        if !super::expressions::valid_type_name(&field_name)
+        {
+            return Err(ParserError { location: Some(field.location),
+                kind: ParserErrorKind::InvalidType("Invalid struct field name.".to_string()) });
+        }
+        let optional =
+            {
+                let mut peek = Lookahead::new(buffer);
+                if peek.buffer.next()?.is_some_and(|token| token.kind == TokenKind::Symbol && token.token_value_text() == "optional")
+                { peek.commit(); true } else { false }
+            };
+        let has_type =
+            {
+                let peek = Lookahead::new(buffer);
+                peek.buffer.next()?.is_some_and(|token| !matches!(token.kind,
+                    TokenKind::Comma | TokenKind::BlockClose | TokenKind::LineBreak))
+            };
+        let annotation = if has_type { super::expressions::parse_type(buffer)? }
+            else { AstType::Named("any".to_string()) };
+        fields.push(AstFieldDeclaration { name: field_name, annotation, optional, location: field.location });
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        if try_expect_token(buffer, TokenKind::Comma)?.is_some() { continue; }
+        expect_token(buffer, TokenKind::BlockClose)?;
+        break;
+    }
+    expect_statement_end(buffer)?;
+    Ok(Some(AstStatement::StructDeclaration(Box::new(AstStructDeclaration
+        { location: name.location.clone(), name: name.token_value_text(), fields }))))
+}
+
+
 fn parse_enum_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     let keyword = expect_token(buffer, TokenKind::Enum)?;
@@ -463,6 +507,8 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     // A function's parameter list can also look like a parenthesized command argument. Once fn
     // starts a declaration, preserve its errors (including incomplete input) instead of falling
     // back to parsing it as a command.
+    if next_kind == TokenKind::Struct { return parse_struct_statement(buffer); }
+
     if next_kind == TokenKind::Enum { return parse_enum_statement(buffer); }
 
     if next_kind == TokenKind::Function

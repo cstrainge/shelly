@@ -98,6 +98,29 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
 {
     match &expression.kind
     {
+        AstExpressionKind::SpacedEmptyCall(_) => return Err(CompileError
+            { location: Some(expression.location.clone()),
+              what: ErrorWhat::TypeError("Unresolved spaced call reached code generation".to_string()) }),
+        AstExpressionKind::StructConstructor(item) =>
+            {
+                let id = item.type_id.ok_or_else(|| CompileError { location: Some(expression.location.clone()),
+                    what: ErrorWhat::TypeError("Unresolved struct constructor".to_string()) })?;
+                for (_, _, value) in &item.fields
+                {
+                    compile_expression(instructions, function_block, value)?;
+                    instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                }
+                instructions.push(Instruction { location: Some(expression.location.clone()), code: Code::MakeStruct,
+                    operand: Some(Value::from_array(vec![Value::Integer(id.0 as i64), Value::from_array(
+                        item.field_indexes.iter().map(|index| Value::Integer(*index as i64)).collect())])) });
+            },
+        AstExpressionKind::Field(object, name, index) =>
+            {
+                compile_expression(instructions, function_block, object)?;
+                instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                instructions.push(Instruction { location: Some(expression.location.clone()), code: Code::GetField,
+                    operand: Some(index.map_or_else(|| Value::from_string(name.clone()), |index| Value::Integer(index as i64))) });
+            },
         AstExpressionKind::EnumVariant(_, _) => return Err(CompileError
             { location: Some(expression.location.clone()),
               what: ErrorWhat::TypeError("Unresolved enum reference reached code generation".to_string()) }),
@@ -189,7 +212,7 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
                 // variable or string literal can supply an unevaluated executable reference.
                 if matches!(&inner.kind,
                     AstExpressionKind::Variable(_)
-                    | AstExpressionKind::Index(_, _)
+                    | AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _)
                     | AstExpressionKind::ExecutableReference(_)
                     | AstExpressionKind::Literal(AstLiteral { value: Value::String(_, _), .. }))
                 {
@@ -512,10 +535,18 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>,
                          function_block: &FunctionBlockRef,
                          set_statement: &AstSetStatement) -> CompileResult<()>
 {
-    for index in &set_statement.indexes
+    for access in &set_statement.indexes
     {
-        compile_expression(instructions, function_block, index)?;
-        instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+        match access
+        {
+            AstAccess::Index(index) =>
+                {
+                    compile_expression(instructions, function_block, index)?;
+                    instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                },
+            AstAccess::Field(name) => instructions.push(Instruction { location: None,
+                code: Code::Push, operand: Some(Value::from_string(name.clone())) })
+        }
     }
     compile_expression(instructions, function_block, &set_statement.expression)?;
 
@@ -537,7 +568,8 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>,
                 else
                 {
                     Value::from_array(vec![Value::from_string(set_statement.identifier.clone()),
-                        Value::Integer(set_statement.indexes.len() as i64)])
+                        Value::from_array(set_statement.indexes.iter().map(|access|
+                            Value::Boolean(matches!(access, AstAccess::Field(_)))).collect())])
                 })
         });
     Ok(())
@@ -594,7 +626,7 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
                              function_block: &FunctionBlockRef,
                              execute_statement: &AstExecuteStatement) -> CompileResult<()>
 {
-    if matches!(execute_statement.executable.kind, AstExpressionKind::Index(_, _))
+    if matches!(execute_statement.executable.kind, AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _))
     {
         compile_expression(instructions, function_block, &execute_statement.executable)?;
         instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
@@ -642,7 +674,7 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
                         });
                 },
 
-            AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _) =>
+            AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _) =>
                 {
                     instructions.push(Instruction
                         {
@@ -764,7 +796,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     | Code::StartIteration | Code::BindIteration
                     | Code::NewAlias | Code::ExportVariable | Code::GlobFiles
                     | Code::ExpandArray | Code::ExpandPath | Code::InterpolateString
-                    | Code::MakeArray | Code::MakeHashMap | Code::MakeRange | Code::GetElement | Code::SetElement
+                    | Code::MakeArray | Code::MakeHashMap | Code::MakeStruct | Code::GetField | Code::MakeRange | Code::GetElement | Code::SetElement
                     | Code::InterpolateGlob | Code::EnterScope | Code::ExitScope
                     | Code::MathAdd | Code::MathSubtract | Code::MathMultiply
                     | Code::MathDivide | Code::MathModulo | Code::CompareEqual
@@ -1050,7 +1082,7 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
 
         match ast_item
         {
-            AstStatement::EnumDeclaration(_) | AstStatement::NullStatement => { add_check = false; },
+            AstStatement::EnumDeclaration(_) | AstStatement::StructDeclaration(_) | AstStatement::NullStatement => { add_check = false; },
 
             AstStatement::LetStatement(let_statement) =>
                 {
@@ -1079,7 +1111,7 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
                 {
                     compile_expression(instructions, function_block, expression)?;
 
-                    if matches!(&expression.kind, AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _))
+                    if matches!(&expression.kind, AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _))
                     {
                         instructions.push(Instruction
                             {

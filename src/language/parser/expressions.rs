@@ -23,7 +23,7 @@ pub(super) fn expect_type_name(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<
     Ok(token)
 }
 
-fn valid_type_name(name: &str) -> bool
+pub(super) fn valid_type_name(name: &str) -> bool
 {
     let mut chars = name.chars();
     chars.next().is_some_and(|c| c.is_alphabetic() || c == '_')
@@ -45,6 +45,41 @@ fn math_operator(kind: TokenKind) -> Option<(AstMathOperator, u8)>
 }
 
 
+enum ConstructorStart
+{
+    Fields,
+    SpacedEmpty
+}
+
+
+fn constructor_follows(buffer: &mut TokenBuffer<'_, '_>, name: &crate::language::tokenizer::Token) -> ParseResult<Option<ConstructorStart>>
+{
+    let peek = Lookahead::new(buffer);
+    let multiline = try_expect_token(&mut *peek.buffer, TokenKind::LineBreak)?.is_some();
+    if multiline { skip_array_newlines(&mut *peek.buffer)?; }
+    let Some(open) = try_expect_token(&mut *peek.buffer, TokenKind::ParenOpen)? else { return Ok(None); };
+    if !multiline && open.location.line == name.location.line
+        && open.location.column == name.location.column + name.token_value_text().chars().count()
+    {
+        return Ok(Some(ConstructorStart::Fields));
+    }
+
+    // Named fields distinguish spaced constructors from grouped command
+    // arguments and new statements. Empty spaced constructors are resolved
+    // against the type namespace during AST checking.
+    skip_array_newlines(&mut *peek.buffer)?;
+    let Some(first) = peek.buffer.next()? else { return Ok(None); };
+    if first.kind == TokenKind::ParenClose
+    {
+        return Ok((!multiline && valid_type_name(&name.token_value_text()))
+            .then_some(ConstructorStart::SpacedEmpty));
+    }
+    if first.kind != TokenKind::Identifier && !valid_type_name(&first.token_value_text()) { return Ok(None); }
+    Ok(try_expect_token(&mut *peek.buffer, TokenKind::TypeDelimiter)?
+        .map(|_| ConstructorStart::Fields))
+}
+
+
 /**
  * Parse one arithmetic operand. A mismatch consumes nothing. Parentheses accept
  * any value expression, including a command whose result is used as the operand.
@@ -58,8 +93,42 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
         {
             TokenKind::Symbol =>
                 {
-                    if try_expect_token(&mut *lookahead.buffer, TokenKind::Scope)?.is_none() { return Ok(None); }
                     let name = token.token_value_text();
+                    if let Some(start) = constructor_follows(&mut *lookahead.buffer, &token)?
+                    {
+                        if !valid_type_name(&name)
+                        {
+                            return Err(ParserError { location: Some(token.location),
+                                kind: ParserErrorKind::InvalidType("Invalid struct name.".to_string()) });
+                        }
+                        skip_array_newlines(&mut *lookahead.buffer)?;
+                        expect_token(&mut *lookahead.buffer, TokenKind::ParenOpen)?;
+                        let mut fields = Vec::new();
+                        loop
+                        {
+                            skip_array_newlines(&mut *lookahead.buffer)?;
+                            if try_expect_token(&mut *lookahead.buffer, TokenKind::ParenClose)?.is_some() { break; }
+                            let field = expect_field_label(&mut *lookahead.buffer)?;
+                            expect_token(&mut *lookahead.buffer, TokenKind::TypeDelimiter)?;
+                            skip_array_newlines(&mut *lookahead.buffer)?;
+                            let value = parse_collection_value(&mut *lookahead.buffer)?;
+                            fields.push((field.token_value_text(), field.location, value));
+                            skip_array_newlines(&mut *lookahead.buffer)?;
+                            if try_expect_token(&mut *lookahead.buffer, TokenKind::ParenClose)?.is_some() { break; }
+                            expect_token(&mut *lookahead.buffer, TokenKind::Comma)?;
+                        }
+                        let kind = match start
+                            {
+                                ConstructorStart::SpacedEmpty => AstExpressionKind::SpacedEmptyCall(name),
+                                ConstructorStart::Fields => AstExpressionKind::StructConstructor(Box::new(AstStructConstructor
+                                    { name, fields, type_id: None, field_indexes: Vec::new() }))
+                            };
+                        let expression = AstExpression { location: token.location, kind, string_flag: None };
+                        let expression = parse_postfix(&mut *lookahead.buffer, expression)?;
+                        lookahead.commit();
+                        return Ok(Some(expression));
+                    }
+                    if try_expect_token(&mut *lookahead.buffer, TokenKind::Scope)?.is_none() { return Ok(None); }
                     if !valid_type_name(&name)
                     {
                         return Err(ParserError { location: Some(token.location),
@@ -226,47 +295,88 @@ fn skip_array_newlines(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<()>
 }
 
 
-pub fn parse_indexes(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Vec<AstExpression>>
+pub fn parse_indexes(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Vec<AstAccess>>
 {
     let mut indexes = Vec::new();
-    while let Some(open) = try_expect_token(buffer, TokenKind::IndexOpen)?
+    loop
     {
-        skip_array_newlines(buffer)?;
-        let index = parse_value_expression(buffer)?.ok_or_else(|| ParserError
-            {
-                location: Some(open.location),
-                kind: ParserErrorKind::ExpectedExpression
-            })?;
-        skip_array_newlines(buffer)?;
-        expect_token(buffer, TokenKind::SquareClose)?;
-        indexes.push(index);
+        if let Some(field) = try_expect_token(buffer, TokenKind::Member)?
+        {
+            indexes.push(AstAccess::Field(field.token_value_text()));
+        }
+        else if let Some(open) = try_expect_token(buffer, TokenKind::IndexOpen)?
+        {
+            skip_array_newlines(buffer)?;
+            let index = parse_value_expression(buffer)?.ok_or_else(|| ParserError
+                { location: Some(open.location), kind: ParserErrorKind::ExpectedExpression })?;
+            skip_array_newlines(buffer)?;
+            expect_token(buffer, TokenKind::SquareClose)?;
+            indexes.push(AstAccess::Index(index));
+        }
+        else { break; }
     }
     Ok(indexes)
 }
 
 
-fn parse_postfix(buffer: &mut TokenBuffer<'_, '_>,
-                 mut expression: AstExpression) -> ParseResult<AstExpression>
+fn parse_postfix(buffer: &mut TokenBuffer<'_, '_>, mut expression: AstExpression) -> ParseResult<AstExpression>
 {
-    for index in parse_indexes(buffer)?
+    for access in parse_indexes(buffer)?
     {
         expression = AstExpression
             {
                 location: expression.location.clone(),
-                kind: AstExpressionKind::Index(Box::new(expression), Box::new(index)),
+                kind: match access
+                    {
+                        AstAccess::Index(index) => AstExpressionKind::Index(Box::new(expression), Box::new(index)),
+                        AstAccess::Field(name) => AstExpressionKind::Field(Box::new(expression), name, None)
+                    },
                 string_flag: None
             };
     }
     if let Some(splat) = try_expect_token(buffer, TokenKind::Splat)?
     {
-        expression = AstExpression
-            {
-                location: splat.location,
-                kind: AstExpressionKind::Splat(Box::new(expression)),
-                string_flag: None
-            };
+        expression = AstExpression { location: splat.location,
+            kind: AstExpressionKind::Splat(Box::new(expression)), string_flag: None };
     }
     Ok(expression)
+}
+
+
+pub(super) fn expect_field_label(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<crate::language::tokenizer::Token>
+{
+    let token = buffer.next()?.ok_or(ParserError { location: None,
+        kind: ParserErrorKind::UnexpectedEOF(TokenKind::Symbol) })?;
+    if !valid_type_name(&token.token_value_text()) || token.kind == TokenKind::Identifier
+        || token.kind == TokenKind::Literal && !matches!(token.value, TokenValue::Literal(TokenLiteral::Boolean(_)))
+    {
+        return Err(ParserError { location: Some(token.location),
+            kind: ParserErrorKind::InvalidType("Expected a field name.".to_string()) });
+    }
+    Ok(token)
+}
+
+
+pub(super) fn parse_type(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<AstType>
+{
+    if try_expect_token(buffer, TokenKind::SquareOpen)?.is_some()
+    {
+        skip_array_newlines(buffer)?;
+        let first = parse_type(buffer)?;
+        skip_array_newlines(buffer)?;
+        let result = if try_expect_token(buffer, TokenKind::TypeDelimiter)?.is_some()
+            {
+                skip_array_newlines(buffer)?;
+                AstType::Map(Box::new(first), Box::new(parse_type(buffer)?))
+            }
+            else { AstType::Array(Box::new(first)) };
+        skip_array_newlines(buffer)?;
+        expect_token(buffer, TokenKind::SquareClose)?;
+        return Ok(result);
+    }
+    let name = expect_type_name(buffer)?.token_value_text();
+    if name == "optional" { return Ok(AstType::Optional(Box::new(parse_type(buffer)?))); }
+    Ok(AstType::Named(name))
 }
 
 
@@ -411,10 +521,11 @@ fn parse_math_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
     // A lone number/variable belongs to the existing expression rules. Explicit
     // parentheses also accept a single operand, e.g. (42) or ($count).
     if starts_with_group || matches!(&expression.kind,
-        AstExpressionKind::EnumVariant(_, _) | AstExpressionKind::MathExpression(_, _, _) | AstExpressionKind::BooleanNot(_)
+        AstExpressionKind::StructConstructor(_) | AstExpressionKind::SpacedEmptyCall(_)
+        | AstExpressionKind::EnumVariant(_, _) | AstExpressionKind::MathExpression(_, _, _) | AstExpressionKind::BooleanNot(_)
         | AstExpressionKind::IfExpression(_) | AstExpressionKind::Array(_)
         | AstExpressionKind::HashMap(_)
-        | AstExpressionKind::Index(_, _) | AstExpressionKind::Splat(_))
+        | AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _) | AstExpressionKind::Splat(_))
     {
         lookahead.commit();
         return Ok(Some(expression));
@@ -584,13 +695,26 @@ fn parse_scalar_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
     // parsing does not turn the name into a call or apply symbol expansion.
     if let Some(escape) = try_expect_token(buffer, TokenKind::ExecEscape)?
     {
+        // An escaped name remains a separate argument even when followed by
+        // spaced empty parentheses; it cannot name a struct constructor.
+        {
+            let mut peek = Lookahead::new(buffer);
+            if let Some(name) = peek.buffer.next()?
+                && name.kind == TokenKind::Symbol
+                && matches!(constructor_follows(&mut *peek.buffer, &name)?, Some(ConstructorStart::SpacedEmpty))
+            {
+                peek.commit();
+                return Ok(Some(new_ast_literal(escape.location,
+                    Value::from_executable_string(name.token_value_text()), None)));
+            }
+        }
         let executable = parse_exec_expression(buffer)?.ok_or_else(|| ParserError
             {
                 location: Some(escape.location.clone()),
                 kind: ParserErrorKind::ExpectedExpression
             })?;
 
-        if matches!(executable.kind, AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _))
+        if matches!(executable.kind, AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _))
         {
             return Ok(Some(AstExpression
                 {
@@ -733,7 +857,8 @@ fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
     let Some(expression) = parse_expression(buffer)? else { return Ok(None); };
 
     if matches!(&expression.kind, AstExpressionKind::Symbol(_) | AstExpressionKind::Variable(_)
-        | AstExpressionKind::Index(_, _))
+        | AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _)
+        | AstExpressionKind::SpacedEmptyCall(_))
     {
         reject_index_assignment(buffer, &expression)?;
         let arguments = parse_arguments_before_block(buffer, stop_at_block, stop_at_colon)?;
@@ -829,7 +954,9 @@ pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
     {
         let mut lookahead = Lookahead::new(buffer);
         if let Some(expression) = parse_math_expression(&mut *lookahead.buffer)?
-            && matches!(expression.kind, AstExpressionKind::Index(_, _) | AstExpressionKind::EnumVariant(_, _))
+            && matches!(expression.kind, AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _)
+                | AstExpressionKind::EnumVariant(_, _) | AstExpressionKind::StructConstructor(_)
+                | AstExpressionKind::SpacedEmptyCall(_))
         {
             reject_index_assignment(&mut *lookahead.buffer, &expression)?;
             lookahead.commit();
@@ -860,7 +987,7 @@ pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
 fn reject_index_assignment(buffer: &mut TokenBuffer<'_, '_>,
                             expression: &AstExpression) -> ParseResult<()>
 {
-    if matches!(expression.kind, AstExpressionKind::Index(_, _))
+    if matches!(expression.kind, AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _))
         && let Some(assign) = try_expect_token(buffer, TokenKind::Assign)?
     {
         return Err(ParserError

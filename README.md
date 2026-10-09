@@ -73,7 +73,7 @@ Variable names cannot contain `=`, including braced names and function parameter
 Keep spaces around assignment `=`; adjacent `==` and `!=` remain comparisons.
 
 Values include signed 64-bit integers, floating-point values, booleans, strings,
-arrays, hash maps, ranges, enums, the no-value result displayed as `()`, and external
+arrays, hash maps, ranges, enums, structs, the no-value result displayed as `()`, and external
 command statuses such as `ExecResult(0)`. Arrays come from literals, `$args`, and
 file globs. Without `...`, an array becomes colon-separated text when passed to
 a command. `()` is also a literal that evaluates to `None`, including in assignments
@@ -297,6 +297,131 @@ the entire submitted AST, including unused functions and skipped branches, befor
 bytecode generation. A parsing, checking, or compilation failure does not publish
 new types or functions. A runtime failure occurs after declarations are committed.
 
+## Structs
+
+Structs declare fields with `$name`, an optional `optional` modifier, and an
+optional type annotation. There is no colon in a field declaration:
+
+```text
+enum Status { Ready, Busy }
+
+struct Item
+{
+    $quantity Number,
+    $state Status,
+    $children [Item],
+    $labels [String: String],
+    $next optional Item,
+    $payload any,
+}
+
+let $item = Item(
+    quantity: 2,
+    state: Status::Ready,
+    children: [],
+    labels: ["name": "widget"],
+    payload: (),
+)
+echo $item.quantity $item.labels["name"]    # 2 widget
+echo $item.next                            # ()
+$item.quantity = 3.5
+$item.labels["name"] = "updated"
+```
+
+Commas separate declarations and constructor arguments; newlines, comments, and
+trailing commas are allowed. Constructor labels omit `$`. The opening parenthesis
+can touch the type name, be separated by spaces (`Item (quantity: 42, ...)`),
+or follow it on a new line, including across blank lines and comments:
+
+```text
+let $item = Item
+    (
+        quantity: 42,
+        state: Status::Ready,
+        children: [],
+        labels: [:],
+        payload: (),
+    )
+```
+
+The newline form requires named fields. Constructors with no supplied fields use
+`MyType()` or `MyType ()`, with the opening parenthesis on the same line as the
+type name. The type registry distinguishes `MyType ()` from a function call:
+declared type names take precedence; otherwise `foo ()` passes `None` to `foo`.
+A following ordinary grouped expression, including `()`, remains a separate
+statement across a newline. Semicolons always end the statement. Shell-function
+calls retain space-separated arguments, including `foo (expression)` on one line.
+
+| Declaration | Meaning |
+| --- | --- |
+| `$field` or `$field any` | Required field accepting any value, including `()` |
+| `$field optional` or `$field optional any` | Any value; defaults to `()` when omitted |
+| `$field Number` | Integer or float; strings and booleans do not qualify |
+| `$field MyEnum` or `$field MyStruct` | A value of that specific type declaration |
+| `$field [T]` | Array whose elements satisfy `T` |
+| `$field [K: V]` | Map whose keys satisfy `K` and values satisfy `V` |
+| `$field optional T` | Either `T` or `()`; defaults to `()` when omitted |
+
+The existing builtin names also work, including `Integer`, `Float`, `String`,
+`Boolean`, `None`, `Range`, `Array`, `HashMap`, and `ExecResult`. Annotations check
+values without converting them. `Array` and `HashMap` accept those containers
+without constraining their contents; `any` accepts every value.
+
+Container annotations compose: `[String: [Item]]`, `[MyEnum: optional Item]`,
+`[optional Number]`, and `optional [String: any]`. An array of optional elements
+still requires an array; an optional array may itself be `()`. Empty arrays and
+maps satisfy their respective element constraints. Map-key constraints follow
+key equality: `1` and `1.0` denote the same key. This applies recursively to
+collection keys; struct keys retain a typed snapshot of their original fields.
+
+Every nonoptional field must be supplied, including untyped fields. Optional
+fields may be omitted or supplied explicitly. Unknown and duplicate fields are
+errors. Supplied expressions evaluate once, left to right in source order; fields
+are stored and displayed in declaration order. Empty structs are allowed:
+`struct Empty {}` and `Empty()`.
+
+Read and update members with `$item.field`, including mixed paths such as
+`$item.groups["name"][0].field`. An assignment must start with a variable.
+Fields cannot be added or removed, and unknown members are errors. Accessing a
+field through `()` is an error; an optional field containing a struct permits
+normal member access. Methods and optional-chaining syntax are not implemented.
+
+Member syntax preserves word interpolation: `$item.field` accesses a field,
+`${name}.txt` concatenates text, and `(${item}).field` accesses a field using a
+braced variable. String interpolation still accepts variable names rather than
+member expressions. Literal paths such as `file.txt` retain their meaning.
+
+Structs have value semantics and share reference-counted storage. Assignment,
+function calls, and collection insertion preserve their type; writes copy shared
+values along the modified path. All nested writes must satisfy the containing
+field's constraints. An invalid update leaves the target unchanged, although
+side effects from evaluating its indexes and right-hand expression remain.
+
+Structs and enums share the same lexical type namespace, forward-reference rules,
+and REPL identity rules. A scope cannot declare an enum and a struct with the
+same name. An inner declaration may shadow an outer type. Type names `any` and
+`optional` are reserved. Redeclaration in a later REPL submission creates a new
+identity; existing values, field annotations, and compiled functions retain the
+old definitions.
+
+Self and mutual references are supported through optional fields or containers.
+Cycles consisting entirely of required struct fields are rejected because they
+cannot form a finite, fully initialized value. For example, `$next optional Item`
+and `$children [Item]` are valid; a required `$next Item` inside `Item` is not.
+
+Equality compares declaration identity and all field values. Structs can be map
+keys, using immutable snapshots and normal value equality. They always convert
+to true, including empty structs, and expansion with `...` passes one value.
+Arithmetic, execution, iteration, and bracket-indexing a struct are errors; use
+member access for its fields. Text such as `Item(quantity: 2, ...)` is display
+output, not a serialization format.
+
+The AST checker rejects invalid declarations, constructor shapes, known value
+mismatches, and known invalid member accesses before executing the submitted
+source. Dynamic values are checked during construction and updates. A failed
+check or compilation does not publish new types or functions; runtime failures
+occur after declarations have been committed.
+
 ## Boolean expressions
 
 `==` and `!=` compare values and produce booleans. Numbers compare numerically,
@@ -316,7 +441,7 @@ or booleans.
 | String | False for empty text, exact `"false"`, or text parsing as numeric zero; true otherwise |
 | Array, hash map, or argument expansion | False when empty, true otherwise |
 | Range | False for an empty bounded range; true otherwise |
-| Enum | Always true, regardless of the variant name |
+| Enum or struct | Always true, including empty structs |
 | External command result | True for exit status 0; false for nonzero status or termination by signal |
 
 Logical operators always return a boolean. `&&` skips its right operand when
@@ -804,9 +929,10 @@ Reedline editor, completion, and prompt. The active tokenizer, parser, AST,
 compiler, values, and interpreter live under `src/language/`. Source is tokenized
 and parsed into an AST, checked against a staged type registry, compiled to
 bytecode, optimized, linked, then executed. The initial checking pass registers
-lexically scoped enum declarations and resolves their references; general type
-inference and annotations remain future work. Builtin types and enum definitions
-share the registry, with stable `TypeId`s independent of name visibility.
+lexically scoped enum and struct identities before resolving field annotations.
+It checks constructors, required-field cycles, and known member accesses; general
+variable and function type inference remains future work. Builtin types, container
+constraints, enums, and structs share stable `TypeId`s independent of name visibility.
 
 Two optimization passes run before linking: adjacent `PopResult`/`PushResult`
 pairs are removed, and redundant `CheckResult` instructions are dropped only
@@ -830,13 +956,13 @@ scripts, or the REPL. `cargo clippy --locked --all-targets` runs the Rust lints.
 
 The draft [test.shy](test.shy) is a sketch for a future Shelly-native test runner,
 not a working test suite. Its `for` and `if` constructs now exist, but the runner
-still needs updating: external `sort` returns a status rather than a list,
-`count` and `not` are not builtins, and the referenced test directories are absent.
+still needs updating: the proposed collection members `sort` and `count` are not
+implemented, and the referenced test directories are absent.
 The plan is to update this runner and write the suite in Shelly as the language
 stabilizes.
 
 ## Direction
 
 The aim is to keep the immediacy of a shell while giving larger scripts a clear
-path to structure. Future work includes optional type annotations and contracts,
+path to structure. Future work includes variable and function type annotations and contracts,
 network and JSON support, and pipelines for text and structured data.

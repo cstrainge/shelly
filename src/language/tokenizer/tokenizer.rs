@@ -12,6 +12,8 @@ use crate::language::text::{ buffer::Buffer, location::Location };
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TokenKind
 {
+    Member,
+
     /**
      * A simple literal value, such as a number or string.
      */
@@ -433,7 +435,7 @@ impl Token
                     }
                 },
 
-            TokenKind::Symbol =>
+            TokenKind::Symbol | TokenKind::Member =>
                 {
                     if let TokenValue::Symbol(text) = &self.value
                     {
@@ -588,7 +590,8 @@ pub struct Tokenizer<'a>
     input: &'a mut dyn Buffer,
     // Reading a word can consume the following two-character boolean operator.
     pending_operator: Option<Token>,
-    index_follows: bool
+    index_follows: bool,
+    member_follows: bool
 }
 
 
@@ -599,7 +602,7 @@ impl<'a> Tokenizer<'a>
      */
     pub fn new(input: &'a mut dyn Buffer) -> Self
     {
-        Self { input, pending_operator: None, index_follows: false }
+        Self { input, pending_operator: None, index_follows: false, member_follows: false }
     }
 
     /**
@@ -619,7 +622,11 @@ impl<'a> Tokenizer<'a>
             self.index_follows = self.pending_operator.is_none()
                 && self.input.peek_next() == Some('[')
                 && matches!(token.kind, TokenKind::Identifier | TokenKind::Literal
-                    | TokenKind::SquareClose | TokenKind::ParenClose);
+                    | TokenKind::SquareClose | TokenKind::ParenClose | TokenKind::Member);
+            self.member_follows = self.pending_operator.is_none()
+                && self.input.peek_next() == Some('.')
+                && matches!(token.kind, TokenKind::Identifier | TokenKind::Literal
+                    | TokenKind::SquareClose | TokenKind::ParenClose | TokenKind::Member);
         }
         if let Some(message) = self.input.read_error()
         {
@@ -637,6 +644,26 @@ impl<'a> Tokenizer<'a>
         if let Some(operator) = self.pending_operator.take()
         {
             return Ok(Some(operator));
+        }
+
+        if self.member_follows && self.input.peek_next() == Some('.')
+        {
+            self.member_follows = false;
+            let dot = self.parse_dot();
+            if dot.kind != TokenKind::Symbol || dot.token_value_text() != "." { return Ok(Some(dot)); }
+            let mut name = String::new();
+            while let Some(c) = self.input.peek_next()
+                && (c.is_alphanumeric() || c == '_')
+            {
+                name.push(c);
+                self.input.next();
+            }
+            if name.is_empty() || name.chars().next().is_some_and(|c| c.is_numeric())
+            {
+                return Err(TokenizerError { location: dot.location,
+                    message: "Expected a field name after '.'.".to_string() });
+            }
+            return Ok(Some(Token { location: dot.location, kind: TokenKind::Member, value: TokenValue::Symbol(name) }));
         }
 
         // Skip past any whitespace and comments.

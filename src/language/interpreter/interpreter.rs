@@ -593,10 +593,10 @@ impl Interpreter
                                 location: location.clone(),
                                 what: ErrorWhat::NoResult
                             })?;
-                        if matches!(value, Value::Enum(_))
+                        if matches!(value, Value::Enum(_) | Value::Struct(_))
                         {
                             return Err(InterpreterError { location: location.clone(),
-                                what: ErrorWhat::InvalidOperand("Cannot execute an enum as a command".to_string()) });
+                                what: ErrorWhat::InvalidOperand(format!("Cannot execute {} as a command", if matches!(value, Value::Enum(_)) { "an enum" } else { "a struct" })) });
                         }
                         self.last_result = Some(Value::from_executable_string(value.as_text()));
                     },
@@ -611,7 +611,7 @@ impl Interpreter
                                     self.execute(&location, executable, Vec::new())?;
                                 },
 
-                            Some(value @ (Value::Array(_) | Value::ArgumentExpansion(_) | Value::HashMap(_) | Value::Range(_) | Value::Enum(_)))
+                            Some(value @ (Value::Array(_) | Value::ArgumentExpansion(_) | Value::HashMap(_) | Value::Range(_) | Value::Enum(_) | Value::Struct(_)))
                                 if matches!(instruction.operand, Some(Value::Boolean(true))) =>
                                 {
                                     Self::command_name(&location, value)?;
@@ -926,6 +926,39 @@ impl Interpreter
                         Self::push(&mut stack, Value::from_array(array));
                     },
 
+                Code::MakeStruct =>
+                    {
+                        let invalid = |message| InterpreterError { location: location.clone(), what: ErrorWhat::InvalidOperand(message) };
+                        let Some(Value::Array(parts)) = &instruction.operand else
+                        { return Err(invalid("Invalid MakeStruct operand".to_string())); };
+                        let [Value::Integer(id), Value::Array(indexes)] = parts.as_slice() else
+                        { return Err(invalid("Invalid MakeStruct operand".to_string())); };
+                        let definition = self.types.get(crate::language::data::types::TypeId(*id as usize));
+                        let crate::language::data::types::TypeKind::Struct(fields) = &definition.kind else
+                        { return Err(invalid("Expected a struct definition".to_string())); };
+                        let mut values = vec![Value::None; fields.len()];
+                        for index in indexes.iter().rev()
+                        {
+                            let Value::Integer(index) = index else { return Err(invalid("Invalid field index".to_string())); };
+                            values[*index as usize] = Self::pop(&location, &mut stack)?;
+                        }
+                        let value = Value::Struct(Rc::new(crate::language::data::types::StructValue { definition, fields: values }));
+                        self.types.validate_value(&value).map_err(|message| invalid(format!("Type error: {}", message)))?;
+                        Self::push(&mut stack, value);
+                    },
+
+                Code::GetField =>
+                    {
+                        let value = Self::pop(&location, &mut stack)?;
+                        let Value::Struct(item) = value else
+                        { return Err(InterpreterError { location: location.clone(), what: ErrorWhat::InvalidOperand(
+                            format!("Cannot access a field on {}", value.type_name())) }); };
+                        let index = Self::struct_field_index(&location, &item,
+                            instruction.operand.as_ref().ok_or_else(|| InterpreterError { location: location.clone(),
+                                what: ErrorWhat::InvalidOperand("Missing field operand".to_string()) })?)?;
+                        Self::push(&mut stack, item.fields[index].clone());
+                    },
+
                 Code::GetElement =>
                     {
                         let index = Self::pop(&location, &mut stack)?;
@@ -936,12 +969,12 @@ impl Interpreter
 
                 Code::SetElement =>
                     {
-                        let (name, count) = match &instruction.operand
+                        let (name, fields) = match &instruction.operand
                             {
                                 Some(Value::Array(parts)) => match parts.as_slice()
                                     {
-                                        [Value::String(name, _), Value::Integer(count)] if *count > 0 =>
-                                            (name, *count as usize),
+                                        [Value::String(name, _), Value::Array(fields)] if !fields.is_empty() =>
+                                            (name, fields),
                                         _ => return Err(InterpreterError
                                             {
                                                 location: location.clone(),
@@ -956,7 +989,7 @@ impl Interpreter
                             };
                         let value = Self::pop(&location, &mut stack)?;
                         let mut indexes = Vec::new();
-                        for _ in 0..count { indexes.push(Self::pop(&location, &mut stack)?); }
+                        for _ in 0..fields.len() { indexes.push(Self::pop(&location, &mut stack)?); }
                         let variable = self.variables.get_mut(name).ok_or_else(|| InterpreterError
                             {
                                 location: location.clone(),
@@ -964,11 +997,15 @@ impl Interpreter
                             })?;
                         let value = match value
                             {
-                                Value::ArgumentExpansion(values) => Value::Array(values),
+                                Value::ArgumentExpansion(values) if !matches!(fields.last(), Some(Value::Boolean(true))) => Value::Array(values),
                                 value => value
                             };
                         indexes.reverse();
-                        Self::set_element(&location, &mut variable.value, &indexes, value)?;
+                        let mut updated = variable.value.clone();
+                        Self::set_element(&location, &mut updated, &indexes, fields, value)?;
+                        self.types.validate_value(&updated).map_err(|message| InterpreterError { location: location.clone(),
+                            what: ErrorWhat::InvalidOperand(format!("Type error: {}", message)) })?;
+                        variable.value = updated;
                     },
 
                 Code::GetVariable =>
@@ -1286,9 +1323,9 @@ impl Interpreter
                             };
                         let rhs = Self::pop(&location, &mut stack)?;
                         let lhs = Self::pop(&location, &mut stack)?;
-                        if lhs.rejects_integer_conversion() || rhs.rejects_integer_conversion()
+                        if let Some(message) = lhs.integer_conversion_error().or_else(|| rhs.integer_conversion_error())
                         {
-                            return Err(error("Enums cannot be used in arithmetic"));
+                            return Err(error(message));
                         }
                         let rhs = rhs.checked_integer().ok_or_else(|| error("Integer overflow"))?;
                         let lhs = lhs.checked_integer().ok_or_else(|| error("Integer overflow"))?;
@@ -1374,6 +1411,12 @@ impl Interpreter
     {
         match value
         {
+            Value::Struct(mut item) =>
+                {
+                    let fields = item.fields.iter().cloned().map(|value| self.eval_value_paths_to(value)).collect();
+                    Rc::make_mut(&mut item).fields = fields;
+                    Value::Struct(item)
+                },
             Value::String(path, executable) => Value::String(self.eval_path_to(&path), executable),
             Value::Array(values) =>
                 Value::from_array(Rc::unwrap_or_clone(values).into_iter()
@@ -1650,6 +1693,8 @@ impl Interpreter
     {
         match value
         {
+            Value::Struct(_) => Err(InterpreterError
+                { location: location.clone(), what: ErrorWhat::InvalidOperand("Cannot execute a struct as a command".to_string()) }),
             Value::Enum(_) => Err(InterpreterError
                 { location: location.clone(),
                   what: ErrorWhat::InvalidOperand("Cannot execute an enum as a command".to_string()) }),
@@ -1731,6 +1776,20 @@ impl Interpreter
         Ok(index)
     }
 
+    fn struct_field_index(location: &Location, item: &crate::language::data::types::StructValue,
+                           field: &Value) -> InterpreterResult<usize>
+    {
+        let crate::language::data::types::TypeKind::Struct(fields) = &item.definition.kind else { unreachable!(); };
+        let index = match field
+            {
+                Value::Integer(index) => usize::try_from(*index).ok().filter(|index| *index < fields.len()),
+                Value::String(name, _) => fields.iter().position(|field| field.name == *name),
+                _ => None
+            };
+        index.ok_or_else(|| InterpreterError { location: location.clone(), what: ErrorWhat::InvalidOperand(
+            format!("Unknown field '{}.{}'", item.definition.name, field.as_text())) })
+    }
+
     fn get_element(location: &Location, collection: &Value, index: &Value) -> InterpreterResult<Value>
     {
         match collection
@@ -1746,13 +1805,21 @@ impl Interpreter
     }
 
     fn set_element(location: &Location, collection: &mut Value,
-                    indexes: &[Value], value: Value) -> InterpreterResult<()>
+                    indexes: &[Value], fields: &[Value], value: Value) -> InterpreterResult<()>
     {
         let Some((index, rest)) = indexes.split_first() else
         {
             *collection = value;
             return Ok(());
         };
+        if matches!(fields.first(), Some(Value::Boolean(true)))
+        {
+            let Value::Struct(item) = collection else
+            { return Err(InterpreterError { location: location.clone(), what: ErrorWhat::InvalidOperand(
+                format!("Cannot assign a field on {}", collection.type_name())) }); };
+            let index = Self::struct_field_index(location, item, index)?;
+            return Self::set_element(location, &mut Rc::make_mut(item).fields[index], rest, &fields[1..], value);
+        }
         match collection
         {
             Value::HashMap(values) =>
@@ -1773,12 +1840,12 @@ impl Interpreter
                             });
                     }
                     let child = Rc::make_mut(values).get_mut(&key).unwrap();
-                    Self::set_element(location, child, rest, value)
+                    Self::set_element(location, child, rest, &fields[1..], value)
                 },
             Value::Array(values) =>
                 {
                     let index = Self::array_index(location, values, index)?;
-                    Self::set_element(location, &mut Rc::make_mut(values)[index], rest, value)
+                    Self::set_element(location, &mut Rc::make_mut(values)[index], rest, &fields[1..], value)
                 },
             _ => Err(InterpreterError
                 {

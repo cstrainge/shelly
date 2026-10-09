@@ -3,7 +3,7 @@ use std::{ collections::HashMap, rc::Rc };
 
 use super::map_key::MapKey;
 use super::range::Range;
-use super::types::EnumValue;
+use super::types::{EnumValue, StructValue, TypeKind};
 
 
 
@@ -28,6 +28,7 @@ pub enum Value
 {
     None,
     Enum(Rc<EnumValue>),
+    Struct(Rc<StructValue>),
     ExecResult(ExecResult),
     Integer(i64),
     Float(f64, Option<String>),
@@ -42,6 +43,19 @@ pub enum Value
 
 impl Value
 {
+    pub fn type_name(&self) -> String
+    {
+        match self
+        {
+            Value::None => "None", Value::Integer(_) => "Integer", Value::Float(_, _) => "Float",
+            Value::Boolean(_) => "Boolean", Value::String(_, _) => "String", Value::Array(_) => "Array",
+            Value::HashMap(_) => "HashMap", Value::Range(_) => "Range", Value::ArgumentExpansion(_) => "ArgumentExpansion",
+            Value::ExecResult(_) => "ExecResult",
+            Value::Enum(item) => return item.definition.name.clone(),
+            Value::Struct(item) => return item.definition.name.clone()
+        }.to_string()
+    }
+
     pub fn from_hash_map(values: HashMap<MapKey, Value>) -> Value
     {
         Value::HashMap(Rc::new(values))
@@ -82,6 +96,13 @@ impl Value
         {
             Value::None => "()".to_string(),
             Value::Enum(value) => value.to_string(),
+            Value::Struct(value) =>
+                {
+                    let TypeKind::Struct(fields) = &value.definition.kind else { unreachable!(); };
+                    format!("{}({})", value.definition.name, fields.iter().zip(&value.fields)
+                        .map(|(field, value)| format!("{}: {}", field.name, value.collection_text()))
+                        .collect::<Vec<_>>().join(", "))
+                },
             Value::Range(range) => range.to_string(),
             Value::ExecResult(code) => format!("ExecResult({})", match code
                 {
@@ -123,7 +144,7 @@ impl Value
         match self
         {
             Value::None => 0,
-            Value::HashMap(_) | Value::Range(_) | Value::Enum(_) => 0,
+            Value::HashMap(_) | Value::Range(_) | Value::Enum(_) | Value::Struct(_) => 0,
             Value::ExecResult(code) => match code
                 {
                     ExecResult::Value(v) => *v as i64,
@@ -143,7 +164,7 @@ impl Value
         match self
         {
             Value::None => false,
-            Value::Enum(_) => true,
+            Value::Enum(_) | Value::Struct(_) => true,
             Value::Range(range) => !range.is_empty(),
             Value::ExecResult(ExecResult::Value(code)) => *code == 0,
             Value::ExecResult(ExecResult::Signaled) => false,
@@ -164,6 +185,9 @@ impl Value
         {
             (Value::None, Value::None) => true,
             (Value::Enum(left), Value::Enum(right)) => left == right,
+            (Value::Struct(left), Value::Struct(right)) => left.definition.id == right.definition.id
+                && left.fields.len() == right.fields.len()
+                && left.fields.iter().zip(&right.fields).all(|(left, right)| left.equals(right)),
             (Value::Range(left), Value::Range(right)) => left == right,
             (Value::ExecResult(left), Value::ExecResult(right)) => left == right,
             (Value::Integer(left), Value::Integer(right)) => left == right,
@@ -187,13 +211,14 @@ impl Value
         }
     }
 
-    pub fn rejects_integer_conversion(&self) -> bool
+    pub fn integer_conversion_error(&self) -> Option<&'static str>
     {
         match self
         {
-            Value::Enum(_) => true,
-            Value::Array(values) | Value::ArgumentExpansion(values) => values.iter().any(Self::rejects_integer_conversion),
-            _ => false
+            Value::Enum(_) => Some("Enums cannot be used in arithmetic"),
+            Value::Struct(_) => Some("Structs cannot be used in arithmetic"),
+            Value::Array(values) | Value::ArgumentExpansion(values) => values.iter().find_map(Self::integer_conversion_error),
+            _ => None
         }
     }
 
@@ -201,7 +226,7 @@ impl Value
     {
         match self
         {
-            Value::Enum(_) => None,
+            Value::Enum(_) | Value::Struct(_) => None,
             Value::Array(values) | Value::ArgumentExpansion(values) => values.iter()
                 .try_fold(0i64, |sum, value| sum.checked_add(value.checked_integer()?)),
             _ => Some(self.as_integer())
