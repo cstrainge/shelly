@@ -107,6 +107,12 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
 
             TokenKind::ParenOpen =>
                 {
+                    if try_expect_token(&mut *lookahead.buffer, TokenKind::ParenClose)?.is_some()
+                    {
+                        lookahead.commit();
+                        return Ok(Some(new_ast_literal(token.location, Value::None, None)));
+                    }
+
                     let expression = parse_value_expression(&mut *lookahead.buffer)?
                         .ok_or_else(|| ParserError
                             {
