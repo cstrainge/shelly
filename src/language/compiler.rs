@@ -82,13 +82,21 @@ impl From<ParserError> for CompileError
 pub type CompileResult<T> = Result<T, CompileError>;
 
 
-fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpression)
+fn compile_expression(instructions: &mut Vec<Instruction>,
+                      function_block: &FunctionBlockRef,
+                      expression: &AstExpression) -> CompileResult<()>
 {
     match &expression.kind
     {
+        AstExpressionKind::IfExpression(conditional) =>
+            {
+                compile_if_expression(instructions, function_block, conditional)?;
+                return Ok(());
+            },
+
         AstExpressionKind::Grouped(inner) =>
             {
-                compile_expression(instructions, inner);
+                compile_expression(instructions, function_block, inner)?;
 
                 // Calls already execute, and nested groups handle their own value. Only a
                 // variable or string literal can supply an unevaluated executable reference.
@@ -105,30 +113,30 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                         });
                 }
 
-                return;
+                return Ok(());
             },
 
         AstExpressionKind::Execute(execute) =>
             {
-                compile_execute_statement(instructions, execute);
-                return;
+                compile_execute_statement(instructions, function_block, execute)?;
+                return Ok(());
             },
 
         AstExpressionKind::ExecutableReference(inner) =>
             {
-                compile_expression(instructions, inner);
+                compile_expression(instructions, function_block, inner)?;
                 instructions.push(Instruction
                     {
                         location: Some(expression.location.clone()),
                         code: Code::MakeExecutable,
                         operand: None
                     });
-                return;
+                return Ok(());
             },
 
         AstExpressionKind::TryExecute(command) =>
             {
-                compile_expression(instructions, command);
+                compile_expression(instructions, function_block, command)?;
                 instructions.push(Instruction
                     {
                         location: Some(expression.location.clone()),
@@ -141,7 +149,7 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                         code: Code::TryExecute,
                         operand: None
                     });
-                return;
+                return Ok(());
             },
 
         AstExpressionKind::Symbol(symbol) =>
@@ -193,19 +201,19 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
 
         AstExpressionKind::BooleanNot(inner) =>
             {
-                compile_expression(instructions, inner);
+                compile_expression(instructions, function_block, inner)?;
                 instructions.push(Instruction
                     {
                         location: Some(expression.location.clone()),
                         code: Code::BooleanNot,
                         operand: None
                     });
-                return;
+                return Ok(());
             },
 
         AstExpressionKind::BooleanExpression(operator, lhs, rhs) =>
             {
-                compile_expression(instructions, lhs);
+                compile_expression(instructions, function_block, lhs)?;
 
                 if matches!(operator, AstBooleanOperator::And | AstBooleanOperator::Or)
                 {
@@ -226,7 +234,7 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                                 { Code::JumpIfFalse } else { Code::JumpIfTrue },
                             operand: Some(target.clone())
                         });
-                    compile_expression(instructions, rhs);
+                    compile_expression(instructions, function_block, rhs)?;
                     instructions.push(Instruction
                         {
                             location: Some(expression.location.clone()),
@@ -239,11 +247,11 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                             code: Code::JumpTarget,
                             operand: Some(target)
                         });
-                    return;
+                    return Ok(());
                 }
 
                 instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
-                compile_expression(instructions, rhs);
+                compile_expression(instructions, function_block, rhs)?;
                 instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
                 instructions.push(Instruction
                     {
@@ -256,7 +264,7 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
 
         AstExpressionKind::MathExpression(operator, lhs, rhs) =>
             {
-                compile_expression(instructions, lhs);
+                compile_expression(instructions, function_block, lhs)?;
 
                 instructions.push(Instruction
                     {
@@ -265,7 +273,7 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                         operand: None
                     });
 
-                compile_expression(instructions, rhs);
+                compile_expression(instructions, function_block, rhs)?;
 
                 instructions.push(Instruction
                     {
@@ -335,14 +343,17 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
             code: Code::PopResult,
             operand: None
         });
+    Ok(())
 }
 
 
-fn compile_return_statement(instructions: &mut Vec<Instruction>, return_statement: &AstReturnStatement)
+fn compile_return_statement(instructions: &mut Vec<Instruction>,
+                            function_block: &FunctionBlockRef,
+                            return_statement: &AstReturnStatement) -> CompileResult<()>
 {
     if let Some(expression) = &return_statement.expression
     {
-        compile_expression(instructions, expression);
+        compile_expression(instructions, function_block, expression)?;
     }
     else
     {
@@ -366,13 +377,16 @@ fn compile_return_statement(instructions: &mut Vec<Instruction>, return_statemen
             code: Code::ExitFunction,
             operand: None
         });
+    Ok(())
 }
 
 
-fn compile_let_statement(instructions: &mut Vec<Instruction>, let_statement: &AstLetStatement)
+fn compile_let_statement(instructions: &mut Vec<Instruction>,
+                         function_block: &FunctionBlockRef,
+                         let_statement: &AstLetStatement) -> CompileResult<()>
 {
     // Evaluate before changing the binding so self-reference and failed initializers are safe.
-    compile_expression(instructions, &let_statement.expression);
+    compile_expression(instructions, function_block, &let_statement.expression)?;
     instructions.push(Instruction
         {
             location: None,
@@ -403,11 +417,14 @@ fn compile_let_statement(instructions: &mut Vec<Instruction>, let_statement: &As
             code: Code::SetVariable,
             operand: Some(Value::from_string(let_statement.identifier.clone()))
         });
+    Ok(())
 }
 
-fn compile_set_statement(instructions: &mut Vec<Instruction>, set_statement: &AstSetStatement)
+fn compile_set_statement(instructions: &mut Vec<Instruction>,
+                         function_block: &FunctionBlockRef,
+                         set_statement: &AstSetStatement) -> CompileResult<()>
 {
-    compile_expression(instructions, &set_statement.expression);
+    compile_expression(instructions, function_block, &set_statement.expression)?;
 
     instructions.push(Instruction
         {
@@ -422,6 +439,7 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>, set_statement: &As
             code: Code::SetVariable,
             operand: Some(Value::from_string(set_statement.identifier.clone()))
         });
+    Ok(())
 }
 
 
@@ -472,7 +490,8 @@ fn compile_alias_statement(instructions: &mut Vec<Instruction>, alias_statement:
 
 
 fn compile_execute_statement(instructions: &mut Vec<Instruction>,
-                             execute_statement: &AstExecuteStatement)
+                             function_block: &FunctionBlockRef,
+                             execute_statement: &AstExecuteStatement) -> CompileResult<()>
 {
     instructions.push(Instruction
         {
@@ -493,7 +512,7 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
 
     for argument in &execute_statement.arguments
     {
-        compile_expression(instructions, argument);
+        compile_expression(instructions, function_block, argument)?;
 
         match &argument.kind
         {
@@ -542,6 +561,7 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
             code: Code::Execute,
             operand: Some(Value::Integer(execute_statement.arguments.len() as i64))
         });
+    Ok(())
 }
 
 
@@ -702,6 +722,93 @@ fn link_instructions(instructions: &mut [Instruction]) -> CompileResult<()>
 }
 
 
+fn compile_block(instructions: &mut Vec<Instruction>,
+                  function_block: &FunctionBlockRef,
+                  block: &AstBlockStatement,
+                  target: CompileTarget) -> CompileResult<()>
+{
+    instructions.push(Instruction
+        {
+            location: Some(block.location.clone()),
+            code: Code::EnterScope,
+            operand: None
+        });
+    compile_statements(instructions, function_block, &block.body, target)?;
+    instructions.push(Instruction
+        {
+            location: Some(block.location.clone()),
+            code: Code::ExitScope,
+            operand: None
+        });
+    Ok(())
+}
+
+
+fn compile_if_expression(instructions: &mut Vec<Instruction>,
+                          function_block: &FunctionBlockRef,
+                          conditional: &AstIfExpression) -> CompileResult<()>
+{
+    let mut end_jumps = Vec::new();
+
+    for branch in &conditional.branches
+    {
+        let location = Some(branch.condition.location.clone());
+        compile_expression(instructions, function_block, &branch.condition)?;
+        instructions.push(Instruction { location: location.clone(), code: Code::ToBoolean, operand: None });
+        let next_branch = Value::Integer(instructions.len() as i64);
+        instructions.push(Instruction
+            {
+                location: location.clone(),
+                code: Code::JumpIfFalse,
+                operand: Some(next_branch.clone())
+            });
+        // Consume the condition on both paths. Only the selected block supplies
+        // the expression's result; conditions must not leak into empty branches.
+        instructions.push(Instruction { location: location.clone(), code: Code::CheckResult, operand: None });
+        compile_block(instructions, function_block, &branch.body, CompileTarget::Function)?;
+        end_jumps.push(instructions.len());
+        instructions.push(Instruction { location: location.clone(), code: Code::Jump, operand: None });
+        instructions.push(Instruction
+            {
+                location: location.clone(),
+                code: Code::JumpTarget,
+                operand: Some(next_branch)
+            });
+        instructions.push(Instruction { location, code: Code::CheckResult, operand: None });
+    }
+
+    if let Some(block) = &conditional.else_body
+    {
+        compile_block(instructions, function_block, block, CompileTarget::Function)?;
+    }
+    else
+    {
+        instructions.push(Instruction
+            {
+                location: Some(conditional.location.clone()),
+                code: Code::Push,
+                operand: Some(Value::None)
+            });
+        instructions.push(Instruction { location: None, code: Code::PopResult, operand: None });
+    }
+
+    // Reserve a label from an emitted jump's unique position, as with boolean
+    // expressions. The linker, not this emitter, resolves its destination index.
+    let end_label = Value::Integer(end_jumps[0] as i64);
+    for index in end_jumps
+    {
+        instructions[index].operand = Some(end_label.clone());
+    }
+    instructions.push(Instruction
+        {
+            location: Some(conditional.location.clone()),
+            code: Code::JumpTarget,
+            operand: Some(end_label)
+        });
+    Ok(())
+}
+
+
 // Inline scoped blocks into their enclosing code vector. Optimize and link only
 // after the entire vector has been emitted, so nested labels remain unique.
 fn compile_statements(instructions: &mut Vec<Instruction>,
@@ -723,13 +830,13 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
 
             AstStatement::LetStatement(let_statement) =>
                 {
-                    compile_let_statement(instructions, let_statement);
+                    compile_let_statement(instructions, function_block, let_statement)?;
                     add_check = false;
                 },
 
             AstStatement::SetStatement(set_statement) =>
                 {
-                    compile_set_statement(instructions, set_statement);
+                    compile_set_statement(instructions, function_block, set_statement)?;
                     add_check = false;
                 },
 
@@ -741,12 +848,12 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
 
             AstStatement::ExecuteStatement(execute_statement) =>
                 {
-                    compile_execute_statement(instructions, execute_statement);
+                    compile_execute_statement(instructions, function_block, execute_statement)?;
                 }
 
             AstStatement::ExpressionStatement(expression) =>
                 {
-                    compile_expression(instructions, expression);
+                    compile_expression(instructions, function_block, expression)?;
 
                     if matches!(&expression.kind, AstExpressionKind::Variable(_))
                     {
@@ -761,7 +868,7 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
 
             AstStatement::ReturnStatement(return_statement) =>
                 {
-                    compile_return_statement(instructions, return_statement);
+                    compile_return_statement(instructions, function_block, return_statement)?;
                     add_check = false;
                 }
 
@@ -773,20 +880,8 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
 
             AstStatement::BlockStatement(block) =>
                 {
-                    instructions.push(Instruction
-                        {
-                            location: Some(block.location.clone()),
-                            code: Code::EnterScope,
-                            operand: None
-                        });
-                    compile_statements(instructions, function_block, &block.body,
+                    compile_block(instructions, function_block, block,
                         if implicit_return { CompileTarget::Function } else { CompileTarget::Toplevel })?;
-                    instructions.push(Instruction
-                        {
-                            location: Some(block.location.clone()),
-                            code: Code::ExitScope,
-                            operand: None
-                        });
                     // The block's statements already checked or preserved their results.
                     add_check = false;
                 }

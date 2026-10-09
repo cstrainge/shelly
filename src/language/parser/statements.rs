@@ -1,15 +1,16 @@
 
 use crate::language::{ ast::{ * },
+                       text::location::Location,
                        data::value::Value,
                        tokenizer::{ TokenBuffer, TokenKind, TokenValue, TokenLiteral },
                        parser::{ base_utils::{ Lookahead,
-                                               match_one_of,
                                                expect_token,
                                                try_expect_token,
                                                expect_block_list_of },
                                  expressions::{ parse_expression,
                                                 parse_exec_expression,
                                                 parse_value_expression,
+                                                parse_condition_expression,
                                                 parse_command_arguments },
                                  results::{ ParseResult, ParserError, ParserErrorKind } } };
 
@@ -303,7 +304,7 @@ fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
 }
 
 
-fn parse_block_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
+fn parse_block(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<AstBlockStatement>
 {
     let location =
         {
@@ -317,7 +318,60 @@ fn parse_block_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
                                     &(parse_statement as fn(&mut TokenBuffer<'_, '_>)
                                       -> ParseResult<Option<AstStatement>>))?;
 
-    Ok(Some(AstStatement::BlockStatement(Box::new(AstBlockStatement { location, body }))))
+    Ok(AstBlockStatement { location, body })
+}
+
+
+pub(super) fn parse_if_expression(buffer: &mut TokenBuffer<'_, '_>,
+                                  location: Location) -> ParseResult<AstExpression>
+{
+    let mut branches = Vec::new();
+    let mut else_body = None;
+    let mut condition_location = location.clone();
+
+    loop
+    {
+        let condition = parse_condition_expression(buffer)?.ok_or_else(|| ParserError
+            {
+                location: Some(condition_location.clone()),
+                kind: ParserErrorKind::ExpectedExpression
+            })?;
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        let body = parse_block(buffer)?;
+        branches.push(AstIfBranch { condition, body });
+
+        // Newlines and comments may separate branches. Preserve them for the
+        // enclosing statement parser if no else follows.
+        let mut lookahead = Lookahead::new(buffer);
+        while try_expect_token(&mut *lookahead.buffer, TokenKind::LineBreak)?.is_some() {}
+        if try_expect_token(&mut *lookahead.buffer, TokenKind::Else)?.is_none() { break; }
+        while try_expect_token(&mut *lookahead.buffer, TokenKind::LineBreak)?.is_some() {}
+        let else_if = try_expect_token(&mut *lookahead.buffer, TokenKind::If)?;
+        lookahead.commit();
+        drop(lookahead);
+
+        if let Some(keyword) = else_if
+        {
+            condition_location = keyword.location;
+        }
+        else
+        {
+            else_body = Some(parse_block(buffer)?);
+            break;
+        }
+    }
+
+    Ok(AstExpression
+        {
+            location: location.clone(),
+            kind: AstExpressionKind::IfExpression(Box::new(AstIfExpression
+                {
+                    location,
+                    branches,
+                    else_body
+                })),
+            string_flag: None
+        })
 }
 
 
@@ -346,7 +400,28 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
         return parse_return_statement(buffer);
     }
 
-    if next_kind == TokenKind::BlockOpen { return parse_block_statement(buffer); }
+    if next_kind == TokenKind::If
+    {
+        let expression = parse_expression(buffer)?.ok_or(ParserError
+            {
+                location: None,
+                kind: ParserErrorKind::ExpectedExpression
+            })?;
+        expect_statement_end(buffer)?;
+        return Ok(Some(AstStatement::ExpressionStatement(expression)));
+    }
+    if next_kind == TokenKind::Else
+    {
+        return Err(ParserError
+            {
+                location: Some(expect_token(buffer, TokenKind::Else)?.location),
+                kind: ParserErrorKind::UnexpectedElse
+            });
+    }
+    if next_kind == TokenKind::BlockOpen
+    {
+        return Ok(Some(AstStatement::BlockStatement(Box::new(parse_block(buffer)?))));
+    }
     if next_kind == TokenKind::Let { return parse_let_statement(buffer); }
     if next_kind == TokenKind::Alias { return parse_alias_statement(buffer); }
     if next_kind == TokenKind::Identifier
@@ -360,7 +435,17 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
         if assignment { return parse_set_statement(buffer); }
     }
 
-    match_one_of(buffer, &[parse_null_statement,
-                           parse_value_statement,
-                           parse_execute_statement])
+    if let Some(statement) = parse_null_statement(buffer)? { return Ok(Some(statement)); }
+
+    // A value mismatch can fall back to command syntax, but malformed expressions
+    // must stay errors, including inside branches that will not be executed.
+    {
+        let mut lookahead = Lookahead::new(buffer);
+        if let Some(statement) = parse_value_statement(&mut *lookahead.buffer)?
+        {
+            lookahead.commit();
+            return Ok(Some(statement));
+        }
+    }
+    parse_execute_statement(buffer)
 }

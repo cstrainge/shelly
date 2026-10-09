@@ -142,7 +142,8 @@ A link phase then resolves labels to instruction indexes independently
 for each function and top-level code vector, rejecting missing or duplicate
 labels. It removes labels from the target markers. The VM sees only numeric
 jump destinations and no-op target instructions; jumps preserve the result and
-value stack. An unconditional `Jump` is also available for future control flow.
+value stack. Conditional expressions use unconditional `Jump` instructions to
+skip the remaining branches after a match.
 
 ## Strings and paths
 
@@ -356,6 +357,52 @@ command arguments. Blocks scope variables; function definitions retain their
 existing hoisting into the enclosing function or top level, and aliases remain
 global.
 
+## Conditional expressions
+
+`if condition { ... }`, `else if condition { ... }`, and `else { ... }` form a
+chain. Every branch requires a block with its own variable scope. Conditions use
+the same boolean conversion as `!`, `&&`, and `||`. They are evaluated in order;
+only the first matching branch runs, and later conditions are skipped. Newlines
+and comments may separate a condition from its block or one branch from the next.
+
+```text
+let $count = 2
+let $message = if $count == 0
+{
+    "empty"
+}
+else if $count == 1
+{
+    "one item"
+}
+else
+{
+    let $description = "several items"
+    $description
+}
+echo $message               # several items
+echo (if true { 10 } else { 20 }) + 1   # 11
+```
+
+`if` is an expression: use it in assignments, arguments, arithmetic, returns,
+or other conditions. Its value is the selected block's last expression. An empty
+block, a block ending in a declaration, or an unmatched chain without `else`
+evaluates to `()`. A final `if` expression supplies a function's implicit return
+value. `return` inside a branch still exits the enclosing function, unwinding
+the branch scope.
+
+Conditions also accept command calls, for example
+`if /usr/bin/true { echo "success" }`. Exit status zero is true; nonzero or
+signaled results are false. Use parentheses when combining calls with operators:
+`if (check 3) && (check 4) { ... }`. The condition is evaluated in the surrounding
+scope; branch-local bindings do not escape. Branch blocks follow the function
+hoisting and alias rules described above.
+
+All branches must parse, including those skipped at runtime. `else` must belong
+to the same chain; a semicolon ends the chain, so put `else` after the closing
+brace or on the next line, without a separating semicolon. To pass the literal
+word `if` as a command argument, quote it.
+
 ## Processes, aliases, and environment
 
 `cd PATH` changes directory. `exit` stops execution with status zero;
@@ -433,7 +480,7 @@ useful inside a function or a longer program.
   directly from commands and functions.
 - **Pipelines for text and structured data.** Connect Unix tools with commands
   that consume and produce structs, with conversions at command boundaries.
-- **Control flow and collections.** Conditional statements, loops, ordering
+- **Control flow and collections.** Loops, ordering
   comparisons (`<`, `>`), array literals, and indexing are not yet implemented.
 
 The draft [test.shy](test.shy) sketches how Shelly could test itself by discovering

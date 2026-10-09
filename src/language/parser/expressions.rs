@@ -36,6 +36,9 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
 
     let expression = match token.kind
         {
+            TokenKind::If => super::statements::parse_if_expression(
+                &mut *lookahead.buffer, token.location)?,
+
             TokenKind::Literal =>
                 {
                     let mut string_flag = None;
@@ -239,7 +242,8 @@ fn parse_math_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
     // A lone number/variable belongs to the existing expression rules. Explicit
     // parentheses also accept a single operand, e.g. (42) or ($count).
     if starts_with_group || matches!(&expression.kind,
-        AstExpressionKind::MathExpression(_, _, _) | AstExpressionKind::BooleanNot(_))
+        AstExpressionKind::MathExpression(_, _, _) | AstExpressionKind::BooleanNot(_)
+        | AstExpressionKind::IfExpression(_))
     {
         lookahead.commit();
         return Ok(Some(expression));
@@ -488,11 +492,24 @@ pub fn parse_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
  */
 pub fn parse_value_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
+    parse_value_before_block(buffer, false)
+}
+
+
+pub fn parse_condition_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
+{
+    parse_value_before_block(buffer, true)
+}
+
+
+fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
+                            stop_at_block: bool) -> ParseResult<Option<AstExpression>>
+{
     let Some(expression) = parse_expression(buffer)? else { return Ok(None); };
 
     if matches!(&expression.kind, AstExpressionKind::Symbol(_) | AstExpressionKind::Variable(_))
     {
-        let arguments = parse_command_arguments(buffer)?;
+        let arguments = parse_arguments_before_block(buffer, stop_at_block)?;
         let location = expression.location.clone();
 
         if !arguments.is_empty()
@@ -530,6 +547,13 @@ pub fn parse_value_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<O
 
 pub fn parse_command_arguments(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Vec<AstExpression>>
 {
+    parse_arguments_before_block(buffer, false)
+}
+
+
+fn parse_arguments_before_block(buffer: &mut TokenBuffer<'_, '_>,
+                                stop_at_block: bool) -> ParseResult<Vec<AstExpression>>
+{
     let mut parameter_expressions = Vec::new();
 
     loop
@@ -541,6 +565,8 @@ pub fn parse_command_arguments(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<
 
                 match token.kind
                 {
+                    TokenKind::BlockOpen if stop_at_block => break,
+
                     TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockClose
                     | TokenKind::ParenClose => break,
 

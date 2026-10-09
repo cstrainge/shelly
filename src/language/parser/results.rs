@@ -14,6 +14,7 @@ pub enum ParserErrorKind
     MatchError(Vec<ParserError>),
     ExpectedToken(TokenKind, Option<TokenKind>),
     ExpectedExpression,
+    UnexpectedElse,
     ExpressionNotString,
     DuplicateParameter(String),
     NoProgress,
@@ -52,6 +53,9 @@ impl Display for ParserErrorKind
                 {
                     write!(f, "Expression does not resolve to a string.")
                 },
+
+            ParserErrorKind::UnexpectedElse =>
+                write!(f, "Else must follow an if branch and may appear only once at the end of a chain."),
 
             ParserErrorKind::DuplicateParameter(name) =>
                 write!(f, "Duplicate function parameter: {}.", name),

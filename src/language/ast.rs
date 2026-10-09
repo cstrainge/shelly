@@ -62,7 +62,8 @@ pub enum AstExpressionKind
     TryExecute(Box<AstExpression>),
     MathExpression(AstMathOperator, Box<AstExpression>, Box<AstExpression>),
     BooleanExpression(AstBooleanOperator, Box<AstExpression>, Box<AstExpression>),
-    BooleanNot(Box<AstExpression>)
+    BooleanNot(Box<AstExpression>),
+    IfExpression(Box<AstIfExpression>)
 }
 
 
@@ -155,7 +156,8 @@ impl AstExpression
             | AstExpressionKind::TryExecute(_)
             | AstExpressionKind::MathExpression(_, _, _)
             | AstExpressionKind::BooleanExpression(_, _, _)
-            | AstExpressionKind::BooleanNot(_) =>
+            | AstExpressionKind::BooleanNot(_)
+            | AstExpressionKind::IfExpression(_) =>
                 Err(AstError::ExpressionNotString(self.location.clone()))
         }
     }
@@ -303,6 +305,21 @@ pub struct AstBlockStatement
 {
     pub location: Location,
     pub body: AstTopLevel
+}
+
+
+pub struct AstIfBranch
+{
+    pub condition: AstExpression,
+    pub body: AstBlockStatement
+}
+
+
+pub struct AstIfExpression
+{
+    pub location: Location,
+    pub branches: Vec<AstIfBranch>,
+    pub else_body: Option<AstBlockStatement>
 }
 
 
