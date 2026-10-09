@@ -20,7 +20,7 @@ fn run_test($test_file: String, $output_file: String, $expect_success: Boolean):
 
     let $output: String
     let $result = $shelly $test_file ~+-> $output
-    let $succeeded: Boolean = !!$result
+    let $succeeded: Boolean = Boolean($result)
 
     if $succeeded != $expect_success
     {
@@ -84,7 +84,7 @@ echo "*
 
 let $success_count = 0
 
-for ($test_file, $output_file) in $must_succeed.map $succeed_outputs
+for ($test_file, $output_file) in $must_succeed.zip $succeed_outputs
 {
     if (run_test $test_file $output_file true)
     {
@@ -92,7 +92,7 @@ for ($test_file, $output_file) in $must_succeed.map $succeed_outputs
     }
 }
 
-for ($test_file, $output_file) in $must_fail.map $fail_outputs
+for ($test_file, $output_file) in $must_fail.zip $fail_outputs
 {
     if (run_test $test_file $output_file false)
     {
