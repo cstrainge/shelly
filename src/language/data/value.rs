@@ -89,6 +89,48 @@ impl Value
         }
     }
 
+    pub fn as_bool(&self) -> bool
+    {
+        match self
+        {
+            Value::None => false,
+            Value::ExecResult(ExecResult::Value(code)) => *code == 0,
+            Value::ExecResult(ExecResult::Signaled) => false,
+            Value::Integer(value) => *value != 0,
+            Value::Float(value, _) => *value != 0.0,
+            Value::Boolean(value) => *value,
+            Value::String(value, _) => !value.is_empty()
+                && value != "false" && value.parse::<f64>() != Ok(0.0),
+            Value::Array(values) | Value::ArgumentExpansion(values) => !values.is_empty()
+        }
+    }
+
+    // Compare language values without string execution flags or float source spelling.
+    pub fn equals(&self, other: &Value) -> bool
+    {
+        match (self, other)
+        {
+            (Value::None, Value::None) => true,
+            (Value::ExecResult(left), Value::ExecResult(right)) => left == right,
+            (Value::Integer(left), Value::Integer(right)) => left == right,
+            (Value::Float(left, _), Value::Float(right, _)) => left == right,
+            (Value::Integer(integer), Value::Float(float, _))
+            | (Value::Float(float, _), Value::Integer(integer)) =>
+                {
+                    // Avoid rounding large integers through f64, or saturating its cast.
+                    float.fract() == 0.0 && *float >= i64::MIN as f64
+                        && *float < -(i64::MIN as f64) && *float as i64 == *integer
+                },
+            (Value::Boolean(left), Value::Boolean(right)) => left == right,
+            (Value::String(left, _), Value::String(right, _)) => left == right,
+            (Value::Array(left), Value::Array(right))
+            | (Value::ArgumentExpansion(left), Value::ArgumentExpansion(right)) =>
+                left.len() == right.len()
+                    && left.iter().zip(right).all(|(left, right)| left.equals(right)),
+            _ => false
+        }
+    }
+
     pub fn checked_integer(&self) -> Option<i64>
     {
         match self

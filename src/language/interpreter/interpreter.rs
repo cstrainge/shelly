@@ -940,6 +940,68 @@ impl Interpreter
                         self.variables.pop_scope();
                     },
 
+                Code::JumpTarget => {},
+
+                Code::Jump | Code::JumpIfFalse | Code::JumpIfTrue =>
+                    {
+                        let invalid_target = || InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::InvalidOperand("Expected a linked jump target".to_string())
+                            };
+                        let Some(Value::Integer(target)) = instruction.operand else
+                        {
+                            return Err(invalid_target());
+                        };
+                        let target = usize::try_from(target).map_err(|_| invalid_target())?;
+                        if !matches!(instructions.get(target), Some(Instruction { code: Code::JumpTarget, .. }))
+                        {
+                            return Err(invalid_target());
+                        }
+                        let jump = if matches!(instruction.code, Code::Jump)
+                            {
+                                true
+                            }
+                            else
+                            {
+                                let Some(Value::Boolean(condition)) = &self.last_result else
+                                {
+                                    return Err(InterpreterError
+                                        {
+                                            location: location.clone(),
+                                            what: ErrorWhat::InvalidOperand("Expected a boolean jump condition".to_string())
+                                        });
+                                };
+                                *condition == matches!(instruction.code, Code::JumpIfTrue)
+                            };
+                        if jump
+                        {
+                            instruction_pointer = target;
+                            continue;
+                        }
+                    },
+
+                Code::ToBoolean | Code::BooleanNot =>
+                    {
+                        let value = self.last_result.take().ok_or_else(|| InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::NoResult
+                            })?;
+                        let value = value.as_bool();
+                        self.last_result = Some(Value::Boolean(
+                            if matches!(instruction.code, Code::BooleanNot) { !value } else { value }));
+                    },
+
+                Code::CompareEqual | Code::CompareNotEqual =>
+                    {
+                        let rhs = Self::pop(&location, &mut stack)?;
+                        let lhs = Self::pop(&location, &mut stack)?;
+                        let equal = lhs.equals(&rhs);
+                        Self::push(&mut stack, Value::Boolean(
+                            if matches!(instruction.code, Code::CompareEqual) { equal } else { !equal }));
+                    },
+
                 Code::MathAdd | Code::MathSubtract | Code::MathMultiply
                 | Code::MathDivide | Code::MathModulo =>
                     {

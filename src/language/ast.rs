@@ -40,6 +40,15 @@ pub enum AstMathOperator
 }
 
 
+pub enum AstBooleanOperator
+{
+    Equal,
+    NotEqual,
+    And,
+    Or
+}
+
+
 pub enum AstExpressionKind
 {
     Variable(AstSymbol),
@@ -51,7 +60,9 @@ pub enum AstExpressionKind
     ExecutableReference(Box<AstExpression>),
     Execute(Box<AstExecuteStatement>),
     TryExecute(Box<AstExpression>),
-    MathExpression(AstMathOperator, Box<AstExpression>, Box<AstExpression>)
+    MathExpression(AstMathOperator, Box<AstExpression>, Box<AstExpression>),
+    BooleanExpression(AstBooleanOperator, Box<AstExpression>, Box<AstExpression>),
+    BooleanNot(Box<AstExpression>)
 }
 
 
@@ -142,7 +153,9 @@ impl AstExpression
             | AstExpressionKind::ExecutableReference(_)
             | AstExpressionKind::Execute(_)
             | AstExpressionKind::TryExecute(_)
-            | AstExpressionKind::MathExpression(_, _, _) =>
+            | AstExpressionKind::MathExpression(_, _, _)
+            | AstExpressionKind::BooleanExpression(_, _, _)
+            | AstExpressionKind::BooleanNot(_) =>
                 Err(AstError::ExpressionNotString(self.location.clone()))
         }
     }

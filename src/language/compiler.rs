@@ -21,6 +21,7 @@ pub enum CompileTarget
 pub enum ErrorWhat
 {
     ParserError(ParserError),
+    InvalidJump(String),
 }
 
 
@@ -37,6 +38,18 @@ impl Display for CompileError
     {
         match &self.what
         {
+            ErrorWhat::InvalidJump(message) =>
+                {
+                    if let Some(location) = &self.location
+                    {
+                        write!(f, "Link error: {}: {}", location, message)
+                    }
+                    else
+                    {
+                        write!(f, "Link error: {}", message)
+                    }
+                },
+
             ErrorWhat::ParserError(error) =>
                 {
                     if let Some(location) = &self.location
@@ -176,6 +189,69 @@ fn compile_expression(instructions: &mut Vec<Instruction>, expression: &AstExpre
                             code: Code::ExpandArray,
                             operand: None
                         });
+            },
+
+        AstExpressionKind::BooleanNot(inner) =>
+            {
+                compile_expression(instructions, inner);
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()),
+                        code: Code::BooleanNot,
+                        operand: None
+                    });
+                return;
+            },
+
+        AstExpressionKind::BooleanExpression(operator, lhs, rhs) =>
+            {
+                compile_expression(instructions, lhs);
+
+                if matches!(operator, AstBooleanOperator::And | AstBooleanOperator::Or)
+                {
+                    instructions.push(Instruction
+                        {
+                            location: Some(expression.location.clone()),
+                            code: Code::ToBoolean,
+                            operand: None
+                        });
+
+                    // The jump's current position supplies a unique label ID. It is not
+                    // a destination index: the matching JumpTarget defines that position.
+                    let target = Value::Integer(instructions.len() as i64);
+                    instructions.push(Instruction
+                        {
+                            location: Some(expression.location.clone()),
+                            code: if matches!(operator, AstBooleanOperator::And)
+                                { Code::JumpIfFalse } else { Code::JumpIfTrue },
+                            operand: Some(target.clone())
+                        });
+                    compile_expression(instructions, rhs);
+                    instructions.push(Instruction
+                        {
+                            location: Some(expression.location.clone()),
+                            code: Code::ToBoolean,
+                            operand: None
+                        });
+                    instructions.push(Instruction
+                        {
+                            location: Some(expression.location.clone()),
+                            code: Code::JumpTarget,
+                            operand: Some(target)
+                        });
+                    return;
+                }
+
+                instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                compile_expression(instructions, rhs);
+                instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()),
+                        code: if matches!(operator, AstBooleanOperator::Equal)
+                            { Code::CompareEqual } else { Code::CompareNotEqual },
+                        operand: None
+                    });
             },
 
         AstExpressionKind::MathExpression(operator, lhs, rhs) =>
@@ -495,6 +571,137 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
 }
 
 
+// Remove redundant round trips through last_result before jump indexes are linked.
+// JumpTarget instructions are barriers: a jump cannot land inside a removed pair.
+fn optimize_instructions(instructions: &mut Vec<Instruction>)
+{
+    let mut optimized = Vec::with_capacity(instructions.len());
+    let mut input = instructions.drain(..).peekable();
+    let mut location = None;
+
+    while let Some(mut instruction) = input.next()
+    {
+        if matches!(instruction.code, Code::PopResult)
+            && input.peek().is_some_and(|next| matches!(next.code, Code::PushResult))
+        {
+            // Carry any removed source location to the next surviving instruction,
+            // unless that instruction already establishes its own location.
+            location = input.next().unwrap().location.or(instruction.location).or(location);
+            continue;
+        }
+
+        instruction.location = instruction.location.or(location.take());
+        optimized.push(instruction);
+    }
+
+    drop(input);
+    *instructions = optimized;
+}
+
+
+// Prove emptiness only along straight-line execution. Entry state and incoming
+// jumps are unknown; calls can replace last_result even without a PopResult.
+fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
+{
+    let mut result_is_empty = false;
+    let mut location = None;
+
+    instructions.retain_mut(|instruction|
+        {
+            if matches!(instruction.code, Code::CheckResult) && result_is_empty
+            {
+                location = instruction.location.clone().or(location.take());
+                return false;
+            }
+
+            instruction.location = instruction.location.take().or(location.take());
+            result_is_empty = match instruction.code
+                {
+                    // On successful continuation, both instructions consume the result.
+                    Code::PushResult | Code::CheckResult => true,
+
+                    Code::PopResult | Code::Execute | Code::TryExecute
+                    | Code::ExecuteIfExecutable | Code::MakeExecutable
+                    | Code::ToBoolean | Code::BooleanNot => false,
+
+                    // Do not carry a proof across control-flow boundaries.
+                    Code::Jump | Code::JumpIfFalse | Code::JumpIfTrue
+                    | Code::JumpTarget | Code::ExitFunction => false,
+
+                    // These instructions operate on the value stack or other VM state.
+                    Code::Push | Code::NewVariable | Code::SetVariable | Code::GetVariable
+                    | Code::NewAlias | Code::ExportVariable | Code::GlobFiles
+                    | Code::ExpandArray | Code::ExpandPath | Code::InterpolateString
+                    | Code::InterpolateGlob | Code::_EnterScope | Code::_ExitScope
+                    | Code::MathAdd | Code::MathSubtract | Code::MathMultiply
+                    | Code::MathDivide | Code::MathModulo | Code::CompareEqual
+                    | Code::CompareNotEqual => result_is_empty
+                };
+            true
+        });
+}
+
+
+// Link one complete code vector after optimization. Function bodies are linked separately.
+// Resolve every label before mutating operands, so missing/duplicate labels cannot
+// leave a partially linked result. JumpTarget instructions remain as landing points.
+fn link_instructions(instructions: &mut [Instruction]) -> CompileResult<()>
+{
+    let label = |instruction: &Instruction| -> CompileResult<i64>
+        {
+            match instruction.operand
+            {
+                Some(Value::Integer(label)) if label >= 0 => Ok(label),
+                _ => Err(CompileError
+                    {
+                        location: instruction.location.clone(),
+                        what: ErrorWhat::InvalidJump("Expected a nonnegative label ID".to_string())
+                    })
+            }
+        };
+    let mut targets = HashMap::new();
+    for (index, instruction) in instructions.iter().enumerate()
+    {
+        if matches!(instruction.code, Code::JumpTarget)
+        {
+            let id = label(instruction)?;
+            if targets.insert(id, index).is_some()
+            {
+                return Err(CompileError
+                    {
+                        location: instruction.location.clone(),
+                        what: ErrorWhat::InvalidJump(format!("Duplicate jump label {}", id))
+                    });
+            }
+        }
+    }
+
+    let mut resolved = Vec::new();
+    for (index, instruction) in instructions.iter().enumerate()
+    {
+        if matches!(instruction.code, Code::Jump | Code::JumpIfFalse | Code::JumpIfTrue)
+        {
+            let id = label(instruction)?;
+            let target = targets.get(&id).ok_or_else(|| CompileError
+                {
+                    location: instruction.location.clone(),
+                    what: ErrorWhat::InvalidJump(format!("Missing jump label {}", id))
+                })?;
+            resolved.push((index, *target));
+        }
+    }
+    for (index, target) in resolved
+    {
+        instructions[index].operand = Some(Value::Integer(target as i64));
+    }
+    for instruction in instructions
+    {
+        if matches!(instruction.code, Code::JumpTarget) { instruction.operand = None; }
+    }
+    Ok(())
+}
+
+
 pub fn compile_ast(function_block: &FunctionBlockRef,
                    ast: &AstTopLevel,
                    target: CompileTarget) -> CompileResult<Vec<Instruction>>
@@ -588,6 +795,10 @@ pub fn compile_ast(function_block: &FunctionBlockRef,
             });
         instructions.push(Instruction { location: None, code: Code::PopResult, operand: None });
     }
+
+    optimize_instructions(&mut instructions);
+    remove_empty_result_checks(&mut instructions);
+    link_instructions(&mut instructions)?;
 
     Ok(instructions)
 }

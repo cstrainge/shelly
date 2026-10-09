@@ -34,7 +34,20 @@ pub enum Code
     MathSubtract,
     MathMultiply,
     MathDivide,
-    MathModulo
+    MathModulo,
+    CompareEqual,
+    CompareNotEqual,
+    // Convert last_result in place; these instructions do not touch the value stack.
+    ToBoolean,
+    BooleanNot,
+    // Before linking: label IDs local to this code vector. After linking: direct
+    // instruction indexes pointing at JumpTarget. Preserve last_result and the stack.
+    // Unconditional branching is reserved for subsequent control-flow constructs.
+    Jump,
+    JumpIfFalse,
+    JumpIfTrue,
+    // A labeled landing point during compilation; linking removes its operand.
+    JumpTarget
 }
 
 

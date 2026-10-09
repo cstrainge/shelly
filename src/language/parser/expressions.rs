@@ -74,6 +74,26 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                     new_ast_literal(token.location, value, string_flag)
                 },
 
+            TokenKind::Not =>
+                {
+                    let operand = match parse_math_primary(&mut *lookahead.buffer)?
+                        {
+                            Some(operand) => operand,
+                            None => parse_scalar_expression(&mut *lookahead.buffer)?
+                                .ok_or_else(|| ParserError
+                                    {
+                                        location: Some(token.location.clone()),
+                                        kind: ParserErrorKind::ExpectedExpression
+                                    })?
+                        };
+                    AstExpression
+                        {
+                            location: token.location,
+                            kind: AstExpressionKind::BooleanNot(Box::new(operand)),
+                            string_flag: None
+                        }
+                },
+
             TokenKind::Minus =>
                 {
                     // A standalone '-' remains a command argument. With an operand it is unary
@@ -218,7 +238,8 @@ fn parse_math_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
 
     // A lone number/variable belongs to the existing expression rules. Explicit
     // parentheses also accept a single operand, e.g. (42) or ($count).
-    if starts_with_group || matches!(&expression.kind, AstExpressionKind::MathExpression(_, _, _))
+    if starts_with_group || matches!(&expression.kind,
+        AstExpressionKind::MathExpression(_, _, _) | AstExpressionKind::BooleanNot(_))
     {
         lookahead.commit();
         return Ok(Some(expression));
@@ -376,7 +397,7 @@ fn parse_operator_to_symbol(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
 }
 
 
-pub fn parse_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
+fn parse_scalar_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
     // An executable reference currently stores only its name. Use a literal so that value
     // parsing does not turn the name into a call or apply symbol expansion.
@@ -415,6 +436,50 @@ pub fn parse_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
                            parse_literal_expression,
                            parse_lonely_glob_expression,
                            parse_operator_to_symbol])
+}
+
+
+fn parse_boolean_tail(buffer: &mut TokenBuffer<'_, '_>,
+                      mut left: AstExpression,
+                      min_precedence: u8) -> ParseResult<AstExpression>
+{
+    loop
+    {
+        let mut lookahead = Lookahead::new(buffer);
+        let Some(token) = lookahead.buffer.next()? else { break; };
+        let (operator, precedence) = match token.kind
+            {
+                TokenKind::Or => (AstBooleanOperator::Or, 1),
+                TokenKind::And => (AstBooleanOperator::And, 2),
+                TokenKind::Equal => (AstBooleanOperator::Equal, 3),
+                TokenKind::NotEqual => (AstBooleanOperator::NotEqual, 3),
+                _ => break
+            };
+        if precedence < min_precedence { break; }
+
+        let right = parse_scalar_expression(&mut *lookahead.buffer)?
+            .ok_or_else(|| ParserError
+                {
+                    location: Some(token.location.clone()),
+                    kind: ParserErrorKind::ExpectedExpression
+                })?;
+        let right = parse_boolean_tail(&mut *lookahead.buffer, right, precedence + 1)?;
+        left = AstExpression
+            {
+                location: token.location,
+                kind: AstExpressionKind::BooleanExpression(operator, Box::new(left), Box::new(right)),
+                string_flag: None
+            };
+        lookahead.commit();
+    }
+    Ok(left)
+}
+
+
+pub fn parse_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
+{
+    let Some(left) = parse_scalar_expression(buffer)? else { return Ok(None); };
+    Ok(Some(parse_boolean_tail(buffer, left, 0)?))
 }
 
 

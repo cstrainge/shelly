@@ -119,6 +119,12 @@ pub enum TokenKind
      */
     Assign,
 
+    Equal,
+    NotEqual,
+    And,
+    Or,
+    Not,
+
     /**
      * The `-` character used for subtraction or negation.
      */
@@ -448,6 +454,11 @@ impl Token
             TokenKind::Import            => "import".to_string(),
             TokenKind::TypeDelimiter     => ":".to_string(),
             TokenKind::Assign            => "=".to_string(),
+            TokenKind::Equal             => "==".to_string(),
+            TokenKind::NotEqual          => "!=".to_string(),
+            TokenKind::And               => "&&".to_string(),
+            TokenKind::Or                => "||".to_string(),
+            TokenKind::Not               => "!".to_string(),
             TokenKind::Minus             => "-".to_string(),
             TokenKind::Plus              => "+".to_string(),
             TokenKind::Asterisk          => "*".to_string(),
@@ -557,7 +568,9 @@ pub struct Tokenizer<'a>
     /**
      * The source code input buffer to read our tokens from.
      */
-    input: &'a mut dyn Buffer
+    input: &'a mut dyn Buffer,
+    // Reading a word can consume the following two-character boolean operator.
+    pending_operator: Option<Token>
 }
 
 
@@ -568,7 +581,7 @@ impl<'a> Tokenizer<'a>
      */
     pub fn new(input: &'a mut dyn Buffer) -> Self
     {
-        Self { input }
+        Self { input, pending_operator: None }
     }
 
     /**
@@ -592,6 +605,11 @@ impl<'a> Tokenizer<'a>
 
     fn read_token(&mut self) -> Result<Option<Token>, TokenizerError>
     {
+        if let Some(operator) = self.pending_operator.take()
+        {
+            return Ok(Some(operator));
+        }
+
         // Skip past any whitespace and comments.
         loop
         {
@@ -718,7 +736,7 @@ impl<'a> Tokenizer<'a>
         }
 
         // A variable-prefixed path is one interpolated word, not a variable name.
-        if self.input.peek_next() == Some('/')
+        if self.pending_operator.is_none() && self.input.peek_next() == Some('/')
         {
             // Keep braces in interpolated paths to preserve the variable boundary.
             if braced { identifier = format!("${{{}}}", &identifier[1..]); }
@@ -786,6 +804,7 @@ impl<'a> Tokenizer<'a>
     fn extract_to_separator(&mut self, additional_separators: Option<&[char]>) -> String
     {
         let mut result = String::new();
+        let mut in_glob_class = false;
 
         while let Some(next) = self.input.peek_next()
         {
@@ -800,11 +819,35 @@ impl<'a> Tokenizer<'a>
                 }
                 continue;
             }
+            // Preserve single '=' and trailing '!' in shell words, and glob classes.
+            // Paired operators delimit operands even without surrounding whitespace.
+            if !in_glob_class && matches!(next, '=' | '!' | '&')
+            {
+                let location = self.input.location().clone();
+                self.input.next();
+                let second = if next == '&' { '&' } else { '=' };
+                if self.input.peek_next() == Some(second)
+                {
+                    self.input.next();
+                    let kind = match next
+                        {
+                            '=' => TokenKind::Equal,
+                            '!' => TokenKind::NotEqual,
+                            _ => TokenKind::And
+                        };
+                    self.pending_operator = Some(Token { location, kind, value: TokenValue::None });
+                    break;
+                }
+                result.push(next);
+                continue;
+            }
             if    !Self::is_separator_char(&next)
                && !additional_separators.map_or(false, |separators| separators.contains(&next))
             {
                 let _ = &self.input.next();
                 result.push(next);
+                if next == '[' { in_glob_class = true; }
+                if next == ']' { in_glob_class = false; }
             }
             else
             {
@@ -1153,7 +1196,30 @@ impl<'a> Tokenizer<'a>
 
         match next
         {
-            '|'  => return operator_token(location, TokenKind::Pipe),
+            '|' =>
+                {
+                    if self.input.peek_next() == Some('|')
+                    {
+                        self.input.next();
+                        return operator_token(location, TokenKind::Or);
+                    }
+                    return operator_token(location, TokenKind::Pipe);
+                },
+            '!' =>
+                {
+                    if self.input.peek_next() == Some('=')
+                    {
+                        self.input.next();
+                        return operator_token(location, TokenKind::NotEqual);
+                    }
+                    return operator_token(location, TokenKind::Not);
+                },
+            '=' | '&' if self.input.peek_next() == Some(next) =>
+                {
+                    self.input.next();
+                    return operator_token(location,
+                        if next == '=' { TokenKind::Equal } else { TokenKind::And });
+                },
             ';'  => return operator_token(location, TokenKind::StatementBreak),
             '('  => return operator_token(location, TokenKind::ParenOpen),
             ')'  => return operator_token(location, TokenKind::ParenClose),

@@ -70,8 +70,8 @@ Values include signed 64-bit integers, floating-point values, booleans, strings,
 arrays, the no-value result displayed as `()`, and external command statuses such
 as `ExecResult(0)`. Arrays currently come from `$args` and file globs; array
 literals and indexing are not implemented. Without `...`, an array becomes
-colon-separated text when passed to a command. `()` is a result's display form,
-not an accepted empty expression literal.
+colon-separated text when passed to a command. `()` is also a literal that
+evaluates to `None`, including in assignments and returns.
 
 Arithmetic supports `+`, `-`, `*`, `/`, and `%`, with normal precedence,
 left associativity, and parentheses. **Operations currently convert operands to
@@ -84,6 +84,65 @@ including in release builds.
 
 Expressions can stand alone, including inside functions. A top-level expression
 is evaluated without automatically printing its value; use `echo` to display it.
+
+## Boolean expressions
+
+`==` and `!=` compare values and produce booleans. Numbers compare numerically,
+including integer/float pairs; strings compare their text, ignoring executable
+flags. Float source spelling does not affect equality. Arrays compare their
+elements in order. Unrelated types are unequal: `"1" == 1` and `true == 1` are
+false. `()` equals `()`. Command statuses compare as statuses, not as integers
+or booleans.
+
+`!`, `&&`, and `||` convert their operands to booleans:
+
+| Value | Boolean conversion |
+| --- | --- |
+| `()` | False |
+| Boolean | Its existing value |
+| Integer or float | False for zero, true otherwise |
+| String | False for empty text, exact `"false"`, or text parsing as numeric zero; true otherwise |
+| Array or argument expansion | False when empty, true otherwise |
+| External command result | True for exit status 0; false for nonzero status or termination by signal |
+
+Logical operators always return a boolean. `&&` skips its right operand when
+the left is false; `||` skips it when the left is true. Skipped operands have no
+side effects and cannot cause runtime errors, but must still be valid syntax.
+
+Precedence, highest first: parentheses; unary `!` and unary minus; `* / %`;
+`+ -`; `== !=`; `&&`; `||`. Binary operators at the same precedence associate
+left to right. Boolean operators do not require surrounding spaces, so
+`$x!=0` and `!$x` work. Quote operator text when passing it literally.
+
+```text
+echo (1 == 2) (2.5 == 2.50)    # false true
+echo !"false" !"0"             # true true
+let $ready = 2 + 3 == 5 && !false
+echo $ready                    # true
+echo (false && (1 / 0))         # false; division is skipped
+echo ((/usr/bin/false) || (/usr/bin/true))  # true
+```
+
+Use parenthesized calls to make command results operands: `(foo 3) && (bar 4)`.
+These are value expressions, not shell command chains: `echo true && false`
+passes the single value `false` to `echo`. Bare words within boolean expressions
+are string operands; `foo == foo` compares text. Function parameters currently
+arrive as strings, so `!$parameter` converts that text, while `$parameter == "3"`
+compares it without numeric coercion.
+
+Short-circuit compilation emits `ToBoolean`, `JumpIfFalse` (for `&&`) or
+`JumpIfTrue` (for `||`), the right operand, `ToBoolean`, and a labeled
+`JumpTarget`. Before linking, an optimization pass removes adjacent `PopResult`
+and `PushResult` pairs, leaving the value on the stack. It never removes a pair
+across a jump target. A second pass removes `CheckResult` only when an earlier
+`PushResult` or `CheckResult` proves the result is empty and intervening instructions
+preserve that state. Instructions that can set a result or control-flow boundaries
+invalidate the proof; entry state is treated as unknown.
+A link phase then resolves labels to instruction indexes independently
+for each function and top-level code vector, rejecting missing or duplicate
+labels. It removes labels from the target markers. The VM sees only numeric
+jump destinations and no-op target instructions; jumps preserve the result and
+value stack. An unconditional `Jump` is also available for future control flow.
 
 ## Strings and paths
 
@@ -344,8 +403,8 @@ useful inside a function or a longer program.
   directly from commands and functions.
 - **Pipelines for text and structured data.** Connect Unix tools with commands
   that consume and produce structs, with conversions at command boundaries.
-- **Control flow and collections.** Conditionals, loops, comparisons, boolean
-  operators, array literals, and indexing are not yet implemented.
+- **Control flow and collections.** Conditional statements, loops, ordering
+  comparisons (`<`, `>`), array literals, and indexing are not yet implemented.
 
 The draft [test.shy](test.shy) sketches how Shelly could test itself by discovering
 scripts, looping over them, inspecting results, and reporting failures. It is a
