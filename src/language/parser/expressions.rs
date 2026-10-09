@@ -495,6 +495,7 @@ fn parse_operator_to_symbol(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
                               TokenKind::If,
                               TokenKind::Else,
                               TokenKind::While,
+                              TokenKind::Until,
                               TokenKind::For,
                               TokenKind::In,
                               TokenKind::Break,

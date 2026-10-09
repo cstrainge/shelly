@@ -345,6 +345,14 @@ pub struct AstForStatement
 }
 
 
+pub struct AstConditionalLoopStatement
+{
+    pub condition: AstExpression,
+    pub body: AstBlockStatement,
+    pub until: bool
+}
+
+
 pub enum AstStatement
 {
     LetStatement(Box<AstLetStatement>),
@@ -356,6 +364,8 @@ pub enum AstStatement
     FunctionDefinition(Box<AstFunctionStatement>),
     BlockStatement(Box<AstBlockStatement>),
     ForStatement(Box<AstForStatement>),
+    LoopStatement(Box<AstBlockStatement>),
+    ConditionalLoopStatement(Box<AstConditionalLoopStatement>),
     BreakStatement(Location),
     ContinueStatement(Location),
     NullStatement

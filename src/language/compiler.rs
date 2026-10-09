@@ -890,6 +890,49 @@ fn compile_for_statement(instructions: &mut Vec<Instruction>,
 }
 
 
+fn compile_loop_statement(instructions: &mut Vec<Instruction>,
+                           function_block: &FunctionBlockRef,
+                           body: &AstBlockStatement,
+                           condition: Option<&AstExpression>,
+                           until: bool) -> CompileResult<()>
+{
+    let location = Some(condition.map_or(&body.location, |condition| &condition.location).clone());
+    // Reserve distinct labels from EnterLoop and the following JumpTarget.
+    // Continue rechecks the condition (if any), without pushing another loop frame.
+    let end = Value::Integer(instructions.len() as i64);
+    let start = Value::Integer(instructions.len() as i64 + 1);
+    instructions.push(Instruction
+        {
+            location: location.clone(),
+            code: Code::EnterLoop,
+            operand: Some(Value::from_array(vec![start.clone(), end.clone()]))
+        });
+    instructions.push(Instruction { location: location.clone(), code: Code::JumpTarget, operand: Some(start.clone()) });
+    if let Some(condition) = condition
+    {
+        compile_expression(instructions, function_block, condition)?;
+        instructions.push(Instruction { location: location.clone(), code: Code::ToBoolean, operand: None });
+        instructions.push(Instruction
+            {
+                location: location.clone(),
+                code: if until { Code::JumpIfTrue } else { Code::JumpIfFalse },
+                operand: Some(end.clone())
+            });
+        instructions.push(Instruction { location: location.clone(), code: Code::CheckResult, operand: None });
+    }
+    compile_block(instructions, function_block, body, CompileTarget::Toplevel)?;
+    instructions.push(Instruction { location: location.clone(), code: Code::Jump, operand: Some(start) });
+    instructions.push(Instruction { location: location.clone(), code: Code::JumpTarget, operand: Some(end) });
+    if condition.is_some()
+    {
+        // Consume the stopping condition; a loop has no expression result.
+        instructions.push(Instruction { location: location.clone(), code: Code::CheckResult, operand: None });
+    }
+    instructions.push(Instruction { location, code: Code::ExitLoop, operand: None });
+    Ok(())
+}
+
+
 fn compile_block(instructions: &mut Vec<Instruction>,
                   function_block: &FunctionBlockRef,
                   block: &AstBlockStatement,
@@ -1057,6 +1100,19 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
             AstStatement::ForStatement(statement) =>
                 {
                     compile_for_statement(instructions, function_block, statement)?;
+                    add_check = false;
+                }
+
+            AstStatement::LoopStatement(body) =>
+                {
+                    compile_loop_statement(instructions, function_block, body, None, false)?;
+                    add_check = false;
+                }
+
+            AstStatement::ConditionalLoopStatement(statement) =>
+                {
+                    compile_loop_statement(instructions, function_block, &statement.body,
+                        Some(&statement.condition), statement.until)?;
                     add_check = false;
                 }
 

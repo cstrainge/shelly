@@ -594,6 +594,69 @@ iterator; break lands at loop cleanup, where `ExitLoop` pops the frame and
 Loop and iterator stacks are local to each VM execution frame and are discarded
 on returns and errors.
 
+## Unbounded loops
+
+`loop { ... }` repeats its required block without a condition or iterable:
+
+```text
+let $count = 0
+loop
+{
+    $count = $count + 1
+    if $count == 2 { continue }
+    echo $count
+    if $count == 3 { break }
+}
+# Prints 1, then 3
+```
+
+Each iteration has a fresh variable scope. `continue` restarts the body, and
+`break` exits the innermost loop. Unbounded loops and `for` loops can nest in
+either direction. `return` exits the enclosing function; runtime errors stop
+execution and unwind the scopes and loop frames.
+
+Like `for`, `loop` is a statement. A function or conditional branch ending in a
+loop that finishes with `break` produces `()`. An empty `loop {}` runs indefinitely.
+Compilation uses `EnterLoop`, scoped body code, a back jump, and `ExitLoop`;
+both loop targets are labels resolved to numeric indexes by the existing linker.
+
+## While and until loops
+
+`while condition { ... }` repeats while the condition converts to true.
+`until condition { ... }` repeats while it converts to false. Both check the
+condition before the first iteration and before every subsequent iteration:
+
+```text
+let $n = 0
+while $n != 3
+{
+    echo $n                  # 0, 1, 2
+    $n = $n + 1
+}
+until $n == 0
+{
+    echo $n                  # 3, 2, 1
+    $n = $n - 1
+}
+```
+
+Conditions accept the same expressions and command calls as `if`, with the same
+boolean conversion and short-circuit rules. A command's zero exit status is true;
+nonzero status is false. `while false { ... }` and `until true { ... }` skip their
+bodies, although those bodies must still contain valid syntax. A block is always
+required, and newlines/comments may separate the condition from its opening brace.
+
+The condition runs in the surrounding scope; each body iteration gets a fresh
+scope. `continue` unwinds that scope and rechecks the condition. `break` exits the
+innermost loop without evaluating its condition again. These loops can nest with
+`for` and `loop`, and share their return/error cleanup and function boundaries.
+They are statements: a function or branch ending with a completed loop yields `()`.
+
+Compilation uses the existing loop frame and linker. The continue target precedes
+condition evaluation, `ToBoolean` converts its result, and `JumpIfFalse` (`while`)
+or `JumpIfTrue` (`until`) branches to loop cleanup. The stopping condition is
+consumed rather than becoming the loop's result.
+
 ## Conditional expressions
 
 `if condition { ... }`, `else if condition { ... }`, and `else { ... }` form a
@@ -714,8 +777,8 @@ useful inside a function or a longer program.
   directly from commands and functions.
 - **Pipelines for text and structured data.** Connect Unix tools with commands
   that consume and produce structs, with conversions at command boundaries.
-- **Control flow and collections.** `for` loops, ranges, and array/map literals
-  and indexing are implemented. Further loop control and ordering comparisons
+- **Control flow and collections.** `for`, `loop`, `while`, and `until`, ranges,
+  and array/map literals and indexing are implemented. Further loop control and ordering comparisons
   (`<`, `>`) remain planned.
 
 The draft [test.shy](test.shy) sketches how Shelly could test itself by discovering

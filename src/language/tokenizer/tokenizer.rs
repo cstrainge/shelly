@@ -73,6 +73,7 @@ pub enum TokenKind
      * The `while` keyword used for looping while a condition is true.
      */
     While,
+    Until,
     For,
     In,
     Break,
@@ -453,6 +454,7 @@ impl Token
             TokenKind::If                => "if".to_string(),
             TokenKind::Else              => "else".to_string(),
             TokenKind::While             => "while".to_string(),
+            TokenKind::Until             => "until".to_string(),
             TokenKind::For               => "for".to_string(),
             TokenKind::In                => "in".to_string(),
             TokenKind::Break             => "break".to_string(),
@@ -723,6 +725,7 @@ impl<'a> Tokenizer<'a>
                 "if"     => TokenKind::If,
                 "else"   => TokenKind::Else,
                 "while"  => TokenKind::While,
+                "until"  => TokenKind::Until,
                 "for"    => TokenKind::For,
                 "in"     => TokenKind::In,
                 "break"  => TokenKind::Break,

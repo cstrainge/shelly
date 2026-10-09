@@ -446,6 +446,15 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
 
     if next_kind == TokenKind::For { return parse_for_statement(buffer); }
 
+    if next_kind == TokenKind::Loop
+    {
+        expect_token(buffer, TokenKind::Loop)?;
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        let body = parse_block(buffer)?;
+        expect_statement_end(buffer)?;
+        return Ok(Some(AstStatement::LoopStatement(Box::new(body))));
+    }
+
     if matches!(next_kind, TokenKind::Break | TokenKind::Continue)
     {
         let keyword = expect_token(buffer, next_kind)?;
@@ -453,6 +462,25 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
         return Ok(Some(if next_kind == TokenKind::Break
             { AstStatement::BreakStatement(keyword.location) }
             else { AstStatement::ContinueStatement(keyword.location) }));
+    }
+
+    if matches!(next_kind, TokenKind::While | TokenKind::Until)
+    {
+        let keyword = expect_token(buffer, next_kind)?;
+        let condition = parse_condition_expression(buffer)?.ok_or_else(|| ParserError
+            {
+                location: Some(keyword.location),
+                kind: ParserErrorKind::ExpectedExpression
+            })?;
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        let body = parse_block(buffer)?;
+        expect_statement_end(buffer)?;
+        return Ok(Some(AstStatement::ConditionalLoopStatement(Box::new(AstConditionalLoopStatement
+            {
+                condition,
+                body,
+                until: next_kind == TokenKind::Until
+            }))));
     }
 
     if next_kind == TokenKind::If
