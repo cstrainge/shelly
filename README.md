@@ -1,4 +1,4 @@
-# shelly
+# Shelly
 
 A Unix-style shell written in Rust, growing toward a language for working with
 commands, structured data, and network services in the same place.
@@ -13,7 +13,7 @@ The examples below describe the current implementation.
 
 ## Build and run
 
-Use a Rust toolchain supporting edition 2024.
+Build on Linux or WSL with a Rust toolchain supporting edition 2024.
 
 ```sh
 git clone https://github.com/cstrainge/shelly.git
@@ -40,12 +40,17 @@ In the REPL, Ctrl+Enter or Shift+Enter inserts a newline for multiline input;
 Enter submits the buffer. Definitions and variables persist between submissions.
 Leave with `exit` or Ctrl+D. Tab completes a unique name or common prefix; a
 second Tab opens the completion menu. Arrow keys navigate an open menu.
+Ctrl+Enter and Shift+Enter require a terminal that reports those key combinations.
 
 Interactive startup loads `~/.shelly_init.shy`. `--rcfile PATH` selects another init
 file; `--norc` skips it. `-l` enables login startup, which loads
 `/etc/shelly/profile.shy`, then `~/.shelly_profile.shy`, before interactive init.
 `--norc` does not disable login profiles. Script, `-c`, and stdin modes skip
 interactive init. `-b` suppresses the banner; `-m` requests monochrome output.
+
+Define `fn prompt() { ... }` in the init file to customize the prompt. Shelly uses
+its printed stdout as the prompt text and falls back to the default prompt if
+the call fails.
 
 ## Statements, values, and arithmetic
 
@@ -68,10 +73,11 @@ Variable names cannot contain `=`, including braced names and function parameter
 Keep spaces around assignment `=`; adjacent `==` and `!=` remain comparisons.
 
 Values include signed 64-bit integers, floating-point values, booleans, strings,
-arrays, hash maps, ranges, the no-value result displayed as `()`, and external command statuses such
-as `ExecResult(0)`. Arrays come from literals, `$args`, and file globs. Without `...`, an array becomes
-colon-separated text when passed to a command. `()` is also a literal that
-evaluates to `None`, including in assignments and returns.
+arrays, hash maps, ranges, the no-value result displayed as `()`, and external
+command statuses such as `ExecResult(0)`. Arrays come from literals, `$args`, and
+file globs. Without `...`, an array becomes colon-separated text when passed to
+a command. `()` is also a literal that evaluates to `None`, including in assignments
+and returns.
 
 Use `$args...` or `${args}...` to expand command arguments. A splat cannot be
 the executable: `$cmd... 2` is a parse error; use `$cmd 2` to call a stored command.
@@ -109,9 +115,9 @@ calls and conditionals: `[foo 3, if true { 1 } else { 2 }]`.
 Indexes are zero-based integers. `$a[$i + 1]`, `${a}[0]`, `(make_array)[0]`,
 and chained `$a[1][2]` reads work. The opening index bracket must touch its
 value: `$a[0]` is an element, while `$a [0]` supplies a separate array argument.
-Negative or out-of-range indexes, non-integer indexes (including `"0"` and
-`1.0`), and indexing non-arrays produce errors. Writes replace existing elements;
-they do not append or grow an array. Function parameters still arrive as strings;
+Negative, out-of-range, or non-integer indexes (including `"0"` and `1.0`)
+produce errors for arrays. Only arrays and maps support indexing. Array writes
+replace existing elements; they do not append or grow an array. Function parameters still arrive as strings;
 use arithmetic such as `$index + 0` when converting a numeric parameter to an index.
 
 Indexed assignment must start with a variable, as in `$a[0] = value` or
@@ -142,8 +148,8 @@ and is discarded reports `Cannot execute an array as a command`; explicit calls
 such as `$a "argument"` reject arrays too. Arrays remain valid as function return
 values, conditional results, and arguments (`echo $a` or `echo $a...`).
 
-A leading `[` starts an array. For bracket globs use a path prefix, such as
-`./[ab].txt` or `fixtures/[ab].txt`; quote brackets to pass literal text.
+A leading `[` starts an array or map literal. For bracket globs use a path prefix,
+such as `./[ab].txt` or `fixtures/[ab].txt`; quote brackets to pass literal text.
 
 ## Hash maps
 
@@ -265,10 +271,11 @@ Logical operators always return a boolean. `&&` skips its right operand when
 the left is false; `||` skips it when the left is true. Skipped operands have no
 side effects and cannot cause runtime errors, but must still be valid syntax.
 
-Precedence, highest first: parentheses and array access; unary `!` and unary minus; `* / %`;
-`+ -`; `.. ..=`; `== !=`; `&&`; `||`. Range operators cannot be chained; other
-binary operators at the same precedence associate left to right. Boolean operators do not require surrounding spaces, so
-`$x!=0` and `!$x` work. Quote operator text when passing it literally.
+Precedence, highest first: parentheses and indexing; unary `!` and unary minus;
+`* / %`; `+ -`; `.. ..=`; `== !=`; `&&`; `||`. Range operators cannot be chained;
+other binary operators at the same precedence associate left to right. Boolean
+operators do not require surrounding spaces, so `$x!=0` and `!$x` work. Quote
+operator text when passing it literally.
 
 ```text
 echo (1 == 2) (2.5 == 2.50)    # false true
@@ -285,21 +292,6 @@ passes the single value `false` to `echo`. Bare words within boolean expressions
 are string operands; `foo == foo` compares text. Function parameters currently
 arrive as strings, so `!$parameter` converts that text, while `$parameter == "3"`
 compares it without numeric coercion.
-
-Short-circuit compilation emits `ToBoolean`, `JumpIfFalse` (for `&&`) or
-`JumpIfTrue` (for `||`), the right operand, `ToBoolean`, and a labeled
-`JumpTarget`. Before linking, an optimization pass removes adjacent `PopResult`
-and `PushResult` pairs, leaving the value on the stack. It never removes a pair
-across a jump target. A second pass removes `CheckResult` only when an earlier
-`PushResult` or `CheckResult` proves the result is empty and intervening instructions
-preserve that state. Instructions that can set a result or control-flow boundaries
-invalidate the proof; entry state is treated as unknown.
-A link phase then resolves labels to instruction indexes independently
-for each function and top-level code vector, rejecting missing or duplicate
-labels. It removes labels from the target markers. The VM sees only numeric
-jump destinations and no-op target instructions; jumps preserve the result and
-value stack. Conditional expressions use unconditional `Jump` instructions to
-skip the remaining branches after a match.
 
 ## Strings and paths
 
@@ -335,7 +327,8 @@ The double-quoted form interpolates variables; the single-quoted form keeps them
 literal. Ordinary single-line quotes cannot contain a raw newline.
 
 Reading variables and interpolating strings shortens paths under the current
-`$HOME` to `~` or `~/...`, including `$pwd`, collection values, and stored paths.
+`$HOME` to `~` or `~/...`, including `$pwd` and strings stored in arrays and map
+values. Map keys retain their original values.
 Only complete home-directory prefixes match; similarly named sibling directories
 stay unchanged. Stored values are not rewritten by reading them.
 
@@ -345,7 +338,9 @@ This also applies to quoted or variable-derived arguments. Thus `cd $p` and
 `cat "$p/file"` work with shortened paths, and `echo $pwd` prints an absolute
 path. Embedded text such as `echo "cwd: ${pwd}"` retains the shortened path,
 as does a custom prompt using `${pwd}` after its label or color codes. `~someone`
-is not expanded. Shell functions receive the shortened argument values.
+is not expanded. This external-command expansion does not apply at a shell
+function call boundary; reading the function parameters follows the same path
+shortening rules as other variable reads.
 
 Unquoted paths can begin with a variable. Its value and the suffix remain one
 argument, including spaces in the value:
@@ -353,7 +348,15 @@ argument, including spaces in the value:
 ```text
 let $root = '/tmp'
 echo $root/project/file.txt
+let $name = 'report'
+echo ${name}suffix           # reportsuffix
+echo ${name}.txt             # report.txt
 ```
+
+Braces mark the end of a variable name within a word: `${name}suffix` is one
+argument, even when the variable's value contains spaces. `${name} suffix`
+remains two arguments. `${items}[0]` and `${items}...` retain their indexing and
+expansion meanings.
 
 Variable-prefixed executable paths such as `$tools/echo` also work. Write
 `$a / $b` for division; `$a/file` is a path. Variable-prefixed glob patterns
@@ -408,8 +411,8 @@ fn greet($name)
 ```
 
 `return` outside a function is an error. Empty functions, including `fn f() {}`,
-and functions ending in a declaration, assignment, alias, or nested function
-definition return `()`. Duplicate parameter names are rejected.
+and functions ending in a declaration, assignment, alias, nested function
+definition, or completed loop return `()`. Duplicate parameter names are rejected.
 
 Parentheses evaluate one expression and preserve its result. They support nested
 calls and arithmetic, but do not contain statement sequences. Missing or extra
@@ -507,9 +510,8 @@ echo $x                     # 1
 echo $x                     # 4
 ```
 
-The compiler emits `EnterScope` and `ExitScope` around each block. Returns and
-runtime errors also unwind any active block scopes. `return` inside a block exits
-the enclosing function; it remains an error at the top level. A block at the end
+Returns and runtime errors unwind any active block scopes. `return` inside a
+block exits the enclosing function; it remains an error at the top level. A block at the end
 of a function supplies its last expression as the implicit return value, including
 through nested blocks. An empty final block, or one ending in a declaration,
 supplies `()`.
@@ -518,144 +520,6 @@ Blocks are statements; `{ ... }` is not yet an expression for assignments or
 command arguments. Blocks scope variables; function definitions retain their
 existing hoisting into the enclosing function or top level, and aliases remain
 global.
-
-## For loops
-
-Use one binding for array elements or range integers, and two bindings for map
-keys and values. The expression after `in` can be a literal, a variable, an
-indexed value, a conditional, or a function call:
-
-```text
-for $index in 1..4
-{
-    echo $index              # 1, then 2, then 3
-}
-
-let $items = ["red", "green", "blue"]
-for $value in $items { echo $value }
-for $value in [10, 20] { echo $value }
-
-let $settings = ["width": 80, "height": 24]
-for $key, $value in $settings { echo $key $value }
-for $key, $value in ["answer": 42] { echo $key $value }
-```
-
-The iterable is evaluated once, before any loop bindings are created. Array
-elements retain their types and are visited in array order. Maps visit each
-key/value pair once in unspecified order; keys use the map's canonical value
-representation. Iteration uses a snapshot: assigning to the source collection or
-mutating it during the loop does not change the remaining iterations. Changing
-a collection held by a loop binding also leaves the original element unchanged.
-
-Range iteration is lazy and requires both integer bounds. `..` excludes the end,
-`..=` includes it, and reversed ranges are empty. Empty arrays, maps, and ranges
-skip the body. Other iterable types, two bindings for arrays/ranges, one binding
-for maps, and duplicate binding names produce errors.
-
-Every loop requires a block. Each iteration creates a fresh scope containing its
-bindings and body-local variables. These can shadow outer variables; assignment
-to other existing variables still updates the nearest visible binding. Neither
-the bindings nor body-local variables escape. Nested loops work, and `return`
-exits the enclosing function, cleaning up active loop scopes and iterators.
-Runtime errors also stop iteration and clean up those scopes.
-
-`for` is a statement; a function or conditional branch ending in a loop produces
-`()`. Body results are discarded and command failures propagate normally.
-Function definitions and aliases inside loops follow the existing hoisting and
-global-alias rules for blocks.
-
-`break` leaves the innermost active loop; `continue` skips the remainder of its
-current iteration and advances to the next element. Neither accepts a value or
-a loop label:
-
-```text
-for $i in 0..5
-{
-    if $i == 1 { continue }
-    if $i == 3 { break }
-    echo $i                  # 0, then 2
-}
-```
-
-Both statements unwind the current iteration's scopes, including nested blocks,
-and discard abandoned expression temporaries. Executing either without an active
-loop in the current function or top-level execution produces an error. A called
-function cannot control its caller's loop. Skipped branches still require valid
-syntax, but do not execute their loop-control statements.
-
-The compiler emits `StartIteration`, `NextIteration`, `BindIteration`, and
-`EndIteration` with scoped bindings and labeled jumps. `EnterLoop` carries the
-continue and break labels; after optimization, linking resolves both to numeric
-`JumpTarget` indexes, just like other jumps. It pushes those addresses and the
-scope/stack depths onto a loop stack. `Break` and `Continue` restore that saved
-state and jump to the appropriate address. Continue lands before advancing the
-iterator; break lands at loop cleanup, where `ExitLoop` pops the frame and
-`EndIteration` releases the iterator. Normal exhaustion uses the same cleanup.
-Loop and iterator stacks are local to each VM execution frame and are discarded
-on returns and errors.
-
-## Unbounded loops
-
-`loop { ... }` repeats its required block without a condition or iterable:
-
-```text
-let $count = 0
-loop
-{
-    $count = $count + 1
-    if $count == 2 { continue }
-    echo $count
-    if $count == 3 { break }
-}
-# Prints 1, then 3
-```
-
-Each iteration has a fresh variable scope. `continue` restarts the body, and
-`break` exits the innermost loop. Unbounded loops and `for` loops can nest in
-either direction. `return` exits the enclosing function; runtime errors stop
-execution and unwind the scopes and loop frames.
-
-Like `for`, `loop` is a statement. A function or conditional branch ending in a
-loop that finishes with `break` produces `()`. An empty `loop {}` runs indefinitely.
-Compilation uses `EnterLoop`, scoped body code, a back jump, and `ExitLoop`;
-both loop targets are labels resolved to numeric indexes by the existing linker.
-
-## While and until loops
-
-`while condition { ... }` repeats while the condition converts to true.
-`until condition { ... }` repeats while it converts to false. Both check the
-condition before the first iteration and before every subsequent iteration:
-
-```text
-let $n = 0
-while $n != 3
-{
-    echo $n                  # 0, 1, 2
-    $n = $n + 1
-}
-until $n == 0
-{
-    echo $n                  # 3, 2, 1
-    $n = $n - 1
-}
-```
-
-Conditions accept the same expressions and command calls as `if`, with the same
-boolean conversion and short-circuit rules. A command's zero exit status is true;
-nonzero status is false. `while false { ... }` and `until true { ... }` skip their
-bodies, although those bodies must still contain valid syntax. A block is always
-required, and newlines/comments may separate the condition from its opening brace.
-
-The condition runs in the surrounding scope; each body iteration gets a fresh
-scope. `continue` unwinds that scope and rechecks the condition. `break` exits the
-innermost loop without evaluating its condition again. These loops can nest with
-`for` and `loop`, and share their return/error cleanup and function boundaries.
-They are statements: a function or branch ending with a completed loop yields `()`.
-
-Compilation uses the existing loop frame and linker. The continue target precedes
-condition evaluation, `ToBoolean` converts its result, and `JumpIfFalse` (`while`)
-or `JumpIfTrue` (`until`) branches to loop cleanup. The stopping condition is
-consumed rather than becoming the loop's result.
 
 ## Conditional expressions
 
@@ -703,12 +567,128 @@ to the same chain; a semicolon ends the chain, so put `else` after the closing
 brace or on the next line, without a separating semicolon. To pass the literal
 word `if` as a command argument, quote it.
 
+## Loops
+
+All loops require a block and are statements. Body results are discarded; a
+function or conditional branch ending in a completed loop returns `()`.
+Each iteration creates a fresh scope for bindings and body-local variables.
+These can shadow outer variables; assignment still updates the nearest visible
+binding. Body-local bindings do not escape. Loops may nest in any combination.
+
+`return` exits the enclosing function, and runtime errors stop execution. Both
+clean up active loop scopes and iterators. Function definitions and aliases inside
+loops follow the hoisting and global-alias rules for blocks.
+
+### For
+
+Use one binding for array elements or range integers, and two bindings for map
+keys and values. The expression after `in` can be a literal, a variable, an
+indexed value, a conditional, or a function call:
+
+```text
+for $index in 1..4
+{
+    echo $index              # 1, then 2, then 3
+}
+
+let $items = ["red", "green", "blue"]
+for $value in $items { echo $value }
+for $value in [10, 20] { echo $value }
+
+let $settings = ["width": 80, "height": 24]
+for $key, $value in $settings { echo $key $value }
+for $key, $value in ["answer": 42] { echo $key $value }
+```
+
+The iterable is evaluated once, before any loop bindings are created. Array
+elements retain their types and are visited in array order. Maps visit each
+key/value pair once in unspecified order; keys use the map's canonical value
+representation. Iteration uses a snapshot: assigning to the source collection or
+mutating it during the loop does not change the remaining iterations. Changing
+a collection held by a loop binding also leaves the original element unchanged.
+
+Range iteration is lazy and requires both integer bounds. `..` excludes the end,
+`..=` includes it, and reversed ranges are empty. Empty arrays, maps, and ranges
+skip the body. Other iterable types, two bindings for arrays/ranges, one binding
+for maps, and duplicate binding names produce errors.
+
+### Unbounded loop
+
+`loop { ... }` repeats its required block without a condition or iterable:
+
+```text
+let $count = 0
+loop
+{
+    $count = $count + 1
+    if $count == 2 { continue }
+    echo $count
+    if $count == 3 { break }
+}
+# Prints 1, then 3
+```
+
+An empty `loop {}` runs indefinitely.
+
+### While and until
+
+`while condition { ... }` repeats while the condition converts to true.
+`until condition { ... }` repeats while it converts to false. Both check the
+condition before the first iteration and before every subsequent iteration:
+
+```text
+let $n = 0
+while $n != 3
+{
+    echo $n                  # 0, 1, 2
+    $n = $n + 1
+}
+until $n == 0
+{
+    echo $n                  # 3, 2, 1
+    $n = $n - 1
+}
+```
+
+Conditions accept the same expressions and command calls as `if`, with the same
+boolean conversion and short-circuit rules. A command's zero exit status is true;
+nonzero status is false. `while false { ... }` and `until true { ... }` skip their
+bodies, although those bodies must still contain valid syntax. A block is always
+required, and newlines/comments may separate the condition from its opening brace.
+
+The condition runs in the surrounding scope, before the body scope is created.
+`continue` rechecks it; `break` exits without evaluating it again.
+
+### Break and continue
+
+`break` leaves the innermost active loop; `continue` skips the remainder of its
+current iteration. In `for`, it advances to the next element; in `loop`, it
+restarts the body; in `while` and `until`, it rechecks the condition. Neither
+accepts a value or a loop label:
+
+```text
+for $i in 0..5
+{
+    if $i == 1 { continue }
+    if $i == 3 { break }
+    echo $i                  # 0, then 2
+}
+```
+
+Both statements unwind the current iteration's scopes, including nested blocks,
+and discard abandoned expression temporaries. Executing either without an active
+loop in the current function or top-level execution produces an error. A called
+function cannot control its caller's loop. Skipped branches still require valid
+syntax, but do not execute their loop-control statements.
+
 ## Processes, aliases, and environment
 
-`cd PATH` changes directory. `exit` stops execution with status zero;
+`cd PATH` changes directory and returns `ExecResult(0)` on success or
+`ExecResult(1)` on failure, so it can be used directly as a condition.
+`exit` stops execution with status zero;
 `exit 7` stops it with status 7. An explicit exit status must be an integer from
-0 to 255. `echo` and the other Unix
-commands in these examples are external programs found through `PATH`.
+0 to 255. `echo` and the other Unix commands in these examples are external
+programs found through `PATH`.
 
 External commands return an `ExecResult` status. Their stdout is inherited by
 Shelly; assigning a command result does **not** capture its printed output.
@@ -750,39 +730,55 @@ Useful predefined variables include `$args`, `$pwd`, `$HOSTNAME`, `$HOME`, `$PAT
 `$rc_path` is the configured init path, `<not found>` when missing, or
 `<unloaded>` when init loading is disabled.
 
-## Current limitations
-
-The language still has deliberate limits:
+## Current limitations and known issues
 
 - Arithmetic converts operands to integers rather than preserving floating-point values.
 - Function arguments become text, losing their original types and executable markers.
 - Variables use dynamic caller scope; function definitions are hoisted within each input.
 - Command results are statuses, not captured stdout. Shell errors in noninteractive
   execution return a general failure status; only explicit `exit N` selects a specific status.
-- Some parser diagnostics still contain verbose lists of attempted alternatives.
+- Pipelines, redirection, ordering comparisons (`<`, `>`, `<=`, `>=`), array slicing,
+  and array append syntax are not implemented.
+- Iterating or expanding a range requires both bounds. `break` cannot carry a value
+  or target a named loop. Standalone blocks are statements, not general expressions.
+- Some parser diagnostics contain verbose lists of attempted alternatives.
 
-Malformed declarations, missing statement separators, duplicate parameters, and
-invalid UTF-8 source now produce errors. Arithmetic errors no longer panic the
-shell.
+## Implementation and development
 
-## Where Shelly is going
+`src/main.rs` selects the execution mode. `src/runtime/repl.rs` implements the
+Reedline editor, completion, and prompt. The active tokenizer, parser, AST,
+compiler, values, and interpreter live under `src/language/`. Source is tokenized
+and parsed into an AST, compiled to bytecode, optimized, linked, then executed.
+
+Two optimization passes run before linking: adjacent `PopResult`/`PushResult`
+pairs are removed, and redundant `CheckResult` instructions are dropped only
+when the compiler can prove the result is already empty. The proof is conservative
+across calls and control-flow boundaries.
+
+Jumps and `EnterLoop` initially refer to labels. Linking resolves them to numeric
+instruction indexes independently for each function and the top-level code,
+rejecting missing or duplicate labels. `JumpTarget` instructions remain as landing
+points, without their labels; the interpreter sees only numeric destinations.
+
+Blocks use `EnterScope` and `ExitScope`. `EnterLoop` pushes the continue/break
+addresses and saved execution depths; `ExitLoop` pops that frame. `Break` and
+`Continue` unwind scopes and temporary values before jumping. For loops also use
+iterator instructions; while and until use `ToBoolean` and conditional jumps.
+Loop and iterator stacks belong to the current execution frame and are cleaned
+up on returns and errors.
+
+Build with `cargo build --locked` and check behavior through command-line source,
+scripts, or the REPL. `cargo clippy --locked --all-targets` runs the Rust lints.
+
+The draft [test.shy](test.shy) is a sketch for a future Shelly-native test runner,
+not a working test suite. Its `for` and `if` constructs now exist, but the runner
+still needs updating: external `sort` returns a status rather than a list,
+`count` and `not` are not builtins, and the referenced test directories are absent.
+The plan is to update this runner and write the suite in Shelly as the language
+stabilizes.
+
+## Direction
 
 The aim is to keep the immediacy of a shell while giving larger scripts a clear
-path to structure. A command that is convenient at the prompt should also be
-useful inside a function or a longer program.
-
-- **Optional typing.** Add annotations and contracts where they help document
-  intent and catch mistakes while keeping small interactive tasks lightweight.
-- **Network and JSON support.** Work with remote services and structured values
-  directly from commands and functions.
-- **Pipelines for text and structured data.** Connect Unix tools with commands
-  that consume and produce structs, with conversions at command boundaries.
-- **Control flow and collections.** `for`, `loop`, `while`, and `until`, ranges,
-  and array/map literals and indexing are implemented. Further loop control and ordering comparisons
-  (`<`, `>`) remain planned.
-
-The draft [test.shy](test.shy) sketches how Shelly could test itself by discovering
-scripts, looping over them, inspecting results, and reporting failures. It is a
-design sketch, not a runnable test suite. Script execution and command results as
-values already work; the draft's control flow and richer data operations remain
-future work.
+path to structure. Future work includes optional type annotations and contracts,
+network and JSON support, and pipelines for text and structured data.
