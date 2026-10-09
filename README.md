@@ -1100,14 +1100,14 @@ The first matching arm runs; its block supplies the result:
 
 ```text
 let $description = match $value
-{
-    0            => { "zero" }
-    1..10        => { "one through nine" }
-    $expected    => { "the expected value" }
-    $valid_range => { "inside the configured range" }
-    $a..$b       => { "inside the other configured range" }
-    _            => { "something else" }
-}
+    {
+        0            => { "zero" }
+        1..10        => { "one through nine" }
+        $expected    => { "the expected value" }
+        $valid_range => { "inside the configured range" }
+        $a..$b       => { "inside the other configured range" }
+        _            => { "something else" }
+    }
 ```
 
 Non-range arm values use the same equality as `==`, including literal expressions,

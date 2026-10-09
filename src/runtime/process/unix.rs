@@ -6,7 +6,7 @@ use std::{ cell::RefCell,
            hash::{ Hash, Hasher },
            io::{ self, Read, Write, ErrorKind },
            mem::zeroed,
-           ptr::{ null, null_mut },
+           ptr::null_mut,
            str::from_utf8,
            os::{ fd::{ AsRawFd, FromRawFd }, unix::process::{ CommandExt, ExitStatusExt } },
            process::{ Child, Command, ExitStatus, Stdio },
@@ -279,7 +279,7 @@ fn open(args: &[Value], environment: &[(String, String)],
         expand: &impl Fn(&str) -> String) -> Result<Value, String>
 {
     let (mut command, options) = prepare(args, true, environment, expand)?;
-    let size = winsize
+    let mut size = winsize
         {
             ws_row: options.dimension("rows", 40)?,
             ws_col: options.dimension("columns", 140)?,
@@ -288,8 +288,9 @@ fn open(args: &[Value], environment: &[(String, String)],
     let (mut master, mut slave) = (-1, -1);
     // SAFETY: pointers refer to live output integers and a valid winsize; null
     // optional name/termios arguments request the system defaults.
+    // macOS requires mutable pointers; Linux accepts these as const pointers.
     if unsafe { openpty(&mut master, &mut slave, null_mut(),
-        null(), &size) } == -1
+        null_mut(), &raw mut size) } == -1
     { return Err(io::Error::last_os_error().to_string()); }
     // SAFETY: openpty returned two new owned file descriptors.
     let master = unsafe { File::from_raw_fd(master) };
@@ -307,7 +308,8 @@ fn open(args: &[Value], environment: &[(String, String)],
     {
         command.pre_exec(||
             {
-                if setsid() == -1 || ioctl(0, TIOCSCTTY, 0) == -1
+                // The ioctl request type differs between Unix platforms.
+                if setsid() == -1 || ioctl(0, TIOCSCTTY as _, 0) == -1
                 { return Err(io::Error::last_os_error()); }
                 Ok(())
             });
