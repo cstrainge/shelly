@@ -12,6 +12,7 @@ pub enum Code
     // Pop a command name; leave its result, or the unresolved string, in last_result.
     TryExecute,
     // Execute last_result only when it is a string marked executable; preserve other values.
+    // Boolean(true) rejects arrays in a standalone variable statement whose value is discarded.
     ExecuteIfExecutable,
     MakeExecutable,
     ExitFunction,
@@ -25,6 +26,10 @@ pub enum Code
     ExportVariable,
     GlobFiles,
     ExpandArray,
+    // Stack operations: collect values, read an element, or update a variable's element.
+    MakeArray,
+    GetArrayElement,
+    SetArrayElement,
     ExpandPath,
     InterpolateString,
     InterpolateGlob,

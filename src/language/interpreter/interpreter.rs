@@ -39,6 +39,7 @@ pub enum ErrorWhat
     CompileError(CompileError),
     InvalidOperand(String),
     ArithmeticError(String),
+    ArrayError(String),
     CommandNotFound(String, Location),
     ArgumentMismatch(String),
     FileGlobError(String),
@@ -63,6 +64,7 @@ impl Display for ErrorWhat
             ErrorWhat::CompileError(error) => write!(f, "Compile error: {}.", error),
             ErrorWhat::InvalidOperand(message) => write!(f, "Invalid operand: {}.", message),
             ErrorWhat::ArithmeticError(message) => write!(f, "Arithmetic error: {}.", message),
+            ErrorWhat::ArrayError(message) => write!(f, "Array error: {}.", message),
             ErrorWhat::CommandNotFound(command, location) => write!(f, "Command not found: {} at {}.", command, location),
             ErrorWhat::FileGlobError(message) => write!(f, "File glob error: {}.", message),
             ErrorWhat::StackUnderflow => write!(f, "Stack underflow"),
@@ -303,7 +305,7 @@ impl Interpreter
         self.set_variable("$OS",  Value::from_string(OS.to_string()));
 
         self.set_variable("$args",
-            Value::Array(script_args.iter().map(|arg|
+            Value::from_array(script_args.iter().map(|arg|
                 {
                     Value::from_string(arg.clone())
                 })
@@ -578,6 +580,12 @@ impl Interpreter
                                     self.execute(&location, executable, Vec::new())?;
                                 },
 
+                            Some(value @ (Value::Array(_) | Value::ArgumentExpansion(_)))
+                                if matches!(instruction.operand, Some(Value::Boolean(true))) =>
+                                {
+                                    Self::command_name(&location, value)?;
+                                },
+
                             Some(value) => self.last_result = Some(value),
 
                             None => return Err(InterpreterError
@@ -613,7 +621,7 @@ impl Interpreter
 
                                 if let Value::ArgumentExpansion(expanded_args) = arg
                                 {
-                                    for expanded_arg in expanded_args.into_iter().rev()
+                                    for expanded_arg in expanded_args.iter().rev()
                                     {
                                         args.push(expanded_arg.as_text());
                                     }
@@ -636,7 +644,7 @@ impl Interpreter
 
                         args.reverse();
 
-                        let mut executable = Self::pop_as_text(&location, &mut stack)?;
+                        let mut executable = Self::command_name(&location, Self::pop(&location, &mut stack)?)?;
 
                         // If the executable name starts with a $ eval as a variable first.
                         if executable.starts_with('$')
@@ -647,8 +655,8 @@ impl Interpreter
                             }
                             else
                             {
-                                let value = self.read_raw_variable(&executable, &location)?.as_text();
-                                executable = value;
+                                executable = Self::command_name(&location,
+                                    self.read_raw_variable(&executable, &location)?)?;
                             }
                         }
 
@@ -753,6 +761,85 @@ impl Interpreter
                                         "Variable not found for SetVariable instruction.".to_string())
                                 });
                         }
+                    },
+
+                Code::MakeArray =>
+                    {
+                        let count = match instruction.operand
+                            {
+                                Some(Value::Integer(count)) if count >= 0 => count as usize,
+                                _ => return Err(InterpreterError
+                                    {
+                                        location: location.clone(),
+                                        what: ErrorWhat::InvalidOperand("Invalid MakeArray count.".to_string())
+                                    })
+                            };
+                        let mut elements = Vec::new();
+                        for _ in 0..count { elements.push(Self::pop(&location, &mut stack)?); }
+                        elements.reverse();
+                        let mut array = Vec::new();
+                        for element in elements
+                        {
+                            match element
+                            {
+                                Value::ArgumentExpansion(values) => array.extend(Rc::unwrap_or_clone(values)),
+                                value => array.push(value)
+                            }
+                        }
+                        Self::push(&mut stack, Value::from_array(array));
+                    },
+
+                Code::GetArrayElement =>
+                    {
+                        let index = Self::pop(&location, &mut stack)?;
+                        let array = Self::pop(&location, &mut stack)?;
+                        let index = Self::array_index(&location, &array, &index)?;
+                        let Value::Array(elements) = array else { unreachable!(); };
+                        let value = elements[index].clone();
+                        Self::push(&mut stack, value);
+                    },
+
+                Code::SetArrayElement =>
+                    {
+                        let (name, count) = match &instruction.operand
+                            {
+                                Some(Value::Array(parts)) => match parts.as_slice()
+                                    {
+                                        [Value::String(name, _), Value::Integer(count)] if *count > 0 =>
+                                            (name, *count as usize),
+                                        _ => return Err(InterpreterError
+                                            {
+                                                location: location.clone(),
+                                                what: ErrorWhat::InvalidOperand("Invalid SetArrayElement operand.".to_string())
+                                            })
+                                    },
+                                _ => return Err(InterpreterError
+                                    {
+                                        location: location.clone(),
+                                        what: ErrorWhat::InvalidOperand("Missing SetArrayElement operand.".to_string())
+                                    })
+                            };
+                        let value = Self::pop(&location, &mut stack)?;
+                        let mut indexes = Vec::new();
+                        for _ in 0..count { indexes.push(Self::pop(&location, &mut stack)?); }
+                        let variable = self.variables.get_mut(name).ok_or_else(|| InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::InvalidOperand(format!("Variable {} not found", name))
+                            })?;
+                        let mut element = &mut variable.value;
+                        for index in indexes.iter().rev()
+                        {
+                            let index = Self::array_index(&location, element, index)?;
+                            let Value::Array(elements) = element else { unreachable!(); };
+                            element = &mut Rc::make_mut(elements)[index];
+                        }
+                        // Traverse and validate the complete path before changing any element.
+                        *element = match value
+                            {
+                                Value::ArgumentExpansion(values) => Value::Array(values),
+                                value => value
+                            };
                     },
 
                 Code::GetVariable =>
@@ -902,7 +989,7 @@ impl Interpreter
 
                             _ =>
                                 {
-                                    value = Value::ArgumentExpansion(vec![value]);
+                                    value = Value::from_argument_expansion(vec![value]);
                                 }
                         }
 
@@ -1098,9 +1185,10 @@ impl Interpreter
         {
             Value::String(path, executable) => Value::String(self.eval_path_to(&path), executable),
             Value::Array(values) =>
-                Value::Array(values.into_iter().map(|value| self.eval_value_paths_to(value)).collect()),
+                Value::from_array(Rc::unwrap_or_clone(values).into_iter()
+                    .map(|value| self.eval_value_paths_to(value)).collect()),
             Value::ArgumentExpansion(values) =>
-                Value::ArgumentExpansion(values.into_iter()
+                Value::from_argument_expansion(Rc::unwrap_or_clone(values).into_iter()
                     .map(|value| self.eval_value_paths_to(value)).collect()),
             value => value
         }
@@ -1359,9 +1447,50 @@ impl Interpreter
         Ok(())
     }
 
+    fn command_name(location: &Location, value: Value) -> InterpreterResult<String>
+    {
+        match value
+        {
+            Value::Array(_) | Value::ArgumentExpansion(_) => Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::ArrayError("Cannot execute an array as a command".to_string())
+                }),
+            value => Ok(value.as_text())
+        }
+    }
+
     fn push(stack: &mut VecDeque<Value>, value: Value)
     {
         stack.push_back(value);
+    }
+
+    // Validate without detaching shared storage. Reads only clone the selected
+    // value; writes use Rc::make_mut on each array along the indexed path.
+    fn array_index(location: &Location, value: &Value,
+                    index: &Value) -> InterpreterResult<usize>
+    {
+        let error = |message| InterpreterError
+            {
+                location: location.clone(),
+                what: ErrorWhat::ArrayError(message)
+            };
+        let Value::Array(elements) = value else
+        {
+            return Err(error("Cannot index a non-array value".to_string()));
+        };
+        let Value::Integer(index) = index else
+        {
+            return Err(error("Array index must be an integer".to_string()));
+        };
+        let length = elements.len();
+        let index = usize::try_from(*index)
+            .map_err(|_| error(format!("Array index {} is out of bounds for length {}", index, length)))?;
+        if index >= length
+        {
+            return Err(error(format!("Array index {} is out of bounds for length {}", index, length)));
+        }
+        Ok(index)
     }
 
     fn pop(location: &Location, stack: &mut VecDeque<Value>) -> InterpreterResult<Value>
@@ -1662,7 +1791,7 @@ impl Interpreter
                 });
         }
 
-        Ok(Value::ArgumentExpansion(arguments))
+        Ok(Value::from_argument_expansion(arguments))
     }
 
     fn resolve_alias(&self,

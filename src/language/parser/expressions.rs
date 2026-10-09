@@ -36,6 +36,13 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
 
     let expression = match token.kind
         {
+            TokenKind::SquareOpen => AstExpression
+                {
+                    location: token.location,
+                    kind: AstExpressionKind::Array(parse_array(&mut *lookahead.buffer)?),
+                    string_flag: None
+                },
+
             TokenKind::If => super::statements::parse_if_expression(
                 &mut *lookahead.buffer, token.location)?,
 
@@ -132,8 +139,10 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                 {
                     if try_expect_token(&mut *lookahead.buffer, TokenKind::ParenClose)?.is_some()
                     {
+                        let expression = parse_postfix(&mut *lookahead.buffer,
+                            new_ast_literal(token.location, Value::None, None))?;
                         lookahead.commit();
-                        return Ok(Some(new_ast_literal(token.location, Value::None, None)));
+                        return Ok(Some(expression));
                     }
 
                     let expression = parse_value_expression(&mut *lookahead.buffer)?
@@ -154,8 +163,82 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
             _ => return Ok(None)
         };
 
+    let expression = parse_postfix(&mut *lookahead.buffer, expression)?;
     lookahead.commit();
     Ok(Some(expression))
+}
+
+
+fn skip_array_newlines(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<()>
+{
+    while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+    Ok(())
+}
+
+
+pub fn parse_indexes(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Vec<AstExpression>>
+{
+    let mut indexes = Vec::new();
+    while let Some(open) = try_expect_token(buffer, TokenKind::IndexOpen)?
+    {
+        skip_array_newlines(buffer)?;
+        let index = parse_value_expression(buffer)?.ok_or_else(|| ParserError
+            {
+                location: Some(open.location),
+                kind: ParserErrorKind::ExpectedExpression
+            })?;
+        skip_array_newlines(buffer)?;
+        expect_token(buffer, TokenKind::SquareClose)?;
+        indexes.push(index);
+    }
+    Ok(indexes)
+}
+
+
+fn parse_postfix(buffer: &mut TokenBuffer<'_, '_>,
+                 mut expression: AstExpression) -> ParseResult<AstExpression>
+{
+    for index in parse_indexes(buffer)?
+    {
+        expression = AstExpression
+            {
+                location: expression.location.clone(),
+                kind: AstExpressionKind::Index(Box::new(expression), Box::new(index)),
+                string_flag: None
+            };
+    }
+    if let Some(splat) = try_expect_token(buffer, TokenKind::Splat)?
+    {
+        expression = AstExpression
+            {
+                location: splat.location,
+                kind: AstExpressionKind::Splat(Box::new(expression)),
+                string_flag: None
+            };
+    }
+    Ok(expression)
+}
+
+
+fn parse_array(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Vec<AstExpression>>
+{
+    let mut elements = Vec::new();
+    skip_array_newlines(buffer)?;
+    if try_expect_token(buffer, TokenKind::SquareClose)?.is_some() { return Ok(elements); }
+    loop
+    {
+        elements.push(parse_value_expression(buffer)?.ok_or_else(|| ParserError
+            {
+                location: None,
+                kind: ParserErrorKind::ExpectedExpression
+            })?);
+        skip_array_newlines(buffer)?;
+        if try_expect_token(buffer, TokenKind::SquareClose)?.is_some() { break; }
+        expect_token(buffer, TokenKind::Comma)?;
+        skip_array_newlines(buffer)?;
+        if try_expect_token(buffer, TokenKind::SquareClose)?.is_some() { break; }
+    }
+    Ok(elements)
 }
 
 
@@ -243,7 +326,8 @@ fn parse_math_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
     // parentheses also accept a single operand, e.g. (42) or ($count).
     if starts_with_group || matches!(&expression.kind,
         AstExpressionKind::MathExpression(_, _, _) | AstExpressionKind::BooleanNot(_)
-        | AstExpressionKind::IfExpression(_))
+        | AstExpressionKind::IfExpression(_) | AstExpressionKind::Array(_)
+        | AstExpressionKind::Index(_, _) | AstExpressionKind::Splat(_))
     {
         lookahead.commit();
         return Ok(Some(expression));
@@ -277,7 +361,8 @@ fn parse_variable_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
     }
     else
     {
-        Ok(Some(new_ast_variable(identifier.location.clone(), identifier_value)))
+        Ok(Some(parse_postfix(buffer,
+            new_ast_variable(identifier.location.clone(), identifier_value))?))
     }
 }
 
@@ -413,7 +498,7 @@ fn parse_scalar_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
                 kind: ParserErrorKind::ExpectedExpression
             })?;
 
-        if matches!(executable.kind, AstExpressionKind::Variable(_))
+        if matches!(executable.kind, AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _))
         {
             return Ok(Some(AstExpression
                 {
@@ -507,8 +592,10 @@ fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
 {
     let Some(expression) = parse_expression(buffer)? else { return Ok(None); };
 
-    if matches!(&expression.kind, AstExpressionKind::Symbol(_) | AstExpressionKind::Variable(_))
+    if matches!(&expression.kind, AstExpressionKind::Symbol(_) | AstExpressionKind::Variable(_)
+        | AstExpressionKind::Index(_, _))
     {
+        reject_index_assignment(buffer, &expression)?;
         let arguments = parse_arguments_before_block(buffer, stop_at_block)?;
         let location = expression.location.clone();
 
@@ -520,9 +607,9 @@ fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
                     kind: AstExpressionKind::Execute(Box::new(AstExecuteStatement
                         {
                             location,
-                            executable_name: expression.resolve_as_text()?,
                             expand_path: matches!(&expression.kind,
                                 AstExpressionKind::Symbol(symbol) if symbol.name.starts_with('~')),
+                            executable: expression,
                             arguments
                         })),
                     string_flag: None
@@ -568,7 +655,7 @@ fn parse_arguments_before_block(buffer: &mut TokenBuffer<'_, '_>,
                     TokenKind::BlockOpen if stop_at_block => break,
 
                     TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockClose
-                    | TokenKind::ParenClose => break,
+                    | TokenKind::ParenClose | TokenKind::SquareClose | TokenKind::Comma => break,
 
                     TokenKind::LineContinue =>
                         {
@@ -597,13 +684,23 @@ fn parse_arguments_before_block(buffer: &mut TokenBuffer<'_, '_>,
 
 pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
+    {
+        let mut lookahead = Lookahead::new(buffer);
+        if let Some(expression) = parse_math_expression(&mut *lookahead.buffer)?
+            && matches!(expression.kind, AstExpressionKind::Index(_, _))
+        {
+            reject_index_assignment(&mut *lookahead.buffer, &expression)?;
+            lookahead.commit();
+            return Ok(Some(expression));
+        }
+    }
     let expression = match_one_of(buffer, &[parse_variable_expression,
                            parse_symbol_expression,
                            parse_literal_expression,
                            parse_operator_to_symbol])?;
 
     if let Some(expression) = &expression
-        && matches!(expression.kind, AstExpressionKind::VariableSplat(_))
+        && matches!(expression.kind, AstExpressionKind::VariableSplat(_) | AstExpressionKind::Splat(_))
     {
         return Err(ParserError
             {
@@ -613,4 +710,22 @@ pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
     }
 
     Ok(expression)
+}
+
+
+// Valid indexed assignments are consumed by the statement parser. Do not turn
+// an invalid target or an assignment inside an expression into a command call.
+fn reject_index_assignment(buffer: &mut TokenBuffer<'_, '_>,
+                            expression: &AstExpression) -> ParseResult<()>
+{
+    if matches!(expression.kind, AstExpressionKind::Index(_, _))
+        && let Some(assign) = try_expect_token(buffer, TokenKind::Assign)?
+    {
+        return Err(ParserError
+            {
+                location: Some(assign.location),
+                kind: ParserErrorKind::InvalidAssignmentTarget
+            });
+    }
+    Ok(())
 }

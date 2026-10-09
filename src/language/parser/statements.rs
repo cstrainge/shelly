@@ -106,11 +106,15 @@ fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
 
 fn parse_set_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
-    // $var = <expression>
-
-    let identifier = expect_token(buffer, TokenKind::Identifier)?;
-
-    expect_token(buffer, TokenKind::Assign)?;
+    let mut lookahead = Lookahead::new(buffer);
+    let identifier = expect_token(&mut *lookahead.buffer, TokenKind::Identifier)?;
+    let indexes = super::expressions::parse_indexes(&mut *lookahead.buffer)?;
+    if try_expect_token(&mut *lookahead.buffer, TokenKind::Assign)?.is_none()
+    {
+        return Ok(None);
+    }
+    lookahead.commit();
+    drop(lookahead);
 
     let expression = parse_value_expression(buffer)?;
 
@@ -119,6 +123,7 @@ fn parse_set_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
         expect_statement_end(buffer)?;
         Ok(new_ast_set_statement(identifier.location.clone(),
                                  identifier.token_value_text(),
+                                 indexes,
                                  expression))
     }
     else
@@ -194,7 +199,8 @@ fn parse_value_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
 {
     let Some(expression) = parse_expression(buffer)? else { return Ok(None); };
 
-    if matches!(expression.kind, AstExpressionKind::Symbol(_) | AstExpressionKind::VariableSplat(_))
+    if matches!(expression.kind, AstExpressionKind::Symbol(_) | AstExpressionKind::VariableSplat(_)
+        | AstExpressionKind::Splat(_))
     {
         return Ok(None);
     }
@@ -219,9 +225,9 @@ fn parse_execute_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
     let parameter_expressions = parse_command_arguments(buffer)?;
 
     Ok(new_ast_execute_statement(location,
-                            exec_expression.resolve_as_text()?,
                             matches!(&exec_expression.kind,
                                 AstExpressionKind::Symbol(symbol) if symbol.name.starts_with('~')),
+                            exec_expression,
                             parameter_expressions))
 }
 
@@ -426,13 +432,7 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     if next_kind == TokenKind::Alias { return parse_alias_statement(buffer); }
     if next_kind == TokenKind::Identifier
     {
-        let assignment =
-            {
-                let lookahead = Lookahead::new(buffer);
-                lookahead.buffer.next()?;
-                matches!(lookahead.buffer.next()?, Some(token) if token.kind == TokenKind::Assign)
-            };
-        if assignment { return parse_set_statement(buffer); }
+        if let Some(statement) = parse_set_statement(buffer)? { return Ok(Some(statement)); }
     }
 
     if let Some(statement) = parse_null_statement(buffer)? { return Ok(Some(statement)); }

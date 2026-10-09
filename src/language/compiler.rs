@@ -88,6 +88,47 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
 {
     match &expression.kind
     {
+        AstExpressionKind::Array(elements) =>
+            {
+                for element in elements
+                {
+                    compile_expression(instructions, function_block, element)?;
+                    instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                }
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()),
+                        code: Code::MakeArray,
+                        operand: Some(Value::Integer(elements.len() as i64))
+                    });
+            },
+
+        AstExpressionKind::Index(array, index) =>
+            {
+                compile_expression(instructions, function_block, array)?;
+                instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                compile_expression(instructions, function_block, index)?;
+                instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                instructions.push(Instruction
+                    {
+                        location: Some(index.location.clone()),
+                        code: Code::GetArrayElement,
+                        operand: None
+                    });
+            },
+
+        AstExpressionKind::Splat(inner) =>
+            {
+                compile_expression(instructions, function_block, inner)?;
+                instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()),
+                        code: Code::ExpandArray,
+                        operand: None
+                    });
+            },
+
         AstExpressionKind::IfExpression(conditional) =>
             {
                 compile_if_expression(instructions, function_block, conditional)?;
@@ -102,6 +143,7 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
                 // variable or string literal can supply an unevaluated executable reference.
                 if matches!(&inner.kind,
                     AstExpressionKind::Variable(_)
+                    | AstExpressionKind::Index(_, _)
                     | AstExpressionKind::ExecutableReference(_)
                     | AstExpressionKind::Literal(AstLiteral { value: Value::String(_, _), .. }))
                 {
@@ -307,7 +349,7 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
                     location: Some(expression.location.clone()),
                     code: if matches!(&expression.kind, AstExpressionKind::Symbol(symbol) if symbol.is_glob())
                         { Code::InterpolateGlob } else { Code::InterpolateString },
-                    operand: Some(Value::Array(escaped_dollars.iter()
+                    operand: Some(Value::from_array(escaped_dollars.iter()
                         .map(|offset| Value::Integer(*offset as i64)).collect()))
                 });
         }
@@ -424,6 +466,11 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>,
                          function_block: &FunctionBlockRef,
                          set_statement: &AstSetStatement) -> CompileResult<()>
 {
+    for index in &set_statement.indexes
+    {
+        compile_expression(instructions, function_block, index)?;
+        instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+    }
     compile_expression(instructions, function_block, &set_statement.expression)?;
 
     instructions.push(Instruction
@@ -436,8 +483,16 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>,
     instructions.push(Instruction
         {
             location: Some(set_statement.location.clone()),
-            code: Code::SetVariable,
-            operand: Some(Value::from_string(set_statement.identifier.clone()))
+            code: if set_statement.indexes.is_empty() { Code::SetVariable } else { Code::SetArrayElement },
+            operand: Some(if set_statement.indexes.is_empty()
+                {
+                    Value::from_string(set_statement.identifier.clone())
+                }
+                else
+                {
+                    Value::from_array(vec![Value::from_string(set_statement.identifier.clone()),
+                        Value::Integer(set_statement.indexes.len() as i64)])
+                })
         });
     Ok(())
 }
@@ -483,7 +538,7 @@ fn compile_alias_statement(instructions: &mut Vec<Instruction>, alias_statement:
         {
             location: Some(alias_statement.location.clone()),
             code: Code::NewAlias,
-            operand: Some(Value::Array(vec![Value::from_string(alias_statement.alias.clone()),
+            operand: Some(Value::from_array(vec![Value::from_string(alias_statement.alias.clone()),
                                            Value::Integer(alias_statement.arguments.len() as i64)]))
         });
 }
@@ -493,12 +548,21 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
                              function_block: &FunctionBlockRef,
                              execute_statement: &AstExecuteStatement) -> CompileResult<()>
 {
-    instructions.push(Instruction
-        {
-            location: None,
-            code: Code::Push,
-            operand: Some(Value::from_executable_string(execute_statement.executable_name.clone()))
-        });
+    if matches!(execute_statement.executable.kind, AstExpressionKind::Index(_, _))
+    {
+        compile_expression(instructions, function_block, &execute_statement.executable)?;
+        instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+    }
+    else
+    {
+        instructions.push(Instruction
+            {
+                location: None,
+                code: Code::Push,
+                operand: Some(Value::from_executable_string(execute_statement.executable
+                    .resolve_as_text().map_err(ParserError::from)?))
+            });
+    }
 
     if execute_statement.expand_path
     {
@@ -532,7 +596,7 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
                         });
                 },
 
-            AstExpressionKind::Variable(_) =>
+            AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _) =>
                 {
                     instructions.push(Instruction
                         {
@@ -652,6 +716,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     Code::Push | Code::NewVariable | Code::SetVariable | Code::GetVariable
                     | Code::NewAlias | Code::ExportVariable | Code::GlobFiles
                     | Code::ExpandArray | Code::ExpandPath | Code::InterpolateString
+                    | Code::MakeArray | Code::GetArrayElement | Code::SetArrayElement
                     | Code::InterpolateGlob | Code::EnterScope | Code::ExitScope
                     | Code::MathAdd | Code::MathSubtract | Code::MathMultiply
                     | Code::MathDivide | Code::MathModulo | Code::CompareEqual
@@ -855,13 +920,13 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
                 {
                     compile_expression(instructions, function_block, expression)?;
 
-                    if matches!(&expression.kind, AstExpressionKind::Variable(_))
+                    if matches!(&expression.kind, AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _))
                     {
                         instructions.push(Instruction
                             {
                                 location: Some(expression.location.clone()),
                                 code: Code::ExecuteIfExecutable,
-                                operand: None
+                                operand: Some(Value::Boolean(!implicit_return))
                             });
                     }
                 }

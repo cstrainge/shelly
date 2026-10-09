@@ -28,7 +28,7 @@ AGENTS.md
 
 
 # Keep the temporary language suite; generated evidence stays local.
-audit/*
+audit/
 !audit/language/
 audit/language/*
 !audit/language/*.py

@@ -15,6 +15,7 @@ pub enum ParserErrorKind
     ExpectedToken(TokenKind, Option<TokenKind>),
     ExpectedExpression,
     SplatExecutable,
+    InvalidAssignmentTarget,
     UnexpectedElse,
     ExpressionNotString,
     DuplicateParameter(String),
@@ -52,6 +53,9 @@ impl Display for ParserErrorKind
 
             ParserErrorKind::SplatExecutable =>
                 write!(f, "A variable splat cannot be used as an executable."),
+
+            ParserErrorKind::InvalidAssignmentTarget =>
+                write!(f, "Assignment requires a variable or an indexed variable."),
 
             ParserErrorKind::ExpressionNotString =>
                 {

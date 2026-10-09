@@ -1,4 +1,6 @@
 
+use std::rc::Rc;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExecResult
 {
@@ -24,13 +26,23 @@ pub enum Value
     Float(f64, Option<String>),
     Boolean(bool),
     String(String, Executable),
-    Array(Vec<Value>),
-    ArgumentExpansion(Vec<Value>)
+    Array(Rc<Vec<Value>>),
+    ArgumentExpansion(Rc<Vec<Value>>)
 }
 
 
 impl Value
 {
+    pub fn from_array(values: Vec<Value>) -> Value
+    {
+        Value::Array(Rc::new(values))
+    }
+
+    pub fn from_argument_expansion(values: Vec<Value>) -> Value
+    {
+        Value::ArgumentExpansion(Rc::new(values))
+    }
+
     pub fn from_string(s: String) -> Value
     {
         Value::String(s, Executable::No)
@@ -126,7 +138,7 @@ impl Value
             (Value::Array(left), Value::Array(right))
             | (Value::ArgumentExpansion(left), Value::ArgumentExpansion(right)) =>
                 left.len() == right.len()
-                    && left.iter().zip(right).all(|(left, right)| left.equals(right)),
+                    && left.iter().zip(right.iter()).all(|(left, right)| left.equals(right)),
             _ => false
         }
     }

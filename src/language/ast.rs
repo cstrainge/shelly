@@ -53,6 +53,9 @@ pub enum AstExpressionKind
 {
     Variable(AstSymbol),
     VariableSplat(AstSymbol),
+    Array(Vec<AstExpression>),
+    Index(Box<AstExpression>, Box<AstExpression>),
+    Splat(Box<AstExpression>),
     Symbol(AstSymbol),
     Literal(AstLiteral),
     Grouped(Box<AstExpression>),
@@ -151,6 +154,9 @@ impl AstExpression
             AstExpressionKind::VariableSplat(variable) => Ok(variable.name.clone()),
             AstExpressionKind::Literal(literal) => Ok(literal.value.as_text()),
             AstExpressionKind::Grouped(_)
+            | AstExpressionKind::Array(_)
+            | AstExpressionKind::Index(_, _)
+            | AstExpressionKind::Splat(_)
             | AstExpressionKind::ExecutableReference(_)
             | AstExpressionKind::Execute(_)
             | AstExpressionKind::TryExecute(_)
@@ -184,7 +190,7 @@ pub struct AstLetStatement
 pub struct AstExecuteStatement
 {
     pub location: Location,
-    pub executable_name: String,
+    pub executable: AstExpression,
     pub expand_path: bool,
     pub arguments: Vec<AstExpression>
 }
@@ -194,6 +200,7 @@ pub struct AstSetStatement
 {
     pub location: Location,
     pub identifier: String,
+    pub indexes: Vec<AstExpression>,
     pub expression: AstExpression,
 }
 
@@ -247,26 +254,28 @@ pub fn new_ast_let_statement(location: Location,
 
 pub fn new_ast_set_statement(location: Location,
                              identifier: String,
+                             indexes: Vec<AstExpression>,
                              expression: AstExpression) -> Option<AstStatement>
 {
     Some(AstStatement::SetStatement(Box::new(AstSetStatement
         {
             location,
             identifier,
+            indexes,
             expression,
         })))
 }
 
 
 pub fn new_ast_execute_statement(location: Location,
-                                 executable_name: String,
                                  expand_path: bool,
+                                 executable: AstExpression,
                                  arguments: Vec<AstExpression>) -> Option<AstStatement>
 {
     Some(AstStatement::ExecuteStatement(Box::new(AstExecuteStatement
         {
             location,
-            executable_name,
+            executable,
             expand_path,
             arguments,
         })))

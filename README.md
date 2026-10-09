@@ -71,15 +71,12 @@ Keep spaces around assignment `=`; adjacent `==` and `!=` remain comparisons.
 
 Values include signed 64-bit integers, floating-point values, booleans, strings,
 arrays, the no-value result displayed as `()`, and external command statuses such
-as `ExecResult(0)`. Arrays currently come from `$args` and file globs; array
-literals and indexing are not implemented. Without `...`, an array becomes
+as `ExecResult(0)`. Arrays come from literals, `$args`, and file globs. Without `...`, an array becomes
 colon-separated text when passed to a command. `()` is also a literal that
 evaluates to `None`, including in assignments and returns.
 
 Use `$args...` or `${args}...` to expand command arguments. A splat cannot be
 the executable: `$cmd... 2` is a parse error; use `$cmd 2` to call a stored command.
-Bracket-containing names such as `$args[0]` currently refer to a variable with
-that exact name, not an array element; this syntax will be revisited with indexing.
 
 Arithmetic supports `+`, `-`, `*`, `/`, and `%`, with normal precedence,
 left associativity, and parentheses. **Operations currently convert operands to
@@ -92,6 +89,63 @@ including in release builds.
 
 Expressions can stand alone, including inside functions. A top-level expression
 is evaluated without automatically printing its value; use `echo` to display it.
+
+## Arrays
+
+Create an empty array with `[]` or use comma-separated expressions:
+
+```text
+let $a = [10, 20 + 2, "three", [4, 5]]
+echo $a[1]                   # 22
+$a[1] = 99
+$a[3][0] = 40
+echo $a[3]...                # 40 5
+echo [7, 8][0]               # 7
+```
+
+Elements evaluate left to right and retain their types. Nested arrays remain
+nested. Newlines, comments, and a trailing comma are allowed between elements.
+Each element accepts the same value expressions as an initializer, including
+calls and conditionals: `[foo 3, if true { 1 } else { 2 }]`.
+
+Indexes are zero-based integers. `$a[$i + 1]`, `${a}[0]`, `(make_array)[0]`,
+and chained `$a[1][2]` reads work. The opening index bracket must touch its
+value: `$a[0]` is an element, while `$a [0]` supplies a separate array argument.
+Negative or out-of-range indexes, non-integer indexes (including `"0"` and
+`1.0`), and indexing non-arrays produce errors. Writes replace existing elements;
+they do not append or grow an array. Function parameters still arrive as strings;
+use arithmetic such as `$index + 0` when converting a numeric parameter to an index.
+
+Indexed assignment must start with a variable, as in `$a[0] = value` or
+`$a[0][1] = value`. It updates the nearest visible binding. Index expressions
+evaluate once, left to right, followed by the right-hand expression; the complete
+path is checked before replacing the element. Evaluation side effects remain if
+a later check fails. Assigning or reading an array copies its value: changing
+`$b` after `let $b = $a` does not change `$a`.
+Internally, arrays and argument expansions share reference-counted storage;
+indexed writes copy shared arrays only along the modified path.
+
+Use `...` to spread an array into arguments or another literal:
+
+```text
+let $a = [2, 3]
+let $b = [1, $a..., 4]        # [1, 2, 3, 4]
+echo $b...                    # 1 2 3 4
+```
+
+Indexed executable strings follow the same call rules as executable variables:
+`$commands[0] 3` calls with an argument; `$commands[0]` invokes a marked executable
+in statement or command-argument position. Prefix the access with a backtick to
+pass its name without invoking it. Indexing is expression syntax; quoted string
+interpolation still supports variable names rather than arbitrary expressions.
+
+An array cannot be a command. A standalone `$a` or `$a[0]` whose value is an array
+and is discarded reports `Cannot execute an array as a command`; explicit calls
+such as `$a "argument"` reject arrays too. Arrays remain valid as function return
+values, conditional results, and arguments (`echo $a` or `echo $a...`).
+
+A leading `[` starts an array. For bracket globs use a path prefix, such as
+`./[ab].txt` or `fixtures/[ab].txt`; quote brackets to pass literal text.
 
 ## Boolean expressions
 
@@ -117,7 +171,7 @@ Logical operators always return a boolean. `&&` skips its right operand when
 the left is false; `||` skips it when the left is true. Skipped operands have no
 side effects and cannot cause runtime errors, but must still be valid syntax.
 
-Precedence, highest first: parentheses; unary `!` and unary minus; `* / %`;
+Precedence, highest first: parentheses and array access; unary `!` and unary minus; `* / %`;
 `+ -`; `== !=`; `&&`; `||`. Binary operators at the same precedence associate
 left to right. Boolean operators do not require surrounding spaces, so
 `$x!=0` and `!$x` work. Quote operator text when passing it literally.
@@ -207,7 +261,7 @@ such as `$root/*.txt` interpolate the prefix before expanding the pattern.
 Characters from the variable's value remain literal, including `[` or `*` in a
 directory name.
 
-Unquoted `*`, `?`, and bracket patterns such as `[ab]` expand matching paths in
+Unquoted `*`, `?`, and bracket patterns in paths such as `./[ab]` expand matching paths in
 sorted order; `**` supports recursive matching. Hidden entries require an explicit
 leading dot, `.` and `..` are excluded, and no matches is an error. Quotes preserve
 a glob as text.
@@ -471,7 +525,6 @@ The language still has deliberate limits:
 - Arithmetic converts operands to integers rather than preserving floating-point values.
 - Function arguments become text, losing their original types and executable markers.
 - Variables use dynamic caller scope; function definitions are hoisted within each input.
-- Arrays come from arguments and globs; literal collections and indexing are still planned.
 - Command results are statuses, not captured stdout. Shell errors in noninteractive
   execution return a general failure status; only explicit `exit N` selects a specific status.
 - Some parser diagnostics still contain verbose lists of attempted alternatives.
@@ -493,8 +546,8 @@ useful inside a function or a longer program.
   directly from commands and functions.
 - **Pipelines for text and structured data.** Connect Unix tools with commands
   that consume and produce structs, with conversions at command boundaries.
-- **Control flow and collections.** Loops, ordering
-  comparisons (`<`, `>`), array literals, and indexing are not yet implemented.
+- **Control flow and collections.** Loops and ordering comparisons (`<`, `>`)
+  remain planned; array literals and indexing are implemented.
 
 The draft [test.shy](test.shy) sketches how Shelly could test itself by discovering
 scripts, looping over them, inspecting results, and reporting failures. It is a

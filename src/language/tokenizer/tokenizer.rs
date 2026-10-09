@@ -205,6 +205,8 @@ pub enum TokenKind
      * Open a square bracket with `[`. Used for array indexing or defining array literals.
      */
     SquareOpen,
+    // An opening bracket immediately following a value, without whitespace.
+    IndexOpen,
 
     /**
      * Close a square bracket with `]`. Used for array indexing or defining array literals.
@@ -474,6 +476,7 @@ impl Token
             TokenKind::BlockClose        => "}".to_string(),
             TokenKind::EmptyBlock        => "{}".to_string(),
             TokenKind::SquareOpen        => "[".to_string(),
+            TokenKind::IndexOpen         => "[".to_string(),
             TokenKind::SquareClose       => "]".to_string(),
             TokenKind::ParenOpen         => "(".to_string(),
             TokenKind::ParenClose        => ")".to_string(),
@@ -570,7 +573,8 @@ pub struct Tokenizer<'a>
      */
     input: &'a mut dyn Buffer,
     // Reading a word can consume the following two-character boolean operator.
-    pending_operator: Option<Token>
+    pending_operator: Option<Token>,
+    index_follows: bool
 }
 
 
@@ -581,7 +585,7 @@ impl<'a> Tokenizer<'a>
      */
     pub fn new(input: &'a mut dyn Buffer) -> Self
     {
-        Self { input, pending_operator: None }
+        Self { input, pending_operator: None, index_follows: false }
     }
 
     /**
@@ -591,7 +595,18 @@ impl<'a> Tokenizer<'a>
      */
     pub fn next_token(&mut self) -> Result<Option<Token>, TokenizerError>
     {
-        let result = self.read_token();
+        let mut result = self.read_token();
+        if let Ok(Some(token)) = &mut result
+        {
+            if token.kind == TokenKind::SquareOpen && self.index_follows
+            {
+                token.kind = TokenKind::IndexOpen;
+            }
+            self.index_follows = self.pending_operator.is_none()
+                && self.input.peek_next() == Some('[')
+                && matches!(token.kind, TokenKind::Identifier | TokenKind::Literal
+                    | TokenKind::SquareClose | TokenKind::ParenClose);
+        }
         if let Some(message) = self.input.read_error()
         {
             return Err(TokenizerError
@@ -642,7 +657,7 @@ impl<'a> Tokenizer<'a>
 
         match next
         {
-            '_' | 'a'..='z' | 'A'..='Z' | '[' => Ok(Some(self.parse_symbol())),
+            '_' | 'a'..='z' | 'A'..='Z' => Ok(Some(self.parse_symbol())),
             '$'                         => self.parse_identifier().map(Some),
             '0'..='9'                   => Ok(Some(self.try_parse_number())),
             '"'                         => self.parse_string(StringFlag::Interpolated),
@@ -718,7 +733,7 @@ impl<'a> Tokenizer<'a>
         if braced
         {
             self.input.next();
-            identifier += &self.extract_to_separator(Some(&['{', '}', '.', '/']));
+            identifier += &self.extract_to_separator(Some(&['{', '}', '.', '/', '[', ']']));
 
             if identifier.len() == 1 || self.input.next() != Some('}')
             {
@@ -732,7 +747,7 @@ impl<'a> Tokenizer<'a>
         }
         else
         {
-            identifier += &self.extract_to_separator(Some(&['.', '/']));
+            identifier += &self.extract_to_separator(Some(&['.', '/', '[', ']']));
         }
 
         if identifier.contains('=')
@@ -778,7 +793,7 @@ impl<'a> Tokenizer<'a>
     fn try_parse_number(&mut self) -> Token
     {
         let location = self.input.location().clone();
-        let number_str = self.extract_to_separator(None);
+        let number_str = self.extract_to_separator(Some(&['[']));
 
         // Attempt to parse the collected string as an integer first. If that fails, try parsing it
         // as a float. If both fail, treat it as a symbol.
@@ -817,6 +832,8 @@ impl<'a> Tokenizer<'a>
 
         while let Some(next) = self.input.peek_next()
         {
+            // A closing array delimiter ends a word, except within a path glob class.
+            if next == ']' && !in_glob_class { break; }
             // Braces delimit blocks, except inside an interpolated word's ${name} reference.
             if next == '{' && result.ends_with('$') && additional_separators.is_none()
             {
@@ -1240,6 +1257,8 @@ impl<'a> Tokenizer<'a>
             '\n' => return operator_token(location, TokenKind::LineBreak),
             '\\' => return operator_token(location, TokenKind::LineContinue),
             ','  => return operator_token(location, TokenKind::Comma),
+            '-' if self.input.peek_next() == Some('[') =>
+                return operator_token(location, TokenKind::Minus),
             ':'  =>
                 {
                     if let Some(':') = self.input.peek_next()
