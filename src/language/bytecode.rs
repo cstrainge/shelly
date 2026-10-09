@@ -29,6 +29,8 @@ pub enum Code
     // Stack operations: collect values, read an element, or update a variable's element.
     MakeArray,
     MakeHashMap,
+    // Operand bits indicate a supplied start (1), end (2), and inclusive end (4).
+    MakeRange,
     GetElement,
     SetElement,
     ExpandPath,

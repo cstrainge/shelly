@@ -17,6 +17,7 @@ use crate::{ language::{ bytecode::{ Code,
                          compiler::{ compile_ast, CompileError, CompileTarget },
                          data::{ value::{ ExecResult, Executable, Value },
                                  map_key::MapKey,
+                                 range::Range,
                                  scoped_variables::{ ScopedValue,
                                                      ScopedVariables,
                                                      ValueVisibility } },
@@ -42,6 +43,7 @@ pub enum ErrorWhat
     ArithmeticError(String),
     ArrayError(String),
     HashMapError(String),
+    RangeError(String),
     CommandNotFound(String, Location),
     ArgumentMismatch(String),
     FileGlobError(String),
@@ -68,6 +70,7 @@ impl Display for ErrorWhat
             ErrorWhat::ArithmeticError(message) => write!(f, "Arithmetic error: {}.", message),
             ErrorWhat::ArrayError(message) => write!(f, "Array error: {}.", message),
             ErrorWhat::HashMapError(message) => write!(f, "Hash map error: {}.", message),
+            ErrorWhat::RangeError(message) => write!(f, "Range error: {}.", message),
             ErrorWhat::CommandNotFound(command, location) => write!(f, "Command not found: {} at {}.", command, location),
             ErrorWhat::FileGlobError(message) => write!(f, "File glob error: {}.", message),
             ErrorWhat::StackUnderflow => write!(f, "Stack underflow"),
@@ -583,7 +586,7 @@ impl Interpreter
                                     self.execute(&location, executable, Vec::new())?;
                                 },
 
-                            Some(value @ (Value::Array(_) | Value::ArgumentExpansion(_) | Value::HashMap(_)))
+                            Some(value @ (Value::Array(_) | Value::ArgumentExpansion(_) | Value::HashMap(_) | Value::Range(_)))
                                 if matches!(instruction.operand, Some(Value::Boolean(true))) =>
                                 {
                                     Self::command_name(&location, value)?;
@@ -764,6 +767,23 @@ impl Interpreter
                                         "Variable not found for SetVariable instruction.".to_string())
                                 });
                         }
+                    },
+
+                Code::MakeRange =>
+                    {
+                        let flags = match instruction.operand
+                            {
+                                Some(Value::Integer(flags)) if (0..=7).contains(&flags)
+                                    && (flags & 4 == 0 || flags & 2 != 0) => flags,
+                                _ => return Err(InterpreterError
+                                    {
+                                        location: location.clone(),
+                                        what: ErrorWhat::InvalidOperand("Invalid MakeRange flags.".to_string())
+                                    })
+                            };
+                        let end = if flags & 2 != 0 { Some(Self::range_bound(&location, Self::pop(&location, &mut stack)?)?) } else { None };
+                        let start = if flags & 1 != 0 { Some(Self::range_bound(&location, Self::pop(&location, &mut stack)?)?) } else { None };
+                        Self::push(&mut stack, Value::Range(Range { start, end, inclusive: flags & 4 != 0 }));
                     },
 
                 Code::MakeHashMap =>
@@ -1001,6 +1021,21 @@ impl Interpreter
                         match value
                         {
                             Value::Array(array) => value = Value::ArgumentExpansion(array),
+
+                            Value::Range(range) =>
+                                {
+                                    let error = |message: &str| InterpreterError
+                                        {
+                                            location: location.clone(),
+                                            what: ErrorWhat::RangeError(message.to_string())
+                                        };
+                                    let length = range.len().ok_or_else(|| error("Cannot expand a range with omitted bounds"))?;
+                                    let length = usize::try_from(length).map_err(|_| error("Range is too large to expand"))?;
+                                    let mut values = Vec::new();
+                                    values.try_reserve_exact(length).map_err(|_| error("Range is too large to expand"))?;
+                                    values.extend(range.iter().unwrap().map(Value::Integer));
+                                    value = Value::from_argument_expansion(values);
+                                },
 
                             Value::ArgumentExpansion(_) => {},
 
@@ -1470,6 +1505,11 @@ impl Interpreter
     {
         match value
         {
+            Value::Range(_) => Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::RangeError("Cannot execute a range as a command".to_string())
+                }),
             Value::HashMap(_) => Err(InterpreterError
                 {
                     location: location.clone(),
@@ -1487,6 +1527,19 @@ impl Interpreter
     fn push(stack: &mut VecDeque<Value>, value: Value)
     {
         stack.push_back(value);
+    }
+
+    fn range_bound(location: &Location, value: Value) -> InterpreterResult<i64>
+    {
+        match value
+        {
+            Value::Integer(value) => Ok(value),
+            _ => Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::RangeError("Range bounds must be integers".to_string())
+                })
+        }
     }
 
     // Validate without detaching shared storage. Reads only clone the selected

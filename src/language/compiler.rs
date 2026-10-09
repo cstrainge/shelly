@@ -88,6 +88,22 @@ fn compile_expression(instructions: &mut Vec<Instruction>,
 {
     match &expression.kind
     {
+        AstExpressionKind::Range(start, end, inclusive) =>
+            {
+                for bound in [start, end].into_iter().flatten()
+                {
+                    compile_expression(instructions, function_block, bound)?;
+                    instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+                }
+                let flags = i64::from(start.is_some()) | (i64::from(end.is_some()) << 1)
+                    | (i64::from(*inclusive) << 2);
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()),
+                        code: Code::MakeRange,
+                        operand: Some(Value::Integer(flags))
+                    });
+            },
         AstExpressionKind::HashMap(pairs) =>
             {
                 for (key, value) in pairs
@@ -733,7 +749,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     Code::Push | Code::NewVariable | Code::SetVariable | Code::GetVariable
                     | Code::NewAlias | Code::ExportVariable | Code::GlobFiles
                     | Code::ExpandArray | Code::ExpandPath | Code::InterpolateString
-                    | Code::MakeArray | Code::MakeHashMap | Code::GetElement | Code::SetElement
+                    | Code::MakeArray | Code::MakeHashMap | Code::MakeRange | Code::GetElement | Code::SetElement
                     | Code::InterpolateGlob | Code::EnterScope | Code::ExitScope
                     | Code::MathAdd | Code::MathSubtract | Code::MathMultiply
                     | Code::MathDivide | Code::MathModulo | Code::CompareEqual

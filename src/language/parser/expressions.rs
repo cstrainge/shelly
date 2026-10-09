@@ -583,7 +583,7 @@ fn parse_boolean_tail(buffer: &mut TokenBuffer<'_, '_>,
             };
         if precedence < min_precedence { break; }
 
-        let right = parse_scalar_expression(&mut *lookahead.buffer)?
+        let right = parse_range_expression(&mut *lookahead.buffer)?
             .ok_or_else(|| ParserError
                 {
                     location: Some(token.location.clone()),
@@ -604,8 +604,55 @@ fn parse_boolean_tail(buffer: &mut TokenBuffer<'_, '_>,
 
 pub fn parse_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
-    let Some(left) = parse_scalar_expression(buffer)? else { return Ok(None); };
+    let Some(left) = parse_range_expression(buffer)? else { return Ok(None); };
     Ok(Some(parse_boolean_tail(buffer, left, 0)?))
+}
+
+
+// Arithmetic binds inside each bound; comparisons and logical operators combine
+// complete ranges. A second range operator must be explicitly parenthesized.
+fn parse_range_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
+{
+    let leading = try_expect_one_of_tokens(buffer, &[TokenKind::Range, TokenKind::RangeInclusive])?;
+    let start = if leading.is_none() { parse_scalar_expression(buffer)? } else { None };
+    // A bare command name is not a range bound: `echo ..5` and `cd ..`
+    // must leave the range for argument parsing.
+    if start.as_ref().is_some_and(|value| matches!(value.kind, AstExpressionKind::Symbol(_)))
+    {
+        return Ok(start);
+    }
+    let operator = match leading
+        {
+            Some(operator) => Some(operator),
+            None => try_expect_one_of_tokens(buffer, &[TokenKind::Range, TokenKind::RangeInclusive])?
+        };
+    let Some(operator) = operator else { return Ok(start); };
+    let inclusive = operator.kind == TokenKind::RangeInclusive;
+    let at_end =
+        {
+            let lookahead = Lookahead::new(buffer);
+            lookahead.buffer.next()?.is_none_or(|token| matches!(token.kind,
+                TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockOpen
+                | TokenKind::BlockClose | TokenKind::ParenClose | TokenKind::SquareClose
+                | TokenKind::Comma | TokenKind::TypeDelimiter | TokenKind::Equal
+                | TokenKind::NotEqual | TokenKind::And | TokenKind::Or))
+        };
+    let end = if at_end { None } else { parse_scalar_expression(buffer)? };
+    if (inclusive && end.is_none())
+        || try_expect_one_of_tokens(buffer, &[TokenKind::Range, TokenKind::RangeInclusive])?.is_some()
+    {
+        return Err(ParserError { location: Some(operator.location), kind: ParserErrorKind::InvalidRange });
+    }
+    if !at_end && end.is_none()
+    {
+        return Err(ParserError { location: Some(operator.location), kind: ParserErrorKind::ExpectedExpression });
+    }
+    Ok(Some(AstExpression
+        {
+            location: operator.location,
+            kind: AstExpressionKind::Range(start.map(Box::new), end.map(Box::new), inclusive),
+            string_flag: None
+        }))
 }
 
 

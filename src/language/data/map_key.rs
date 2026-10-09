@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use super::value::{ ExecResult, Value };
+use super::range::Range;
 
 
 // Immutable, canonical keys keep hashing consistent with language equality.
@@ -16,6 +17,7 @@ pub enum MapKey
     Float(u64),
     Boolean(bool),
     String(String),
+    Range(Range),
     Array(Rc<Vec<MapKey>>),
     ArgumentExpansion(Rc<Vec<MapKey>>),
     HashMap(Rc<Vec<(MapKey, MapKey)>>)
@@ -29,6 +31,7 @@ impl MapKey
         match value
         {
             Value::None => Self::None,
+            Value::Range(range) => Self::Range(*range),
             Value::ExecResult(ExecResult::Value(code)) => Self::ExecResult(*code),
             Value::ExecResult(ExecResult::Signaled) => Self::Signaled,
             Value::Integer(value) => Self::Integer(*value),
@@ -64,6 +67,7 @@ impl MapKey
         match self
         {
             Self::None => Value::None,
+            Self::Range(range) => Value::Range(*range),
             Self::ExecResult(code) => Value::ExecResult(ExecResult::Value(*code)),
             Self::Signaled => Value::ExecResult(ExecResult::Signaled),
             Self::Integer(value) => Value::Integer(*value),

@@ -2,6 +2,7 @@
 use std::{ collections::HashMap, rc::Rc };
 
 use super::map_key::MapKey;
+use super::range::Range;
 
 
 
@@ -32,6 +33,7 @@ pub enum Value
     String(String, Executable),
     Array(Rc<Vec<Value>>),
     HashMap(Rc<HashMap<MapKey, Value>>),
+    Range(Range),
     ArgumentExpansion(Rc<Vec<Value>>)
 }
 
@@ -77,6 +79,7 @@ impl Value
         match self
         {
             Value::None => "()".to_string(),
+            Value::Range(range) => range.to_string(),
             Value::ExecResult(code) => format!("ExecResult({})", match code
                 {
                     ExecResult::Value(v) => v.to_string(),
@@ -117,7 +120,7 @@ impl Value
         match self
         {
             Value::None => 0,
-            Value::HashMap(_) => 0,
+            Value::HashMap(_) | Value::Range(_) => 0,
             Value::ExecResult(code) => match code
                 {
                     ExecResult::Value(v) => *v as i64,
@@ -137,6 +140,7 @@ impl Value
         match self
         {
             Value::None => false,
+            Value::Range(range) => !range.is_empty(),
             Value::ExecResult(ExecResult::Value(code)) => *code == 0,
             Value::ExecResult(ExecResult::Signaled) => false,
             Value::Integer(value) => *value != 0,
@@ -155,6 +159,7 @@ impl Value
         match (self, other)
         {
             (Value::None, Value::None) => true,
+            (Value::Range(left), Value::Range(right)) => left == right,
             (Value::ExecResult(left), Value::ExecResult(right)) => left == right,
             (Value::Integer(left), Value::Integer(right)) => left == right,
             (Value::Float(left, _), Value::Float(right, _)) => left == right,

@@ -124,6 +124,8 @@ pub enum TokenKind
     And,
     Or,
     Not,
+    Range,
+    RangeInclusive,
 
     /**
      * The `-` character used for subtraction or negation.
@@ -488,7 +490,9 @@ impl Token
             TokenKind::RedirectBothTo    => "+~->".to_string(),
             TokenKind::RedirectErrorFrom => "<-~".to_string(),
             TokenKind::RedirectBothFrom  => "<-+~".to_string(),
-            TokenKind::Splat             => "...".to_string()
+            TokenKind::Splat             => "...".to_string(),
+            TokenKind::Range             => "..".to_string(),
+            TokenKind::RangeInclusive    => "..=".to_string()
         }
     }
 }
@@ -659,6 +663,23 @@ impl<'a> Tokenizer<'a>
         {
             '_' | 'a'..='z' | 'A'..='Z' => Ok(Some(self.parse_symbol())),
             '$'                         => self.parse_identifier().map(Some),
+            '.'                         =>
+                {
+                    let mut token = self.parse_dot();
+                    if token.kind == TokenKind::Splat
+                        && self.input.peek_next().is_some_and(|next|
+                            !Self::is_separator_char(&next) && !matches!(next, ']' | '=' | '!' | '&'))
+                    {
+                        let word = "...".to_string() + &self.extract_to_separator(None);
+                        token = Self::symbol_str_to_token(token.location, word);
+                    }
+                    if let TokenValue::Symbol(word) = &mut token.value
+                        && word == "."
+                    {
+                        *word += &self.extract_to_separator(None);
+                    }
+                    Ok(Some(token))
+                },
             '0'..='9'                   => Ok(Some(self.try_parse_number())),
             '"'                         => self.parse_string(StringFlag::Interpolated),
             '\''                        => self.parse_string(StringFlag::NonInterpolated),
@@ -793,7 +814,7 @@ impl<'a> Tokenizer<'a>
     fn try_parse_number(&mut self) -> Token
     {
         let location = self.input.location().clone();
-        let number_str = self.extract_to_separator(Some(&['[']));
+        let number_str = self.extract_word(Some(&['[']), true);
 
         // Attempt to parse the collected string as an integer first. If that fails, try parsing it
         // as a float. If both fail, treat it as a symbol.
@@ -827,11 +848,27 @@ impl<'a> Tokenizer<'a>
      */
     fn extract_to_separator(&mut self, additional_separators: Option<&[char]>) -> String
     {
+        self.extract_word(additional_separators, false)
+    }
+
+    fn extract_word(&mut self, additional_separators: Option<&[char]>, ranges: bool) -> String
+    {
         let mut result = String::new();
         let mut in_glob_class = false;
 
         while let Some(next) = self.input.peek_next()
         {
+            if ranges && next == '.'
+            {
+                let token = self.parse_dot();
+                if matches!(token.kind, TokenKind::Range | TokenKind::RangeInclusive | TokenKind::Splat)
+                {
+                    self.pending_operator = Some(token);
+                    break;
+                }
+                result += &token.token_value_text();
+                continue;
+            }
             // A closing array delimiter ends a word, except within a path glob class.
             if next == ']' && !in_glob_class { break; }
             // Braces delimit blocks, except inside an interpolated word's ${name} reference.
@@ -882,6 +919,31 @@ impl<'a> Tokenizer<'a>
         }
 
         result
+    }
+
+    fn parse_dot(&mut self) -> Token
+    {
+        let location = self.input.location().clone();
+        self.input.next();
+        if self.input.peek_next() != Some('.')
+        {
+            // A single dot remains part of a float or path. Leave following
+            // characters for the numeric extractor when it is reading a float.
+            return Self::symbol_str_to_token(location, ".".to_string());
+        }
+        self.input.next();
+        if self.input.peek_next() == Some('/')
+        {
+            let word = "..".to_string() + &self.extract_to_separator(None);
+            return Self::symbol_str_to_token(location, word);
+        }
+        let kind = match self.input.peek_next()
+            {
+                Some('.') => { self.input.next(); TokenKind::Splat },
+                Some('=') => { self.input.next(); TokenKind::RangeInclusive },
+                _ => TokenKind::Range
+            };
+        Token { location, kind, value: TokenValue::None }
     }
 
     /**
@@ -1279,7 +1341,14 @@ impl<'a> Tokenizer<'a>
         let mut operator_str = String::new();
 
         operator_str.push(next);
-        operator_str += &self.extract_to_separator(None);
+        if next == '-' && self.input.peek_next().is_some_and(|character| character.is_ascii_digit())
+        {
+            operator_str += &self.extract_word(Some(&['[']), true);
+        }
+        else
+        {
+            operator_str += &self.extract_to_separator(None);
+        }
 
         // Negative numbers are values; options such as -f and --flag remain words.
         if operator_str.starts_with('-') && operator_str.len() > 1

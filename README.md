@@ -68,7 +68,7 @@ Variable names cannot contain `=`, including braced names and function parameter
 Keep spaces around assignment `=`; adjacent `==` and `!=` remain comparisons.
 
 Values include signed 64-bit integers, floating-point values, booleans, strings,
-arrays, hash maps, the no-value result displayed as `()`, and external command statuses such
+arrays, hash maps, ranges, the no-value result displayed as `()`, and external command statuses such
 as `ExecResult(0)`. Arrays come from literals, `$args`, and file globs. Without `...`, an array becomes
 colon-separated text when passed to a command. `()` is also a literal that
 evaluates to `None`, including in assignments and returns.
@@ -190,6 +190,56 @@ Inside a collection literal, `:` separates map keys and values. Use parentheses
 for a nested call that takes an unquoted colon argument, such as
 `["result": (command :)]`.
 
+## Ranges
+
+Ranges hold integer bounds without allocating their elements:
+
+| Syntax | Meaning |
+| --- | --- |
+| `1..5` | Start included, end excluded |
+| `1..=5` | Both ends included |
+| `1..` | Start specified, end omitted |
+| `..5` or `..=5` | Start omitted, end excluded or included |
+| `..` | Both bounds omitted |
+
+Either bound can be a variable or an expression. Bounds evaluate once, left to
+right, when the range is created; later variable assignments do not change it.
+
+```text
+let $start = 1
+let $end = 4
+let $r = $start..$end
+echo $r                       # 1..4
+echo $r...                    # 1 2 3
+echo ($start..=$end)...        # 1 2 3 4
+let $inner = ($start + 1)..($end - 1)
+let $items = [0, $r..., 4]     # [0, 1, 2, 3, 4]
+```
+
+`...` expands a bounded range in ascending steps of one, materializing its
+elements as arguments or array elements. Reversed ranges expand to no values;
+`3..3` is empty and `3..=3` contains one value. Expansion is reusable and does
+not consume the range. Parenthesize a literal before expanding it: `(1..4)...`.
+Without expansion, a command receives the range's text, such as `1..4`.
+
+Bounds must be integers; floats, numeric strings, and other types produce an
+error. Function parameters arrive as strings, so `$start + 0` explicitly
+converts a numeric parameter. Inclusive ranges require an end bound, and chained
+ranges such as `1..2..3` are rejected. Omitted bounds remain unspecified;
+expanding such a range is an error. Range indexing and array slicing are not
+implemented yet.
+
+Ranges compare by their bounds and inclusivity: `1..3` differs from `1..=2`
+even though they expand to the same elements. They can be map keys and function
+return values, but cannot be commands. Boolean conversion is false for an empty
+bounded range and true otherwise; integer conversion yields zero.
+
+Arithmetic binds more tightly than range operators, which bind more tightly than
+comparisons. Spaces around `..` and `..=` are optional. Parenthesize open ranges
+when followed by other arguments, as in `echo (1..) (..5)`. Ordinary words retain
+embedded dots (`file..name`); quote text that would otherwise parse as a range.
+Paths such as `./file`, `../file`, and `cd ..` continue to work.
+
 ## Boolean expressions
 
 `==` and `!=` compare values and produce booleans. Numbers compare numerically,
@@ -208,6 +258,7 @@ or booleans.
 | Integer or float | False for zero, true otherwise |
 | String | False for empty text, exact `"false"`, or text parsing as numeric zero; true otherwise |
 | Array, hash map, or argument expansion | False when empty, true otherwise |
+| Range | False for an empty bounded range; true otherwise |
 | External command result | True for exit status 0; false for nonzero status or termination by signal |
 
 Logical operators always return a boolean. `&&` skips its right operand when
@@ -215,8 +266,8 @@ the left is false; `||` skips it when the left is true. Skipped operands have no
 side effects and cannot cause runtime errors, but must still be valid syntax.
 
 Precedence, highest first: parentheses and array access; unary `!` and unary minus; `* / %`;
-`+ -`; `== !=`; `&&`; `||`. Binary operators at the same precedence associate
-left to right. Boolean operators do not require surrounding spaces, so
+`+ -`; `.. ..=`; `== !=`; `&&`; `||`. Range operators cannot be chained; other
+binary operators at the same precedence associate left to right. Boolean operators do not require surrounding spaces, so
 `$x!=0` and `!$x` work. Quote operator text when passing it literally.
 
 ```text
