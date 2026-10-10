@@ -10,7 +10,7 @@ use crate::language::{ ast::*,
                                         TypeId,
                                         TypeKind,
                                         TypeRegistry },
-                               value::Value,
+                               value::Value, scoped_variables::ScopedVariables,
                                map_key::MapKey },
                        text::location::Location };
 
@@ -22,12 +22,18 @@ fn error(location: &Location, message: String) -> CompileError
 }
 
 
-// The initial checking pass resolves declared types and variants. Variable type
-// inference and annotations can extend this pass without changing enum identity.
-pub fn check_ast(registry: &mut TypeRegistry, ast: &mut AstTopLevel) -> CompileResult<()>
+// Resolve declarations first, then propagate binding and collection item types.
+pub fn check_ast(registry: &mut TypeRegistry, ast: &mut AstTopLevel,
+                 variables: &ScopedVariables) -> CompileResult<()>
 {
     let names = check_scope(registry, ast, &registry.names.clone())?;
-    check_binding_scope(registry, ast, &Bindings::new(), None, None)?;
+    let bindings = variables.get_all_flattened().into_iter().map(|(name, value)|
+        {
+            let inferred = if value.reference.is_none()
+                { Some(registry.inferred_value_type(&value.value)) } else { None };
+            (name, Binding { constraint: value.type_id, inferred })
+        }).collect();
+    check_binding_scope(registry, ast, &bindings, None, None)?;
     registry.names = names;
     Ok(())
 }
@@ -727,7 +733,28 @@ fn check_known_value(
 // Binding constraints follow lexical declarations within a body. Functions get
 // fresh binding information because free variables use dynamic scope at runtime.
 // Runtime guards remain authoritative for calls, writes, and all return paths.
-type Bindings = HashMap<String, Option<TypeId>>;
+#[derive(Clone, Copy)]
+struct Binding
+{
+    constraint: Option<TypeId>,
+    inferred: Option<TypeId>,
+}
+
+impl Binding
+{
+    fn declared(constraint: Option<TypeId>) -> Self
+    { Self { constraint, inferred: None } }
+
+    fn type_id(self) -> Option<TypeId>
+    { self.constraint.or(self.inferred) }
+}
+
+type Bindings = HashMap<String, Binding>;
+
+fn forget_inferred(bindings: &mut Bindings)
+{
+    for binding in bindings.values_mut() { binding.inferred = None; }
+}
 
 fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bindings,
                        return_type: Option<TypeId>, tail_type: Option<TypeId>) -> CompileResult<()>
@@ -749,7 +776,11 @@ fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bind
                         return_type,
                         item.type_id,
                     )?;
-                    bindings.insert(item.identifier.clone(), item.type_id);
+                    check_stored_string(registry, &item.expression, &bindings, item.type_id)?;
+                    let inferred = binding_type(registry, &item.expression, &bindings);
+                    if expression_may_mutate(&item.expression) { forget_inferred(&mut bindings); }
+                    bindings.insert(item.identifier.clone(), Binding
+                        { constraint: item.type_id, inferred });
                 },
             AstStatement::SetStatement(item) =>
                 {
@@ -757,12 +788,14 @@ fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bind
                     {
                         if let AstAccess::Index(index) = access
                         {
+                            if expression_may_mutate(index) { forget_inferred(&mut bindings); }
                             check_binding_expression(registry, index, &bindings, return_type,
                                                      None)?;
                         }
                     }
                     let constraint = if item.indexes.is_empty()
-                        { bindings.get(&item.identifier).copied().flatten() } else { None };
+                        { bindings.get(&item.identifier).and_then(|item| item.constraint) }
+                        else { None };
                     check_binding_expression(
                         registry,
                         &item.expression,
@@ -770,19 +803,31 @@ fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bind
                         return_type,
                         constraint,
                     )?;
+                    check_stored_string(registry, &item.expression, &bindings, constraint)?;
+                    let inferred = if item.indexes.is_empty()
+                        { binding_type(registry, &item.expression, &bindings) } else { None };
+                    // Imports can give one mutable binding multiple visible names.
+                    forget_inferred(&mut bindings);
+                    if let Some(binding) = bindings.get_mut(&item.identifier)
+                    { binding.inferred = inferred; }
                 },
             AstStatement::ExpressionStatement(expression) =>
                 {
                     check_binding_expression(registry, expression, &bindings, return_type,
                                              expected)?;
+                    if expression_may_mutate(expression) || matches!(expression.kind,
+                        AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _))
+                    { forget_inferred(&mut bindings); }
                 },
             AstStatement::DiscardStatement(expression) =>
                 {
                     check_binding_expression(registry, expression, &bindings, return_type,
                                              None)?;
+                    if expression_may_mutate(expression) { forget_inferred(&mut bindings); }
                 },
             AstStatement::ExecuteStatement(call) =>
                 {
+                    forget_inferred(&mut bindings);
                     check_binding_call(registry, call, &bindings, return_type)?;
                 },
             AstStatement::ReturnStatement(item) =>
@@ -804,7 +849,8 @@ fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bind
                     let parameters = item
                         .parameters
                         .iter()
-                        .map(|parameter| (parameter.name.clone(), parameter.type_id))
+                        .map(|parameter|
+                            (parameter.name.clone(), Binding::declared(parameter.type_id)))
                         .collect();
                     check_binding_scope(
                         registry,
@@ -823,20 +869,42 @@ fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bind
                     }
                 },
             AstStatement::BlockStatement(block) =>
-                { check_binding_scope(registry, &block.body, &bindings, return_type, expected)?; },
+                {
+                    check_binding_scope(registry, &block.body, &bindings, return_type, expected)?;
+                    forget_inferred(&mut bindings);
+                },
             AstStatement::LoopStatement(block) =>
-                { check_binding_scope(registry, &block.body, &bindings, return_type, None)?; },
+                {
+                    forget_inferred(&mut bindings);
+                    check_binding_scope(registry, &block.body, &bindings, return_type, None)?;
+                },
             AstStatement::ForStatement(item) =>
                 {
                     check_binding_expression(registry, &item.iterable, &bindings, return_type,
                                              None)?;
                     let mut loop_bindings = bindings.clone();
-                    for name in &item.bindings { loop_bindings.insert(name.clone(), None); }
+                    // Outer inferred values may change on a previous loop iteration.
+                    // The private iterator supplies fresh item bindings on every step.
+                    forget_inferred(&mut loop_bindings);
+                    let item_type = iterator_item_type(registry, &item.iterable, &bindings);
+                    for (index, name) in item.bindings.iter().enumerate()
+                    {
+                        let inferred = if item.destructure || item.bindings.len() > 1
+                            {
+                                item_type.filter(|id| matches!(registry.get(*id).kind,
+                                    TypeKind::Array(_) | TypeKind::FixedArray(_)))
+                                    .and_then(|id| indexed_type(registry, id, Some(index)))
+                            }
+                            else { item_type };
+                        loop_bindings.insert(name.clone(), Binding { constraint: None, inferred });
+                    }
                     check_binding_scope(registry, &item.body.body, &loop_bindings, return_type,
                                         None)?;
+                    forget_inferred(&mut bindings);
                 },
             AstStatement::ConditionalLoopStatement(item) =>
                 {
+                    forget_inferred(&mut bindings);
                     check_binding_expression(registry, &item.condition, &bindings, return_type,
                                              None)?;
                     check_binding_scope(registry, &item.body.body, &bindings, return_type, None)?;
@@ -858,11 +926,36 @@ fn check_binding_call(registry: &TypeRegistry, call: &AstExecuteStatement, bindi
 }
 
 
+// A stored string is data even when it happens to name an executable. Only
+// expression statements have the implicit execution caveat used below.
+fn check_stored_string(registry: &TypeRegistry, expression: &AstExpression,
+                       bindings: &Bindings, expected: Option<TypeId>) -> CompileResult<()>
+{
+    if expression_may_mutate(expression) { return Ok(()); }
+    if    let Some(expected) = expected
+       && let Some(actual) = binding_type(registry, expression, bindings)
+       && registry.get(actual).name == "String"
+       && !registry.may_assign(expected, actual)
+    {
+        return Err(error(&expression.location, format!("Expected {}, got String",
+            registry.get(expected).name)));
+    }
+    Ok(())
+}
+
+
 fn check_binding_expression(
     registry: &TypeRegistry, expression: &AstExpression, bindings: &Bindings,
     return_type: Option<TypeId>, expected: Option<TypeId>,
 ) -> CompileResult<()>
 {
+    let mut stable;
+    let bindings = if expression_may_mutate(expression)
+        {
+            stable = bindings.clone();
+            forget_inferred(&mut stable);
+            &stable
+        } else { bindings };
     if let Some(id) = expected
     {
         check_known_value(registry, id, expression)
@@ -962,9 +1055,65 @@ fn binding_type(
     registry: &TypeRegistry, expression: &AstExpression, bindings: &Bindings,
 ) -> Option<TypeId>
 {
+    let mut stable;
+    let bindings = if expression_may_mutate(expression)
+        && !matches!(expression.kind, AstExpressionKind::Field(_, _, _))
+        {
+            stable = bindings.clone();
+            forget_inferred(&mut stable);
+            &stable
+        } else { bindings };
+    binding_type_inner(registry, expression, bindings)
+}
+
+fn binding_type_inner(
+    registry: &TypeRegistry, expression: &AstExpression, bindings: &Bindings,
+) -> Option<TypeId>
+{
     match &expression.kind
     {
-        AstExpressionKind::Variable(variable) => bindings.get(&variable.name).copied().flatten(),
+        AstExpressionKind::Variable(variable) =>
+            bindings.get(&variable.name).and_then(|binding| binding.type_id()),
+        AstExpressionKind::Literal(item) => Some(registry.inferred_value_type(&item.value)),
+        AstExpressionKind::Array(values) =>
+            {
+                let any = registry.builtin_id("any").unwrap();
+                let element = registry.common_type(values.iter().map(|value|
+                    {
+                        let expanded = match &value.kind
+                            {
+                                AstExpressionKind::Splat(inner) =>
+                                    binding_type(registry, inner, bindings),
+                                AstExpressionKind::VariableSplat(variable) => bindings
+                                    .get(&variable.name).and_then(|binding| binding.type_id()),
+                                _ => return binding_type(registry, value, bindings).unwrap_or(any),
+                            };
+                        if let Some(id) = expanded
+                        {
+                            return match &registry.get(id).kind
+                                {
+                                    TypeKind::Array(item) => *item,
+                                    TypeKind::FixedArray(items) =>
+                                        registry.common_type(items.iter().copied()),
+                                    _ if registry.get(id).name == "Range" =>
+                                        registry.builtin_id("Integer").unwrap(),
+                                    _ => any,
+                                };
+                        }
+                        any
+                    }));
+                Some(registry.intern(TypeKind::Array(element)))
+            },
+        AstExpressionKind::HashMap(entries) =>
+            {
+                let any = registry.builtin_id("any").unwrap();
+                let keys = registry.common_type(entries.iter().map(|(key, _)|
+                    binding_type(registry, key, bindings).unwrap_or(any)));
+                let values = registry.common_type(entries.iter().map(|(_, value)|
+                    binding_type(registry, value, bindings).unwrap_or(any)));
+                Some(registry.intern(TypeKind::Map(keys, values)))
+            },
+        AstExpressionKind::Range(_, _, _) => registry.builtin_id("Range"),
         AstExpressionKind::Grouped(inner) => binding_type(registry, inner, bindings),
         AstExpressionKind::Field(object, name, _) =>
             {
@@ -982,12 +1131,80 @@ fn binding_type(
                 if registry.has_extension(id, name) { return None; }
                 registry.method(id, name).map(|method| method.return_type)
             },
-        AstExpressionKind::Index(object, _) =>
-            match registry.get(binding_type(registry, object, bindings)?).kind
+        AstExpressionKind::Index(object, index) =>
             {
-                TypeKind::Array(element) => Some(element),
-                _ => None
+                let index = match constant_value(registry, index)
+                    {
+                        Some(Value::Integer(index)) => usize::try_from(index).ok(),
+                        _ => None,
+                    };
+                indexed_type(registry, binding_type(registry, object, bindings)?, index)
             },
         _ => known_type(registry, expression)
+    }
+}
+
+
+fn indexed_type(registry: &TypeRegistry, id: TypeId, index: Option<usize>) -> Option<TypeId>
+{
+    match &registry.get(id).kind
+    {
+        TypeKind::Array(element) => Some(*element),
+        TypeKind::Map(_, element) => Some(registry.intern(TypeKind::Optional(*element))),
+        TypeKind::FixedArray(items) => match index
+            {
+                Some(index) => items.get(index).copied(),
+                None => Some(registry.common_type(items.iter().copied())),
+            },
+        _ => None,
+    }
+}
+
+
+fn iterator_item_type(registry: &TypeRegistry, expression: &AstExpression,
+                      bindings: &Bindings) -> Option<TypeId>
+{
+    let receiver = binding_type(registry, expression, bindings)?;
+    // An override has its own scoped/versioned signature, not the native one.
+    if registry.has_extension(receiver, "next_item") { return None; }
+    let method = registry.method(receiver, "next_item")?;
+    match registry.get(method.return_type).kind
+    {
+        TypeKind::Optional(item) => match registry.get(item).kind
+            {
+                TypeKind::Optional(inner) => Some(inner),
+                _ if registry.get(item).name == "None" => None,
+                _ => Some(item),
+            },
+        _ => None,
+    }
+}
+
+
+// Calls can write dynamically scoped variables. Inferred contents are snapshots,
+// not constraints: discard them across calls and control-flow joins.
+fn expression_may_mutate(expression: &AstExpression) -> bool
+{
+    match &expression.kind
+    {
+        AstExpressionKind::Execute(_) | AstExpressionKind::Field(_, _, _)
+        | AstExpressionKind::IfExpression(_) | AstExpressionKind::MatchExpression(_)
+        | AstExpressionKind::Redirect(_, _) | AstExpressionKind::TryExecute(_) => true,
+        AstExpressionKind::Grouped(value) | AstExpressionKind::Splat(value)
+        | AstExpressionKind::TypeConversion(_, value, _)
+        | AstExpressionKind::ExecutableReference(value)
+        | AstExpressionKind::BooleanNot(value) => expression_may_mutate(value),
+        AstExpressionKind::Array(values) => values.iter().any(expression_may_mutate),
+        AstExpressionKind::HashMap(entries) => entries.iter().any(|(key, value)|
+            expression_may_mutate(key) || expression_may_mutate(value)),
+        AstExpressionKind::StructConstructor(item) => item.fields.iter()
+            .any(|(_, _, value)| expression_may_mutate(value)),
+        AstExpressionKind::MathExpression(_, left, right)
+        | AstExpressionKind::BooleanExpression(_, left, right)
+        | AstExpressionKind::Index(left, right) =>
+            expression_may_mutate(left) || expression_may_mutate(right),
+        AstExpressionKind::Range(start, end, _) =>
+            start.iter().chain(end).any(|value| expression_may_mutate(value)),
+        _ => false,
     }
 }

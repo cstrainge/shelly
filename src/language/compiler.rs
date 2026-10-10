@@ -4,7 +4,8 @@ use std::{ cell::RefCell, collections::HashMap, fmt::{ self, Display, Formatter 
 use crate::language::{ ast::*,
                        bytecode::{ Code, Instruction, Function, FunctionBlock, FunctionBlockRef },
                        data::{ value::{ Value, Executable }, types::TypeRegistry,
-                               methods::method_key, map_key::MapKey },
+                               methods::method_key, map_key::MapKey,
+                               scoped_variables::ScopedVariables },
                        text::location::Location,
                        parser::ParserError,
                        typecheck::check_ast };
@@ -1853,11 +1854,12 @@ fn compile_with_prologue(function_block: &FunctionBlockRef,
 // submission has passed AST checking and bytecode generation/linking.
 pub fn compile_ast(registry: &mut TypeRegistry,
                    function_block: &FunctionBlockRef,
+                   variables: &ScopedVariables,
                    ast: &mut AstTopLevel,
                    target: CompileTarget) -> CompileResult<Vec<Instruction>>
 {
     let mut staged = registry.staged();
-    check_ast(&mut staged, ast)?;
+    check_ast(&mut staged, ast, variables)?;
     // Each submission gets a private function namespace. Function bodies retain
     // this snapshot as their parent; later submissions publish into a new one.
     let functions = Rc::new(RefCell::new(FunctionBlock

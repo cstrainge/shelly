@@ -1,0 +1,63 @@
+# Collection item types reach loop bindings without constraining unannotated values.
+fn collection_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $stdout) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "collection type inference mismatch" }
+}
+collection_case "echo BEFORE; let \$h: [String: Integer] = [\"x\": 1]; for (\$k,\$v) in \$h { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; let \$h = [\"x\": 1]; for (\$k,\$v) in \$h { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; let \$a: [Integer] = [1,2]; for \$v in \$a { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; let \$a = [1,2]; for \$v in \$a { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; for \$v in 1..3 { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; let \$h: [String: Integer] = [:]; for (\$k,\$v) in \$h { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; let \$h: [String: Float] = [\"x\": 1]; for (\$k,\$v) in \$h { let \$bad: Integer = \$v }" "" "Expected Integer, got Float"
+collection_case "echo BEFORE; let \$a: [Integer | ()] = [1,()]; for \$v in \$a { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; let \$a = [[\"x\": 1]]; for \$h in \$a { for (\$k,\$v) in \$h { let \$bad: Boolean = \$v } }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; let \$a: [[String, Integer]] = [[\"x\",1]]; for (\$k,\$v) in \$a { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; let \$h = [1: \"x\"]; for (\$k,\$v) in \$h { let \$bad: Boolean = \$k }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; let \$h = [\"x\": 1]; for \$pair in \$h { let \$bad: Boolean = \$pair[1] }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; fn consume(\$h: [String: Integer]): Boolean { for (\$k,\$v) in \$h { return \$v }; false }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; struct Data { values: [Integer] }; let \$d = Data(values: [1]); for \$v in \$d.values { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
+collection_case "let \$h: [String: Float] = [\"x\": 1]; for (\$k,\$v) in \$h { echo \$k \$v }" "x 1.0\n" ""
+collection_case "let \$a = [1,true,\"x\"]; for \$v in \$a { echo \$v }" "1\ntrue\nx\n" ""
+collection_case "let \$a = [1,2.0]; for \$v in \$a { echo \$v }" "1\n2.0\n" ""
+collection_case "let \$a = []; for \$v in \$a { let \$x: Boolean = \$v }; echo done" "done\n" ""
+collection_case "let \$h = [:]; for (\$k,\$v) in \$h { let \$x: Boolean = \$v }; echo done" "done\n" ""
+collection_case "let \$a = [()]; for \$v in \$a { let \$bad: Boolean = \$v }; echo done" "done\n" ""
+collection_case "let \$a = [1]; \$a[0] = true; for \$v in \$a { let \$b: Boolean = \$v; echo \$b }" "true\n" ""
+collection_case "let \$h = [\"x\": 1]; \$h[\"x\"] = true; for (\$k,\$v) in \$h { let \$b: Boolean = \$v; echo \$b }" "true\n" ""
+collection_case "let \$a = [1]; \$a = [true]; for \$v in \$a { let \$b: Boolean = \$v; echo \$b }" "true\n" ""
+collection_case "let \$a = [1]; fn change() { \$a = [true] }; change; for \$v in \$a { let \$b: Boolean = \$v; echo \$b }" "true\n" ""
+collection_case "let \$a = [1]; if true { \$a = [true] }; for \$v in \$a { let \$b: Boolean = \$v; echo \$b }" "true\n" ""
+collection_case "let \$a = [1]; for \$step in 0..2 { for \$v in \$a { echo \$v }; \$a = [true] }" "1\ntrue\n" ""
+collection_case "for \$v in [1] { \$v = true; let \$b: Boolean = \$v; echo \$b }" "true\n" ""
+collection_case "fn Array::next_item(): Boolean | () { if \$self.count == 0 { return () }; \$self = []; true }; for \$v in [1] { let \$b: Boolean = \$v; echo \$b }" "true\n" ""
+collection_case "let \$h = [\"x\": 1]; let \$pair = \$h.next_item; echo \$pair[0] \$pair[1] \$h.next_item" "x 1 ()\n" ""
+collection_case "let \$h: [String: Integer] = [\"x\": 1]; let \$pair: [String, Integer] | () = \$h.next_item; echo \$pair[0] \$pair[1]" "x 1\n" ""
+collection_case "echo BEFORE; let \$h = [\"x\": 1]; for (\$k,\$v) in \$h { let \$bad: Integer = \$k }" "" "Expected Integer, got String"
+collection_case "echo BEFORE; let \$a = [1]; let \$b = [\$a...]; for \$v in \$b { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; let \$r = 1..3; let \$a = [\$r...]; for \$v in \$a { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; let \$a = [1]; let \$item = \$a.next_item; let \$bad: Boolean = \$item" "" "Expected Boolean"
+collection_case "echo BEFORE; let \$h: [String: Integer] = [\"x\": 1]; let \$bad: Integer = \$h.next_item" "" "Expected Integer"
+collection_case "let \$a = [1]; fn index() { \$a = [true]; 0 }; let \$b = [0]; \$b[(index)] = 2; for \$v in \$a { let \$good: Boolean = \$v; echo \$good }" "true\n" ""
+collection_case "let \$h = [\"x\": true, \"y\": 1]; let \$result = []; for (\$k,\$v) in \$h { \$result = [\$result..., String(\$v)] }; echo \$result.sort" "1:true\n" ""
+collection_case "let \$a = [1]; fn change() { \$a = [true] }; let \$call = `change; \$call; for \$v in \$a { let \$good: Boolean = \$v; echo \$good }" "true\n" ""
+collection_case "let \$a = [1]; fn change() { \$a = [true] }; let \$calls = [`change]; \$calls[0]; for \$v in \$a { let \$good: Boolean = \$v; echo \$good }" "true\n" ""
+collection_case "echo BEFORE; let \$h = [\"x\": true, \"y\": 1]; for (\$k,\$v) in \$h { let \$bad: Integer = \$k }" "" "Expected Integer, got String"
+collection_case "echo BEFORE; fn key() { \"x\" }; let \$h = [(key): 1]; for (\$k,\$v) in \$h { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
+collection_case "let \$h = [\"x\": 1]; let \$missing: None = \$h[\"absent\"]; echo \$missing" "()\n" ""
+collection_case "let \$h: [String: Integer] = [\"x\": 1]; let \$missing: None = \$h[\"absent\"]; echo \$missing" "()\n" ""

@@ -1284,9 +1284,40 @@ array or struct. A map entry whose value is `()` remains a valid two-element
 array and does not end iteration.
 
 Arrays, argument expansions, hash maps, and bounded ranges provide native
-`next_item` methods. Arrays and expansions return `any | ()`, maps return
-`[any, any] | ()`, and ranges return `Integer | ()`. Native loops use efficient
-private cursors, and ranges remain lazy. User-defined overrides participate in
+`next_item` methods. Their signatures reflect the collection's contents:
+
+| Receiver type | `next_item` return type |
+| --- | --- |
+| `[Integer]` | `Integer \| ()` |
+| `[String: Integer]` | `[String, Integer] \| ()` |
+| `Range` | `Integer \| ()` |
+| Unspecified array or argument expansion | `any \| ()` |
+| Unspecified hash map | `[any, any] \| ()` |
+
+Explicit annotations supply element types; otherwise homogeneous contents are
+inferred. Empty, mixed, or unknown contents use `any`. Hash keys and values are
+inferred independently, and nested collection types retain their inner types.
+Inference does not convert mixed integers and floats or constrain an unannotated
+variable's later assignments.
+
+```shy
+let $scores = ["alice": 10, "bob": 20]  # Inferred [String: Integer]
+for ($name, $score) in $scores
+{
+    let $points: Integer = $score
+    echo $name $points
+}
+```
+
+The checker carries these item types into loop bindings, including destructured
+map pairs and annotated array shapes. It also reads existing collection types
+and contents when compiling a later REPL input. Inferred types are discarded
+where writes, calls, or control flow make them uncertain; explicit annotations
+remain authoritative. User overrides are never assumed to have a native method's
+signature, and dynamic values still receive runtime checks.
+
+Native loops use efficient private cursors, and ranges remain lazy.
+User-defined overrides participate in
 the same protocol. A type without `next_item` produces an iteration error;
 methods with parameters or a return type lacking `| ()` are rejected.
 
@@ -1832,8 +1863,9 @@ bytecode, optimized, linked, then executed. The initial checking pass registers
 lexically scoped enum and struct identities before resolving field annotations.
 It checks constructors, required-field cycles, annotations, known incompatible
 initializers, assignments and returns, and known member accesses. Runtime checks
-cover dynamic values, function arguments, return paths, and nested writes; general
-type inference remains future work. Builtin types, container
+cover dynamic values, function arguments, return paths, and nested writes.
+Collection and local binding inference propagates known item types into loops;
+broader function and control-flow inference remains future work. Builtin types, container
 constraints, enums, and structs share stable `TypeId`s independent of name visibility.
 
 Two optimization passes run before linking: adjacent `PopResult`/`PushResult`

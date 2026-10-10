@@ -2244,7 +2244,11 @@ impl Interpreter
     pub(super) fn resolve_method(&self, value: &Value, receiver: ValueReference,
                       name: &str, snapshot: &Value) -> Option<BoundMethod>
     {
-        for id in self.scope().types.method_types(self.scope().types.value_type(value))
+        let receiver_type = if name == "next_item"
+            { self.scope().types.inferred_value_type(value) }
+            else { self.scope().types.value_type(value) };
+        let method_types = self.scope().types.method_types(receiver_type);
+        for (index, id) in method_types.into_iter().enumerate()
         {
             let key = method_key(id, name);
             let bound = match snapshot
@@ -2258,7 +2262,8 @@ impl Interpreter
                 { self.scope().lexical_function(&key).or_else(|| self.module_method(id, &key)) };
             let definition = if let Some(function) = function
                 { MethodDefinition::User(function) }
-                else if let Some(method) = self.scope().types.method(id, name)
+                else if let Some(method) = self.scope().types.method(
+                    if index == 0 { receiver_type } else { id }, name)
                 { MethodDefinition::Builtin(method) }
                 else { continue; };
             return Some(BoundMethod

@@ -190,6 +190,45 @@ impl TypeRegistry
         types
     }
 
+    // Mixed and empty collections advertise any. Merge nested containers without
+    // promoting or otherwise changing their contents.
+    pub fn common_type(&self, types: impl IntoIterator<Item = TypeId>) -> TypeId
+    {
+        let any = self.builtin_id("any").unwrap();
+        types.into_iter().reduce(|left, right|
+            {
+                if left == right { return left; }
+                match (&self.get(left).kind, &self.get(right).kind)
+                {
+                    (TypeKind::Array(a), TypeKind::Array(b)) =>
+                        self.intern(TypeKind::Array(self.common_type([*a, *b]))),
+                    (TypeKind::Map(a, b), TypeKind::Map(c, d)) => self.intern(TypeKind::Map(
+                        self.common_type([*a, *c]), self.common_type([*b, *d]))),
+                    (TypeKind::FixedArray(a), TypeKind::FixedArray(b)) if a.len() == b.len() =>
+                        self.intern(TypeKind::FixedArray(a.iter().zip(b)
+                            .map(|(a, b)| self.common_type([*a, *b])).collect())),
+                    _ => any,
+                }
+            }).unwrap_or(any)
+    }
+
+    pub fn inferred_value_type(&self, value: &Value) -> TypeId
+    {
+        match value
+        {
+            Value::Array(values) =>
+                self.intern(TypeKind::Array(self.common_type(values.iter()
+                    .map(|value| self.inferred_value_type(value))))),
+            Value::HashMap(values) =>
+                self.intern(TypeKind::Map(
+                    self.common_type(values.keys()
+                        .map(|key| self.inferred_value_type(&key.to_value()))),
+                    self.common_type(values.values()
+                        .map(|value| self.inferred_value_type(value))))),
+            _ => self.value_type(value),
+        }
+    }
+
     pub fn value_type(&self, value: &Value) -> TypeId
     {
         match value
@@ -219,13 +258,24 @@ impl TypeRegistry
 
     pub fn method(&self, receiver: TypeId, name: &str) -> Option<Rc<BuiltinMethod>>
     {
-        let receiver = match self.get(receiver).kind
+        let definition = self.get(receiver);
+        let receiver = match definition.kind
             {
                 TypeKind::Array(_) | TypeKind::FixedArray(_) => self.builtin_id("Array")?,
                 TypeKind::Map(_, _) => self.builtin_id("HashMap")?,
                 _ => receiver,
             };
-        self.methods.get(&receiver)?.get(name).cloned()
+        let method = self.methods.get(&receiver)?.get(name)?.clone();
+        if !method.native_iterator { return Some(method); }
+        let item = match &definition.kind
+            {
+                TypeKind::Array(element) => *element,
+                TypeKind::FixedArray(items) => self.common_type(items.iter().copied()),
+                TypeKind::Map(key, value) => self.intern(TypeKind::FixedArray(vec![*key, *value])),
+                _ => return Some(method),
+            };
+        Some(Rc::new(BuiltinMethod
+            { return_type: self.intern(TypeKind::Optional(item)), ..(*method).clone() }))
     }
 
     const BUILTIN_NAMES: [&'static str; 13] = [
@@ -311,7 +361,7 @@ impl TypeRegistry
         id
     }
 
-    pub fn register(&mut self, name: String, kind: TypeKind, location: Option<Location>) -> TypeId
+    pub fn register(&self, name: String, kind: TypeKind, location: Option<Location>) -> TypeId
     {
         let mut definitions = self.definitions.borrow_mut();
         let id = TypeId(definitions.len());
@@ -413,7 +463,7 @@ impl TypeRegistry
             { id, name: old.name.clone(), location: old.location.clone(), kind });
     }
 
-    pub fn intern(&mut self, kind: TypeKind) -> TypeId
+    pub fn intern(&self, kind: TypeKind) -> TypeId
     {
         if let Some(existing) =
             self.definitions.borrow()

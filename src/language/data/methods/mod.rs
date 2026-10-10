@@ -20,7 +20,7 @@ pub fn method_key(receiver: TypeId, name: &str) -> String
 
 pub type MethodBody = fn(&mut Value, &[Value]) -> Result<Value, String>;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BuiltinMethod
 {
     pub name: &'static str,

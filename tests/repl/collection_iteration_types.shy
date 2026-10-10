@@ -1,0 +1,18 @@
+check_repl ["id": "COLLECTION_TYPES", "name": "Collection types across submissions", "steps": [
+    ["let \$scores = [\"alice\": 10]", "quiet", ""],
+    ["for (\$name,\$score) in \$scores { let \$bad: Boolean = \$score }", "error", "Compile error:"],
+    ["\$scores[\"alice\"] = true", "quiet", ""],
+    ["for (\$name,\$score) in \$scores { let \$good: Boolean = \$score; echo \$name \$good }", "output", "alice true"],
+    ["let \$values: [Float] = [7]", "quiet", ""],
+    ["for \$v in \$values { let \$bad: Integer = \$v }", "error", "Compile error:"],
+    ["for \$v in \$values { let \$good: Float = \$v; echo \$good }", "output", "7.0"],
+    ["let \$mixed = [1, true]", "quiet", ""],
+    ["for \$v in \$mixed { echo \$v }", "output", "1\ntrue"],
+    ["let \$empty: [String: Integer] = [:]", "quiet", ""],
+    ["for (\$k,\$v) in \$empty { let \$bad: Boolean = \$v }", "error", "Compile error:"],
+    ["let \$a = [1]; let \$saved = `\$a.next_item", "quiet", ""],
+    ["\$a = [true]; echo (\$saved)", "output", "true"],
+    ["let \$pairs: [[String, Integer]] = [[\"x\", 1]]", "quiet", ""],
+    ["for (\$k,\$v) in \$pairs { let \$bad: Boolean = \$v }", "error", "Compile error:"],
+    ["echo ok", "output", "ok"],
+], "exit": 0]

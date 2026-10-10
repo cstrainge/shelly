@@ -73,6 +73,9 @@ These tests deliberately run failing children and assert that they fail correctl
 `native/iterator_protocol.shy` and `repl/iterator_protocol.shy` check user and native
 iteration, private state, method versions, destructuring, unit termination, fixed-length
 array annotations, and recovery after iterator errors.
+The native and REPL `collection_iteration_types.shy` tests check declared and
+inferred element types, typed loop bindings, mixed/empty collections, mutations,
+native overrides, and inference across REPL submissions.
 `native/visibility.shy` and `repl/visibility.shy` check native and scripted exports,
 private bindings, re-exports, callable identity, diagnostics, and REPL recovery.
 `repl/prelude_reload*.shy` checks reload identity, scope isolation, cached dependencies,

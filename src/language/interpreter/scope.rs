@@ -99,14 +99,16 @@ impl Scope
     pub fn compile(&mut self, statements: &mut AstTopLevel) -> CompileResult<Vec<Instruction>>
     {
         // The compiler stages both registries and publishes only a valid submission.
-        compile_ast(&mut self.types, &self.base_function_block, statements, CompileTarget::Toplevel)
+        compile_ast(&mut self.types, &self.base_function_block, &self.variables,
+                    statements, CompileTarget::Toplevel)
     }
 
     pub fn compile_condition(&mut self, statements: &mut AstTopLevel)
         -> CompileResult<Vec<Instruction>>
     {
         // Preserve the final value so the loader can decide whether to import.
-        compile_ast(&mut self.types, &self.base_function_block, statements, CompileTarget::Function)
+        compile_ast(&mut self.types, &self.base_function_block, &self.variables,
+                    statements, CompileTarget::Function)
     }
 
     pub fn base_function(&self, name: &str) -> Option<FunctionRef>
