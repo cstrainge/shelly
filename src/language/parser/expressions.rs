@@ -13,7 +13,8 @@ use crate::language::{ ast::*,
                                                try_expect_token,
                                                try_expect_one_of_tokens },
                                  results::{ ParseResult, ParserError, ParserErrorKind },
-                                 statements::{ parse_if_expression, parse_match_expression } } };
+                                 statements::{ parse_if_expression, parse_match_expression,
+                                               parse_anonymous_function } } };
 
 pub(super) fn expect_type_name(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Token>
 {
@@ -126,6 +127,19 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
 
     let expression = match token.kind
         {
+            TokenKind::Function =>
+                {
+                    let probe = Lookahead::new(&mut *lookahead.buffer);
+                    if !matches!(probe.buffer.next()?, Some(token)
+                        if token.kind == TokenKind::ParenOpen) { return Ok(None); }
+                    drop(probe);
+                    AstExpression
+                        {
+                            location: token.location.clone(), string_flag: None,
+                            kind: AstExpressionKind::AnonymousFunction(Box::new(
+                                parse_anonymous_function(&mut *lookahead.buffer, token.location)?)),
+                        }
+                },
             TokenKind::Symbol =>
                 {
                     let mut name = token.token_value_text();
@@ -705,7 +719,8 @@ fn parse_math_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
     if    starts_with_group
        || matches!(
         &expression.kind,
-        AstExpressionKind::StructConstructor(_)
+        AstExpressionKind::AnonymousFunction(_)
+            | AstExpressionKind::StructConstructor(_)
             | AstExpressionKind::SpacedEmptyCall(_)
             | AstExpressionKind::EnumVariant(_, _)
             | AstExpressionKind::MathExpression(_, _, _)
@@ -1241,6 +1256,7 @@ pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
                 AstExpressionKind::Index(_, _)
                     | AstExpressionKind::Field(_, _, _)
                     | AstExpressionKind::EnumVariant(_, _)
+                    | AstExpressionKind::AnonymousFunction(_)
                     | AstExpressionKind::StructConstructor(_)
                     | AstExpressionKind::TypeConversion(_, _, _)
                     | AstExpressionKind::SpacedEmptyCall(_)

@@ -340,6 +340,20 @@ fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
             (Some(receiver), member)
         }
         else { (None, name) };
+    let function = parse_function_body(buffer, name.location.clone(),
+                                       name.token_value_text(), receiver)?;
+    Ok(Some(AstStatement::FunctionDefinition(Box::new(function))))
+}
+
+pub(super) fn parse_anonymous_function(buffer: &mut TokenBuffer<'_, '_>, location: Location)
+    -> ParseResult<AstFunctionStatement>
+{
+    parse_function_body(buffer, location, "<anonymous>".into(), None)
+}
+
+fn parse_function_body(buffer: &mut TokenBuffer<'_, '_>, location: Location,
+                       name: String, receiver: Option<String>) -> ParseResult<AstFunctionStatement>
+{
     expect_token(buffer, TokenKind::ParenOpen)?;
     let mut parameters = Vec::new();
     let mut names = HashSet::new();
@@ -404,27 +418,21 @@ fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
                                    &(parse_statement as fn(&mut TokenBuffer<'_, '_>)
                                      -> ParseResult<Option<AstStatement>>))?;
 
-    let mut statement = new_ast_function_statement(name.location.clone(), name.token_value_text(),
-                                  parameters,
-                                  return_annotation,
-                                  code);
-    if let Some(AstStatement::FunctionDefinition(function)) = &mut statement
-    {
-        function.receiver = receiver;
-        if let Some(receiver) = &function.receiver
+    let mut function = AstFunctionStatement
         {
-            function.parameters.insert(0, AstParameter
-                {
-                    location: name.location,
-                    name: "$self".to_string(),
-                    annotation: Some(AstType::Named(receiver.clone())),
-                    optional: false,
-                    variadic: false,
-                    type_id: None,
-                });
-        }
+            location: location.clone(), name, receiver, receiver_type: None,
+            condition: None, parameters, return_annotation, return_type: None, body: code,
+        };
+    if let Some(receiver) = &function.receiver
+    {
+        function.parameters.insert(0, AstParameter
+            {
+                location, name: "$self".to_string(),
+                annotation: Some(AstType::Named(receiver.clone())),
+                optional: false, variadic: false, type_id: None,
+            });
     }
-    Ok(statement)
+    Ok(function)
 }
 
 
@@ -843,7 +851,13 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
 
     if next_kind == TokenKind::Function
     {
-        return parse_function_statement(buffer);
+        let anonymous =
+            {
+                let probe = Lookahead::new(buffer);
+                probe.buffer.next()?;
+                matches!(probe.buffer.next()?, Some(token) if token.kind == TokenKind::ParenOpen)
+            };
+        if !anonymous { return parse_function_statement(buffer); }
     }
 
     if next_kind == TokenKind::Return

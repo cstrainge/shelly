@@ -2,8 +2,10 @@
 use std::{ cell::RefCell, collections::HashMap, fmt::{ self, Display, Formatter }, rc::Rc };
 
 use crate::language::{ ast::*,
-                       bytecode::{ Code, Instruction, Function, FunctionBlock, FunctionBlockRef },
-                       data::{ value::{ Value, Executable }, types::TypeRegistry,
+                       bytecode::{ Code, Instruction, Function, FunctionBlock,
+                                   FunctionBlockRef, FunctionRef },
+                       data::{ closure::free_variables, value::{ Value, Executable },
+                               types::TypeRegistry,
                                methods::method_key, map_key::MapKey,
                                scoped_variables::ScopedVariables },
                        text::location::Location,
@@ -216,6 +218,20 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
 {
     match &expression.kind
     {
+        AstExpressionKind::AnonymousFunction(function) =>
+            {
+                let template = compile_function(function_block, function, None)?;
+                let names = free_variables(function).into_iter().map(Value::from_string).collect();
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()), code: Code::MakeClosure,
+                        operand: Some(Value::from_array(vec![
+                                Value::String("<anonymous>".into(), Executable::Function(template)),
+                                Value::from_array(names),
+                            ])),
+                    });
+                return Ok(());
+            },
         AstExpressionKind::SpacedEmptyCall(_) => return Err(CompileError
             { location: Some(expression.location.clone()),
               what: ErrorWhat::TypeError(
@@ -1034,6 +1050,14 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
                                function_statement: &AstFunctionStatement) -> CompileResult<()>
 {
     let binding = function_binding(function_statement);
+    let function = compile_function(parent_block, function_statement, Some(binding.clone()))?;
+    parent_block.borrow_mut().functions.insert(binding, function);
+    Ok(())
+}
+
+fn compile_function(parent_block: &FunctionBlockRef, function_statement: &AstFunctionStatement,
+                    binding: Option<String>) -> CompileResult<FunctionRef>
+{
     // Keep versions already visible at this definition. The submission scope
     // remains a fallback for forward declarations and is frozen at publication.
     let captured = Rc::new(RefCell::new(FunctionBlock
@@ -1049,7 +1073,7 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
         {
             scope: parent_block.borrow().scope.clone(),
             parent: Some(captured.clone()),
-            function_name: Some(binding.clone()),
+            function_name: binding.clone(),
             declared_functions: Default::default(),
             builtins: parent_block.borrow().builtins.clone(),
             functions: HashMap::new()
@@ -1096,10 +1120,9 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
             code: instructions,
         });
 
-    captured.borrow_mut().functions.insert(binding.clone(), new_function.clone());
-    parent_block.borrow_mut().functions.insert(binding, new_function);
-
-    Ok(())
+    if let Some(binding) = binding
+    { captured.borrow_mut().functions.insert(binding, new_function.clone()); }
+    Ok(new_function)
 }
 
 
@@ -1154,7 +1177,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
 
                     Code::PopResult | Code::Execute | Code::TryExecute
                     | Code::RedirectSource
-                    | Code::ExecuteIfExecutable | Code::MakeExecutable
+                    | Code::ExecuteIfExecutable | Code::MakeExecutable | Code::MakeClosure
                     | Code::ToBoolean | Code::ConvertType | Code::BooleanNot | Code::MathNegate
                     | Code::NextIteration | Code::MatchPattern | Code::MatchFail => false,
 

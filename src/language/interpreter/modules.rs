@@ -75,7 +75,8 @@ impl Interpreter
 
     pub(super) fn variable_binding(&self, name: &str) -> Option<Rc<RefCell<ScopedValue>>>
     {
-        if !name.contains("::") { return self.scope().variables.binding(name); }
+        if let Some(binding) = self.scope().variables.binding(name) { return Some(binding); }
+        if !name.contains("::") { return None; }
         let (namespace, member) = name.strip_prefix('$')?.rsplit_once("::")?;
         let qualified = format!("{}::${}", namespace, member);
         let (scope, name) = self.module_member(&qualified)?;
@@ -84,7 +85,7 @@ impl Interpreter
 
     pub(super) fn variable_reference(&self, name: &str) -> Option<ValueReference>
     {
-        if !name.contains("::") { return self.scope().variables.reference(name); }
+        if let Some(reference) = self.scope().variables.reference(name) { return Some(reference); }
         let root = self.variable_binding(name)?;
         if let Some(reference) = &root.borrow().reference { return Some(reference.clone()); }
         Some(ValueReference

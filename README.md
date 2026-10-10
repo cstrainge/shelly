@@ -998,6 +998,61 @@ let $sources = src/language/*.rs
 echo $sources...
 ```
 
+## Anonymous functions and closures
+
+`fn ($parameter: Type): ReturnType { ... }` creates a function value. Pass it
+directly as an argument, store it in a variable or collection, or return it from
+another function:
+
+```text
+fn foo($func: fn(Integer): String)
+{
+    echo ($func 7)
+}
+
+foo fn ($x: Integer): String
+    {
+        "This is a string with an integer ${x}!"
+    }
+```
+
+Creating or copying an anonymous function does not run its body. Call a stored
+function with `$func arguments`, or `($func)` for a zero-argument call used as
+an expression. Anonymous functions use the same parameter, return, optional,
+and variadic rules as named functions. Their annotations can be omitted; an
+unannotated function definition has unrestricted parameters and returns, whereas
+a function **prototype** with an omitted return type requires `()`.
+
+Closures capture live variable bindings where they are created. Captured locals
+remain available after the outer function returns, and writes remain visible to
+other closures sharing those bindings:
+
+```text
+fn counter($n: Integer): fn(): Integer
+{
+    fn (): Integer
+        {
+            $n = $n + 1
+            $n
+        }
+}
+
+let $next = counter 0
+echo ($next) ($next)             # 1 2
+```
+
+Each call has its own parameters and local declarations. Caller-local variables
+do not replace captured bindings. Assignment updates a binding; a new `let`
+declaration shadows it without changing an existing closure's capture. Closures
+also preserve a captured method's live `$self` receiver, their defining module,
+and the function versions visible when their code was compiled.
+
+Anonymous functions satisfy compatible function prototypes, including named
+prototype types, with the usual argument and return checks. Each evaluation of a
+function literal creates a distinct callable identity; copying it preserves that
+identity. Function values can be hash keys and are distinct from their display
+text, `<anonymous>`.
+
 ## Functions, calls, and return values
 
 Functions have named parameters and local variable scopes. Call them like

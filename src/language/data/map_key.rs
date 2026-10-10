@@ -2,7 +2,8 @@
 use std::{ rc::Rc, cmp::Ordering, hash::{ Hash, Hasher } };
 
 use crate::{ runtime::process::Terminal,
-             language::data::{ callable::CallableValue, value::{ ExecResult, Value },
+             language::data::{ closure::ClosureValue, callable::CallableValue,
+                               value::{ ExecResult, Value },
                                range::Range,
                                types::{ EnumValue, StructValue, NamedValue } } };
 
@@ -18,6 +19,7 @@ pub enum MapKey
     Struct(Rc<StructKey>),
     Named(Rc<NamedKey>),
     Callable(Rc<CallableValue>),
+    Closure(Rc<ClosureValue>),
     ExecResult(u8),
     Signaled,
     Integer(i64),
@@ -37,6 +39,7 @@ impl MapKey
     {
         match value
         {
+            Value::Closure(value) => Self::Closure(value.clone()),
             Value::Callable(value) => Self::Callable(value.clone()),
             Value::Named(value) => Self::Named(Rc::new(NamedKey
                 { value: value.clone(), contents: Self::from_value(&value.value) })),
@@ -94,6 +97,7 @@ impl MapKey
     {
         match self
         {
+            Self::Closure(value) => Value::Closure(value.clone()),
             Self::Callable(value) => Value::Callable(value.clone()),
             Self::Named(key) => Value::Named(key.value.clone()),
             Self::None => Value::None,

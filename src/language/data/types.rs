@@ -284,6 +284,16 @@ impl TypeRegistry
     {
         match value
         {
+            Value::Closure(item) =>
+                {
+                    let function = &item.function;
+                    let any = self.builtin_id("any").unwrap();
+                    if function.variadic || function.minimum_arguments != function.arguments.len()
+                    { return any; }
+                    self.intern(TypeKind::Function(function.argument_types.iter()
+                        .map(|id| id.unwrap_or(any)).collect(),
+                        function.return_type.unwrap_or(any)))
+                },
             Value::Callable(item) => item.prototype.id,
             Value::Named(item) => item.definition.id,
             Value::Enum(item) => item.definition.id,

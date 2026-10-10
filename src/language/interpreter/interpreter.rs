@@ -24,10 +24,11 @@ use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
                          compiler::CompileError,
                          native::{ NativeFunction, NativeFunctions, NativeVisibility },
                          data::{ value::{ ExecResult, Executable, Value },
+                                 closure::ClosureValue,
                                  map_key::MapKey,
                                  methods::{ BoundMethod, MethodDefinition, method_key },
                                  range::Range,
-                                 scoped_variables::{ ScopedValue, ValueReference,
+                                 scoped_variables::{ ScopedValue, ScopedVariables, ValueReference,
                                                      ValueVisibility },
                                  types::{ StructValue, TypeId, TypeKind, TypeRegistry } },
                          parser::{ ParserError, parse_text },
@@ -755,6 +756,24 @@ impl Interpreter
                         {
                             self.last_result = Some(Value::from_string(executable));
                         }
+                    },
+
+                Code::MakeClosure =>
+                    {
+                        let Some(Value::Array(parts)) = &instruction.operand
+                            else { unreachable!(); };
+                        let Value::String(_, Executable::Function(function)) = &parts[0]
+                            else { unreachable!(); };
+                        let Value::Array(names) = &parts[1] else { unreachable!(); };
+                        let mut captures = ScopedVariables::empty();
+                        for name in names.iter()
+                        {
+                            let Value::String(name, _) = name else { unreachable!(); };
+                            if let Some(binding) = self.variable_binding(name)
+                            { captures.import(name.clone(), binding); }
+                        }
+                        self.last_result = Some(Value::Closure(Rc::new(ClosureValue::new(
+                            function.clone(), captures))));
                     },
 
                 Code::MakeExecutable =>
@@ -2291,6 +2310,21 @@ impl Interpreter
     {
         if let Value::Named(item) = &value && item.value.is_callable()
         { return self.execute_value(location, item.value.clone(), args); }
+        if let Value::Closure(closure) = &value
+        {
+            let home = closure.function.functions.borrow().scope.clone();
+            let Some(scope) = self.scopes.get_mut(&home) else
+            {
+                return Err(InterpreterError { location: location.clone(),
+                    what: ErrorWhat::ModuleError("The defining module failed to load".into()) });
+            };
+            let mut variables = scope.variables.global_bindings();
+            variables.overlay(&closure.captures);
+            let previous = replace(&mut scope.variables, variables);
+            let result = self.execute_function(location, "<anonymous>", &closure.function, &args);
+            self.scopes.get_mut(&home).unwrap().variables = previous;
+            return result;
+        }
         if let Value::Callable(callable) = &value
         {
             let TypeKind::Function(parameters, result) = &callable.prototype.kind

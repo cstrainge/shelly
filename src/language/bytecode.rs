@@ -19,6 +19,8 @@ pub enum Code
     // discarded.
     ExecuteIfExecutable,
     MakeExecutable,
+    // Operand: [compiled function template, names of free bindings to capture].
+    MakeClosure,
     ExitFunction,
     NewVariable,
     // Widen and validate the stack top without consuming it, before replacing a binding.

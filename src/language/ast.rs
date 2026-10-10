@@ -76,7 +76,8 @@ pub enum AstExpressionKind
     MathNegate(Box<AstExpression>),
     TypeConversion(String, Box<AstExpression>, Option<TypeId>),
     IfExpression(Box<AstIfExpression>),
-    MatchExpression(Box<AstMatchExpression>)
+    MatchExpression(Box<AstMatchExpression>),
+    AnonymousFunction(Box<AstFunctionStatement>)
 }
 
 
@@ -167,6 +168,7 @@ impl AstExpression
             AstExpressionKind::VariableSplat(variable) => Ok(variable.name.clone()),
             AstExpressionKind::Literal(literal) => Ok(literal.value.as_text()),
             AstExpressionKind::Grouped(_)
+            | AstExpressionKind::AnonymousFunction(_)
             | AstExpressionKind::Array(_)
             | AstExpressionKind::HashMap(_)
             | AstExpressionKind::Range(_, _, _)
@@ -340,27 +342,6 @@ pub fn new_ast_execute_statement(location: Location,
             executable,
             expand_path,
             arguments,
-        })))
-}
-
-
-pub fn new_ast_function_statement(location: Location,
-                                  name: String,
-                                  parameters: Vec<AstParameter>,
-                                  return_annotation: Option<AstType>,
-                                  body: Vec<AstStatement>) -> Option<AstStatement>
-{
-    Some(AstStatement::FunctionDefinition(Box::new(AstFunctionStatement
-        {
-            location,
-            name,
-            condition: None,
-            receiver: None,
-            receiver_type: None,
-            parameters,
-            return_annotation,
-            return_type: None,
-            body,
         })))
 }
 

@@ -24,6 +24,7 @@ impl CallableValue
         {
             Value::Callable(value) =>
                 { identity.push(0); identity.extend(value.identity()); },
+            Value::Closure(value) => identity.extend([4, Rc::as_ptr(value) as usize]),
             Value::String(_, Executable::Function(value)) =>
                 identity.extend([1, Rc::as_ptr(value) as usize]),
             Value::String(_, Executable::Native(value)) =>
@@ -112,6 +113,7 @@ impl TypeRegistry
                     { return Err(mismatch()); }
                     check_result(*returned)
                 },
+            Value::Closure(value) => self.check_function(parameters, result, &value.function, 0),
             Value::String(_, Executable::Function(function)) =>
                 self.check_function(parameters, result, function, 0),
             Value::String(_, Executable::Native(_)) => Ok(()),

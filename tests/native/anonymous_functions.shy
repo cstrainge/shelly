@@ -1,0 +1,123 @@
+# Anonymous function values, prototypes, and live lexical captures.
+let $failed = 0
+fn closure_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "${fixture}/std", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $stdout) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; $failed = $failed + 1 }
+}
+let $fixture = $args[0]
+printf "%s" "type F = fn(): Integer; let \$n: Integer = 1; fn make(): F { fn (): Integer { \$n = \$n + 1; \$n } }; let \$callback: F = make" -> "${fixture}/closures.shy"
+printf "%s" "import closures::{ F, \$callback }; visible --export \"F\"" -> "${fixture}/closure_bridge.shy"
+closure_case "fn foo(\$func: fn(Integer): String) { echo (\$func 7) }; foo fn (\$x: Integer): String\n    {\n        \"This is a string with an integer \${x}!\"\n    }" "This is a string with an integer 7!\n" ""
+closure_case "let \$f = fn (\$x: Integer): Integer { \$x + 1 }; echo (\$f 2)" "3\n" ""
+closure_case "let \$f = fn () { 42 }; let \$copy = \$f; echo (\$copy) (\$f == \$copy)" "42 true\n" ""
+closure_case "let \$f = fn (): () {}; echo (\$f)" "()\n" ""
+closure_case "let \$f: fn() = fn () { () }; echo (\$f)" "()\n" ""
+closure_case "let \$f = fn (\$x) { \$x }; echo (\$f true) (\$f \"ok\")" "true ok\n" ""
+closure_case "let \$f = fn (\$args...): any { \$args[0] }; let \$i: fn(Integer): Integer = \$f; let \$s: fn(String): String = \$f; echo (\$i 7) (\$s \"ok\")" "7 ok\n" ""
+closure_case "let \$f = fn (\$x: Integer...): Integer { \$x.count }; echo (\$f) (\$f 1 2 3)" "0 3\n" ""
+closure_case "let \$f = fn (\$x: optional Integer): any { \$x }; echo (\$f) (\$f 3)" "() 3\n" ""
+closure_case "let \$f: fn() = fn (\$x: optional Integer): any { () }; echo (\$f)" "()\n" ""
+closure_case "let \$f: fn(Integer): Float = fn (\$x: Float): Float { \$x }; echo (\$f 7)" "7.0\n" ""
+closure_case "type F = fn(Integer): String; let \$f: F = fn (\$x: Integer): String { String(\$x) }; echo (\$f 8)" "8\n" ""
+closure_case "type F = fn(Integer): Integer; type G = F; let \$f: G = fn (\$x: Integer): Integer { \$x }; echo (\$f 9)" "9\n" ""
+closure_case "fn make(\$x: Integer): fn(): Integer { fn (): Integer { \$x } }; let \$f = make 8; echo (\$f)" "8\n" ""
+closure_case "fn make(\$x: Integer) { fn (): Integer { \$x = \$x + 1; \$x } }; let \$f = make 8; echo (\$f) (\$f)" "9 10\n" ""
+closure_case "fn make(\$x) { let \$local = \$x; fn () { \$local = \$local + 1; \$local } }; let \$a = make 0; let \$b = make 10; echo (\$a) (\$b) (\$a) (\$b)" "1 11 2 12\n" ""
+closure_case "fn make(\$x) { [fn () { \$x = \$x + 1; \$x }, fn () { \$x }] }; let \$pair = make 0; echo (\$pair[0]) (\$pair[1]) (\$pair[0]) (\$pair[1])" "1 1 2 2\n" ""
+closure_case "let \$x = 1; let \$f = fn () { \$x }; \$x = 7; echo (\$f)" "7\n" ""
+closure_case "let \$x = 1; let \$f = fn () { \$x }; let \$x = 2; echo (\$f) \$x" "1 2\n" ""
+closure_case "let \$x = 1; let \$f = fn () { \$x = \$x + 1; \$x }; fn caller(\$x, \$f) { \$f }; echo (caller 99 \$f) \$x" "2 2\n" ""
+closure_case "let \$x = 3; let \$f = fn (\$x) { \$x = \$x + 1; \$x }; echo (\$f 4) \$x" "5 3\n" ""
+closure_case "let \$x = 3; let \$f = fn () { let \$x = 4; \$x = \$x + 1; \$x }; echo (\$f) (\$f) \$x" "5 5 3\n" ""
+closure_case "fn make(\$x) { fn () { fn () { \$x = \$x + 1; \$x } } }; let \$outer = make 0; let \$a = (\$outer); let \$b = (\$outer); echo (\$a) (\$b) (\$a)" "1 2 3\n" ""
+closure_case "fn make(\$x) { fn () { fn helper() { \$x = \$x + 1; \$x }; helper } }; let \$f = make 4; echo (\$f) (\$f)" "5 6\n" ""
+closure_case "fn make(\$x) { fn () { \"value=\${x}!\" } }; let \$f = make 4; echo (\$f)" "value=4!\n" ""
+closure_case "fn make(\$x) { fn () { \"value=\$x!\" } }; let \$f = make 5; echo (\$f)" "value=5!\n" ""
+closure_case "fn make(\$x) { fn () { echo prefix-\${x} } }; let \$f = make 6; let _ = (\$f)" "prefix-6\n" ""
+closure_case "fn make(\$x) { fn () { echo \"\\\$x\" } }; let \$f = make 7; let _ = (\$f)" "\$x\n" ""
+closure_case "fn make(\$x) { fn () { echo '\$x' } }; let \$f = make 7; let _ = (\$f)" "\$x\n" ""
+closure_case "fn make(\$café) { fn () { \"\${café}\" } }; let \$f = make 8; echo (\$f)" "8\n" ""
+closure_case "fn make(\$items) { fn () { echo \$items... } }; let \$f = make [1,2,3]; let _ = (\$f)" "1 2 3\n" ""
+closure_case "fn make(\$items) { fn () { \$items[0] = \$items[0] + 1; \$items[0] } }; let \$f = make [1]; echo (\$f) (\$f)" "2 3\n" ""
+closure_case "fn make(\$map) { fn () { \$map[\"x\"] = \$map[\"x\"] + 1; \$map[\"x\"] } }; let \$f = make [\"x\":1]; echo (\$f) (\$f)" "2 3\n" ""
+closure_case "struct Counter { n: Integer }; fn Counter::callback(): fn(): Integer { fn (): Integer { \$self.n = \$self.n + 1; \$self.n } }; let \$c = Counter(n: 1); let \$f = \$c.callback; echo (\$f) \$c.n; \$c = Counter(n: 10); echo (\$f) \$c.n" "2 2\n11 11\n" ""
+closure_case "fn Integer::callback(): fn(): Integer { fn (): Integer { \$self = \$self + 1; \$self } }; let \$n = 1; let \$f = \$n.callback; echo (\$f) \$n" "2 2\n" ""
+closure_case "let \$f = fn (): Integer { return 7; echo unreachable }; echo (\$f)" "7\n" ""
+closure_case "let \$f = fn (\$x: Integer): String { if \$x == 1 { \"positive\" } else { \"other\" } }; echo (\$f 1) (\$f 0)" "positive other\n" ""
+closure_case "let \$f = fn (\$x): String { match \$x { 0 => { \"zero\" } _ => { \"other\" } } }; echo (\$f 0) (\$f 1)" "zero other\n" ""
+closure_case "let \$values = [fn (\$x: Integer): Integer { \$x + 1 }, fn (\$x: Integer): Integer { \$x + 2 }]; echo (\$values[0] 3) (\$values[1] 3)" "4 5\n" ""
+closure_case "let \$values: [fn(Integer): Integer] = [fn (\$x: Integer): Integer { \$x + 1 }]; echo (\$values[0] 3)" "4\n" ""
+closure_case "let \$values: [String: fn(Integer): Integer] = [\"f\": fn (\$x: Integer): Integer { \$x + 1 }]; echo (\$values[\"f\"] 3)" "4\n" ""
+closure_case "struct Holder { callback: fn(Integer): Integer }; let \$h = Holder(callback: fn (\$x: Integer): Integer { \$x + 1 }); echo (\$h.callback 3)" "4\n" ""
+closure_case "fn apply(\$f: fn(Integer): Integer): Integer { \$f 4 }; echo (apply fn (\$x: Integer): Integer { \$x + 2 })" "6\n" ""
+closure_case "let \$f = if true { fn () { \"yes\" } } else { fn () { \"no\" } }; echo (\$f)" "yes\n" ""
+closure_case "let \$f = match 1 { 1 => { fn () { \"yes\" } } _ => { fn () { \"no\" } } }; echo (\$f)" "yes\n" ""
+closure_case "fn make() { fn (): Integer { 7 } }; let \$a = make; let \$b = make; let \$copy = \$a; echo (\$a == \$b) (\$a == \$copy); let \$h = [\$a: \"saved\"]; echo \$h[\$copy]" "false true\nsaved\n" ""
+closure_case "let \$a = fn (): Integer { 7 }; let \$b = fn (): Integer { 7 }; echo (\$a == \$b) (\$a == \"<anonymous>\") Boolean(\$a)" "false false true\n" ""
+closure_case "let \$a = fn (): Integer { 7 }; let \$f: fn(): Integer = \$a; let \$same: fn(): Integer = \$a; echo (\$f == \$same); let \$h = [\$f: \"saved\"]; echo \$h[\$same]" "true\nsaved\n" ""
+closure_case "let \$x = 1; let \$f = fn () { while \$x != 3 { \$x = \$x + 1 }; \$x }; echo (\$f)" "3\n" ""
+closure_case "let \$x = 3; let \$f = fn () { let \$sum = 0; for \$n in 0..\$x { \$sum = \$sum + \$n }; \$sum }; echo (\$f)" "3\n" ""
+closure_case "fn make() { let \$fs = []; for \$n in 1..4 { \$fs = [\$fs..., fn () { \$n }] }; \$fs }; let \$fs = make; echo (\$fs[0]) (\$fs[1]) (\$fs[2])" "1 2 3\n" ""
+closure_case "let \$f = fn () { type Count = Integer; let \$n: Count = 3; Integer(\$n) }; echo (\$f)" "3\n" ""
+closure_case "let \$x = 7; let \$f = fn () { let _ = \$x; () }; echo (\$f)" "()\n" ""
+closure_case "let \$x = 7; let \$f = fn () { return }; echo (\$f)" "()\n" ""
+closure_case "let \$f = fn (\$x, \$x) { \$x }" "" "Duplicate function parameter"
+closure_case "let \$f = fn (\$x: Missing) { \$x }" "" "Unknown type"
+closure_case "let \$f = fn (): Missing { () }" "" "Unknown type"
+closure_case "let \$f = fn (\$x: optional Integer, \$y: Integer) { () }" "" "Required parameters cannot follow optional"
+closure_case "let \$f = fn (\$x..., \$y) { () }" "" "variadic"
+closure_case "let \$f = fn (\$x)" "" "expected token"
+closure_case "let \$f = fn (): Integer {}" "" "Expected Integer"
+closure_case "let \$f = fn (): Integer { \"bad\" }" "" "Expected Integer"
+closure_case "let \$f = fn (): Integer { return \"bad\" }" "" "Expected Integer"
+closure_case "let \$f = fn (\$x: String): String { \$x }; \$f 1" "" "Expected String"
+closure_case "let \$f = fn (\$x: Integer): Integer { \$x }; \$f" "" "expected 1 arguments"
+closure_case "let \$f = fn (): Integer { 1 }; \$f 1" "" "expected 0 arguments"
+closure_case "let \$f: fn(Integer): String = fn (\$x: String): String { \$x }" "" "Expected fn"
+closure_case "let \$f: fn(Float): Integer = fn (\$x: Integer): Integer { \$x }" "" "Expected fn"
+closure_case "let \$f: fn(Integer): Integer = fn (\$a, \$b): any { \$a }" "" "Expected fn"
+closure_case "let \$f: fn() = fn (): Integer { 1 }" "" "Expected fn"
+closure_case "let \$f: fn(): Integer = fn (): any { \"bad\" }; \$f" "" "Return value: Expected Integer"
+closure_case "let \$f: fn(Integer): Integer = fn (\$x): any { \$x }; \$f \"bad\"" "" "Expected Integer"
+closure_case "let \$f = fn () { \$missing }; \$f" "" "not found"
+closure_case "let \$f = fn () { break }; \$f" "" "outside a loop"
+closure_case "let \$f = fn () { continue }; \$f" "" "outside a loop"
+closure_case "loop { let \$f = fn () { break }; \$f; break }" "" "outside a loop"
+closure_case "let \$f = fn () { 1 }; echo (\$f + 1)" "" "arithmetic"
+closure_case "let \$f = fn () { 1 }; echo (\$f % 1)" "" "arithmetic"
+closure_case "let \$f = fn (\$x: Integer) { \$x = \"bad\" }; \$f 1" "" "Expected Integer"
+closure_case "let \$x: Integer = 1; let \$f = fn () { \$x = \"bad\" }; \$f" "" "Expected Integer"
+closure_case "let \$f: fn(): String = fn (\$args...): any { 7 }; \$f" "" "Return value: Expected String"
+closure_case "let \$f = fn () { 1 }; return \$f" "" "outside"
+closure_case "let \$items = [fn (\$x: Integer): Integer { \$x + 1 }]; for \$f in \$items { echo (\$f 2) }" "3\n" ""
+closure_case "let \$items = [\"f\": fn (\$x: Integer): Integer { \$x + 1 }]; for (\$key, \$f) in \$items { echo \$key (\$f 2) }" "f 3\n" ""
+closure_case "let \$f = fn (): Integer { 7 }; let \$optional: (fn(): Integer) | () = \$f; echo (\$optional)" "7\n" ""
+closure_case "let \$f = fn (): Integer { 7 }; let \$a: (fn(): Integer) | String = \$f; echo (\$a)" "7\n" ""
+closure_case "fn apply(\$f: fn(Integer): Float) { \$f 7 }; echo (apply fn (\$x: Integer): Integer { \$x })" "7.0\n" ""
+closure_case "fn factory(\$x) { fn () { fn inner() { fn () { \$x } }; inner } }; let \$outer = factory 7; let \$inner = (\$outer); echo (\$inner)" "7\n" ""
+closure_case "fn make(\$x) { fn () { if true { let \$local = \$x; fn () { \$local } } } }; let \$a = make 7; let \$b = (\$a); echo (\$b)" "7\n" ""
+closure_case "fn make(\$x) { fn () { let \$f = fn () { \$x }; \$f } }; let \$a = make 7; let \$b = (\$a); echo (\$b)" "7\n" ""
+closure_case "let \$f = fn () { import missing }" "" "Imports are only allowed"
+closure_case "let \$f = fn (): Integer { let \$x = 7 }; \$f" "" "Expected Integer"
+closure_case "let \$f = fn (): Integer { return }" "" "Expected Integer"
+closure_case "fn factory() { fn () { \$x } }; let \$f = factory; fn caller(\$x, \$f) { \$f }; caller 7 \$f" "" "not found"
+closure_case "import closures; let \$f = closures::make; echo (\$f) \$closures::n (closures::make)" "2 2 <anonymous>\n" ""
+closure_case "import closures::{ F, \$callback, \$n }; echo (\$callback) \$n; \$n = 10; echo (\$callback)" "2 2\n11\n" ""
+closure_case "import closures; import closure_bridge; let \$f: closure_bridge::F = \$closure_bridge::callback; echo (\$f)" "2\n" ""
+closure_case "import closures; let \$f = fn () { \$closures::n = \$closures::n + 1; \$closures::n }; echo (\$f) \$closures::n" "2 2\n" ""
+if $failed != 0 { fail "anonymous function mismatches" }

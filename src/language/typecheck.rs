@@ -229,57 +229,7 @@ fn check_scope(
                 },
             AstStatement::FunctionDefinition(statement) =>
                 {
-                    let mut optional_seen = false;
-                    for parameter in &mut statement.parameters
-                    {
-                        if let Some(annotation) = &parameter.annotation
-                        {
-                            let id = resolve_type(registry, annotation, &names,
-                                                  &parameter.location)?;
-                            parameter.type_id = Some(id);
-                            let definition = registry.get(id);
-                            parameter.optional = matches!(definition.kind, TypeKind::Optional(_));
-                            if    parameter.variadic
-                               && !matches!(definition.kind, TypeKind::Array(_))
-                               && !(matches!(definition.kind, TypeKind::Builtin)
-                                    && matches!(definition.name.as_str(), "Array" | "any"))
-                            {
-                                return Err(error(
-                                    &parameter.location,
-                                    "A variadic parameter requires an array type or any"
-                                        .to_string(),
-                                ));
-                            }
-                        }
-                        if optional_seen && !parameter.optional && !parameter.variadic
-                        {
-                            return Err(error(
-                                &parameter.location,
-                                "Required parameters cannot follow optional parameters".to_string(),
-                            ));
-                        }
-                        optional_seen |= parameter.optional;
-                    }
-                    if let Some(annotation) = &statement.return_annotation
-                    {
-                        statement.return_type = Some(resolve_type(
-                            registry,
-                            annotation,
-                            &names,
-                            &statement.location,
-                        )?);
-                    }
-                    if statement.receiver.is_some() && statement.name == "next_item"
-                    {
-                        if statement.parameters.len() != 1
-                        { return Err(error(&statement.location,
-                            "next_item must accept no arguments beyond its receiver".into())); }
-                        if !statement.return_type.is_some_and(|id|
-                            matches!(registry.get(id).kind, TypeKind::Optional(_)))
-                        { return Err(error(&statement.location,
-                            "next_item must declare a return type T | ()".into())); }
-                    }
-                    check_scope(registry, &mut statement.body, &names)?;
+                    check_function(registry, statement, &names)?;
                 },
             AstStatement::BlockStatement(block) | AstStatement::LoopStatement(block) =>
                 {
@@ -298,6 +248,64 @@ fn check_scope(
         }
     }
     Ok(names)
+}
+
+
+fn check_function(registry: &mut TypeRegistry, function: &mut AstFunctionStatement,
+                  names: &Names) -> CompileResult<()>
+{
+    let mut optional_seen = false;
+    for parameter in &mut function.parameters
+    {
+        if let Some(annotation) = &parameter.annotation
+        {
+            let id = resolve_type(registry, annotation, names,
+                                  &parameter.location)?;
+            parameter.type_id = Some(id);
+            let definition = registry.get(id);
+            parameter.optional = matches!(definition.kind, TypeKind::Optional(_));
+            if    parameter.variadic
+               && !matches!(definition.kind, TypeKind::Array(_))
+               && !(matches!(definition.kind, TypeKind::Builtin)
+                    && matches!(definition.name.as_str(), "Array" | "any"))
+            {
+                return Err(error(
+                    &parameter.location,
+                    "A variadic parameter requires an array type or any"
+                        .to_string(),
+                ));
+            }
+        }
+        if optional_seen && !parameter.optional && !parameter.variadic
+        {
+            return Err(error(
+                &parameter.location,
+                "Required parameters cannot follow optional parameters".to_string(),
+            ));
+        }
+        optional_seen |= parameter.optional;
+    }
+    if let Some(annotation) = &function.return_annotation
+    {
+        function.return_type = Some(resolve_type(
+            registry,
+            annotation,
+            names,
+            &function.location,
+        )?);
+    }
+    if function.receiver.is_some() && function.name == "next_item"
+    {
+        if function.parameters.len() != 1
+        { return Err(error(&function.location,
+            "next_item must accept no arguments beyond its receiver".into())); }
+        if !function.return_type.is_some_and(|id|
+            matches!(registry.get(id).kind, TypeKind::Optional(_)))
+        { return Err(error(&function.location,
+            "next_item must declare a return type T | ()".into())); }
+    }
+    check_scope(registry, &mut function.body, names)?;
+    Ok(())
 }
 
 
@@ -386,6 +394,8 @@ fn check_expression(
     }
     match &mut expression.kind
     {
+        AstExpressionKind::AnonymousFunction(function) =>
+            check_function(registry, function, names)?,
         AstExpressionKind::TypeConversion(name, value, type_id) =>
             {
                 let id = *names.get(name).ok_or_else(|| error(&expression.location,
@@ -647,10 +657,20 @@ fn resolve_type(
     Ok(registry.intern(kind))
 }
 
+fn anonymous_type(registry: &TypeRegistry, function: &AstFunctionStatement) -> Option<TypeId>
+{
+    if function.parameters.iter().any(|item| item.optional || item.variadic) { return None; }
+    let any = registry.builtin_id("any").unwrap();
+    Some(registry.intern(TypeKind::Function(function.parameters.iter()
+        .map(|item| item.type_id.unwrap_or(any)).collect(), function.return_type.unwrap_or(any))))
+}
+
+
 fn known_type(registry: &TypeRegistry, expression: &AstExpression) -> Option<TypeId>
 {
     match &expression.kind
     {
+        AstExpressionKind::AnonymousFunction(function) => anonymous_type(registry, function),
         AstExpressionKind::Array(_) => registry.builtin_id("Array"),
         AstExpressionKind::HashMap(_) => registry.builtin_id("HashMap"),
         AstExpressionKind::Symbol(symbol) if symbol.is_glob() =>
@@ -772,8 +792,9 @@ fn check_known_value(
 }
 
 
-// Binding constraints follow lexical declarations within a body. Functions get
-// fresh binding information because free variables use dynamic scope at runtime.
+// Binding constraints follow lexical declarations within a body. Named functions get
+// fresh binding information because their free variables use dynamic scope at runtime.
+// Closures retain capture constraints but discard mutable inferred types.
 // Runtime guards remain authoritative for calls, writes, and all return paths.
 #[derive(Clone, Copy)]
 struct Binding
@@ -1021,6 +1042,23 @@ fn check_binding_expression(
     }
     match &expression.kind
     {
+        AstExpressionKind::AnonymousFunction(function) =>
+            {
+                let mut captured = bindings.clone();
+                forget_inferred(&mut captured);
+                for parameter in &function.parameters
+                {
+                    captured.insert(parameter.name.clone(), Binding::declared(parameter.type_id));
+                }
+                check_binding_scope(registry, &function.body, &captured,
+                                    function.return_type, function.return_type)?;
+                if function.body.iter().all(|item| matches!(item, AstStatement::NullStatement))
+                    && let Some(id) = function.return_type
+                {
+                    registry.validate(id, &Value::None)
+                        .map_err(|message| error(&function.location, message))?;
+                }
+            },
         AstExpressionKind::IfExpression(item) =>
             {
                 for branch in &item.branches

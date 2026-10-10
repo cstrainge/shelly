@@ -101,6 +101,19 @@ impl ScopedVariables
         self.scopes.back_mut().expect("A variable scope must exist").insert(name, binding);
     }
 
+    pub fn global_bindings(&self) -> Self
+    {
+        // A closure's fallback is its module, excluding the invoking function's locals.
+        Self { scopes: VecDeque::from([self.scopes.front().unwrap().clone()]) }
+    }
+
+    pub fn empty() -> Self
+    { Self { scopes: VecDeque::from([HashMap::new()]) } }
+
+    // Both environments keep the original bindings alive and share their writes.
+    pub fn overlay(&mut self, captured: &Self)
+    { self.scopes.push_back(captured.scopes.front().unwrap().clone()); }
+
     pub fn push_scope(&mut self)
     {
         self.scopes.push_back(HashMap::new());
