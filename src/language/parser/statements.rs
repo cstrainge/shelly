@@ -97,6 +97,15 @@ fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     let export_flag = if try_expect_token(buffer, TokenKind::Export)?.is_some()
         { AstExportFlag::Exported } else { AstExportFlag::NonExported };
     let identifier = expect_token(buffer, TokenKind::Identifier)?;
+    if identifier.token_value_text().contains("::")
+    {
+        return Err(ParserError
+            {
+                location: Some(identifier.location),
+                kind: ParserErrorKind::InvalidType(
+                    "Declarations require an unqualified name".into()),
+            });
+    }
     let annotation = if try_expect_token(buffer, TokenKind::TypeDelimiter)?.is_some()
         { Some(parse_type(buffer)?) } else { None };
     let initialized = try_expect_token(buffer, TokenKind::Assign)?.is_some();
@@ -319,7 +328,17 @@ fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
     expect_token(buffer, TokenKind::Function)?;
     let name = expect_token(buffer, TokenKind::Symbol)?;
     let (receiver, name) = if try_expect_token(buffer, TokenKind::Scope)?.is_some()
-        { (Some(name.token_value_text()), expect_field_label(buffer)?) }
+        {
+            let mut receiver = name.token_value_text();
+            let mut member = expect_field_label(buffer)?;
+            while try_expect_token(buffer, TokenKind::Scope)?.is_some()
+            {
+                receiver.push_str("::");
+                receiver.push_str(&member.token_value_text());
+                member = expect_field_label(buffer)?;
+            }
+            (Some(receiver), member)
+        }
         else { (None, name) };
     expect_token(buffer, TokenKind::ParenOpen)?;
     let mut parameters = Vec::new();
@@ -423,7 +442,7 @@ fn parse_block(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<AstBlockStatemen
                                     &(parse_statement as fn(&mut TokenBuffer<'_, '_>)
                                       -> ParseResult<Option<AstStatement>>))?;
 
-    Ok(AstBlockStatement { location, body })
+    Ok(AstBlockStatement { location, body, condition: None })
 }
 
 
@@ -688,6 +707,103 @@ fn parse_enum_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
 }
 
 
+fn parse_import_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
+{
+    let keyword = expect_token(buffer, TokenKind::Import)?;
+    let mut module = expect_type_name(buffer)?.token_value_text();
+    if module == "std"
+    {
+        expect_token(buffer, TokenKind::Scope)?;
+        module.push_str("::");
+        module.push_str(&expect_type_name(buffer)?.token_value_text());
+    }
+    let mut names = Vec::new();
+    if try_expect_token(buffer, TokenKind::Scope)?.is_some()
+    {
+        expect_token(buffer, TokenKind::BlockOpen)?;
+        loop
+        {
+            while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+            if try_expect_token(buffer, TokenKind::BlockClose)?.is_some() { break; }
+            let name = if let Some(token) = try_expect_token(buffer, TokenKind::Identifier)?
+                { token } else { expect_type_name(buffer)? };
+            let text = name.token_value_text();
+            if names.contains(&text)
+            {
+                return Err(ParserError { location: Some(name.location),
+                    kind: ParserErrorKind::InvalidImport(format!("Duplicate import '{}'", text)) });
+            }
+            names.push(text);
+            while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+            if try_expect_token(buffer, TokenKind::BlockClose)?.is_some() { break; }
+            expect_token(buffer, TokenKind::Comma)?;
+        }
+        if names.is_empty()
+        {
+            return Err(ParserError { location: Some(keyword.location),
+                kind: ParserErrorKind::InvalidImport("Import selection cannot be empty".into()) });
+        }
+    }
+    let mut lookahead = Lookahead::new(buffer);
+    let conditional = lookahead.buffer.next()?.is_some_and(|token|
+        token.kind == TokenKind::Symbol && token.token_value_text() == "when");
+    if conditional { lookahead.commit(); }
+    drop(lookahead);
+    let condition = if conditional
+        {
+            Some(parse_condition_expression(buffer)?.ok_or_else(|| ParserError
+                {
+                    location: Some(keyword.location.clone()),
+                    kind: ParserErrorKind::ExpectedExpression,
+                })?)
+        }
+        else { None };
+    expect_statement_end(buffer)?;
+    Ok(Some(AstStatement::ImportStatement(Box::new(AstImportStatement
+        { location: keyword.location, module, names, condition, enabled: true }))))
+}
+
+
+fn parse_exclusion(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
+{
+    let mut lookahead = Lookahead::new(buffer);
+    expect_token(lookahead.buffer, TokenKind::SquareOpen)?;
+    let Some(keyword) = lookahead.buffer.next()? else { return Ok(None); };
+    if keyword.kind != TokenKind::Symbol || keyword.token_value_text() != "when"
+    { return Ok(None); }
+    // Once [when is recognized, preserve errors instead of retrying it as an array.
+    lookahead.commit();
+    drop(lookahead);
+    let condition = parse_condition_expression(buffer)?.ok_or_else(|| ParserError
+        { location: Some(keyword.location.clone()), kind: ParserErrorKind::ExpectedExpression })?;
+    expect_token(buffer, TokenKind::SquareClose)?;
+    while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+    let kind =
+        {
+            let peek = Lookahead::new(buffer);
+            peek.buffer.next()?.map(|token| token.kind)
+        };
+    let mut statement = match kind
+        {
+            Some(TokenKind::Function) => parse_function_statement(buffer)?.unwrap(),
+            Some(TokenKind::BlockOpen) =>
+                AstStatement::BlockStatement(Box::new(parse_block(buffer)?)),
+            None => return Err(ParserError { location: Some(keyword.location),
+                kind: ParserErrorKind::UnexpectedEOF(TokenKind::Function) }),
+            _ => return Err(ParserError { location: Some(keyword.location),
+                kind: ParserErrorKind::InvalidExclusion(
+                    "[when ...] must precede a function or a declaration block".into()) }),
+        };
+    match &mut statement
+    {
+        AstStatement::FunctionDefinition(function) => function.condition = Some(condition),
+        AstStatement::BlockStatement(block) => block.condition = Some(condition),
+        _ => unreachable!(),
+    }
+    Ok(Some(statement))
+}
+
+
 pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     // EOF is normal between statements. Rewind a real token so the statement rules see it, and
@@ -703,6 +819,12 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     // A function's parameter list can also look like a parenthesized command argument. Once fn
     // starts a declaration, preserve its errors (including incomplete input) instead of falling
     // back to parsing it as a command.
+    if    next_kind == TokenKind::SquareOpen
+       && let Some(statement) = parse_exclusion(buffer)?
+    { return Ok(Some(statement)); }
+
+    if next_kind == TokenKind::Import { return parse_import_statement(buffer); }
+
     if next_kind == TokenKind::Struct { return parse_struct_statement(buffer); }
 
     if next_kind == TokenKind::Enum { return parse_enum_statement(buffer); }

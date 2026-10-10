@@ -1,0 +1,17 @@
+# MODULE-018: module types do not collide
+let $module_fixture = $args[0]
+printf "%s" ("struct S { x: Integer }; enum E { A }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/one.shy"
+printf "%s" ("struct S { x: Integer }; enum E { A }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/two.shy"
+check [
+    "id": "MODULE-018",
+    "name": "module types do not collide",
+    "source": "import one; import two; echo (one::S(x: 1) == two::S(x: 1)) (one::E::A == two::E::A)",
+    "mode": "file",
+    "args": [],
+    "stdout": "false false\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,15 @@
+# MODULE-066: imports inside function rejected
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-066",
+    "name": "imports inside function rejected",
+    "source": "fn f() { import missing }",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["module top level"],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

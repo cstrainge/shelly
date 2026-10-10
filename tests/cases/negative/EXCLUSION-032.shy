@@ -1,0 +1,14 @@
+# EXCLUSION-032: missing annotated declaration
+check [
+    "id": "EXCLUSION-032",
+    "name": "missing annotated declaration",
+    "source": "[when true]",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

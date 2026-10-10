@@ -1,0 +1,14 @@
+# EXCLUSION-047: false function skips nested condition
+check [
+    "id": "EXCLUSION-047",
+    "name": "false function skips nested condition",
+    "source": "[when false] fn gadget() { [when \$missing] fn inner() {} }; echo ok",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

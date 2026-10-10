@@ -1,0 +1,15 @@
+# MODULE-068: duplicate selection
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-068",
+    "name": "duplicate selection",
+    "source": "import foo::{ ping, ping }",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": ["Duplicate import"],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

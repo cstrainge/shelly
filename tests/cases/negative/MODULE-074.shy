@@ -1,0 +1,15 @@
+# MODULE-074: unexpected import suffix
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-074",
+    "name": "unexpected import suffix",
+    "source": "import foo trailing",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

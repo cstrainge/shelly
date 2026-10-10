@@ -1,0 +1,23 @@
+# MODULE-REPL
+let $module_fixture = $args[0]
+printf "%s" "let \$value: Integer = 7; struct Point { x: Integer }; fn ping() { \$value }; fn fail() { let \$value = 99; 1 / 0 }" -> "${module_fixture}/foo.shy"
+check_repl ["id": "MODULE-REPL", "name": "MODULE-REPL",
+    "steps": [
+        ["let \$enabled = false", "quiet", ""],
+        ["let \$enabled = true; import foo when \$enabled; echo \$enabled", "output", "true"],
+        ["foo::ping", "error", "unavailable"],
+        ["import foo::{ ping, \$value, Point } when \$enabled", "quiet", ""],
+        ["echo (ping) \$value foo::Point(x: 2)", "output", "7 7 Point(x: 2)"],
+        ["\$value = 9", "quiet", ""],
+        ["echo \$foo::value (foo::ping)", "output", "9 9"],
+        ["let \$saved = `ping; fn ping() { 80 }", "quiet", ""],
+        ["echo (ping) (\$saved) (foo::ping)", "output", "80 9 9"],
+        ["foo::fail", "error", "Arithmetic error"],
+        ["echo (ping) \$value \$foo::value", "output", "80 9 9"],
+        ["let \$p: Point = foo::Point(x: 3)", "quiet", ""],
+        ["echo (\$p == Point(x: 3))", "output", "true"],
+        ["fn old() { false }", "quiet", ""],
+        ["fn old() { true }; import nonexistent when (old); echo (old)", "output", "true"],
+        ["import foo when false; echo \$foo::value", "output", "9"],
+        ["echo \"\${foo::value}\"", "output", "9"]
+    ], "exit": 0]

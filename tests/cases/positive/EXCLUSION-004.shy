@@ -1,0 +1,14 @@
+# EXCLUSION-004: platform condition
+check [
+    "id": "EXCLUSION-004",
+    "name": "platform condition",
+    "source": "[when \$os == \"linux\"] fn host() { \"linux\" }; [when \$os == \"macos\"] fn host() { \"macos\" }; echo ((host) == \$os)",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

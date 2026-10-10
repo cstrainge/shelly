@@ -1,0 +1,15 @@
+# MODULE-050: same-file type unavailable to condition
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-050",
+    "name": "same-file type unavailable to condition",
+    "source": "enum E { A }; import missing when E::A == E::A",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

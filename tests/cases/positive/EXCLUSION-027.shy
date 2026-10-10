@@ -1,0 +1,14 @@
+# EXCLUSION-027: ordinary arrays still parse
+check [
+    "id": "EXCLUSION-027",
+    "name": "ordinary arrays still parse",
+    "source": "echo ([1, 2].count) [\"when\"]",
+    "mode": "code",
+    "args": [],
+    "stdout": "2 when\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

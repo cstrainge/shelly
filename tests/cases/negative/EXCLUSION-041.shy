@@ -1,0 +1,14 @@
+# EXCLUSION-041: function parameter unavailable at compilation
+check [
+    "id": "EXCLUSION-041",
+    "name": "function parameter unavailable at compilation",
+    "source": "fn gadget(\$enabled) { [when \$enabled] { 1 } }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

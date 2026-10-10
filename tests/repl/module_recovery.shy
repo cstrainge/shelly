@@ -1,0 +1,23 @@
+# MODULE-RECOVERY
+let $module_fixture = $args[0]
+printf "%s" "let \$value = 7; struct Point { x: Integer }; fn ping() { \$value }" -> "${module_fixture}/foo.shy"
+printf "%s" "struct Broken {}; let \$value = 1 / 0" -> "${module_fixture}/bad.shy"
+check_repl ["id": "MODULE-RECOVERY", "name": "MODULE-RECOVERY",
+    "steps": [
+        ["let \$kept = 17; fn kept() { \$kept }", "quiet", ""],
+        ["import foo::{ \$value, missing }", "error", "has no member"],
+        ["echo \$value", "error", "not found"],
+        ["foo::ping", "error", "Unknown type"],
+        ["echo (kept)", "output", "17"],
+        ["import foo::{ \$value, Point }", "quiet", ""],
+        ["let \$p: Point = foo::Point(x: 3)", "quiet", ""],
+        ["import bad", "error", "Arithmetic error"],
+        ["echo \$value \$p (kept)", "output", "7 Point(x: 3) 17"],
+        ["printf \"%s\" \"struct Broken {}; let \\\$value = 8; fn read() { \\\$value }\" -> \"bad.shy\"", "quiet", ""],
+        ["import bad", "quiet", ""],
+        ["echo (bad::read) bad::Broken()", "output", "8 Broken()"],
+        ["import foo; let \$wrong: Integer = \"bad\"", "error", "Type error"],
+        ["echo \$foo::value (\$p == foo::Point(x: 3))", "output", "7 true"],
+        ["import absent when false; import other when absent::ping", "error", "Unknown type"],
+        ["echo (kept) \$value", "output", "17 7"]
+    ], "exit": 0]

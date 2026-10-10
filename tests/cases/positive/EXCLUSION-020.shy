@@ -1,0 +1,14 @@
+# EXCLUSION-020: excluded imports never resolve
+check [
+    "id": "EXCLUSION-020",
+    "name": "excluded imports never resolve",
+    "source": "[when false] { import missing; import other when \$missing }; echo ok",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

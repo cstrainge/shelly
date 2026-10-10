@@ -1,0 +1,21 @@
+# STDLIB-026: prelude types shared by all modules
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/std"
+printf "%s" ("echo \"prelude\"; struct Shared { code: Integer }; enum State { Ready }; fn Shared::twice(): Integer { \$self.code * 2 }; let \$hidden = 7; fn hidden(\$x) { echo \$x }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("fn build(): Shared { Shared(code: 3) }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/one.shy"
+mkdir -p "${std_fixture}/std"
+printf "%s" ("fn build(): Shared { Shared(code: 3) }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/two.shy"
+printf "%s" ("import one; import std::two; let \$a: Shared = one::build; let \$b: Shared = std::two::build; echo (\$a == \$b) \$a.twice".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-026",
+    "name": "prelude types shared by all modules",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "prelude\ntrue 6\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

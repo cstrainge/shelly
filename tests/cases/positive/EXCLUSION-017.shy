@@ -1,0 +1,14 @@
+# EXCLUSION-017: exclusions within conditional expressions
+check [
+    "id": "EXCLUSION-017",
+    "name": "exclusions within conditional expressions",
+    "source": "let \$x = if true { [when true] { let \$y = 5 }; \$y } else { [when false] fn hidden(\$x: Missing) {}; 0 }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

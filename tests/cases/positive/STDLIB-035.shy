@@ -1,0 +1,20 @@
+# STDLIB-035: prelude resolves directly to prelude shy
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/std"
+printf "%s" ("struct Direct {}".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+mkdir -p "${std_fixture}/std/std"
+printf "%s" ("echo wrong".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/std/prelude.shy"
+printf "%s" ("echo Direct()".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-035",
+    "name": "prelude resolves directly to prelude shy",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "Direct()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

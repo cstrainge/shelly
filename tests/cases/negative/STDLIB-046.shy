@@ -1,0 +1,16 @@
+# STDLIB-046: std namespace requires module name
+let $std_fixture = $args[0]
+printf "%s" ("import std::".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-046",
+    "name": "std namespace requires module name",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

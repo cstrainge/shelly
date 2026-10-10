@@ -1,0 +1,14 @@
+# EXCLUSION-013: declaration block preserves implicit result
+check [
+    "id": "EXCLUSION-013",
+    "name": "declaration block preserves implicit result",
+    "source": "fn gadget() { [when true] { 8 } }; echo (gadget)",
+    "mode": "code",
+    "args": [],
+    "stdout": "8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

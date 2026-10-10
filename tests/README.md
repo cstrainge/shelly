@@ -70,6 +70,9 @@ redirection, live exports, terminal identity/lifecycle, UTF-8 boundaries, deadli
 process-group cleanup, and Ctrl+C. `harness/` tests schema/result validation,
 catalog/matrix completeness, miniature suites exercising the actual runner, and Ctrl+C against a frozen suite.
 These tests deliberately run failing children and assert that they fail correctly.
+`repl/prelude_reload*.shy` checks reload identity, scope isolation, cached dependencies,
+and recovery after failed reloads. The native and REPL `prelude_startup.shy` tests
+check explicit profile reloads and availability in later startup scripts.
 
 Every driver receives a fresh copy of `fixtures/`, a separate HOME and TMPDIR,
 and a replacement environment. Child cases get `fixtures/home` as HOME. Fixtures

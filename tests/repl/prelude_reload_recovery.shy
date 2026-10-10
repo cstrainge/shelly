@@ -1,0 +1,31 @@
+let $fixture = $args[0]
+mkdir -p "${fixture}/one" "${fixture}/bad" "${fixture}/parse" "${fixture}/recursive" "${fixture}/conflict" "${fixture}/missing"
+printf "%s" "struct Stable {}; fn label(): String { \"dependency\" }" -> "${fixture}/one/dep.shy"
+printf "%s" "import dep::{ Stable }; echo loaded-one; let \$label = \"one\"; struct Shared { code: Integer }; struct Removed {}; enum State { Ready }; fn Shared::label(): String { \$label }; fn read(): String { \$label }" -> "${fixture}/one/prelude.shy"
+printf "%s" "fn build(): Shared { Shared(code: 10) }; fn label(): String { std::prelude::read }; fn state(): State { State::Ready }" -> "${fixture}/one/helper.shy"
+printf "%s" "fn build(): Shared { Shared(code: 20) }; fn label(): String { std::prelude::read }" -> "${fixture}/local.shy"
+printf "%s" "fn build(): Shared { Shared(code: 30) }; fn label(): String { std::prelude::read }" -> "${fixture}/other.shy"
+printf "%s" "fn reload() { prelude_reload }; fn build(): Shared { Shared(code: 40) }; fn label(): String { std::prelude::read }" -> "${fixture}/caller.shy"
+printf "%s" "fn build(): Added { Added() }" -> "${fixture}/newtype.shy"
+printf "%s" "struct Bad {}; let \$bad = 1 / 0" -> "${fixture}/bad/prelude.shy"
+printf "%s" "let \$" -> "${fixture}/parse/prelude.shy"
+printf "%s" "prelude_reload" -> "${fixture}/recursive/prelude.shy"
+printf "%s" "struct Local {}; struct Shared {}" -> "${fixture}/conflict/prelude.shy"
+check_repl ["id": "PRELUDE-RELOAD", "name": "PRELUDE-RELOAD", "steps": [
+    ["let \$SHELLY_STD_PATH = \"<FIXTURE>/one\"; prelude_reload", "output", "loaded-one"],
+    ["let \$saved = Shared(code: 3); struct Local {}", "quiet", ""],
+    ["prelude_reload unexpected", "error", "expects no arguments"],
+    ["let \$SHELLY_STD_PATH = \"<FIXTURE>/bad\"; prelude_reload", "error", "Arithmetic error"],
+    ["echo \$saved.label (std::prelude::read) (\$saved == Shared(code: 3))", "output", "one one true"],
+    ["echo Bad()", "error", "Unknown type"],
+    ["let \$SHELLY_STD_PATH = \"<FIXTURE>/parse\"; prelude_reload", "error", "Parser error"],
+    ["let \$SHELLY_STD_PATH = \"<FIXTURE>/recursive\"; prelude_reload", "error", "while it is loading"],
+    ["let \$SHELLY_STD_PATH = \"<FIXTURE>/conflict\"; prelude_reload", "error", "conflicts with an existing type"],
+    ["echo Local() Removed() \$saved.label (\$saved == Shared(code: 3))", "output", "Local() Removed() one true"],
+    ["let \$SHELLY_STD_PATH = \"<FIXTURE>/missing\"; prelude_reload", "error", "was not found"],
+    ["let \$SHELLY_STD_PATH = 7; prelude_reload", "error", "must be a String"],
+    ["import local; echo (local::build).label", "output", "one"],
+    ["import std::prelude; echo (std::prelude::read)", "output", "one"],
+    ["let \$SHELLY_STD_PATH = \"<FIXTURE>/one\"; prelude_reload", "output", "loaded-one"],
+    ["echo \$saved.label (\$saved == Shared(code: 3))", "output", "one false"]
+], "exit": 0]

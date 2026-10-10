@@ -1,0 +1,14 @@
+# EXCLUSION-014: empty excluded function result
+check [
+    "id": "EXCLUSION-014",
+    "name": "empty excluded function result",
+    "source": "fn gadget() { [when false] { 8 } }; echo (gadget)",
+    "mode": "code",
+    "args": [],
+    "stdout": "()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

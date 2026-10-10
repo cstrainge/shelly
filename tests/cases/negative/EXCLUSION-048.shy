@@ -1,0 +1,14 @@
+# EXCLUSION-048: nested runtime branch does not suppress condition errors
+check [
+    "id": "EXCLUSION-048",
+    "name": "nested runtime branch does not suppress condition errors",
+    "source": "if false { [when \$missing] fn gadget() {} }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

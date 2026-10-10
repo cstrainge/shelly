@@ -1,0 +1,16 @@
+# MODULE-039: qualified redirection capture
+let $module_fixture = $args[0]
+printf "%s" ("let \$text: String".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+check [
+    "id": "MODULE-039",
+    "name": "qualified redirection capture",
+    "source": "import foo::{ \$text }; echo \"hi\" -> \$foo::text; echo (\$text == \"hi\\n\")",
+    "mode": "file",
+    "args": [],
+    "stdout": "true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

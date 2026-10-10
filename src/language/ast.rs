@@ -274,6 +274,8 @@ pub struct AstParameter
 
 pub struct AstFunctionStatement
 {
+    // Evaluated before registration; excluded functions never reach type checking.
+    pub condition: Option<AstExpression>,
     pub location: Location,
     pub name: String,
     pub receiver: Option<String>,
@@ -350,6 +352,7 @@ pub fn new_ast_function_statement(location: Location,
         {
             location,
             name,
+            condition: None,
             receiver: None,
             receiver_type: None,
             parameters,
@@ -377,6 +380,8 @@ pub fn new_ast_alias_statement(location: Location,
 
 pub struct AstBlockStatement
 {
+    // An annotated block contributes statements to its parent instead of creating a scope.
+    pub condition: Option<AstExpression>,
     pub location: Location,
     pub body: AstTopLevel
 }
@@ -477,8 +482,19 @@ pub struct AstEnumDeclaration
 }
 
 
+pub struct AstImportStatement
+{
+    pub location: Location,
+    pub module: String,
+    pub names: Vec<String>,
+    pub condition: Option<AstExpression>,
+    pub enabled: bool,
+}
+
+
 pub enum AstStatement
 {
+    ImportStatement(Box<AstImportStatement>),
     EnumDeclaration(Box<AstEnumDeclaration>),
     StructDeclaration(Box<AstStructDeclaration>),
     LetStatement(Box<AstLetStatement>),

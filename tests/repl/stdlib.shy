@@ -1,0 +1,39 @@
+let $fixture = $args[0]
+mkdir -p "${fixture}/one" "${fixture}/two"
+printf "%s" "echo \"boot-once\"; struct Shared { code: Integer }; enum State { Ready }; fn Shared::twice(): Integer { \$self.code * 2 }" -> "${fixture}/one/prelude.shy"
+printf "%s" "echo \"must-not-load\"; struct Wrong {}" -> "${fixture}/two/prelude.shy"
+printf "%s" "fn build(): Shared { Shared(code: 4) }" -> "${fixture}/two/net.shy"
+printf "%s" "fn build(): Shared { Shared(code: 5) }" -> "${fixture}/local.shy"
+printf "%s" "fn build(): Shared { Shared(code: 6) }" -> "${fixture}/other.shy"
+let $terminal = open_terminal [`$shelly, "--norc", "-m", "-b"] [
+    "cwd": $fixture, "env": ["HOME": $fixture,
+        "PATH": "${fixture}/bin:/usr/bin:/bin", "TERM": "xterm-256color", "LANG": "C.UTF-8",
+        "SHELLY_STD_PATH": "${fixture}/one"], "rows": 40, "columns": 140]
+let $initial = drain $terminal
+require (!$initial["eof"]) "shell exited during prelude initialization"
+require ($initial["output"].contains "boot-once") "prelude did not run at initialization"
+for ($source, $kind, $expected) in [
+    ["let \$saved: Shared = Shared(code: 3); echo \$saved.twice", "output", "6"],
+    ["let \$SHELLY_STD_PATH = \"<FIXTURE>/two\"", "quiet", ""],
+    ["import std::net; let \$next: Shared = std::net::build; echo \$next \$saved.twice", "output", "Shared(code: 4) 6"],
+    ["rm \"<FIXTURE>/one/prelude.shy\"", "quiet", ""],
+    ["import local; let \$next: Shared = local::build; echo \$next", "output", "Shared(code: 5)"],
+    ["import std::prelude::{ Shared }; echo (\$saved == std::prelude::Shared(code: 3))", "output", "true"],
+    ["let \$SHELLY_STD_PATH = 7; import std::absent when false", "quiet", ""],
+    ["import std::absent when false; echo ok", "output", "ok"],
+    ["import other; echo (other::build)", "output", "Shared(code: 6)"],
+    ["import std::absent", "error", "SHELLY_STD_PATH must be a String"],
+    ["echo \$saved \$saved.twice", "output", "Shared(code: 3) 6"]]
+{
+    let $reply = submit $terminal ($source.replace "<FIXTURE>" $fixture)
+    let $output = $reply["output"]
+    require (!$reply["eof"]) "shell exited unexpectedly"
+    require (!($output.contains "boot-once")) "prelude was reinitialized"
+    require (!($output.contains "must-not-load")) "prelude changed with the search path"
+    if !(repl_matches $kind $expected $output) { echo $output; fail "stdlib REPL mismatch" }
+}
+terminal_write $terminal "\x04"
+let $closed = drain $terminal
+require $closed["eof"] "Ctrl+D did not close shell"
+let $status = terminal_close $terminal
+require (($status["exit_code"] == 0) && ($status["signal"] == ())) "wrong REPL exit status"

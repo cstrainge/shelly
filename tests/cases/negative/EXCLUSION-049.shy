@@ -1,0 +1,16 @@
+# EXCLUSION-049: excluded function is not a module export
+let $module_fixture = $args[0]
+printf "%s" "[when false] fn hidden() {}" -> "${module_fixture}/foo.shy"
+check [
+    "id": "EXCLUSION-049",
+    "name": "excluded function is not a module export",
+    "source": "import foo::{ hidden }",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Module error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

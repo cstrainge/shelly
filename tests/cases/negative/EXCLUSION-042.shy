@@ -1,0 +1,14 @@
+# EXCLUSION-042: included body is checked
+check [
+    "id": "EXCLUSION-042",
+    "name": "included body is checked",
+    "source": "[when true] fn gadget(\$x: Missing) {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

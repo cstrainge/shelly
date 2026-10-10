@@ -1,0 +1,17 @@
+# MODULE-062: incompatible module nominal type
+let $module_fixture = $args[0]
+printf "%s" ("struct S {}".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/one.shy"
+printf "%s" ("struct S {}".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/two.shy"
+check [
+    "id": "MODULE-062",
+    "name": "incompatible module nominal type",
+    "source": "import one; import two; let \$x: one::S = two::S()",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

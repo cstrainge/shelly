@@ -1,0 +1,14 @@
+# EXCLUSION-005: block declarations use surrounding scope
+check [
+    "id": "EXCLUSION-005",
+    "name": "block declarations use surrounding scope",
+    "source": "[when true] { let \$x = 9; struct S { value: Integer }; enum E { A }; fn gadget() { \$x } }; echo \$x (gadget) S(value: 3) E::A",
+    "mode": "code",
+    "args": [],
+    "stdout": "9 9 S(value: 3) E::A\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

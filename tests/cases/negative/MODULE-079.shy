@@ -1,0 +1,15 @@
+# MODULE-079: qualified declaration rejected
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-079",
+    "name": "qualified declaration rejected",
+    "source": "let \$foo::value = 2",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": ["unqualified"],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,14 @@
+# EXCLUSION-037: arithmetic condition error propagates
+check [
+    "id": "EXCLUSION-037",
+    "name": "arithmetic condition error propagates",
+    "source": "[when 1 / 0] { echo bad }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

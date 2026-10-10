@@ -1,0 +1,14 @@
+# EXCLUSION-025: nonzero and zero numeric conditions
+check [
+    "id": "EXCLUSION-025",
+    "name": "nonzero and zero numeric conditions",
+    "source": "[when 0] { echo bad }; [when 1] { echo ok }",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

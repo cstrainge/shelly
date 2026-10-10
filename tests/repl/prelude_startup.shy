@@ -1,0 +1,28 @@
+# The profile selects the prelude; the interactive init file can use its types.
+let $fixture = $args[0]
+mkdir -p "${fixture}/env-std" "${fixture}/profile-std"
+printf "%s" 'echo "wrong-prelude"; struct Wrong {}' -> "${fixture}/env-std/prelude.shy"
+printf "%s" 'echo "prelude-ready"; struct ProfileType {}' -> "${fixture}/profile-std/prelude.shy"
+printf "%s" "echo profile-ready; let export \$SHELLY_STD_PATH = \"${fixture}/profile-std\"; prelude_reload" -> "${fixture}/.shelly_profile.shy"
+printf "%s" "echo init-ready ProfileType(); \$SHELLY_STD_PATH = \"${fixture}/env-std\"" -> "${fixture}/.shelly_init.shy"
+printf "%s" 'fn build(): ProfileType { ProfileType() }' -> "${fixture}/helper.shy"
+let $terminal = open_terminal [`$shelly, "--login", "-m", "-b"] [
+    "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "${fixture}/bin:/usr/bin:/bin",
+        "TERM": "xterm-256color", "LANG": "C.UTF-8", "SHELLY_STD_PATH": "${fixture}/env-std"],
+    "rows": 40, "columns": 140]
+let $initial = drain $terminal
+require (!$initial["eof"]) "shell exited during startup"
+if !($initial["output"].contains "profile-ready\nprelude-ready\ninit-ready ProfileType()")
+{ echo $initial["output"]; fail "profile/prelude/init order differs" }
+require (!($initial["output"].contains "wrong-prelude")) "inherited prelude loaded before profile"
+let $reply = submit $terminal "import helper; let \$value: ProfileType = helper::build; echo \$value"
+require (!$reply["eof"]) "shell exited after import"
+if !(repl_matches "output" "ProfileType()" $reply["output"])
+{ echo $reply["output"]; fail "module did not inherit cached prelude type" }
+require (!($reply["output"].contains "prelude-ready")) "prelude ran twice"
+require (!($reply["output"].contains "wrong-prelude")) "init changed the cached prelude"
+terminal_write $terminal "\x04"
+let $closed = drain $terminal
+require $closed["eof"] "Ctrl+D did not close shell"
+let $status = terminal_close $terminal
+require (($status["exit_code"] == 0) && ($status["signal"] == ())) "wrong REPL exit status"

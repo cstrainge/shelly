@@ -1,0 +1,16 @@
+# MODULE-057: whole import does not expose functions
+let $module_fixture = $args[0]
+printf "%s" ("let \$value: Integer = 7\nfn hidden_module_ping(\$x) { echo \"hidden_module_ping\" \$x \$value }\nfn next() { \$value = \$value + 1; \$value }\nstruct Point { x: Integer }\nenum State { On, Off }\nfn Point::twice(): Integer { \$self.x * 2 }\n".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+check [
+    "id": "MODULE-057",
+    "name": "whole import does not expose functions",
+    "source": "import foo; hidden_module_ping 1",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable not found:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

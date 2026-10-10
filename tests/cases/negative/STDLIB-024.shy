@@ -1,0 +1,20 @@
+# STDLIB-024: standard cycles diagnosed
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/std"
+printf "%s" ("import std::two".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/one.shy"
+mkdir -p "${std_fixture}/std"
+printf "%s" ("import std::one".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/two.shy"
+printf "%s" ("import std::one".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-024",
+    "name": "standard cycles diagnosed",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Module error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,16 @@
+# MODULE-003: qualified variables
+let $module_fixture = $args[0]
+printf "%s" ("let \$value: Integer = 7\nfn ping(\$x) { echo \"ping\" \$x \$value }\nfn next() { \$value = \$value + 1; \$value }\nstruct Point { x: Integer }\nenum State { On, Off }\nfn Point::twice(): Integer { \$self.x * 2 }\n".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+check [
+    "id": "MODULE-003",
+    "name": "qualified variables",
+    "source": "import foo; echo \$foo::value \${foo::value}",
+    "mode": "file",
+    "args": [],
+    "stdout": "7 7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

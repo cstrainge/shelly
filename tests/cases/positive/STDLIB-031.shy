@@ -1,0 +1,16 @@
+# STDLIB-031: missing prelude allowed
+let $std_fixture = $args[0]
+printf "%s" ("echo ok".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-031",
+    "name": "missing prelude allowed",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

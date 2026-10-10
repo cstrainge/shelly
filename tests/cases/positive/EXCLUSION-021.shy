@@ -1,0 +1,16 @@
+# EXCLUSION-021: included import enters surrounding module scope
+let $module_fixture = $args[0]
+printf "%s" "let \$value = 7; struct S {}; fn ping() { \$value }" -> "${module_fixture}/foo.shy"
+check [
+    "id": "EXCLUSION-021",
+    "name": "included import enters surrounding module scope",
+    "source": "[when true] { import foo::{ ping, \$value, S } }; echo (ping) \$value S()",
+    "mode": "file",
+    "args": [],
+    "stdout": "7 7 S()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

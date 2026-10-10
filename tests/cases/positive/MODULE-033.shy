@@ -1,0 +1,15 @@
+# MODULE-033: when remains ordinary argument
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-033",
+    "name": "when remains ordinary argument",
+    "source": "echo when",
+    "mode": "file",
+    "args": [],
+    "stdout": "when\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

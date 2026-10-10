@@ -1,0 +1,14 @@
+# EXCLUSION-003: alternative function implementations
+check [
+    "id": "EXCLUSION-003",
+    "name": "alternative function implementations",
+    "source": "[when false] fn gadget() { \"wrong\" }; [when true] fn gadget() { \"right\" }; echo (gadget)",
+    "mode": "code",
+    "args": [],
+    "stdout": "right\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

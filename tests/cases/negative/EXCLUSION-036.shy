@@ -1,0 +1,14 @@
+# EXCLUSION-036: undefined condition is error
+check [
+    "id": "EXCLUSION-036",
+    "name": "undefined condition is error",
+    "source": "[when \$missing] fn gadget() {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

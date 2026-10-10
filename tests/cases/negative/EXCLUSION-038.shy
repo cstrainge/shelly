@@ -1,0 +1,14 @@
+# EXCLUSION-038: condition type error propagates
+check [
+    "id": "EXCLUSION-038",
+    "name": "condition type error propagates",
+    "source": "[when \"bad\" - 2] { echo bad }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

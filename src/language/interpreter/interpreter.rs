@@ -1,6 +1,5 @@
 
-use std::{ cell::RefCell,
-           collections::{ HashMap, HashSet, VecDeque },
+use std::{ collections::{ HashMap, HashSet, VecDeque },
            env::{ consts::OS,
                   current_dir,
                   current_exe,
@@ -21,26 +20,24 @@ use glob::{ MatchOptions, Pattern, glob };
 
 use hostname::get as get_hostname;
 
-use crate::{ language::{ bytecode::{ Code,
-                                     Instruction,
-                                     FunctionBlockRef,
-                                     FunctionRef,
-                                     FunctionBlock },
-                         compiler::{ compile_ast, CompileError, CompileTarget },
+use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
+                         compiler::CompileError,
                          data::{ value::{ ExecResult, Executable, Value },
                                  map_key::MapKey,
                                  methods::{ BoundMethod, MethodDefinition, method_key },
                                  range::Range,
                                  scoped_variables::{ ScopedValue, ValueReference,
-                                                     ScopedVariables,
                                                      ValueVisibility },
                                  types::{ StructValue, TypeId, TypeKind, TypeRegistry } },
                          parser::{ ParserError, parse_text },
                          tokenizer::Tokenizer,
                          text::{ buffer::Buffer, location::Location, read_buffer::ReadBuffer },
-                         interpreter::{ iteration::Iteration,
+                         interpreter::{ Alias, iteration::Iteration,
+                                        scope::Scope, modules::Prelude,
                                         redirection::{ Redirection, Output, configure } } },
              runtime::{ color::TtyColorMode, process::{ COMMANDS, invoke } } };
+
+const MAIN_SCOPE: &str = "main";
 
 const BANNER_TRUECOLOR: &str = include_str!("../../../banner_truecolor.txt");
 const BANNER_256: &str = include_str!("../../../banner_256.txt");
@@ -69,6 +66,7 @@ pub enum ErrorWhat
     HashMapError(String),
     RangeError(String),
     MatchError,
+    ModuleError(String),
     IterationError(String),
     LoopControlError(String),
     CommandNotFound(String, Location),
@@ -114,6 +112,7 @@ impl Display for ErrorWhat
             ErrorWhat::ExecutableIoError(message) =>
                 write!(f, "Executable I/O error: {}.", message),
             ErrorWhat::RedirectionError(message) => write!(f, "Redirection error: {}.", message),
+            ErrorWhat::ModuleError(message) => write!(f, "Module error: {}.", message),
             ErrorWhat::MatchError => write!(f, "Match error: No arm matched the value."),
             ErrorWhat::ExecutableBadReturn(code) =>
                 {
@@ -134,8 +133,8 @@ impl Display for ErrorWhat
 
 pub struct InterpreterError
 {
-    location: Location,
-    what: ErrorWhat
+    pub(super) location: Location,
+    pub(super) what: ErrorWhat
 }
 
 
@@ -215,22 +214,18 @@ pub enum Interactive
 }
 
 
-pub struct Alias
-{
-    pub name: String,
-    pub arguments: Vec<String>
-}
-
-
 pub struct Interpreter
 {
-    variables: ScopedVariables,
+    pub(super) scopes: HashMap<String, Scope>,
+    pub(super) current_scope: String,
+    pub(super) loading_modules: HashSet<String>,
+    pub(super) prelude: Option<Prelude>,
+    pub(super) prelude_loading: bool,
+    pub(super) prelude_generation: usize,
+    // A source file can define several generations of nominal types after reloads.
+    pub(super) type_scopes: HashMap<TypeId, String>,
     special_vars: SpecialVars,
-    aliases: HashMap<String, Alias>,
-    base_function_block: FunctionBlockRef,
-    current_function_block: Option<FunctionBlockRef>,
-    built_ins: BuiltIns<'static>,
-    types: TypeRegistry,
+    pub(super) built_ins: BuiltIns<'static>,
     captured_stdout: Option<Vec<u8>>,
     redirections: Vec<Redirection>,
     pub last_result: Option<Value>,
@@ -250,9 +245,21 @@ pub enum RcFile
 
 impl Interpreter
 {
+    pub(super) fn scope(&self) -> &Scope
+    {
+        self.scopes.get(&self.current_scope)
+            .expect("The current scope must be registered.")
+    }
+
+    pub(super) fn scope_mut(&mut self) -> &mut Scope
+    {
+        self.scopes.get_mut(&self.current_scope)
+            .expect("The current scope must be registered.")
+    }
+
     fn exported_environment(&self, location: &Location) -> InterpreterResult<Vec<(String, String)>>
     {
-        self.variables.get_all_flattened()
+        self.scope().variables.get_all_flattened()
             .iter()
             .filter(|(_, value)| value.exported == ValueVisibility::Exported)
             .map(|(key, _)|
@@ -279,12 +286,15 @@ impl Interpreter
                rc_file: RcFile,
                script_args: Vec<String>) -> Self
     {
-        let variables = ScopedVariables::new_from_environment();
-
         let mut built_ins: BuiltIns<'static> = HashMap::from([
                 (
                     "cd",
                     Rc::new(Interpreter::handle_cd) as BuiltIn<'static>
+                ),
+
+                (
+                    "prelude_reload",
+                    Rc::new(Interpreter::handle_prelude_reload) as BuiltIn<'static>
                 ),
 
                 (
@@ -361,20 +371,18 @@ impl Interpreter
 
         let mut new_self = Self
             {
-                variables,
+                scopes: HashMap::from([
+                        (MAIN_SCOPE.to_string(), Scope::new(built_ins.keys().copied(),
+                            MAIN_SCOPE.to_string(), TypeRegistry::new()))
+                    ]),
+                current_scope: MAIN_SCOPE.to_string(),
+                loading_modules: HashSet::new(),
+                prelude: None,
+                prelude_loading: false,
+                prelude_generation: 0,
+                type_scopes: HashMap::new(),
                 special_vars,
-                aliases: HashMap::new(),
-                base_function_block: Rc::new(RefCell::new(FunctionBlock
-                    {
-                        parent: None,
-                        function_name: None,
-                        declared_functions: HashSet::new(),
-                        builtins: Rc::new(built_ins.keys().copied().collect()),
-                        functions: HashMap::new()
-                    })),
-                current_function_block: None,
                 built_ins,
-                types: TypeRegistry::new(),
                 captured_stdout: None,
                 redirections: Vec::new(),
                 last_result: None,
@@ -393,7 +401,7 @@ impl Interpreter
     }
 
     /**
-     * Load login profiles before interactive initialization and banner display.
+     * Load login profiles, then the prelude, then interactive initialization and the banner.
      */
     fn initialize_startup(&mut self,
                           startup: Startup,
@@ -441,9 +449,9 @@ impl Interpreter
             self.set_variable("$interactive", Value::Boolean(false));
         }
 
+        self.set_variable("$login", Value::Boolean(matches!(startup, Startup::Login)));
         if matches!(startup, Startup::Login)
         {
-            self.set_variable("$login", Value::Boolean(true));
             self.load_startup_script(Path::new("/etc/shelly/profile.shy"), tab_width);
 
             if let Some(home) = home_dir()
@@ -451,10 +459,17 @@ impl Interpreter
                 self.load_startup_script(&home.join(".shelly_profile.shy"), tab_width);
             }
         }
-        else
+
+        // Login profiles configure the standard-library path before its one-time load.
+        if self.halted { return; }
+        if let Err(error) = self.initialize_prelude()
         {
-            self.set_variable("$login", Value::Boolean(false));
+            eprintln!("Error loading standard prelude: {}", error);
+            self.exit_code = 1;
+            self.halted = true;
+            return;
         }
+        if self.halted { return; }
 
         if    is_interactive
            && rc_file != RcFile::None
@@ -557,7 +572,7 @@ impl Interpreter
 
     pub fn has_command(&self, command: &str) -> bool
     {
-        if self.base_function_block.borrow().functions.contains_key(command)
+        if self.scope().base_function(command).is_some()
         {
             return true;
         }
@@ -570,7 +585,7 @@ impl Interpreter
                            command: &str,
                            args: Vec<String>) -> InterpreterResult<()>
     {
-        let function = self.base_function_block.borrow().functions.get(command).cloned();
+        let function = self.scope().base_function(command);
 
         if let Some(function) = function
         {
@@ -596,14 +611,11 @@ impl Interpreter
 
     pub fn execute_from_buffer(&mut self, buffer: &mut dyn Buffer) -> InterpreterResult<()>
     {
+        if self.halted { return Ok(()); }
+        let origin = buffer.location().origin.to_string();
         let mut tokenizer = Tokenizer::new(buffer);
-        let mut statements = parse_text(&mut tokenizer)?;
-        let instructions = compile_ast(&mut self.types,
-                                       &self.base_function_block,
-                                       &mut statements,
-                                       CompileTarget::Toplevel)?;
-
-        self.execute_instructions(&instructions)
+        let statements = parse_text(&mut tokenizer)?;
+        self.execute_submission(statements, &origin)
     }
 
     pub fn execute_instructions(&mut self, instructions: &Vec<Instruction>) -> InterpreterResult<()>
@@ -616,7 +628,7 @@ impl Interpreter
                                            receiver: Option<&ValueReference>)
                                            -> InterpreterResult<()>
     {
-        let initial_scope = self.variables.current_scope();
+        let initial_scope = self.scope().variables.current_scope();
         let initial_redirections = self.redirections.len();
         let result =
             self.execute_instructions_scoped(instructions, initial_scope, arguments, receiver);
@@ -624,7 +636,7 @@ impl Interpreter
         let cleanup = self.finish_redirections(initial_redirections);
         let result = result.and(cleanup);
 
-        self.variables.reset_to_scope(initial_scope);
+        self.scope_mut().variables.reset_to_scope(initial_scope);
         if result.is_err() { self.last_result = None; }
 
         result
@@ -704,7 +716,7 @@ impl Interpreter
 
                 Code::ExitFunction =>
                     {
-                        if self.current_function_block.is_none()
+                        if !self.scope().in_function()
                         {
                             return Err(InterpreterError
                                 {
@@ -918,7 +930,8 @@ impl Interpreter
                         arguments.reverse();
                         let target = Self::pop_as_text(&location, &mut stack)?;
 
-                        self.aliases.insert(alias.clone(), Alias { name: target, arguments });
+                        self.scope_mut().aliases
+                            .insert(alias.clone(), Alias { name: target, arguments });
                     },
 
                 Code::BindParameter | Code::BindRestParameter =>
@@ -959,7 +972,7 @@ impl Interpreter
                             };
                         if let Some(id) = type_id
                         {
-                            value = self.types.coerce(id, value).map_err(|message|
+                            value = self.scope().types.coerce(id, value).map_err(|message|
                                 invalid(format!("Type error for parameter '{}': {}", name,
                                                 message)))?;
                         }
@@ -976,7 +989,7 @@ impl Interpreter
                                     })
                             }
                             else { None };
-                        self.variables
+                        self.scope_mut().variables
                             .create(
                                 name.clone(),
                                 ScopedValue
@@ -1029,7 +1042,7 @@ impl Interpreter
                         {
                             *path = self.eval_path_from(path);
                         }
-                        if let Err(error) = self.variables.create(variable_name,
+                        if let Err(error) = self.scope_mut().variables.create(variable_name,
                             ScopedValue
                                 {
                                     value,
@@ -1067,7 +1080,7 @@ impl Interpreter
                                     "Missing value for type validation".to_string(),
                                 ),
                             })?;
-                        *value = self.types
+                        *value = self.scope().types
                             .coerce(TypeId(id as usize), value.clone())
                             .map_err(|message| InterpreterError
                                 {
@@ -1095,10 +1108,8 @@ impl Interpreter
 
                         let mut value = Self::pop(&location, &mut stack)?;
 
-                        let type_id = self
-                            .variables
-                            .get(&variable_name)
-                            .and_then(|variable| variable.type_id);
+                        let type_id = self.variable_binding(&variable_name)
+                            .and_then(|variable| variable.borrow().type_id);
                         match value
                         {
                             Value::ArgumentExpansion(array) if type_id.is_none() =>
@@ -1316,7 +1327,7 @@ impl Interpreter
                         { return Err(invalid("Invalid MakeStruct operand".to_string())); };
                         let [Value::Integer(id), Value::Array(indexes)] = parts.as_slice() else
                         { return Err(invalid("Invalid MakeStruct operand".to_string())); };
-                        let definition = self.types.get(TypeId(*id as usize));
+                        let definition = self.scope().types.get(TypeId(*id as usize));
                         let TypeKind::Struct(fields) = &definition.kind else
                         { return Err(invalid("Expected a struct definition".to_string())); };
                         let mut values = vec![Value::None; fields.len()];
@@ -1334,7 +1345,7 @@ impl Interpreter
                                 definition,
                                 fields: values,
                             }));
-                        let value = self.types
+                        let value = self.scope().types
                             .coerce_value(value)
                             .map_err(|message| invalid(format!("Type error: {}", message)))?;
                         Self::push(&mut stack, value);
@@ -1344,7 +1355,8 @@ impl Interpreter
                     {
                         let Some(Value::String(name, _)) = &instruction.operand
                         else { unreachable!("ReferenceVariable requires a variable name"); };
-                        let reference = if let Some(reference) = self.variables.reference(name)
+                        let reference = if let Some(reference) =
+                            self.variable_reference(name)
                             { reference }
                             else
                             { ValueReference::temporary(self.read_variable(name, &location)?) };
@@ -1501,7 +1513,7 @@ impl Interpreter
                         indexes.reverse();
                         let mut updated = self.read_raw_variable(name, &location)?;
                         Self::set_element(&location, &mut updated, &indexes, fields, value)?;
-                        let updated = self.types
+                        let updated = self.scope().types
                             .coerce_value(updated)
                             .map_err(|message| InterpreterError
                                 {
@@ -1614,7 +1626,7 @@ impl Interpreter
                                     })
                             };
 
-                        if let Some(mut value) = self.variables.get_mut(&variable_name)
+                        if let Some(mut value) = self.scope_mut().variables.get_mut(&variable_name)
                         {
                             value.exported = ValueVisibility::Exported;
                         }
@@ -1709,12 +1721,12 @@ impl Interpreter
 
                 Code::EnterScope =>
                     {
-                        self.variables.push_scope();
+                        self.scope_mut().variables.push_scope();
                     },
 
                 Code::ExitScope =>
                     {
-                        if self.variables.current_scope() == initial_scope
+                        if self.scope().variables.current_scope() == initial_scope
                         {
                             return Err(InterpreterError
                                 {
@@ -1723,7 +1735,7 @@ impl Interpreter
                                 });
                         }
 
-                        self.variables.pop_scope();
+                        self.scope_mut().variables.pop_scope();
                     },
 
                 Code::EnterLoop =>
@@ -1757,7 +1769,7 @@ impl Interpreter
                                 )?,
                                 break_target: Self::jump_target(instructions, targets.get(1),
                                                                 &location)?,
-                                scope: self.variables.current_scope(),
+                                scope: self.scope().variables.current_scope(),
                                 stack_depth: stack.len(),
                                 iteration_depth: iterations.len(),
                                 reference_depth: references.len(),
@@ -1795,7 +1807,7 @@ impl Interpreter
                         // A transfer may abandon nested blocks and partially evaluated
                         // expressions. Restore the state saved before the iteration body.
                         self.finish_redirections(frame.redirection_depth)?;
-                        self.variables.reset_to_scope(frame.scope);
+                        self.scope_mut().variables.reset_to_scope(frame.scope);
                         stack.truncate(frame.stack_depth);
                         iterations.truncate(frame.iteration_depth);
                         references.truncate(frame.reference_depth);
@@ -1850,7 +1862,8 @@ impl Interpreter
                         };
                         let value = self.last_result.take().ok_or_else(|| InterpreterError
                             { location: location.clone(), what: ErrorWhat::NoResult })?;
-                        self.last_result = Some(self.types.convert(TypeId(id as usize), &value)
+                        self.last_result = Some(self.scope().types
+                            .convert(TypeId(id as usize), &value)
                             .map_err(|message| InterpreterError
                                 {
                                     location: location.clone(),
@@ -1996,7 +2009,7 @@ impl Interpreter
 
     pub fn set_variable(&mut self, name: &str, value: Value)
     {
-        let _ = self.variables.create(name.to_string(), ScopedValue
+        let _ = self.scope_mut().variables.create(name.to_string(), ScopedValue
             {
                 value,
                 type_id: None,
@@ -2007,7 +2020,7 @@ impl Interpreter
 
     pub fn variable_names(&self) -> Vec<String>
     {
-        let mut names: Vec<String> = self.variables.names()
+        let mut names: Vec<String> = self.scope().variables.names()
             .chain(self.special_vars.keys().copied()).map(str::to_string).collect();
         names.sort();
         names.dedup();
@@ -2016,7 +2029,7 @@ impl Interpreter
 
     pub fn evaluate_variable(&self, name: &str) -> InterpreterResult<String>
     {
-        if self.variables.get(name).is_none() && !self.special_vars.contains_key(name)
+        if self.variable_binding(name).is_none() && !self.special_vars.contains_key(name)
         {
             return Ok(String::new());
         }
@@ -2032,7 +2045,7 @@ impl Interpreter
      */
     pub fn evaluate_path_variable(&self, name: &str) -> InterpreterResult<String>
     {
-        if self.variables.get(name).is_none() && !self.special_vars.contains_key(name)
+        if self.variable_binding(name).is_none() && !self.special_vars.contains_key(name)
         {
             return Ok(String::new());
         }
@@ -2115,7 +2128,7 @@ impl Interpreter
         {
             let value = Self::read_projection(location, root.clone(),
                 &reference.indexes[..*depth], &reference.fields[..*depth])?;
-            self.types.validate(*id, &value).map_err(|message| InterpreterError
+            self.scope().types.validate(*id, &value).map_err(|message| InterpreterError
                 {
                     location: location.clone(),
                     what: ErrorWhat::InvalidOperand(
@@ -2130,56 +2143,57 @@ impl Interpreter
     {
         let invalid = |message| InterpreterError { location: location.clone(),
             what: ErrorWhat::InvalidOperand(message) };
-        let variable = self.variables.get(name)
+        let variable = self.variable_binding(name)
             .ok_or_else(|| invalid("Variable not found for SetVariable instruction.".to_string()))?;
-        if let Some(id) = variable.type_id
+        if let Some(id) = variable.borrow().type_id
         {
-            value = self.types.coerce(id, value).map_err(|message|
+            value = self.scope().types.coerce(id, value).map_err(|message|
                 invalid(format!("Type error for '{}': {}", name, message)))?;
         }
         drop(variable);
-        let reference = self.variables.reference(name).unwrap();
+        let reference = self.variable_reference(name).unwrap();
         let mut root = reference.root.borrow_mut();
         let mut updated = root.value.clone();
         Self::set_element(location, &mut updated, &reference.indexes, &reference.fields, value)?;
-        updated = self.types.coerce_value(updated)
+        updated = self.scope().types.coerce_value(updated)
             .map_err(|message| invalid(format!("Type error: {}", message)))?;
         if let Some(id) = root.type_id
         {
-            updated = self.types.coerce(id, updated)
+            updated = self.scope().types.coerce(id, updated)
                 .map_err(|message| invalid(format!("Type error for '{}': {}", name, message)))?;
         }
         for (depth, id) in &reference.constraints
         {
             let value = Self::read_projection(location, updated.clone(),
                 &reference.indexes[..*depth], &reference.fields[..*depth])?;
-            let value = self.types.coerce(*id, value)
+            let value = self.scope().types.coerce(*id, value)
                 .map_err(|message| invalid(format!("Type error for receiver: {}", message)))?;
             Self::set_element(location, &mut updated, &reference.indexes[..*depth],
                 &reference.fields[..*depth], value)?;
         }
         // Receiver promotion must also satisfy the original owner's constraints.
-        self.types.validate_value(&updated)
+        self.scope().types.validate_value(&updated)
             .map_err(|message| invalid(format!("Type error: {}", message)))?;
         if let Some(id) = root.type_id
         {
-            self.types.validate(id, &updated)
+            self.scope().types.validate(id, &updated)
                 .map_err(|message| invalid(format!("Type error for '{}': {}", name, message)))?;
         }
         for (depth, id) in &reference.constraints
         {
             let value = Self::read_projection(location, updated.clone(),
                 &reference.indexes[..*depth], &reference.fields[..*depth])?;
-            self.types.validate(*id, &value)
+            self.scope().types.validate(*id, &value)
                 .map_err(|message| invalid(format!("Type error for receiver: {}", message)))?;
         }
         root.value = updated;
         Ok(())
     }
 
-    fn read_raw_variable(&self, name: &str, location: &Location) -> InterpreterResult<Value>
+    pub(super) fn read_raw_variable(&self, name: &str, location: &Location)
+        -> InterpreterResult<Value>
     {
-        if let Some(reference) = self.variables.reference(name)
+        if let Some(reference) = self.variable_reference(name)
         {
             self.read_reference(location, &reference)
         }
@@ -2198,31 +2212,12 @@ impl Interpreter
         }
     }
 
-    fn get_function<'a>(&self,
-                        executable: &str,
-                        function_block: &'a FunctionBlockRef) -> Option<FunctionRef>
-    {
-        if let Some(function) = function_block.borrow().functions.get(executable)
-        {
-            return Some(function.clone());
-        }
-
-        if let Some(parent_function_block) = &function_block.borrow().parent
-        {
-            return self.get_function(executable, parent_function_block);
-        }
-
-        None
-    }
-
     fn bind_executable(&self, value: Value) -> Value
     {
         if    let Value::String(name, Executable::Yes) = &value
            && !self.built_ins.contains_key(name.as_str())
         {
-            let function = self.current_function_block.as_ref()
-                .and_then(|block| self.get_function(name, block))
-                .or_else(|| self.get_function(name, &self.base_function_block));
+            let function = self.module_function(name);
             if let Some(function) = function
             { return Value::String(name.clone(), Executable::Function(function)); }
         }
@@ -2243,8 +2238,7 @@ impl Interpreter
     fn resolve_method(&self, value: &Value, receiver: ValueReference,
                       name: &str, snapshot: &Value) -> Option<BoundMethod>
     {
-        let scope = self.current_function_block.as_ref().unwrap_or(&self.base_function_block);
-        for id in self.types.method_types(self.types.value_type(value))
+        for id in self.scope().types.method_types(self.scope().types.value_type(value))
         {
             let key = method_key(id, name);
             let bound = match snapshot
@@ -2253,10 +2247,12 @@ impl Interpreter
                     _ => None,
                 };
             let function = if let Some(Value::String(_, Executable::Function(function))) = bound
-                { Some(function.clone()) } else { self.get_function(&key, scope) };
+                { Some(function.clone()) }
+                else
+                { self.scope().lexical_function(&key).or_else(|| self.module_method(id, &key)) };
             let definition = if let Some(function) = function
                 { MethodDefinition::User(function) }
-                else if let Some(method) = self.types.method(id, name)
+                else if let Some(method) = self.scope().types.method(id, name)
                 { MethodDefinition::Builtin(method) }
                 else { continue; };
             return Some(BoundMethod
@@ -2313,11 +2309,11 @@ impl Interpreter
 
     fn can_execute(&self, executable: &str) -> bool
     {
-        if    self.built_ins.contains_key(executable)
-           || self.aliases.contains_key(executable)
-           || self.get_function(executable, &self.base_function_block).is_some()
-           || self.current_function_block.as_ref()
-                .is_some_and(|block| self.get_function(executable, block).is_some())
+        if    (executable.contains("::") && self.scope().types.module_names
+                .contains(executable.split("::").next().unwrap()))
+           || self.built_ins.contains_key(executable)
+           || self.scope().aliases.contains_key(executable)
+           || self.module_function(executable).is_some()
         {
             return true;
         }
@@ -2348,7 +2344,7 @@ impl Interpreter
         }
 
         // Command uses the child's exported PATH, or the system default when it is absent.
-        let path = self.variables.get("$PATH")
+        let path = self.scope().variables.get("$PATH")
             .filter(|value| value.exported == ValueVisibility::Exported)
             .map(|value| self.eval_path_list_from(&value.value.as_text()))
             .unwrap_or_else(|| "/bin:/usr/bin".to_string());
@@ -2401,21 +2397,25 @@ impl Interpreter
                 });
         }
 
-        self.variables.push_scope();
-
-        let caller_function_block = self.current_function_block.replace(function.functions.clone());
+        let home = function.functions.borrow().scope.clone();
+        if !self.scopes.contains_key(&home)
+        {
+            return Err(InterpreterError { location: location.clone(),
+                what: ErrorWhat::ModuleError("The defining module failed to load".into()) });
+        }
+        let caller_scope = replace(&mut self.current_scope, home);
+        let caller = self.scope_mut().enter_function(function.functions.clone());
 
         let call_result = self.execute_instructions_with_arguments(&function.code, args, receiver);
 
-        self.current_function_block = caller_function_block;
-
-        self.variables.pop_scope();
+        self.scope_mut().exit_function(caller);
+        self.current_scope = caller_scope;
 
         call_result?;
         if !self.halted && let Some(id) = function.return_type
         {
             let value = self.last_result.take().unwrap_or(Value::None);
-            self.last_result = Some(self.types.coerce(id, value).map_err(|message|
+            self.last_result = Some(self.scope().types.coerce(id, value).map_err(|message|
                 InterpreterError
                     {
                         location: location.clone(),
@@ -2431,19 +2431,22 @@ impl Interpreter
                         executable: &str,
                         args: &[Value]) -> InterpreterResult<bool>
     {
-        if    let Some(current_function_block) = self.current_function_block.clone()
-           && let Some(function) = self.get_function(executable, &current_function_block)
+        if let Some(function) = self.module_function(executable)
         {
             self.execute_function(location, executable, &function, args)?;
             return Ok(true);
         }
 
-        if let Some(function) = self.get_function(executable, &self.base_function_block)
+        if executable.contains("::") && self.scope().types.module_names
+            .contains(executable.split("::").next().unwrap())
         {
-            self.execute_function(location, executable, &function, args)?;
-            return Ok(true);
+            return Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::ModuleError(
+                        format!("Module function '{}' is unavailable", executable)),
+                });
         }
-
         Ok(false)
     }
 
@@ -2554,12 +2557,12 @@ impl Interpreter
         let output = if variable
             {
                 // Validate before running commands or replacing the binding.
-                let binding = self.variables.get(&text).ok_or_else(||
+                let binding = self.variable_binding(&text).ok_or_else(||
                     Self::redirection_error(location,
                         format!("Variable '{}' not found; declare it with let", text)))?;
-                if let Some(id) = binding.type_id
+                if let Some(id) = binding.borrow().type_id
                 {
-                    self.types.validate(id, &Value::from_string(String::new()))
+                    self.scope().types.validate(id, &Value::from_string(String::new()))
                         .map_err(|error| Self::redirection_error(location, error))?;
                 }
                 drop(binding);
@@ -2975,6 +2978,19 @@ impl Interpreter
                 // Braces delimit names explicitly; bare names end at punctuation.
                 while let Some(&(_, character)) = characters.peek()
                 {
+                    if character == ':'
+                    {
+                        let mut probe = characters.clone();
+                        probe.next();
+                        if probe.next().is_some_and(|(_, c)| c == ':')
+                            && probe.peek().is_some_and(|(_, c)| c.is_alphanumeric() || *c == '_')
+                        {
+                            characters.next();
+                            characters.next();
+                            variable_name.push_str("::");
+                            continue;
+                        }
+                    }
                     if !character.is_alphanumeric() && character != '_'
                     {
                         break;
@@ -3014,7 +3030,7 @@ impl Interpreter
      */
     fn home_path(&self) -> Option<String>
     {
-        self.variables.get("$HOME")
+        self.scope().variables.get("$HOME")
             .map(|home| home.value.as_text())
             .filter(|home| !home.is_empty())
             .or_else(|| home_dir().map(|home| home.to_string_lossy().into_owned()))
@@ -3064,7 +3080,7 @@ impl Interpreter
      * Expand only the current user's leading ~ or ~/ prefix. Callers decide
      * whether the source word is eligible; quoted words and variables are literal.
      */
-    fn eval_path_from(&self, path: &str) -> String
+    pub(super) fn eval_path_from(&self, path: &str) -> String
     {
         let Some(suffix) = path.strip_prefix('~') else { return path.to_string(); };
         if !suffix.is_empty() && !suffix.starts_with(is_separator)
@@ -3199,7 +3215,7 @@ impl Interpreter
         let mut arguments = VecDeque::new();
         let mut visited = HashSet::new();
 
-        while let Some(alias) = self.aliases.get(name)
+        while let Some(alias) = self.scope().aliases.get(name)
         {
             if !visited.insert(name)
             {

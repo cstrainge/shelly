@@ -1,0 +1,16 @@
+# MODULE-020: callback executes in its home scope
+let $module_fixture = $args[0]
+printf "%s" ("let \$value = 1; fn call(\$callback) { \$callback }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+check [
+    "id": "MODULE-020",
+    "name": "callback executes in its home scope",
+    "source": "let \$value = 99; fn callback() { \$value }; import foo; echo (foo::call `callback)",
+    "mode": "file",
+    "args": [],
+    "stdout": "99\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,16 @@
+# MODULE-044: conditions see caller before imported module
+let $module_fixture = $args[0]
+printf "%s" ("import absent when \$OS != \$OS; fn ping() { echo \"ok\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+check [
+    "id": "MODULE-044",
+    "name": "conditions see caller before imported module",
+    "source": "let \$unused = 0; import foo; foo::ping",
+    "mode": "file",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

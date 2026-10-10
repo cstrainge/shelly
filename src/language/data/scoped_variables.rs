@@ -54,6 +54,7 @@ impl ValueReference
 }
 
 
+#[derive(Clone)]
 pub struct ScopedVariables
 {
     scopes: VecDeque<HashMap<String, Rc<RefCell<ScopedValue>>>>,
@@ -87,6 +88,16 @@ impl ScopedVariables
             {
                 scopes
             }
+    }
+
+    pub fn binding(&self, name: &str) -> Option<Rc<RefCell<ScopedValue>>>
+    {
+        self.scopes.iter().rev().find_map(|scope| scope.get(name).cloned())
+    }
+
+    pub fn import(&mut self, name: String, binding: Rc<RefCell<ScopedValue>>)
+    {
+        self.scopes.back_mut().expect("A variable scope must exist").insert(name, binding);
     }
 
     pub fn push_scope(&mut self)

@@ -1,0 +1,18 @@
+# STDLIB-004: standard types and enums
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/std"
+printf "%s" ("let \$value = 7; struct Packet { code: Integer }; enum State { Ready }; fn ping(\$x) { echo \$x \$value }; fn read() { \$value }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/net.shy"
+printf "%s" ("import std::net::{ Packet }; let \$p: Packet = std::net::Packet(code: 3); echo \$p std::net::State::Ready".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-004",
+    "name": "standard types and enums",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "Packet(code: 3) State::Ready\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

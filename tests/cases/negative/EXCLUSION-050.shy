@@ -1,0 +1,16 @@
+# EXCLUSION-050: all exclusion conditions precede imports
+let $module_fixture = $args[0]
+printf "%s" "let \$enabled = true" -> "${module_fixture}/foo.shy"
+check [
+    "id": "EXCLUSION-050",
+    "name": "all exclusion conditions precede imports",
+    "source": "import foo::{ \$enabled }; [when \$enabled] fn gadget() {}",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

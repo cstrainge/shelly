@@ -157,6 +157,8 @@ fn check_scope(
     {
         match statement
         {
+            AstStatement::ImportStatement(import) => return Err(error(&import.location,
+                "Imports are only allowed at module top level".into())),
             AstStatement::EnumDeclaration(_)
             | AstStatement::StructDeclaration(_)
             | AstStatement::NullStatement
@@ -360,7 +362,8 @@ fn check_expression(
     {
         AstExpressionKind::TypeConversion(name, value, type_id) =>
             {
-                let id = names[name];
+                let id = *names.get(name).ok_or_else(|| error(&expression.location,
+                    format!("Unknown type '{}'", name)))?;
                 if !matches!(registry.get(id).kind, TypeKind::Builtin)
                 {
                     return Err(error(&expression.location,
@@ -469,8 +472,16 @@ fn check_expression(
             },
         AstExpressionKind::EnumVariant(name, variant) =>
             {
+                let qualified = format!("{}::{}", name, variant);
+                if    !names.contains_key(name)
+                   && (registry.qualified_functions.contains(&qualified)
+                    || registry.module_names.contains(name.split("::").next().unwrap()))
+                {
+                    expression.kind = AstExpressionKind::Symbol(AstSymbol { name: qualified });
+                    return Ok(());
+                }
                 let id = names.get(name).ok_or_else(|| error(&expression.location,
-                    format!("Unknown type '{}'", name)))?;
+                    format!("Unknown type or module member '{}'", qualified)))?;
                 let definition = registry.get(*id);
                 let TypeKind::Enum(variants) = &definition.kind else
                 {
@@ -511,8 +522,18 @@ fn check_expression(
                 check_expression(registry, left, names)?;
                 check_expression(registry, right, names)?;
             },
+        AstExpressionKind::ExecutableReference(value) =>
+            {
+                check_expression(registry, value, names)?;
+                if matches!(&value.kind, AstExpressionKind::Literal(literal)
+                    if matches!(literal.value, Value::Enum(_)))
+                {
+                    return Err(error(&expression.location,
+                        "Cannot execute an enum as a command".into()));
+                }
+            },
         AstExpressionKind::Splat(value) | AstExpressionKind::Grouped(value)
-        | AstExpressionKind::ExecutableReference(value) | AstExpressionKind::TryExecute(value)
+        | AstExpressionKind::TryExecute(value)
         | AstExpressionKind::BooleanNot(value) => check_expression(registry, value, names)?,
         AstExpressionKind::Execute(call) => check_call(registry, call, names)?,
         AstExpressionKind::Redirect(source, redirects) =>

@@ -1,0 +1,14 @@
+# EXCLUSION-034: annotation on struct rejected
+check [
+    "id": "EXCLUSION-034",
+    "name": "annotation on struct rejected",
+    "source": "[when true] struct S {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

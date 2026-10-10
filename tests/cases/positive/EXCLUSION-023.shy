@@ -1,0 +1,16 @@
+# EXCLUSION-023: false excludes invalid import selections
+let $module_fixture = $args[0]
+printf "%s" "echo bad" -> "${module_fixture}/foo.shy"
+check [
+    "id": "EXCLUSION-023",
+    "name": "false excludes invalid import selections",
+    "source": "[when false] { import foo::{ missing } }; echo ok",
+    "mode": "file",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

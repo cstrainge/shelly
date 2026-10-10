@@ -1,0 +1,15 @@
+# MODULE-031: condition external status false
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-031",
+    "name": "condition external status false",
+    "source": "import absent when /usr/bin/false; echo \"ok\"",
+    "mode": "file",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

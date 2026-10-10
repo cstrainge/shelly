@@ -1,0 +1,18 @@
+# STDLIB-037: prelude runtime error stops startup
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/std"
+printf "%s" ("1 / 0".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("echo wrong".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-037",
+    "name": "prelude runtime error stops startup",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

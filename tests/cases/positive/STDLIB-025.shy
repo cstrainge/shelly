@@ -1,0 +1,18 @@
+# STDLIB-025: prelude types available in main
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/std"
+printf "%s" ("echo \"prelude\"; struct Shared { code: Integer }; enum State { Ready }; fn Shared::twice(): Integer { \$self.code * 2 }; let \$hidden = 7; fn hidden(\$x) { echo \$x }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("let \$s: Shared = Shared(code: 4); echo \$s \$s.twice State::Ready".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-025",
+    "name": "prelude types available in main",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "prelude\nShared(code: 4) 8 State::Ready\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,16 @@
+# MODULE-010: module enum variants in match
+let $module_fixture = $args[0]
+printf "%s" ("let \$value: Integer = 7\nfn ping(\$x) { echo \"ping\" \$x \$value }\nfn next() { \$value = \$value + 1; \$value }\nstruct Point { x: Integer }\nenum State { On, Off }\nfn Point::twice(): Integer { \$self.x * 2 }\n".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+check [
+    "id": "MODULE-010",
+    "name": "module enum variants in match",
+    "source": "import foo; let \$s = foo::State::On; echo (match \$s { foo::State::On => { \"on\" } _ => { \"other\" } })",
+    "mode": "file",
+    "args": [],
+    "stdout": "on\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

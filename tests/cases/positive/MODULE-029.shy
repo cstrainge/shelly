@@ -1,0 +1,16 @@
+# MODULE-029: condition uses platform settings
+let $module_fixture = $args[0]
+printf "%s" ("let \$value: Integer = 7\nfn ping(\$x) { echo \"ping\" \$x \$value }\nfn next() { \$value = \$value + 1; \$value }\nstruct Point { x: Integer }\nenum State { On, Off }\nfn Point::twice(): Integer { \$self.x * 2 }\n".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+check [
+    "id": "MODULE-029",
+    "name": "condition uses platform settings",
+    "source": "import foo when \$OS == \$os; foo::ping \"os\"",
+    "mode": "file",
+    "args": [],
+    "stdout": "ping os 7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,40 @@
+let $fixture = $args[0]
+mkdir -p "${fixture}/one" "${fixture}/bad" "${fixture}/parse" "${fixture}/recursive" "${fixture}/conflict" "${fixture}/missing"
+printf "%s" "struct Stable {}; fn label(): String { \"dependency\" }" -> "${fixture}/one/dep.shy"
+printf "%s" "import dep::{ Stable }; echo loaded-one; let \$label = \"one\"; struct Shared { code: Integer }; struct Removed {}; enum State { Ready }; fn Shared::label(): String { \$label }; fn read(): String { \$label }" -> "${fixture}/one/prelude.shy"
+printf "%s" "fn build(): Shared { Shared(code: 10) }; fn label(): String { std::prelude::read }; fn state(): State { State::Ready }" -> "${fixture}/one/helper.shy"
+printf "%s" "fn build(): Shared { Shared(code: 20) }; fn label(): String { std::prelude::read }" -> "${fixture}/local.shy"
+printf "%s" "fn build(): Shared { Shared(code: 30) }; fn label(): String { std::prelude::read }" -> "${fixture}/other.shy"
+printf "%s" "fn reload() { prelude_reload }; fn build(): Shared { Shared(code: 40) }; fn label(): String { std::prelude::read }" -> "${fixture}/caller.shy"
+printf "%s" "fn build(): Added { Added() }" -> "${fixture}/newtype.shy"
+printf "%s" "struct Bad {}; let \$bad = 1 / 0" -> "${fixture}/bad/prelude.shy"
+printf "%s" "let \$" -> "${fixture}/parse/prelude.shy"
+printf "%s" "prelude_reload" -> "${fixture}/recursive/prelude.shy"
+printf "%s" "struct Local {}; struct Shared {}" -> "${fixture}/conflict/prelude.shy"
+check_repl ["id": "PRELUDE-RELOAD", "name": "PRELUDE-RELOAD", "steps": [
+    ["let \$SHELLY_STD_PATH = \"<FIXTURE>/one\"", "quiet", ""],
+    ["prelude_reload", "output", "loaded-one"],
+    ["import std::helper; import std::prelude::{ read, \$label }; let \$saved = Shared(code: 3); let \$state = State::Ready; let \$bound = `\$saved.label; let \$function = `std::prelude::read; let \$stable = Stable()", "quiet", ""],
+    ["echo \$saved.label (read) \$label", "output", "one one one"],
+    ["printf \"%s\" \"import dep::{ Stable }; echo loaded-two; let \\\$label = \\\"two\\\"; struct Shared { code: Integer }; struct Added {}; enum State { Ready }; fn Shared::label(): String { \\\$label }; fn read(): String { \\\$label }\" -> \"<FIXTURE>/one/prelude.shy\"", "quiet", ""],
+    ["prelude_reload", "output", "loaded-two"],
+    ["let \$new = Shared(code: 3); echo \$saved.label \$new.label (\$saved == \$new) (\$state == State::Ready)", "output", "one two false false"],
+    ["echo (read) \$label (std::prelude::read) (\$bound) (\$function) (\$stable == Stable())", "output", "one one two one one true"],
+    ["let \$old: std::helper::Shared = std::helper::build; echo \$old.label (std::helper::label)", "output", "one one"],
+    ["let \$wrong: Shared = std::helper::build", "error", "Type error"],
+    ["import local; let \$fresh: Shared = local::build; echo \$fresh.label (local::label)", "output", "two two"],
+    ["echo Removed()", "error", "Unknown type"],
+    ["import std::prelude::{ Shared }; echo Added()", "output", "Added()"],
+    ["printf \"%s\" \"let \\\$\" -> \"<FIXTURE>/one/dep.shy\"", "quiet", ""],
+    ["prelude_reload", "output", "loaded-two"],
+    ["echo (\$fresh == Shared(code: 20)) \$fresh.label \$saved.label", "output", "false two one"],
+    ["import other; let \$future: Shared = other::build; echo \$future.label", "output", "two"],
+    ["echo (local::label) (std::helper::label)", "output", "two one"],
+    ["import caller", "quiet", ""],
+    ["printf \"%s\" \"import dep::{ Stable }; echo loaded-three; let \\\$label = \\\"three\\\"; struct Shared { code: Integer }; struct Added {}; enum State { Ready }; fn Shared::label(): String { \\\$label }; fn read(): String { \\\$label }\" -> \"<FIXTURE>/one/prelude.shy\"", "quiet", ""],
+    ["caller::reload", "output", "loaded-three"],
+    ["echo (caller::label) (other::label) (std::prelude::read) \$saved.label", "output", "three two two one"],
+    ["import newtype; echo (newtype::build)", "output", "Added()"],
+    ["let \$wrong: Added = newtype::build", "error", "Type error"],
+    ["let \$old: Shared = caller::build; echo \$old.label", "output", "two"]
+], "exit": 0]

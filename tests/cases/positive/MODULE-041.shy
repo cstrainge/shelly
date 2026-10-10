@@ -1,0 +1,21 @@
+# MODULE-041: module imports relative to containing file
+let $module_fixture = $args[0]
+mkdir -p "${module_fixture}/app"
+printf "%s" ("import foo; foo::bar::ping".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/app/main.shy"
+mkdir -p "${module_fixture}/lib"
+printf "%s" ("import bar".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/lib/foo.shy"
+mkdir -p "${module_fixture}/lib"
+printf "%s" ("fn ping() { echo \"nested\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/lib/bar.shy"
+check [
+    "id": "MODULE-041",
+    "name": "module imports relative to containing file",
+    "source": "env \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/app/main.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "nested\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

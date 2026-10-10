@@ -1,5 +1,5 @@
 
-use std::{ collections::{ HashMap, HashSet },
+use std::{ cell::RefCell, collections::{ HashMap, HashSet },
            rc::Rc,
            cmp::Ordering,
            fmt::{ self, Display, Error, Formatter },
@@ -153,7 +153,9 @@ impl Display for EnumValue
 #[derive(Clone)]
 pub struct TypeRegistry
 {
-    definitions: Vec<Rc<TypeDefinition>>,
+    definitions: Rc<RefCell<Vec<Rc<TypeDefinition>>>>,
+    pub qualified_functions: HashSet<String>,
+    pub module_names: HashSet<String>,
     methods: HashMap<TypeId, HashMap<&'static str, Rc<BuiltinMethod>>>,
     extensions: HashSet<(TypeId, String)>,
     pub names: HashMap<String, TypeId>
@@ -195,6 +197,12 @@ impl TypeRegistry
         }
     }
 
+    pub fn import_extensions(&mut self, source: &Self, receiver: TypeId)
+    {
+        self.extensions.extend(source.extensions.iter()
+            .filter(|(id, _)| *id == receiver).cloned());
+    }
+
     pub fn has_extension(&self, receiver: TypeId, name: &str) -> bool
     {
         self.method_types(receiver).into_iter()
@@ -229,7 +237,7 @@ impl TypeRegistry
 
     pub fn builtin_id(&self, name: &str) -> Option<TypeId>
     {
-        self.definitions.iter()
+        self.definitions.borrow().iter()
             .find(|item| item.name == name && matches!(item.kind, TypeKind::Builtin))
             .map(|item| item.id)
     }
@@ -246,7 +254,9 @@ impl TypeRegistry
 
     pub fn new() -> Self
     {
-        let mut registry = Self { definitions: Vec::new(), methods: HashMap::new(),
+        let mut registry = Self { definitions: Rc::new(RefCell::new(Vec::new())),
+            qualified_functions: HashSet::new(), module_names: HashSet::new(),
+            methods: HashMap::new(),
             extensions: HashSet::new(),
             names: HashMap::new() };
         for name in Self::BUILTIN_NAMES
@@ -258,16 +268,48 @@ impl TypeRegistry
         registry
     }
 
+    pub fn module_registry(&self) -> Self
+    {
+        let mut registry = self.clone();
+        registry.names = Self::BUILTIN_NAMES.iter()
+            .map(|name| (name.to_string(), self.builtin_id(name).unwrap())).collect();
+        registry.extensions.clear();
+        registry.qualified_functions.clear();
+        registry.module_names.clear();
+        registry
+    }
+
+    pub fn staged(&self) -> Self
+    {
+        let mut registry = self.clone();
+        registry.definitions = Rc::new(RefCell::new(self.definitions.borrow().clone()));
+        registry
+    }
+
+    pub fn commit(&mut self, mut staged: Self)
+    {
+        // Every module shares identities, but failed compilations publish no definitions.
+        *self.definitions.borrow_mut() = staged.definitions.borrow().clone();
+        staged.definitions = self.definitions.clone();
+        *self = staged;
+    }
+
     pub fn register(&mut self, name: String, kind: TypeKind, location: Option<Location>) -> TypeId
     {
-        let id = TypeId(self.definitions.len());
-        self.definitions.push(Rc::new(TypeDefinition { id, name, kind, location }));
+        let mut definitions = self.definitions.borrow_mut();
+        let id = TypeId(definitions.len());
+        definitions.push(Rc::new(TypeDefinition { id, name, kind, location }));
         id
+    }
+
+    pub fn definition_count(&self) -> usize
+    {
+        self.definitions.borrow().len()
     }
 
     pub fn get(&self, id: TypeId) -> Rc<TypeDefinition>
     {
-        self.definitions[id.0].clone()
+        self.definitions.borrow()[id.0].clone()
     }
 }
 
@@ -348,15 +390,16 @@ impl TypeRegistry
     // Only uncommitted placeholders are completed; old definitions are immutable.
     pub fn finish(&mut self, id: TypeId, kind: TypeKind)
     {
-        let old = &self.definitions[id.0];
-        self.definitions[id.0] = Rc::new(TypeDefinition
+        let mut definitions = self.definitions.borrow_mut();
+        let old = &definitions[id.0];
+        definitions[id.0] = Rc::new(TypeDefinition
             { id, name: old.name.clone(), location: old.location.clone(), kind });
     }
 
     pub fn intern(&mut self, kind: TypeKind) -> TypeId
     {
         if let Some(existing) =
-            self.definitions
+            self.definitions.borrow()
                 .iter()
                 .find(|definition| match (&definition.kind, &kind)
                 {

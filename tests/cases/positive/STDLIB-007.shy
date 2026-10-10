@@ -1,0 +1,18 @@
+# STDLIB-007: false standard import skips malformed source
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/std"
+printf "%s" ("let \$".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/net.shy"
+printf "%s" ("import std::net when false; echo ok".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-007",
+    "name": "false standard import skips malformed source",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

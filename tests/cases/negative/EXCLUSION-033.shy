@@ -1,0 +1,14 @@
+# EXCLUSION-033: annotation on variable rejected
+check [
+    "id": "EXCLUSION-033",
+    "name": "annotation on variable rejected",
+    "source": "[when true] let \$x = 1",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

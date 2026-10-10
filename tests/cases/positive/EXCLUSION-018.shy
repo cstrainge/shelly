@@ -1,0 +1,14 @@
+# EXCLUSION-018: exclusions within match expressions
+check [
+    "id": "EXCLUSION-018",
+    "name": "exclusions within match expressions",
+    "source": "let \$x = match 1 { 1 => { [when true] { let \$y = 5 }; \$y } _ => { [when false] fn hidden(\$x: Missing) {}; 0 } }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

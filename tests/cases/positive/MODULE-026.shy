@@ -1,0 +1,16 @@
+# MODULE-026: false condition skips invalid module source
+let $module_fixture = $args[0]
+printf "%s" ("let \$".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+check [
+    "id": "MODULE-026",
+    "name": "false condition skips invalid module source",
+    "source": "import foo when false; echo \"ok\"",
+    "mode": "file",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

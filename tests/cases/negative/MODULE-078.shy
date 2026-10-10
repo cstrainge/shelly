@@ -1,0 +1,17 @@
+# MODULE-078: different selected types collide
+let $module_fixture = $args[0]
+printf "%s" ("struct S {}".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/one.shy"
+printf "%s" ("struct S {}".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/two.shy"
+check [
+    "id": "MODULE-078",
+    "name": "different selected types collide",
+    "source": "import one::{ S }; import two::{ S }",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Module error:",
+    "stderr_contains": ["already bound"],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

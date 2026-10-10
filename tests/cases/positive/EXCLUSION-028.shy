@@ -1,0 +1,14 @@
+# EXCLUSION-028: line breaks and comments
+check [
+    "id": "EXCLUSION-028",
+    "name": "line breaks and comments",
+    "source": "[when true] # declaration\n# another comment\nfn gadget() { 3 }; echo (gadget)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,15 @@
+# MODULE-067: imports inside block rejected
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-067",
+    "name": "imports inside block rejected",
+    "source": "{ import missing }",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": ["module top level"],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,16 @@
+# MODULE-063: module initialization error
+let $module_fixture = $args[0]
+printf "%s" ("let \$x = 1 / 0".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+check [
+    "id": "MODULE-063",
+    "name": "module initialization error",
+    "source": "import foo",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": ["foo.shy"],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,17 @@
+# MODULE-077: different selected functions collide
+let $module_fixture = $args[0]
+printf "%s" ("fn ping() {}".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/one.shy"
+printf "%s" ("fn ping() {}".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/two.shy"
+check [
+    "id": "MODULE-077",
+    "name": "different selected functions collide",
+    "source": "import one::{ ping }; import two::{ ping }",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Module error:",
+    "stderr_contains": ["already bound"],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

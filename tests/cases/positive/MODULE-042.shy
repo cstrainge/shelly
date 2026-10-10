@@ -1,0 +1,21 @@
+# MODULE-042: sibling wins over module path
+let $module_fixture = $args[0]
+mkdir -p "${module_fixture}/app"
+printf "%s" ("import foo; foo::ping".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/app/main.shy"
+mkdir -p "${module_fixture}/app"
+printf "%s" ("fn ping() { echo \"sibling\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/app/foo.shy"
+mkdir -p "${module_fixture}/lib"
+printf "%s" ("fn ping() { echo \"path\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/lib/foo.shy"
+check [
+    "id": "MODULE-042",
+    "name": "sibling wins over module path",
+    "source": "env \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/app/main.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "sibling\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

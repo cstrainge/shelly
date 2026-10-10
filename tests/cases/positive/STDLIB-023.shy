@@ -1,0 +1,20 @@
+# STDLIB-023: std path inherited through ordinary module
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/std"
+printf "%s" ("let \$value = 7; struct Packet { code: Integer }; enum State { Ready }; fn ping(\$x) { echo \$x \$value }; fn read() { \$value }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/net.shy"
+mkdir -p "${std_fixture}/lib"
+printf "%s" ("import std::net".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/lib/facade.shy"
+printf "%s" ("import facade; facade::std::net::ping hi".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-023",
+    "name": "std path inherited through ordinary module",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "hi 7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

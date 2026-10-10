@@ -1,0 +1,18 @@
+# STDLIB-039: prelude explicit self import diagnosed
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/std"
+printf "%s" ("import std::prelude".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("echo wrong".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-039",
+    "name": "prelude explicit self import diagnosed",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Module error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

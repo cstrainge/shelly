@@ -1,0 +1,15 @@
+# MODULE-061: skipped module cannot be called
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-061",
+    "name": "skipped module cannot be called",
+    "source": "import missing when false; missing::ping",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Module error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

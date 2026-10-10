@@ -1,0 +1,14 @@
+# EXCLUSION-024: empty string excludes
+check [
+    "id": "EXCLUSION-024",
+    "name": "empty string excludes",
+    "source": "[when \"\"] { echo bad }; [when \"0.0\"] { echo ok }",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

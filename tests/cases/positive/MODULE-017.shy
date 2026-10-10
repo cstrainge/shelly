@@ -1,0 +1,17 @@
+# MODULE-017: two module aliases share objects
+let $module_fixture = $args[0]
+printf "%s" ("let \$value: Integer = 7\nfn ping(\$x) { echo \"ping\" \$x \$value }\nfn next() { \$value = \$value + 1; \$value }\nstruct Point { x: Integer }\nenum State { On, Off }\nfn Point::twice(): Integer { \$self.x * 2 }\n".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+ln -s "${module_fixture}/foo.shy" "${module_fixture}/same.shy"
+check [
+    "id": "MODULE-017",
+    "name": "two module aliases share objects",
+    "source": "import foo::{ \$value }; import same::{ \$value }; \$same::value = 12; echo \$value \$foo::value",
+    "mode": "file",
+    "args": [],
+    "stdout": "12 12\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,19 @@
+# STDLIB-019: standard and ordinary namespaces coexist
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/std"
+printf "%s" ("let \$value = 7; struct Packet { code: Integer }; enum State { Ready }; fn ping(\$x) { echo \$x \$value }; fn read() { \$value }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/net.shy"
+printf "%s" ("fn read() { 9 }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/net.shy"
+printf "%s" ("import std::net; import net; echo (std::net::read) (net::read)".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-019",
+    "name": "standard and ordinary namespaces coexist",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "7 9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

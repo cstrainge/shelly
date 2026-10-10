@@ -1,0 +1,15 @@
+# MODULE-046: missing module
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-046",
+    "name": "missing module",
+    "source": "import missing",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Module error:",
+    "stderr_contains": ["was not found"],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

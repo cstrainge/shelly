@@ -1,0 +1,15 @@
+# MODULE-071: missing when expression
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-071",
+    "name": "missing when expression",
+    "source": "import foo when",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

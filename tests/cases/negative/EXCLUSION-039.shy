@@ -1,0 +1,14 @@
+# EXCLUSION-039: same submission binding unavailable
+check [
+    "id": "EXCLUSION-039",
+    "name": "same submission binding unavailable",
+    "source": "let \$enabled = true; [when \$enabled] fn gadget() {}",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

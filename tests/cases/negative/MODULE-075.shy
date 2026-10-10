@@ -1,0 +1,15 @@
+# MODULE-075: condition errors are not suppressed
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-075",
+    "name": "condition errors are not suppressed",
+    "source": "import foo when (1 / 0)",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

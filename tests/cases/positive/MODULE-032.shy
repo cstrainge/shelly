@@ -1,0 +1,15 @@
+# MODULE-032: empty condition string skips
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-032",
+    "name": "empty condition string skips",
+    "source": "import absent when \"\"; echo \"ok\"",
+    "mode": "file",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

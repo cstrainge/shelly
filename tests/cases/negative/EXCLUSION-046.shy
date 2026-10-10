@@ -1,0 +1,14 @@
+# EXCLUSION-046: excluded variable not visible
+check [
+    "id": "EXCLUSION-046",
+    "name": "excluded variable not visible",
+    "source": "[when false] { let \$x = 1 }; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

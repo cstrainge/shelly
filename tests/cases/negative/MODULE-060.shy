@@ -1,0 +1,16 @@
+# MODULE-060: unknown qualified function
+let $module_fixture = $args[0]
+printf "%s" ("let \$value: Integer = 7\nfn ping(\$x) { echo \"ping\" \$x \$value }\nfn next() { \$value = \$value + 1; \$value }\nstruct Point { x: Integer }\nenum State { On, Off }\nfn Point::twice(): Integer { \$self.x * 2 }\n".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+check [
+    "id": "MODULE-060",
+    "name": "unknown qualified function",
+    "source": "import foo; foo::missing",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Module error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -126,8 +126,10 @@ pub struct Function
 }
 
 
+#[derive(Clone)]
 pub struct FunctionBlock
 {
+    pub scope: String,
     pub parent: Option<FunctionBlockRef>,
     pub function_name: Option<String>,
     pub declared_functions: HashSet<String>,

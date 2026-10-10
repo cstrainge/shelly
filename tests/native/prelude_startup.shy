@@ -1,0 +1,55 @@
+# Login profiles select the prelude before either script or interactive execution.
+let $fixture = $args[0]
+mkdir -p "${fixture}/env-std" "${fixture}/profile-std"
+printf "%s" 'echo "env-prelude"; struct EnvType {}' -> "${fixture}/env-std/prelude.shy"
+printf "%s" 'echo "profile-prelude"; struct ProfileType {}' -> "${fixture}/profile-std/prelude.shy"
+let $profile = "echo profile; let export \$SHELLY_STD_PATH = \"${fixture}/profile-std\"; prelude_reload"
+printf "%s" $profile -> "${fixture}/.shelly_profile.shy"
+
+fn startup_case($flags: Array, $source: String, $expected: String, $status: Integer,
+                $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $result = run_process [`$shelly, $flags..., "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "${fixture}/env-std", "LANG": "C.UTF-8", "TERM": "dumb"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    require (($result["error"] == ()) && (!$result["timed_out"]) &&
+        ($result["signal"] == ())) "startup child failed"
+    require ($result["exit_code"] == $status) "wrong startup status"
+    let $stdout: String
+    let $stderr: String
+    "${fixture}/out" -> $stdout
+    "${fixture}/err" -> $stderr
+    # System profiles may emit output before this fixture's user profile begins.
+    if $expected.starts_with "profile\n"
+    {
+        let $parts = $stdout.split "profile\n"
+        require ($parts.count == 2) "user profile marker missing or repeated"
+        $stdout = "profile\n" + $parts[1]
+    }
+    if $stdout != $expected { echo $stdout; fail "wrong startup order" }
+    if $diagnostic == "" { require ($stderr == "") "unexpected startup diagnostic" }
+    else { require ($stderr.contains $diagnostic) "missing startup diagnostic" }
+}
+
+startup_case ["--login"] "echo ProfileType()" "profile\nprofile-prelude\nProfileType()\n" 0 ""
+startup_case ["--login", "--norc"] "echo ProfileType()" "profile\nprofile-prelude\nProfileType()\n" 0 ""
+startup_case [] "echo EnvType()" "env-prelude\nEnvType()\n" 0 ""
+
+# A profile exit stops initialization before a malformed prelude can replace its status.
+printf "%s" 'echo profile; exit 7' -> "${fixture}/.shelly_profile.shy"
+printf "%s" 'let $' -> "${fixture}/env-std/prelude.shy"
+startup_case ["--login"] "echo wrong" "profile\n" 7 ""
+
+# Establish a known previous prelude even on hosts without a system profile.
+printf "%s" 'echo env-prelude; struct EnvType {}' -> "${fixture}/env-std/prelude.shy"
+let $recover_profile = "let export \$SHELLY_STD_PATH = \"${fixture}/env-std\"; prelude_reload; " + $profile
+printf "%s" $recover_profile -> "${fixture}/.shelly_profile.shy"
+printf "%s" 'let $' -> "${fixture}/profile-std/prelude.shy"
+# Explicit reload errors are startup-script errors; the prior prelude is preserved.
+startup_case ["--login"] "echo continued" "profile\ncontinued\n" 0 "Parser error"
+# Automatic initialization still rejects a malformed prelude in non-login mode.
+printf "%s" 'let $' -> "${fixture}/env-std/prelude.shy"
+startup_case [] "echo wrong" "" 1 "Error loading standard prelude:"

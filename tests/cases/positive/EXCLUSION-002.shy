@@ -1,0 +1,14 @@
+# EXCLUSION-002: excluded function body is not checked
+check [
+    "id": "EXCLUSION-002",
+    "name": "excluded function body is not checked",
+    "source": "[when false] fn hidden(\$x: Missing): Missing { let \$wrong: Integer = \"bad\" }; echo ok",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

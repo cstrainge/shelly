@@ -1,0 +1,14 @@
+# EXCLUSION-012: declaration block in function preserves return
+check [
+    "id": "EXCLUSION-012",
+    "name": "declaration block in function preserves return",
+    "source": "fn gadget() { [when true] { let \$x = 8; return \$x }; 0 }; echo (gadget)",
+    "mode": "code",
+    "args": [],
+    "stdout": "8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

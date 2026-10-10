@@ -1,0 +1,16 @@
+# MODULE-038: imported variable receiver mutation
+let $module_fixture = $args[0]
+printf "%s" ("let \$items = [1]".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+check [
+    "id": "MODULE-038",
+    "name": "imported variable receiver mutation",
+    "source": "import foo::{ \$items }; fn Array::change() { \$self[0] = 8 }; \$items.change; echo \$foo::items[0]",
+    "mode": "file",
+    "args": [],
+    "stdout": "8\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,16 @@
+# MODULE-040: qualified function argument type promotion
+let $module_fixture = $args[0]
+printf "%s" ("fn half(\$x: Float): Float { \$x / 2 }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+check [
+    "id": "MODULE-040",
+    "name": "qualified function argument type promotion",
+    "source": "import foo; echo (foo::half 7)",
+    "mode": "file",
+    "args": [],
+    "stdout": "3.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

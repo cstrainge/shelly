@@ -1,0 +1,15 @@
+# MODULE-049: same-file function unavailable to condition
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-049",
+    "name": "same-file function unavailable to condition",
+    "source": "fn enabled() { true }; import missing when (enabled 1)",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable not found:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

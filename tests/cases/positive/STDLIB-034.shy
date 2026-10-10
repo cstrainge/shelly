@@ -1,0 +1,18 @@
+# STDLIB-034: prelude searches later directories
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/two"
+printf "%s" ("struct Later {}".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/two/prelude.shy"
+printf "%s" ("echo Later()".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-034",
+    "name": "prelude searches later directories",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/one:<FIXTURE>/two\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "Later()\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

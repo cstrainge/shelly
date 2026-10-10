@@ -1,0 +1,15 @@
+# MODULE-072: unterminated selection
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-072",
+    "name": "unterminated selection",
+    "source": "import foo::{ ping",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

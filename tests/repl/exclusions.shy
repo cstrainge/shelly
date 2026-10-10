@@ -1,0 +1,20 @@
+check_repl ["id": "EXCLUSION-REPL", "name": "pre-load exclusion state and recovery",
+    "steps": [
+        ["let \$enabled = true; let \$checks = 0; fn choose() { \$checks = \$checks + 1; \$enabled }", "quiet", ""],
+        ["[when \$enabled] fn gadget() { 7 }; [when \$enabled] { let \$value = 9; struct S { x: Integer } }", "quiet", ""],
+        ["echo (gadget) \$value S(x: 3)", "output", "7 9 S(x: 3)"],
+        ["let \$enabled = false; [when \$enabled] fn old_environment() { 5 }", "quiet", ""],
+        ["echo (old_environment) \$enabled", "output", "5 false"],
+        ["[when \$enabled] fn gadget() { 99 }; [when \$enabled] { let \$value = 88 }; echo (gadget) \$value", "output", "7 9"],
+        ["[when \$missing] fn gadget() { 99 }", "error", "not found"],
+        ["echo (gadget) \$value", "output", "7 9"],
+        ["[when true] { struct Failed {}; let \$bad: Integer = \"bad\" }", "error", "Type error"],
+        ["let \$bad: Failed = Failed()", "error", "Unknown type"],
+        ["let \$enabled = true", "quiet", ""],
+        ["fn run() { [when (choose)] { 12 } }; echo \$checks", "output", "1"],
+        ["echo (run) (run) \$checks", "output", "12 12 1"],
+        ["let \$enabled = false; fn choose() { true }; [when (choose)] fn selected_old_function() { 3 }", "quiet", ""],
+        ["echo (selected_old_function) \$checks", "output", "3 2"],
+        ["[when (choose)] fn selected_new_function() { 4 }; echo (selected_new_function)", "output", "4"],
+        ["[when false] { [when \$missing] { echo bad } }; echo (gadget)", "output", "7"]
+    ], "exit": 0]

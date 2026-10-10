@@ -1,0 +1,18 @@
+# MODULE-023: diamond dependencies initialize once
+let $module_fixture = $args[0]
+printf "%s" ("import shared::{ next }; fn read() { next }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/left.shy"
+printf "%s" ("import shared::{ next }; fn read() { next }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/right.shy"
+printf "%s" ("echo \"loaded\"; let \$n = 0; fn next() { \$n = \$n + 1; \$n }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/shared.shy"
+check [
+    "id": "MODULE-023",
+    "name": "diamond dependencies initialize once",
+    "source": "import left; import right; echo (left::read) (right::read)",
+    "mode": "file",
+    "args": [],
+    "stdout": "loaded\n1 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

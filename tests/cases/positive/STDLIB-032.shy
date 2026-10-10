@@ -1,0 +1,19 @@
+# STDLIB-032: prelude lookup ignores ordinary module path
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/lib"
+printf "%s" ("echo wrong".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/lib/prelude.shy"
+printf "%s" ("echo wrong".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/prelude.shy"
+printf "%s" ("echo ok".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-032",
+    "name": "prelude lookup ignores ordinary module path",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

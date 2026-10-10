@@ -4139,3 +4139,182 @@ ARGCALL-032	positive	empty arguments remain empty	tests/cases/positive/ARGCALL-0
 ARGCALL-033	positive	executable script path is passed once	tests/cases/positive/ARGCALL-033.shy
 ARGCALL-034	positive	alias call receives literal argument	tests/cases/positive/ARGCALL-034.shy
 NUMERIC-160	positive	Float display preserves numeric type	tests/cases/positive/NUMERIC-160.shy
+MODULE-001	positive	qualified function	tests/cases/positive/MODULE-001.shy
+MODULE-002	positive	selected function retains module variables	tests/cases/positive/MODULE-002.shy
+MODULE-003	positive	qualified variables	tests/cases/positive/MODULE-003.shy
+MODULE-004	positive	selected binding is shared	tests/cases/positive/MODULE-004.shy
+MODULE-005	positive	qualified writes update selected binding	tests/cases/positive/MODULE-005.shy
+MODULE-006	positive	redeclaring selected variable creates local binding	tests/cases/positive/MODULE-006.shy
+MODULE-007	positive	qualified interpolation	tests/cases/positive/MODULE-007.shy
+MODULE-008	positive	qualified constructor and annotation	tests/cases/positive/MODULE-008.shy
+MODULE-009	positive	selected type has same identity	tests/cases/positive/MODULE-009.shy
+MODULE-010	positive	module enum variants in match	tests/cases/positive/MODULE-010.shy
+MODULE-011	positive	module struct methods	tests/cases/positive/MODULE-011.shy
+MODULE-012	positive	method on qualified type	tests/cases/positive/MODULE-012.shy
+MODULE-013	positive	typed collection of module values	tests/cases/positive/MODULE-013.shy
+MODULE-014	positive	qualified function reference	tests/cases/positive/MODULE-014.shy
+MODULE-015	positive	qualified function in argument requires grouping	tests/cases/positive/MODULE-015.shy
+MODULE-016	positive	module initializes once	tests/cases/positive/MODULE-016.shy
+MODULE-017	positive	two module aliases share objects	tests/cases/positive/MODULE-017.shy
+MODULE-018	positive	module types do not collide	tests/cases/positive/MODULE-018.shy
+MODULE-019	positive	module function returns typed object	tests/cases/positive/MODULE-019.shy
+MODULE-020	positive	callback executes in its home scope	tests/cases/positive/MODULE-020.shy
+MODULE-021	positive	nested module lookup	tests/cases/positive/MODULE-021.shy
+MODULE-022	positive	selected names can be reexported	tests/cases/positive/MODULE-022.shy
+MODULE-023	positive	diamond dependencies initialize once	tests/cases/positive/MODULE-023.shy
+MODULE-024	positive	false condition skips missing module	tests/cases/positive/MODULE-024.shy
+MODULE-025	positive	false condition skips side effects	tests/cases/positive/MODULE-025.shy
+MODULE-026	positive	false condition skips invalid module source	tests/cases/positive/MODULE-026.shy
+MODULE-027	positive	false optional module inside skipped branch	tests/cases/positive/MODULE-027.shy
+MODULE-028	positive	true condition loads module	tests/cases/positive/MODULE-028.shy
+MODULE-029	positive	condition uses platform settings	tests/cases/positive/MODULE-029.shy
+MODULE-030	positive	conditions obey string truthiness	tests/cases/positive/MODULE-030.shy
+MODULE-031	positive	condition external status false	tests/cases/positive/MODULE-031.shy
+MODULE-032	positive	empty condition string skips	tests/cases/positive/MODULE-032.shy
+MODULE-033	positive	when remains ordinary argument	tests/cases/positive/MODULE-033.shy
+MODULE-034	positive	multiline selection and condition	tests/cases/positive/MODULE-034.shy
+MODULE-035	positive	whole import does not replace local value	tests/cases/positive/MODULE-035.shy
+MODULE-036	positive	import declarations are processed before body	tests/cases/positive/MODULE-036.shy
+MODULE-037	positive	qualified nested mutation shares array	tests/cases/positive/MODULE-037.shy
+MODULE-038	positive	imported variable receiver mutation	tests/cases/positive/MODULE-038.shy
+MODULE-039	positive	qualified redirection capture	tests/cases/positive/MODULE-039.shy
+MODULE-040	positive	qualified function argument type promotion	tests/cases/positive/MODULE-040.shy
+MODULE-041	positive	module imports relative to containing file	tests/cases/positive/MODULE-041.shy
+MODULE-042	positive	sibling wins over module path	tests/cases/positive/MODULE-042.shy
+MODULE-043	positive	module path searches in order	tests/cases/positive/MODULE-043.shy
+MODULE-044	positive	conditions see caller before imported module	tests/cases/positive/MODULE-044.shy
+MODULE-045	positive	exported environment reaches module	tests/cases/positive/MODULE-045.shy
+MODULE-046	negative	missing module	tests/cases/negative/MODULE-046.shy
+MODULE-047	negative	true condition does not suppress missing module	tests/cases/negative/MODULE-047.shy
+MODULE-048	negative	same-file variable unavailable to condition	tests/cases/negative/MODULE-048.shy
+MODULE-049	negative	same-file function unavailable to condition	tests/cases/negative/MODULE-049.shy
+MODULE-050	negative	same-file type unavailable to condition	tests/cases/negative/MODULE-050.shy
+MODULE-051	negative	earlier import unavailable to condition	tests/cases/negative/MODULE-051.shy
+MODULE-052	negative	self import cycle	tests/cases/negative/MODULE-052.shy
+MODULE-053	negative	indirect import cycle	tests/cases/negative/MODULE-053.shy
+MODULE-054	negative	entry script cycle	tests/cases/negative/MODULE-054.shy
+MODULE-055	negative	missing selected name	tests/cases/negative/MODULE-055.shy
+MODULE-056	negative	whole import does not expose variables	tests/cases/negative/MODULE-056.shy
+MODULE-057	negative	whole import does not expose functions	tests/cases/negative/MODULE-057.shy
+MODULE-058	negative	whole import does not expose types	tests/cases/negative/MODULE-058.shy
+MODULE-059	negative	selected function does not import siblings	tests/cases/negative/MODULE-059.shy
+MODULE-060	negative	unknown qualified function	tests/cases/negative/MODULE-060.shy
+MODULE-061	negative	skipped module cannot be called	tests/cases/negative/MODULE-061.shy
+MODULE-062	negative	incompatible module nominal type	tests/cases/negative/MODULE-062.shy
+MODULE-063	negative	module initialization error	tests/cases/negative/MODULE-063.shy
+MODULE-064	negative	invalid module source	tests/cases/negative/MODULE-064.shy
+MODULE-065	negative	qualified write enforces type	tests/cases/negative/MODULE-065.shy
+MODULE-066	negative	imports inside function rejected	tests/cases/negative/MODULE-066.shy
+MODULE-067	negative	imports inside block rejected	tests/cases/negative/MODULE-067.shy
+MODULE-068	negative	duplicate selection	tests/cases/negative/MODULE-068.shy
+MODULE-069	negative	empty selection	tests/cases/negative/MODULE-069.shy
+MODULE-070	negative	missing module name	tests/cases/negative/MODULE-070.shy
+MODULE-071	negative	missing when expression	tests/cases/negative/MODULE-071.shy
+MODULE-072	negative	unterminated selection	tests/cases/negative/MODULE-072.shy
+MODULE-073	negative	missing selection comma	tests/cases/negative/MODULE-073.shy
+MODULE-074	negative	unexpected import suffix	tests/cases/negative/MODULE-074.shy
+MODULE-075	negative	condition errors are not suppressed	tests/cases/negative/MODULE-075.shy
+MODULE-076	negative	different selected variables collide	tests/cases/negative/MODULE-076.shy
+MODULE-077	negative	different selected functions collide	tests/cases/negative/MODULE-077.shy
+MODULE-078	negative	different selected types collide	tests/cases/negative/MODULE-078.shy
+MODULE-079	negative	qualified declaration rejected	tests/cases/negative/MODULE-079.shy
+MODULE-080	negative	module environment not an exported member	tests/cases/negative/MODULE-080.shy
+EXCLUSION-001	positive	included function	tests/cases/positive/EXCLUSION-001.shy
+EXCLUSION-002	positive	excluded function body is not checked	tests/cases/positive/EXCLUSION-002.shy
+EXCLUSION-003	positive	alternative function implementations	tests/cases/positive/EXCLUSION-003.shy
+EXCLUSION-004	positive	platform condition	tests/cases/positive/EXCLUSION-004.shy
+EXCLUSION-005	positive	block declarations use surrounding scope	tests/cases/positive/EXCLUSION-005.shy
+EXCLUSION-006	positive	excluded block skips type checks and effects	tests/cases/positive/EXCLUSION-006.shy
+EXCLUSION-007	positive	outer exclusion skips nested conditions	tests/cases/positive/EXCLUSION-007.shy
+EXCLUSION-008	positive	nested included blocks flatten	tests/cases/positive/EXCLUSION-008.shy
+EXCLUSION-009	positive	nested false block does not mask included declaration	tests/cases/positive/EXCLUSION-009.shy
+EXCLUSION-010	positive	included method	tests/cases/positive/EXCLUSION-010.shy
+EXCLUSION-011	positive	excluded unknown receiver	tests/cases/positive/EXCLUSION-011.shy
+EXCLUSION-012	positive	declaration block in function preserves return	tests/cases/positive/EXCLUSION-012.shy
+EXCLUSION-013	positive	declaration block preserves implicit result	tests/cases/positive/EXCLUSION-013.shy
+EXCLUSION-014	positive	empty excluded function result	tests/cases/positive/EXCLUSION-014.shy
+EXCLUSION-015	positive	ordinary enclosing block still scopes variables	tests/cases/positive/EXCLUSION-015.shy
+EXCLUSION-016	positive	nested function declarations	tests/cases/positive/EXCLUSION-016.shy
+EXCLUSION-017	positive	exclusions within conditional expressions	tests/cases/positive/EXCLUSION-017.shy
+EXCLUSION-018	positive	exclusions within match expressions	tests/cases/positive/EXCLUSION-018.shy
+EXCLUSION-019	positive	loop declaration group	tests/cases/positive/EXCLUSION-019.shy
+EXCLUSION-020	positive	excluded imports never resolve	tests/cases/positive/EXCLUSION-020.shy
+EXCLUSION-021	positive	included import enters surrounding module scope	tests/cases/positive/EXCLUSION-021.shy
+EXCLUSION-022	positive	module excluded exports are absent from compilation	tests/cases/positive/EXCLUSION-022.shy
+EXCLUSION-023	positive	false excludes invalid import selections	tests/cases/positive/EXCLUSION-023.shy
+EXCLUSION-024	positive	empty string excludes	tests/cases/positive/EXCLUSION-024.shy
+EXCLUSION-025	positive	nonzero and zero numeric conditions	tests/cases/positive/EXCLUSION-025.shy
+EXCLUSION-026	positive	command expression condition	tests/cases/positive/EXCLUSION-026.shy
+EXCLUSION-027	positive	ordinary arrays still parse	tests/cases/positive/EXCLUSION-027.shy
+EXCLUSION-028	positive	line breaks and comments	tests/cases/positive/EXCLUSION-028.shy
+EXCLUSION-029	negative	excluded syntax must still parse	tests/cases/negative/EXCLUSION-029.shy
+EXCLUSION-030	negative	missing condition	tests/cases/negative/EXCLUSION-030.shy
+EXCLUSION-031	negative	missing closing bracket	tests/cases/negative/EXCLUSION-031.shy
+EXCLUSION-032	negative	missing annotated declaration	tests/cases/negative/EXCLUSION-032.shy
+EXCLUSION-033	negative	annotation on variable rejected	tests/cases/negative/EXCLUSION-033.shy
+EXCLUSION-034	negative	annotation on struct rejected	tests/cases/negative/EXCLUSION-034.shy
+EXCLUSION-035	negative	annotation on call rejected	tests/cases/negative/EXCLUSION-035.shy
+EXCLUSION-036	negative	undefined condition is error	tests/cases/negative/EXCLUSION-036.shy
+EXCLUSION-037	negative	arithmetic condition error propagates	tests/cases/negative/EXCLUSION-037.shy
+EXCLUSION-038	negative	condition type error propagates	tests/cases/negative/EXCLUSION-038.shy
+EXCLUSION-039	negative	same submission binding unavailable	tests/cases/negative/EXCLUSION-039.shy
+EXCLUSION-040	negative	same submission type unavailable	tests/cases/negative/EXCLUSION-040.shy
+EXCLUSION-041	negative	function parameter unavailable at compilation	tests/cases/negative/EXCLUSION-041.shy
+EXCLUSION-042	negative	included body is checked	tests/cases/negative/EXCLUSION-042.shy
+EXCLUSION-043	negative	included block duplicate type checked	tests/cases/negative/EXCLUSION-043.shy
+EXCLUSION-044	negative	excluded function not callable	tests/cases/negative/EXCLUSION-044.shy
+EXCLUSION-045	negative	excluded type not visible	tests/cases/negative/EXCLUSION-045.shy
+EXCLUSION-046	negative	excluded variable not visible	tests/cases/negative/EXCLUSION-046.shy
+EXCLUSION-047	positive	false function skips nested condition	tests/cases/positive/EXCLUSION-047.shy
+EXCLUSION-048	negative	nested runtime branch does not suppress condition errors	tests/cases/negative/EXCLUSION-048.shy
+EXCLUSION-049	negative	excluded function is not a module export	tests/cases/negative/EXCLUSION-049.shy
+EXCLUSION-050	negative	all exclusion conditions precede imports	tests/cases/negative/EXCLUSION-050.shy
+STDLIB-001	positive	qualified standard function	tests/cases/positive/STDLIB-001.shy
+STDLIB-002	positive	selected standard function	tests/cases/positive/STDLIB-002.shy
+STDLIB-003	positive	standard qualified variables and writes	tests/cases/positive/STDLIB-003.shy
+STDLIB-004	positive	standard types and enums	tests/cases/positive/STDLIB-004.shy
+STDLIB-005	positive	standard callable reference	tests/cases/positive/STDLIB-005.shy
+STDLIB-006	positive	qualified arguments remain literal	tests/cases/positive/STDLIB-006.shy
+STDLIB-007	positive	false standard import skips malformed source	tests/cases/positive/STDLIB-007.shy
+STDLIB-008	positive	false standard import skips missing file	tests/cases/positive/STDLIB-008.shy
+STDLIB-009	positive	OS standard condition	tests/cases/positive/STDLIB-009.shy
+STDLIB-010	positive	standard module ignores local sibling	tests/cases/positive/STDLIB-010.shy
+STDLIB-011	positive	standard module ignores module path	tests/cases/positive/STDLIB-011.shy
+STDLIB-012	positive	ordinary module uses its own search path	tests/cases/positive/STDLIB-012.shy
+STDLIB-013	positive	first standard directory wins	tests/cases/positive/STDLIB-013.shy
+STDLIB-014	positive	standard lookup continues past missing file	tests/cases/positive/STDLIB-014.shy
+STDLIB-015	negative	first standard match is not bypassed on parse error	tests/cases/negative/STDLIB-015.shy
+STDLIB-016	negative	empty override disables standard search	tests/cases/negative/STDLIB-016.shy
+STDLIB-017	negative	missing override never searches ordinary directories	tests/cases/negative/STDLIB-017.shy
+STDLIB-018	positive	relative standard path	tests/cases/positive/STDLIB-018.shy
+STDLIB-019	positive	standard and ordinary namespaces coexist	tests/cases/positive/STDLIB-019.shy
+STDLIB-020	positive	nested standard import namespace	tests/cases/positive/STDLIB-020.shy
+STDLIB-021	positive	standard module can import its sibling	tests/cases/positive/STDLIB-021.shy
+STDLIB-022	positive	standard reexports shared binding	tests/cases/positive/STDLIB-022.shy
+STDLIB-023	positive	std path inherited through ordinary module	tests/cases/positive/STDLIB-023.shy
+STDLIB-024	negative	standard cycles diagnosed	tests/cases/negative/STDLIB-024.shy
+STDLIB-025	positive	prelude types available in main	tests/cases/positive/STDLIB-025.shy
+STDLIB-026	positive	prelude types shared by all modules	tests/cases/positive/STDLIB-026.shy
+STDLIB-027	positive	explicit prelude uses initialization cache	tests/cases/positive/STDLIB-027.shy
+STDLIB-028	positive	prelude functions stay qualified	tests/cases/positive/STDLIB-028.shy
+STDLIB-029	negative	prelude variables are not implicitly selected	tests/cases/negative/STDLIB-029.shy
+STDLIB-030	negative	prelude function is not implicitly selected	tests/cases/negative/STDLIB-030.shy
+STDLIB-031	positive	missing prelude allowed	tests/cases/positive/STDLIB-031.shy
+STDLIB-032	positive	prelude lookup ignores ordinary module path	tests/cases/positive/STDLIB-032.shy
+STDLIB-033	positive	prelude first directory wins	tests/cases/positive/STDLIB-033.shy
+STDLIB-034	positive	prelude searches later directories	tests/cases/positive/STDLIB-034.shy
+STDLIB-035	positive	prelude resolves directly to prelude shy	tests/cases/positive/STDLIB-035.shy
+STDLIB-036	negative	malformed prelude fails initialization	tests/cases/negative/STDLIB-036.shy
+STDLIB-037	negative	prelude runtime error stops startup	tests/cases/negative/STDLIB-037.shy
+STDLIB-038	negative	prelude type error stops startup	tests/cases/negative/STDLIB-038.shy
+STDLIB-039	negative	prelude explicit self import diagnosed	tests/cases/negative/STDLIB-039.shy
+STDLIB-040	positive	prelude loads dependencies without implicit recursion	tests/cases/positive/STDLIB-040.shy
+STDLIB-041	positive	cached prelude survives file removal	tests/cases/positive/STDLIB-041.shy
+STDLIB-042	positive	prelude used by exclusion conditions	tests/cases/positive/STDLIB-042.shy
+STDLIB-043	positive	prelude used by import conditions	tests/cases/positive/STDLIB-043.shy
+STDLIB-044	negative	prelude excluded types unavailable	tests/cases/negative/STDLIB-044.shy
+STDLIB-045	positive	std path may be changed after initialization	tests/cases/positive/STDLIB-045.shy
+STDLIB-046	negative	std namespace requires module name	tests/cases/negative/STDLIB-046.shy
+STDLIB-047	negative	unsupported nested standard path rejected	tests/cases/negative/STDLIB-047.shy
+STDLIB-048	negative	unknown selected standard member	tests/cases/negative/STDLIB-048.shy
+STDLIB-049	positive	canonical cache shares standard and ordinary import	tests/cases/positive/STDLIB-049.shy

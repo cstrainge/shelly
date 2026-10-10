@@ -1,0 +1,15 @@
+# MODULE-047: true condition does not suppress missing module
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-047",
+    "name": "true condition does not suppress missing module",
+    "source": "import missing when true",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Module error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

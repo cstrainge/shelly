@@ -1,0 +1,14 @@
+# EXCLUSION-035: annotation on call rejected
+check [
+    "id": "EXCLUSION-035",
+    "name": "annotation on call rejected",
+    "source": "[when true] echo bad",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

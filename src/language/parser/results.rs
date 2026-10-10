@@ -16,6 +16,8 @@ pub enum ParserErrorKind
     InvalidAssignmentTarget,
     InvalidRange,
     InvalidMatch(String),
+    InvalidImport(String),
+    InvalidExclusion(String),
     InvalidRedirection(String),
     InvalidEnum(String),
     InvalidType(String),
@@ -67,6 +69,8 @@ impl Display for ParserErrorKind
 
             ParserErrorKind::InvalidRedirection(message) => write!(f, "{}", message),
             ParserErrorKind::InvalidMatch(message) => write!(f, "{}", message),
+            ParserErrorKind::InvalidExclusion(message) => write!(f, "{}", message),
+            ParserErrorKind::InvalidImport(message) => write!(f, "{}", message),
 
             ParserErrorKind::InvalidRange =>
                 write!(f, "Ranges cannot be chained and inclusive ranges require an end bound."),

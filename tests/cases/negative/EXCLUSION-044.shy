@@ -1,0 +1,14 @@
+# EXCLUSION-044: excluded function not callable
+check [
+    "id": "EXCLUSION-044",
+    "name": "excluded function not callable",
+    "source": "[when false] fn unique_excluded_gadget(\$x) {}; unique_excluded_gadget 1",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable not found:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

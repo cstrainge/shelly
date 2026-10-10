@@ -745,10 +745,15 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
             });
     }
 
+    // Qualified names resolve after parsing, when the checker can distinguish
+    // functions from enum variants. Apply the usual call rule only in value positions.
+    let qualified_call = mode == ExpressionMode::Value
+        && matches!(&expression.kind, AstExpressionKind::Symbol(symbol)
+            if symbol.name.contains("::"));
     instructions.push(Instruction
         {
-            location: None,
-            code: Code::PopResult,
+            location: Some(expression.location.clone()),
+            code: if qualified_call { Code::TryExecute } else { Code::PopResult },
             operand: None
         });
     Ok(())
@@ -1031,6 +1036,7 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
     // remains a fallback for forward declarations and is frozen at publication.
     let captured = Rc::new(RefCell::new(FunctionBlock
         {
+            scope: parent_block.borrow().scope.clone(),
             parent: Some(parent_block.clone()),
             function_name: None,
             declared_functions: parent_block.borrow().declared_functions.clone(),
@@ -1039,6 +1045,7 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
         }));
     let function_block = Rc::new(RefCell::new(FunctionBlock
         {
+            scope: parent_block.borrow().scope.clone(),
             parent: Some(captured.clone()),
             function_name: Some(binding.clone()),
             declared_functions: Default::default(),
@@ -1659,6 +1666,12 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
 
         match ast_item
         {
+            AstStatement::ImportStatement(import) => return Err(CompileError
+                {
+                    location: Some(import.location.clone()),
+                    what: ErrorWhat::TypeError(
+                        "Imports are only allowed at module top level".into()),
+                }),
             AstStatement::EnumDeclaration(_) | AstStatement::StructDeclaration(_)
                 | AstStatement::NullStatement => { add_check = false; },
 
@@ -1844,12 +1857,13 @@ pub fn compile_ast(registry: &mut TypeRegistry,
                    ast: &mut AstTopLevel,
                    target: CompileTarget) -> CompileResult<Vec<Instruction>>
 {
-    let mut staged = registry.clone();
+    let mut staged = registry.staged();
     check_ast(&mut staged, ast)?;
     // Each submission gets a private function namespace. Function bodies retain
     // this snapshot as their parent; later submissions publish into a new one.
     let functions = Rc::new(RefCell::new(FunctionBlock
         {
+            scope: function_block.borrow().scope.clone(),
             parent: function_block.borrow().parent.clone(),
             function_name: function_block.borrow().function_name.clone(),
             declared_functions: function_block.borrow().declared_functions.clone(),
@@ -1860,7 +1874,7 @@ pub fn compile_ast(registry: &mut TypeRegistry,
     {
         Ok(code) =>
             {
-                *registry = staged;
+                registry.commit(staged);
                 function_block.borrow_mut().functions = functions.borrow().functions.clone();
                 Ok(code)
             },

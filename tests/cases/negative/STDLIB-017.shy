@@ -1,0 +1,19 @@
+# STDLIB-017: missing override never searches ordinary directories
+let $std_fixture = $args[0]
+printf "%s" ("echo wrong".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/net.shy"
+mkdir -p "${std_fixture}/lib"
+printf "%s" ("echo wrong".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/lib/net.shy"
+printf "%s" ("import std::net".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-017",
+    "name": "missing override never searches ordinary directories",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Module error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,14 @@
+# EXCLUSION-008: nested included blocks flatten
+check [
+    "id": "EXCLUSION-008",
+    "name": "nested included blocks flatten",
+    "source": "[when true] { [when true] { let \$x = 4; fn gadget() { \$x } } }; echo (gadget) \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "4 4\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

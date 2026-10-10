@@ -1,0 +1,14 @@
+# EXCLUSION-029: excluded syntax must still parse
+check [
+    "id": "EXCLUSION-029",
+    "name": "excluded syntax must still parse",
+    "source": "[when false] fn gadget() { let \$x = }",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

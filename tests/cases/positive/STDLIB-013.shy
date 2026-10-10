@@ -1,0 +1,20 @@
+# STDLIB-013: first standard directory wins
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/one"
+printf "%s" ("fn ping(\$x) { echo first \$x }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/one/net.shy"
+mkdir -p "${std_fixture}/two"
+printf "%s" ("fn ping(\$x) { echo second \$x }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/two/net.shy"
+printf "%s" ("import std::net; std::net::ping hi".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-013",
+    "name": "first standard directory wins",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/one:<FIXTURE>/two\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "first hi\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

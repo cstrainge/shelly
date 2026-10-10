@@ -1,0 +1,14 @@
+# EXCLUSION-001: included function
+check [
+    "id": "EXCLUSION-001",
+    "name": "included function",
+    "source": "[when true]\nfn gadget() { 7 }; echo (gadget)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

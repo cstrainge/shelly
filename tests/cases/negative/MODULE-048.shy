@@ -1,0 +1,15 @@
+# MODULE-048: same-file variable unavailable to condition
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-048",
+    "name": "same-file variable unavailable to condition",
+    "source": "let \$enabled = true; import missing when \$enabled",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(?:Variable .*not found|Variable not found for SetVariable)",
+    "stderr_contains": ["\$enabled"],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

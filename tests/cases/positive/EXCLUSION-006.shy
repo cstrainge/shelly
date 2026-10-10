@@ -1,0 +1,14 @@
+# EXCLUSION-006: excluded block skips type checks and effects
+check [
+    "id": "EXCLUSION-006",
+    "name": "excluded block skips type checks and effects",
+    "source": "[when false] { echo bad; let \$bad: Missing = 1; missing_exclusion_command }; echo ok",
+    "mode": "code",
+    "args": [],
+    "stdout": "ok\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

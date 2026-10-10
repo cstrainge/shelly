@@ -1,0 +1,15 @@
+# MODULE-069: empty selection
+let $module_fixture = $args[0]
+check [
+    "id": "MODULE-069",
+    "name": "empty selection",
+    "source": "import foo::{}",
+    "mode": "file",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Parser error:",
+    "stderr_contains": ["cannot be empty"],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

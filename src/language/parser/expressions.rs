@@ -128,10 +128,26 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
         {
             TokenKind::Symbol =>
                 {
-                    let name = token.token_value_text();
-                    if let Some(start) = constructor_follows(&mut *lookahead.buffer, &token)?
+                    let mut name = token.token_value_text();
+                    let mut tail = token.clone();
+                    while try_expect_token(&mut *lookahead.buffer, TokenKind::Scope)?.is_some()
                     {
-                        if !valid_type_name(&name)
+                        if !name.split("::").all(valid_type_name)
+                        {
+                            return Err(ParserError
+                                {
+                                    location: Some(token.location.clone()),
+                                    kind: ParserErrorKind::InvalidType(
+                                        "Invalid qualified name".into()),
+                                });
+                        }
+                        tail = expect_type_name(&mut *lookahead.buffer)?;
+                        name.push_str("::");
+                        name.push_str(&tail.token_value_text());
+                    }
+                    if let Some(start) = constructor_follows(&mut *lookahead.buffer, &tail)?
+                    {
+                        if !name.split("::").all(valid_type_name)
                         {
                             return Err(ParserError
                                 {
@@ -203,54 +219,12 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                         lookahead.commit();
                         return Ok(Some(expression));
                     }
-                    if try_expect_token(&mut *lookahead.buffer, TokenKind::Scope)?.is_none()
-                    {
-                        return Ok(None);
-                    }
-                    if !valid_type_name(&name)
-                    {
-                        return Err(ParserError
-                            {
-                                location: Some(token.location),
-                                kind: ParserErrorKind::InvalidEnum(
-                                    "Invalid enum type name.".to_string()),
-                            });
-                    }
-                    let variant = expect_type_name(&mut *lookahead.buffer)?;
-                    let peek = Lookahead::new(&mut *lookahead.buffer);
-                    if let Some(next) = peek.buffer.next()?
-                    {
-                        if next.kind == TokenKind::Scope
-                        {
-                            return Err(ParserError
-                                {
-                                    location: Some(next.location),
-                                    kind: ParserErrorKind::InvalidEnum(
-                                        "Enum references require exactly Type::Variant."
-                                            .to_string(),
-                                    ),
-                                });
-                        }
-                        if    next.kind == TokenKind::ParenOpen
-                           && next.location.line == variant.location.line
-                           && next.location.column
-                                == variant.location.column + variant.token_value_text().chars()
-                                    .count()
-                        {
-                            return Err(ParserError
-                                {
-                                    location: Some(next.location),
-                                    kind: ParserErrorKind::InvalidEnum(
-                                        "Unit enum variants do not take constructor \
-                                            arguments.".to_string(),
-                                    ),
-                                });
-                        }
-                    }
+                    let Some((owner, member)) = name.rsplit_once("::")
+                    else { return Ok(None); };
                     AstExpression
                         {
                             location: token.location,
-                            kind: AstExpressionKind::EnumVariant(name, variant.token_value_text()),
+                            kind: AstExpressionKind::EnumVariant(owner.into(), member.into()),
                             string_flag: None,
                         }
                 },
@@ -518,6 +492,11 @@ fn parse_type_inner(
     }
     if name == "optional"
     { return Ok(AstType::Optional(Box::new(parse_type_inner(buffer, allow_variadic, variadic)?))); }
+    while try_expect_token(buffer, TokenKind::Scope)?.is_some()
+    {
+        name.push_str("::");
+        name.push_str(&expect_type_name(buffer)?.token_value_text());
+    }
     Ok(AstType::Named(name))
 }
 
@@ -881,6 +860,7 @@ fn parse_scalar_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
             AstExpressionKind::Variable(_)
                 | AstExpressionKind::Index(_, _)
                 | AstExpressionKind::Field(_, _, _)
+                | AstExpressionKind::EnumVariant(_, _)
         )
         {
             return Ok(Some(AstExpression
@@ -1045,6 +1025,7 @@ fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
     let Some(mut expression) = parse_expression(buffer)? else { return Ok(None); };
 
     if matches!(&expression.kind, AstExpressionKind::Symbol(_) | AstExpressionKind::Variable(_)
+        | AstExpressionKind::EnumVariant(_, _)
         | AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _)
         | AstExpressionKind::SpacedEmptyCall(_))
     {

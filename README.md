@@ -52,6 +52,9 @@ Ctrl+Enter and Shift+Enter require a terminal that reports those key combination
 Interactive startup loads `~/.shelly_init.shy`. `--rcfile PATH` selects another init
 file; `--norc` skips it. `-l` enables login startup, which loads
 `/etc/shelly/profile.shy`, then `~/.shelly_profile.shy`, before interactive init.
+The standard prelude loads once after those profiles and before the init file,
+unless a profile has already loaded it with `prelude_reload`. See
+[Modules](#modules) for standard-library paths, prelude selection, and profile examples.
 `--norc` does not disable login profiles. Script, `-c`, and stdin modes skip
 interactive init. `-b` suppresses the banner; `-m` requests monochrome output.
 
@@ -1474,6 +1477,208 @@ never mutate the receiver. `chars` returns Unicode scalar strings; `split`
 retains empty fields, including leading/trailing ones. Trimming uses Unicode
 whitespace and is always explicit: captures still preserve trailing newlines.
 
+## Modules
+
+Imports are top-level declarations:
+
+```shy
+import foo
+import net::{ ping }
+import config::{ $enabled, Settings }
+import platform when $OS == "linux"
+
+foo::run "argument"
+echo $foo::value
+let $settings: config::Settings = config::Settings(enabled: $enabled)
+```
+
+`import foo` searches for `foo.shy` beside the importing file, then searches
+the directories in `$SHELLY_MODULE_PATH`, in order. Set that variable in the
+environment or an earlier REPL submission; it is a colon-separated String.
+For command-line source and REPL input, the first search directory is the current
+directory. Modules are cached by canonical path and initialized once per
+interpreter. Circular imports are errors.
+
+Only names listed in `::{ ... }` enter the enclosing scope. Other top-level
+variables, functions, structs, and enums remain accessible through the module
+namespace: `$foo::value`, `foo::run`, `foo::Point`, and `foo::State::Ready`.
+Selected imports clone the original object's `Rc` into the enclosing scope map.
+They preserve type and function identity, and assigning through an imported
+variable updates the module's binding. A new `let` declaration creates a separate
+local binding. Reimporting the same object is allowed; importing a different
+object over an existing name is an error. Aliases are module-local.
+
+Imported functions execute with their defining module's variables and functions.
+Qualified function calls follow ordinary argument rules: `echo foo::read` passes
+the name as text; `echo (foo::read)` calls it. A backtick, as in `` `foo::read ``,
+keeps a callable reference.
+
+Standard-library imports use a separate search path:
+
+```shy
+import std::foo
+import std::net::{ ping }
+import std::foo when $OS == "linux"
+
+std::net::ping "host"
+```
+
+`std::net` resolves to `net.shy` directly inside a standard-library directory.
+It never searches beside the importing file or through `$SHELLY_MODULE_PATH`.
+`$SHELLY_STD_PATH` is a colon-separated String; a set value replaces all default
+search directories, including when it is empty. When unset, the directories are:
+
+```text
+/etc/shelly/std:/usr/local/share/shelly/std:/usr/share/shelly/std
+```
+
+Search proceeds left to right; the first matching module wins. An error in that
+module is reported instead of trying a later copy. Selection happens per module,
+so different modules can come from different directories in the same search path.
+Empty path entries are skipped. To put a development library before the installed
+library while retaining fallback directories, include them explicitly:
+
+```shy
+let export $SHELLY_STD_PATH = "/home/me/workdir/shelly/std:/etc/shelly/std:/usr/local/share/shelly/std:/usr/share/shelly/std"
+```
+
+Qualified access retains the `std::` prefix, including variables
+(`$std::foo::value`) and types (`std::foo::Type`).
+
+Shelly selects `std::prelude` by searching for `prelude.shy` using the same
+standard-library search path. Its exported types are automatically available
+without qualification in the main scope and subsequently loaded modules. These
+imports share the original type handles and preserve type identity. Prelude
+functions and variables remain qualified unless explicitly selected:
+
+```shy
+import std::prelude::{ helper, $setting }
+```
+
+Startup runs in this order:
+
+| Stage | When it runs | Purpose |
+| --- | --- | --- |
+| `/etc/shelly/profile.shy` | Login shells (`-l` or `--login`) | System-wide environment and library selection. |
+| `~/.shelly_profile.shy` | Login shells, after the system profile | User environment and overrides. |
+| Initial prelude load | All modes, unless already loaded by a profile | Select and execute the prelude once. |
+| `~/.shelly_init.shy` or `--rcfile PATH` | Interactive shells, unless `--norc` | User configuration with prelude types available. |
+| User input or script | After startup | Execute commands with the selected prelude. |
+
+Missing profile files are skipped. Profiles initially have no implicit prelude;
+they can configure its location before it loads. If the system profile explicitly
+loads it, the user profile also has those types available. Non-login shells skip
+both profiles and select the library from their inherited environment.
+Noninteractive script, `-c`, and stdin modes still load the prelude, but skip the
+interactive init file. `--norc` skips only that init file, not login profiles or
+the prelude. Configure a terminal to launch `shelly --login` when its sessions
+should read the profiles.
+
+For example, a system administrator can put this in `/etc/shelly/profile.shy`
+to select the machine's standard library:
+
+```shy
+let export $SHELLY_STD_PATH = /home/me/workdir/shelly/std
+```
+
+With no explicit reload, Shelly waits until both profiles have run before
+selecting the prelude. The user can therefore set a different path in
+`~/.shelly_profile.shy` before that first load. `let export` also passes the
+configured path to child processes, including non-login Shelly instances.
+Each new interpreter loads its own prelude; the cache is not shared across
+processes.
+
+To load the chosen prelude immediately for following startup scripts, add the
+zero-argument builtin `prelude_reload` to the profile:
+
+```shy
+# /etc/shelly/profile.shy
+let export $SHELLY_STD_PATH = /home/me/workdir/shelly/std
+prelude_reload
+```
+
+A successful profile reload satisfies startup's initial load, so Shelly does not
+execute it again before the RC. If a later user profile or RC chooses another
+library, it must call `prelude_reload` after setting the path to replace the
+already selected prelude. The same sequence works at the REPL.
+
+Changing `$SHELLY_STD_PATH` alone changes subsequent uncached standard-library
+lookups; it does not rerun the prelude or replace cached modules. The selected
+prelude remains cached even if its source file is removed. Explicit
+`import std::prelude` reuses the current scope's cached generation.
+If no prelude exists during initial discovery, execution continues without one
+and Shelly does not automatically search again. Errors in a prelude found during
+automatic initialization stop startup. The prelude does not implicitly import
+itself; its dependencies bootstrap before its exported types are distributed.
+
+`prelude_reload` searches the current `$SHELLY_STD_PATH`, or the defaults when
+unset, and executes the selected `prelude.shy` again.
+
+A successful reload replaces the implicit prelude types and `std::prelude`
+namespace in the current module scope, and supplies that generation to future
+modules. Previously loaded modules retain their bindings. Existing values,
+function references, and explicitly selected functions or variables keep their
+original identities. Old implicit type names absent from the new prelude are
+removed; conflicting local types cause an error. Reloading the same file still
+creates new nominal types. Dependencies already loaded remain cached.
+
+New type bindings apply to subsequent compilations: the next REPL input, startup
+script, or newly loaded module. A script's imports and type references are
+resolved before its body runs, so a reload in that body cannot retroactively
+change them.
+
+Unlike optional startup discovery, an explicit reload reports a missing prelude.
+Lookup, parse, evaluation, and binding conflicts preserve the previous prelude
+bindings. Script side effects, such as output or file writes, cannot be undone.
+Recursive reloads during prelude loading are rejected.
+
+All `when` conditions are evaluated before loading the containing file's explicit
+imports or compiling its body. They see the existing caller environment, including
+prelude types and prior REPL submissions, and cannot use names declared or imported
+in the same file.
+A false condition skips file lookup and initialization entirely. After the
+conditions are evaluated, enabled imports load in source order, then the body
+compiles and runs. Import placement does not delay loading until execution
+reaches that line.
+
+## Conditional declarations
+
+Attach `[when expression]` to a function or a declaration block to select code
+before compilation:
+
+```shy
+[when $os == "linux"]
+fn os_gadget()
+{
+    echo "Linux implementation"
+}
+
+[when $os == "macos"]
+{
+    fn os_gadget() { echo "macOS implementation" }
+    let $platform_label = "macOS"
+}
+```
+
+The AST retains each condition until the compilation prepass evaluates it using
+Shelly's normal truthiness rules. A false condition removes the entire function
+or block before import resolution, type checking, and function registration.
+Evaluation errors are reported; they are not treated as false. Excluded source
+must still be syntactically valid, but may refer to unavailable types or modules.
+Nested conditions inside excluded code are not evaluated.
+
+An included annotated block inserts its contents into the surrounding scope.
+Its variables, types, and functions remain visible afterward, and its statements
+execute in their original position. Ordinary unannotated blocks retain their
+usual scope. To conditionally declare a struct, enum, variable, or import, put it
+inside an annotated block.
+
+Like `import ... when`, exclusion conditions use the environment from before the
+containing file or REPL submission loads. They cannot depend on declarations or
+imports in that submission, or on function parameters and runtime loop variables.
+Conditions are evaluated once during compilation, including those written inside
+function bodies. Prior REPL bindings and functions are available.
+
 ## Current limitations and known issues
 
 - Variables use dynamic caller scope; function definitions are hoisted within each input.
@@ -1504,6 +1709,18 @@ pairs are removed, and redundant `CheckResult` instructions are dropped only
 when the compiler can prove the result is already empty. The proof is conservative
 across calls and control-flow boundaries.
 
+The interpreter stores named scopes in a `HashMap<String, Scope>` and tracks the
+current scope by name. Startup creates and selects the `main` scope. Loaded
+modules have separate entries keyed by canonical source path; qualified names
+resolve through this registry. Function calls select their defining scope and
+restore the caller's scope on completion or error.
+
+Each `Scope` owns variable bindings, the type registry, function namespaces,
+and aliases. It preserves caller-scoped variables and lexical type
+and function identities across submissions. Function entry and exit update the
+variable scope and active function namespace together. Built-in handlers, special
+variable readers, I/O state, and execution results remain on the interpreter.
+
 Jumps and `EnterLoop` initially refer to labels. Linking resolves them to numeric
 instruction indexes independently for each function and the top-level code,
 rejecting missing or duplicate labels. `JumpTarget` instructions remain as landing
@@ -1527,7 +1744,7 @@ scripts, or the REPL. `cargo clippy --locked --all-targets` runs the Rust lints.
 ./target/debug/shelly -m test.shy C001
 ```
 
-The suite includes 4,140 process cases, 93 stateful REPL scenarios, prompt/path
+The suite includes 4,319 process cases, 98 stateful REPL scenarios, prompt/path
 checks, watchdog probes, native API tests, and harness failure controls. All
 orchestration and assertions run in Shelly; no Python, pexpect, or other shell is
 needed. Standard Unix utilities still provide file operations and byte/regex

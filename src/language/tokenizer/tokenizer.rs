@@ -779,6 +779,31 @@ impl<'a> Tokenizer<'a>
      * Parse a variable identifier from the input stream. A variable identifier starts with a `$`
      * sign followed by a name, optionally enclosed in braces.
      */
+    fn qualified_variable_tail(&mut self, identifier: &mut String) -> Result<(), TokenizerError>
+    {
+        while self.input.peek_next() == Some(':')
+        {
+            let location = self.input.location().clone();
+            self.input.next();
+            if self.input.peek_next() != Some(':')
+            {
+                self.pending_operator = Some(Token
+                    { location, kind: TokenKind::TypeDelimiter, value: TokenValue::None });
+                break;
+            }
+            self.input.next();
+            let member = self.extract_to_separator(Some(&['{', '}', '.', '/', '[', ']']));
+            if member.is_empty()
+            {
+                return Err(TokenizerError { location,
+                    message: "Expected a variable name after '::'".into() });
+            }
+            identifier.push_str("::");
+            identifier.push_str(&member);
+        }
+        Ok(())
+    }
+
     fn parse_identifier(&mut self) -> Result<Token, TokenizerError>
     {
         let location = self.input.location().clone();
@@ -794,7 +819,10 @@ impl<'a> Tokenizer<'a>
             self.input.next();
             identifier += &self.extract_to_separator(Some(&['{', '}', '.', '/', '[', ']']));
 
-            if identifier.len() == 1 || self.input.next() != Some('}')
+            self.qualified_variable_tail(&mut identifier)?;
+            if    identifier.len() == 1
+               || self.pending_operator.is_some()
+               || self.input.next() != Some('}')
             {
                 return Err(TokenizerError
                     {
@@ -807,6 +835,7 @@ impl<'a> Tokenizer<'a>
         else
         {
             identifier += &self.extract_to_separator(Some(&['.', '/', '[', ']']));
+            self.qualified_variable_tail(&mut identifier)?;
         }
 
         if identifier.contains('=')

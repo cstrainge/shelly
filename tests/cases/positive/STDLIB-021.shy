@@ -1,0 +1,20 @@
+# STDLIB-021: standard module can import its sibling
+let $std_fixture = $args[0]
+mkdir -p "${std_fixture}/std"
+printf "%s" ("import helper".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/net.shy"
+mkdir -p "${std_fixture}/std"
+printf "%s" ("fn ping() { echo sibling }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/helper.shy"
+printf "%s" ("import std::net; std::net::helper::ping".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+check [
+    "id": "STDLIB-021",
+    "name": "standard module can import its sibling",
+    "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "sibling\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]
