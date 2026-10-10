@@ -1,6 +1,6 @@
 
 use std::{ borrow::Cow,
-           collections::BTreeMap,
+           collections::{ BTreeMap, VecDeque },
            sync::{ Arc, atomic::{ AtomicBool, Ordering } },
            process::ExitCode,
            path::{ Path, PathBuf },
@@ -459,12 +459,13 @@ struct ShellyEditMode
 {
     emacs: Emacs,
     previous_tab: bool,
-    multiline: Arc<AtomicBool>
+    multiline: Arc<AtomicBool>,
+    startup_keys: VecDeque<ReedlineRawEvent>,
 }
 
-impl EditMode for ShellyEditMode
+impl ShellyEditMode
 {
-    fn parse_event(&mut self, event: ReedlineRawEvent) -> ReedlineEvent
+    fn parse_key(&mut self, event: ReedlineRawEvent) -> ReedlineEvent
     {
         let event = self.emacs.parse_event(event);
         if matches!(event, ReedlineEvent::Submit)
@@ -498,6 +499,19 @@ impl EditMode for ShellyEditMode
                 ])
         }
         else { event }
+    }
+}
+
+impl EditMode for ShellyEditMode
+{
+    fn parse_event(&mut self, event: ReedlineRawEvent) -> ReedlineEvent
+    {
+        if self.startup_keys.is_empty() { return self.parse_key(event); }
+        let mut events = Vec::new();
+        while let Some(key) = self.startup_keys.pop_front()
+        { events.push(self.parse_key(key)); }
+        events.push(self.parse_key(event));
+        ReedlineEvent::Multiple(events)
     }
 
     fn edit_mode(&self) -> PromptEditMode
@@ -577,6 +591,26 @@ impl Repl
 
         Self::apply_keybindings(&mut keybindings);
 
+        let mut startup_mode = Emacs::new(keybindings.clone());
+        let mut startup_input = VecDeque::new();
+        let mut startup_keys = VecDeque::new();
+        for event in self.interpreter.take_startup_input()
+        {
+            let Ok(key) = ReedlineRawEvent::try_from(event.clone()) else { continue; };
+            let parsed = startup_mode.parse_event(key);
+            match parsed
+            {
+                ReedlineEvent::Edit(_) | ReedlineEvent::Enter | ReedlineEvent::CtrlC
+                    | ReedlineEvent::CtrlD => startup_input.push_back(parsed),
+                // Let Reedline itself handle menus, history search and multiline controls.
+                _ =>
+                    {
+                        if let Ok(key) = ReedlineRawEvent::try_from(event)
+                        { startup_keys.push_back(key); }
+                    },
+            }
+        }
+
         let mut editor = Reedline::create()
             .with_ansi_colors(self.color_mode != TtyColorMode::TtyMonochrome)
             .use_kitty_keyboard_enhancement(true)
@@ -585,7 +619,8 @@ impl Repl
                 {
                     emacs: Emacs::new(keybindings),
                     previous_tab: false,
-                    multiline: multiline.clone()
+                    multiline: multiline.clone(),
+                    startup_keys,
                 }));
 
         while !self.interpreter.halted
@@ -621,7 +656,24 @@ impl Repl
                         completer: Box::new(FirstTabCompleter(completer))
                     });
 
-            let input = editor.read_line(&prompt);
+            // A key typed during the capability query precedes the keys still in the TTY.
+            let mut startup_signal = None;
+            let mut accept_startup = false;
+            while let Some(event) = startup_input.pop_front()
+            {
+                match event
+                {
+                    ReedlineEvent::Edit(commands) => editor.run_edit_commands(&commands),
+                    ReedlineEvent::Enter => { accept_startup = true; break; },
+                    ReedlineEvent::CtrlC => { startup_signal = Some(Signal::CtrlC); break; },
+                    ReedlineEvent::CtrlD => { startup_signal = Some(Signal::CtrlD); break; },
+                    _ => {},
+                }
+            }
+            editor = editor.with_immediately_accept(accept_startup);
+            let input = if let Some(signal) = startup_signal { Ok(signal) }
+                else { editor.read_line(&prompt) };
+            editor = editor.with_immediately_accept(false);
             if !matches!(&input, Ok(Signal::Success(text)) if !text.trim().is_empty())
             {
                 self.interpreter.record_command_time(Duration::ZERO);

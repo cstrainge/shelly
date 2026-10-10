@@ -1,0 +1,58 @@
+# The renderer is an optional Python/Pillow development tool, not a harness wrapper.
+let $fixture = $args[0]
+let $suite = $args[1]
+let $probe = run_process ["python3", "-c", "from PIL import Image"] [
+    "stdout_file": "${fixture}/probe.out", "stderr_file": "${fixture}/probe.err",
+    "timeout_ms": 3000]
+if ($probe["error"] != ()) || ($probe["exit_code"] != 0)
+{
+    echo "SKIP sixel renderer: Python 3 and Pillow are required"
+    return
+}
+
+fn sixel_command($options: [String], $expected: Integer): String
+{
+    let $fixture = $args[0]
+    let $suite = $args[1]
+    let $reply = run_process ["python3", "${suite}/img2sixel.py", $options...] [
+        "cwd": $suite, "stdout_file": "${fixture}/out", "stderr_file": "${fixture}/err",
+        "timeout_ms": 5000]
+    require (($reply["error"] == ()) && ($reply["signal"] == ()) &&
+        (!$reply["timed_out"]) && ($reply["exit_code"] == $expected)) "sixel renderer failed"
+    let $output: String
+    if $expected == 0 { "${fixture}/out" -> $output }
+    else { "${fixture}/err" -> $output }
+    $output
+}
+
+let $banner = sixel_command ["Shelly.png", "-w", "35", "-t", "welcome_true.txt"] 0
+require ($banner.starts_with "\r\n") "sixel banner must reserve rows first"
+require ($banner.contains "\x1bP0;1;0q\"1;1;280;280") "sixel dimensions or transparency"
+require ($banner.contains ("\x1b\\\x1b" + "8")) "sixel DCS must end and restore the cursor"
+require ($banner.contains "\x1b[38C") "welcome text must follow the logo and gap"
+require ($banner.contains '\${HOSTNAME}') "welcome placeholders must remain unexpanded"
+require ($banner.contains "https://github.com/cstrainge/shelly") "missing welcome text"
+require ($banner.ends_with "\r\n") "banner must leave the cursor on a new line"
+
+let $small = sixel_command ["Shelly.png", "-w", "3", "--cell-width", "5",
+    "--cell-height", "10", "--colors", "2"] 0
+require ($small.contains "\x1bP0;1;0q\"1;1;15;15") "custom pixel dimensions ignored"
+require (!($small.contains "https://github.com")) "text should be optional"
+
+sixel_command ["Shelly.png", "-w", "35", "-t", "welcome_true.txt",
+    "-o", "${fixture}/banner.txt"] 0
+let $saved: String
+"${fixture}/banner.txt" -> $saved
+require ($saved == $banner) "stdout and file output must preserve identical control bytes"
+
+for $options in [["-w", "0"], ["-w", "bad"], ["--cell-width", "0"],
+    ["--cell-height", "-1"], ["--colors", "0"], ["--colors", "257"],
+    ["--gap", "-1"], ["--valign", "bad"]]
+{
+    let $error = sixel_command ["Shelly.png", $options...] 2
+    require ($error.contains "error:") "invalid arguments need a diagnostic"
+}
+let $missing = sixel_command ["${fixture}/missing.png"] 1
+require ($missing.contains "Could not generate sixel banner") "missing image diagnostic"
+let $missing_text = sixel_command ["Shelly.png", "-t", "${fixture}/missing.txt"] 1
+require ($missing_text.contains "Could not generate sixel banner") "missing text diagnostic"

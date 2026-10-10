@@ -1,0 +1,121 @@
+# Inspect raw PTY bytes: rendering and the startup probe are independent of color detection.
+fn banner_case($response: String, $options: [String], $expect_probe: Boolean,
+               $expect_sixel: Boolean, $expect_banner: Boolean, $marker: String)
+{
+    let $fixture = $args[0]
+    let $terminal = open_terminal [`$shelly, $options...] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "TERM": "xterm-256color", "COLORTERM": "truecolor", "LANG": "C.UTF-8",
+            "USER": "sixel-user", "HOSTNAME": "sixel-host",
+            "SHELLY_STD_PATH": "${fixture}/missing-std"], "rows": 40, "columns": 160]
+    let $raw = ""
+    let $probe = false
+    let $editor = false
+    let $ready = false
+    for $attempt in 0..80
+    {
+        let $reply = terminal_read $terminal 50
+        $raw = $raw + $reply["text"]
+        require (!$reply["eof"]) "banner shell exited during startup"
+        if ($raw.contains "\x1b[6n")
+        {
+            terminal_write $terminal "\x1b[1;1R"
+            $raw = $raw.replace "\x1b[6n" ""
+        }
+        if ($raw.contains "\x1b[?u") { $editor = true }
+        if ($raw.contains "\x1b[c")
+        {
+            if $editor { terminal_write $terminal "\x1b[?1;2c" }
+            else
+            {
+                $probe = true
+                if ($response.starts_with "fragment:")
+                {
+                    terminal_write $terminal "\x1b[?62;"
+                    terminal_read $terminal 20
+                    terminal_write $terminal "4c"
+                }
+                else if ($response.starts_with "late:")
+                {
+                    # Timeout with a partial reply queued; Reedline must receive its prefix too.
+                    terminal_write $terminal "\x1b[?62;"
+                    let $waiting = terminal_read $terminal 250
+                    $raw = $raw + $waiting["text"]
+                    terminal_write $terminal "4c"
+                }
+                else if $response != "" { terminal_write $terminal $response }
+            }
+            $raw = $raw.replace "\x1b[c" ""
+        }
+        if $reply["timed_out"]
+        {
+            let $lines = $raw.split "\n"
+            let $last = strip_ansi $lines[$lines.count - 1]
+            if ($last.ends_with "# ") || ($last.ends_with "$ ")
+            { $ready = true; break }
+        }
+    }
+    require $ready "banner shell did not reach the prompt"
+    require ($probe == $expect_probe) "wrong startup probe gating"
+    require (($raw.contains "\x1bP0;1;0q") == $expect_sixel) "wrong sixel banner selection"
+    require (($raw.contains "S H E L L Y") == $expect_banner) "wrong banner suppression"
+    require (!($raw.contains '\${HOSTNAME}')) "banner variables were not interpolated"
+    if $marker != ""
+    {
+        let $visible = if $expect_sixel { $raw } else { strip_ansi $raw }
+        require ($visible.contains $marker) "lost startup input or banner override"
+    }
+    require (!($raw.contains "Error processing text:")) "capability reply leaked into source"
+    # A real command and Ctrl+D prove that the terminal mode was restored.
+    let $command = submit $terminal "echo mode-restored"
+    require ($command["output"].contains "\nmode-restored\n") "terminal mode not restored"
+    terminal_write $terminal "\x04"
+    let $closed = drain $terminal
+    require $closed["eof"] "Ctrl+D failed after the capability query"
+    let $status = terminal_close $terminal
+    require ($status["exit_code"] == 0) "banner shell exit status"
+}
+
+banner_case "\x1b[?62;1;4;6;22c" ["--norc"] true true true "<unloaded>"
+banner_case "\x1b[?62;1;2;22c" ["--norc"] true false true ""
+banner_case "\x1b[?62;24c" ["--norc"] true false true ""
+banner_case "\x1b[?4c" ["--norc"] true false true ""
+banner_case "\x1b[?62;;4c" ["--norc"] true false true ""
+banner_case "\x1b[?badc" ["--norc"] true false true ""
+banner_case "" ["--norc"] true false true ""
+banner_case "fragment:" ["--norc"] true true true ""
+banner_case "late:" ["--norc"] true false true ""
+let $attributes = "\x1b[?62"
+for $index in 0..128 { $attributes = $attributes + ";1" }
+banner_case ($attributes + ";4c") ["--norc"] true true true ""
+banner_case "\x1b[?62;4c" ["--norc", "-m"] false false true ""
+banner_case "\x1b[?62;4c" ["--norc", "-b"] false false false ""
+# Input preceding the response must remain available to the prompt.
+banner_case "echo early-input\r\x1b[?62;4c" ["--norc"] true false true "\nearly-input\n"
+banner_case "\x03\x1b[?62;4c" ["--norc"] true false true "Ctrl+C pressed."
+
+let $fixture = $args[0]
+printf "%s" 'let $banner = "CUSTOM-BANNER"' -> "${fixture}/banner-init.shy"
+banner_case "\x1b[?62;4c" ["--rcfile",
+    "${fixture}/banner-init.shy"] true false false "CUSTOM-BANNER"
+printf "%s" 'fn λ() { echo "unicode-input" }' -> "${fixture}/unicode-init.shy"
+banner_case "λ\r\x1b[?62;4c" ["--rcfile",
+    "${fixture}/unicode-init.shy"] true false true "\nunicode-input\n"
+
+# Noninteractive source on a TTY still must not probe or print a banner.
+let $terminal = open_terminal [`$shelly, "-c", "echo script-only"] [
+    "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+        "TERM": "xterm-256color", "COLORTERM": "truecolor"]]
+let $raw = ""
+for $attempt in 0..20
+{
+    let $reply = terminal_read $terminal 50
+    $raw = $raw + $reply["text"]
+    if $reply["eof"] { break }
+}
+require (!($raw.contains "\x1b[c")) "noninteractive mode queried capabilities"
+require (!($raw.contains "\x1bP")) "noninteractive mode printed graphics"
+let $stripped = $raw.replace "\r" ""
+require ($stripped == "script-only\n") "noninteractive output changed"
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "noninteractive child failed"

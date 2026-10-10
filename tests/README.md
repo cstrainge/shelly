@@ -70,6 +70,12 @@ redirection, live exports, terminal identity/lifecycle, UTF-8 boundaries, deadli
 process-group cleanup, and Ctrl+C. `harness/` tests schema/result validation,
 catalog/matrix completeness, miniature suites exercising the actual runner, and Ctrl+C against a frozen suite.
 These tests deliberately run failing children and assert that they fail correctly.
+`native/banner_sixel.shy` checks the optional Python/Pillow banner renderer's column
+and pixel dimensions, control bytes, text layout, output files, and invalid inputs.
+It skips when Python or Pillow is unavailable; the harness orchestration remains in Shelly.
+`repl/banner_sixel.shy` checks embedded banner selection through raw PTY responses,
+unsupported and malformed attributes, timeouts, fragmented/late replies, startup
+input, init overrides, terminal mode restoration, and monochrome/banner/script gating.
 `native/iterator_protocol.shy` and `repl/iterator_protocol.shy` check user and native
 iteration, private state, method versions, destructuring, unit termination, fixed-length
 array annotations, and recovery after iterator errors.

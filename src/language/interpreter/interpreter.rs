@@ -13,11 +13,13 @@ use std::{ collections::{ HashMap, HashSet, VecDeque },
            path::{ Path, PathBuf, Component, MAIN_SEPARATOR_STR, is_separator },
            process::{ Command, Stdio, id },
            rc::Rc,
-           mem::replace,
+           mem::{ replace, take },
            thread::Builder,
            time::Duration };
 
 use glob::{ MatchOptions, Pattern, glob };
+
+use crossterm::event::Event;
 
 use hostname::get as get_hostname;
 
@@ -38,13 +40,15 @@ use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
                          interpreter::{ Alias, iteration::Iteration,
                                         scope::Scope, modules::Prelude,
                                         redirection::{ Redirection, Output, configure } } },
-             runtime::{ color::TtyColorMode, process::{ COMMANDS, invoke } } };
+             runtime::{ color::TtyColorMode, process::{ COMMANDS, invoke },
+                        terminal::detect_capabilities } };
 
 const MAIN_SCOPE: &str = "main";
 
 const BANNER_TRUECOLOR: &str = include_str!("../../../banner_truecolor.txt");
 const BANNER_256: &str = include_str!("../../../banner_256.txt");
 const BANNER_MONO: &str = include_str!("../../../banner_mono.txt");
+const BANNER_SIXEL: &str = include_str!("../../../banner_sixel.txt");
 
 
 struct LoopFrame
@@ -230,6 +234,7 @@ pub struct Interpreter
     captured_stdout: Option<Vec<u8>>,
     redirections: Vec<Redirection>,
     last_cmd_time: Duration,
+    startup_input: Vec<Event>,
     pub last_result: Option<Value>,
     pub exit_code: u8,
     pub halted: bool
@@ -247,6 +252,11 @@ pub enum RcFile
 
 impl Interpreter
 {
+    pub fn take_startup_input(&mut self) -> Vec<Event>
+    {
+        take(&mut self.startup_input)
+    }
+
     pub(super) fn scope(&self) -> &Scope
     {
         self.scopes.get(&self.current_scope)
@@ -429,6 +439,7 @@ impl Interpreter
                 captured_stdout: None,
                 redirections: Vec::new(),
                 last_cmd_time: Duration::ZERO,
+                startup_input: Vec::new(),
                 last_result: None,
                 exit_code: 0,
                 halted: false
@@ -455,11 +466,29 @@ impl Interpreter
                           rc_file: RcFile,
                           script_args: Vec<String>)
     {
-        let banner = match color_mode
+        let sixel = if    matches!(interactive, Interactive::Yes)
+                      && color_mode != TtyColorMode::TtyMonochrome
             {
-                TtyColorMode::TtyTrueColor => BANNER_TRUECOLOR,
-                TtyColorMode::Tty256 => BANNER_256,
-                TtyColorMode::TtyBasic | TtyColorMode::TtyMonochrome => BANNER_MONO
+                let capabilities = detect_capabilities();
+                self.startup_input = capabilities.input;
+                capabilities.sixel
+            }
+            else
+            {
+                false
+            };
+        let banner = if sixel
+            {
+                BANNER_SIXEL
+            }
+            else
+            {
+                match color_mode
+                {
+                    TtyColorMode::TtyTrueColor => BANNER_TRUECOLOR,
+                    TtyColorMode::Tty256 => BANNER_256,
+                    TtyColorMode::TtyBasic | TtyColorMode::TtyMonochrome => BANNER_MONO
+                }
             };
 
         let is_interactive = matches!(
