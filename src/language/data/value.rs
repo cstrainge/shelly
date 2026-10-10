@@ -5,7 +5,8 @@ use crate::{ runtime::process::Terminal,
              language::{ data::{ closure::ClosureValue, callable::CallableValue, map_key::MapKey,
                                  range::Range,
                                  methods::BoundMethod,
-                                 types::{ EnumValue, StructValue, NamedValue, TypeKind } },
+                                 types::{ EnumValue, StructValue, NamedValue,
+                                          TypeDefinition, TypeKind } },
                          native::NativeFunction,
                          bytecode::FunctionRef } };
 
@@ -68,6 +69,7 @@ pub enum Value
     Named(Rc<NamedValue>),
     Callable(Rc<CallableValue>),
     Closure(Rc<ClosureValue>),
+    Type(Rc<TypeDefinition>),
     ExecResult(ExecResult),
     Integer(i64),
     Float(f64, Option<String>),
@@ -122,6 +124,7 @@ impl Value
             Value::Named(item) => return item.definition.name.clone(),
             Value::Callable(item) => return item.prototype.name.clone(),
             Value::Closure(_) => "Function",
+            Value::Type(_) => "Type",
         }.to_string()
     }
 
@@ -166,6 +169,7 @@ impl Value
             Value::Named(item) => item.value.as_text(),
             Value::Callable(item) => item.target.as_text(),
             Value::Closure(_) => "<anonymous>".into(),
+            Value::Type(item) => item.name.clone(),
             Value::None => "()".to_string(),
             Value::Terminal(_) => "Terminal".to_string(),
             Value::Enum(value) => value.to_string(),
@@ -242,7 +246,7 @@ impl Value
         match self
         {
             Value::Named(item) => item.value.as_integer(),
-            Value::Callable(_) | Value::Closure(_) => 0,
+            Value::Callable(_) | Value::Closure(_) | Value::Type(_) => 0,
             Value::None | Value::Terminal(_) => 0,
             Value::HashMap(_) | Value::Range(_) | Value::Enum(_) | Value::Struct(_) => 0,
             Value::ExecResult(code) => match code
@@ -264,7 +268,7 @@ impl Value
         match self
         {
             Value::Named(item) => item.value.as_bool(),
-            Value::Callable(_) | Value::Closure(_) => true,
+            Value::Callable(_) | Value::Closure(_) | Value::Type(_) => true,
             Value::None => false,
             Value::Enum(_) | Value::Struct(_) | Value::Terminal(_) => true,
             Value::Range(range) => !range.is_empty(),
@@ -286,6 +290,7 @@ impl Value
         {
             (Value::Callable(left), Value::Callable(right)) => left == right,
             (Value::Closure(left), Value::Closure(right)) => left == right,
+            (Value::Type(left), Value::Type(right)) => left == right,
             (Value::Named(left), Value::Named(right)) =>
                 left.definition.id == right.definition.id && left.value.equals(&right.value),
             (Value::None, Value::None) => true,
@@ -325,6 +330,7 @@ impl Value
             Value::Named(item) => item.value.arithmetic_error(),
             Value::Callable(_) | Value::Closure(_) =>
                 Some("Functions cannot be used in arithmetic"),
+            Value::Type(_) => Some("Types cannot be used in arithmetic"),
             Value::Integer(_) | Value::Float(_, _) => None,
             Value::Terminal(_) => Some("Terminals cannot be used in arithmetic"),
             Value::Enum(_) => Some("Enums cannot be used in arithmetic"),

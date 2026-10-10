@@ -86,6 +86,10 @@ The native and REPL `anonymous_functions.shy` tests cover function literals,
 live lexical captures, returned and nested closures, shared and independent
 bindings, caller shadowing, live receivers, typed collections, module interfaces,
 callable identity, signature errors, and recovery across REPL submissions.
+The native and REPL `type_guards.shy` tests check runtime type values, exact
+identities, imports and redeclarations, positive/negative branch narrowing,
+short-circuit guards, typed collections, mutation invalidation, metadata errors,
+and recovery after failed checks.
 `native/visibility.shy` and `repl/visibility.shy` check native and scripted exports,
 private bindings, re-exports, callable identity, diagnostics, and REPL recovery.
 `repl/prelude_reload*.shy` checks reload identity, scope isolation, cached dependencies,

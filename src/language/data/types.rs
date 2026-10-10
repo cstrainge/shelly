@@ -342,9 +342,10 @@ impl TypeRegistry
             { return_type: self.intern(TypeKind::Optional(item)), ..(*method).clone() }))
     }
 
-    const BUILTIN_NAMES: [&'static str; 13] = [
+    const BUILTIN_NAMES: [&'static str; 14] = [
             "None", "ExecResult", "Integer", "Float", "Boolean", "String",
             "Array", "HashMap", "Range", "ArgumentExpansion", "Number", "any", "Terminal",
+            "Type",
         ];
 
     pub fn is_builtin_name(name: &str) -> bool
@@ -727,6 +728,7 @@ impl TypeRegistry
                         "Integer" => matches!(value, Value::Integer(_)),
                         "Float" => matches!(value, Value::Float(_, _)),
                         "String" => matches!(value, Value::String(_, _)),
+                        "Type" => matches!(value, Value::Type(_)),
                         "Terminal" => matches!(value, Value::Terminal(_)),
                         "Boolean" => matches!(value, Value::Boolean(_)),
                         "None" => matches!(value, Value::None),

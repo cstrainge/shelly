@@ -64,6 +64,7 @@ pub fn convert_builtin(target: &str, value: &Value) -> Result<Value, String>
                     else { Value::ArgumentExpansion(values) })
             },
         "HashMap" if matches!(value, Value::HashMap(_)) => Ok(value.clone()),
+        "Type" if matches!(value, Value::Type(_)) => Ok(value.clone()),
         "Range" if matches!(value, Value::Range(_)) => Ok(value.clone()),
         _ => Err(unsupported()),
     }

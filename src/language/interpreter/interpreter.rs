@@ -783,6 +783,12 @@ impl Interpreter
                                 location: location.clone(),
                                 what: ErrorWhat::NoResult
                             })?;
+                        if matches!(value, Value::Type(_))
+                        {
+                            return Err(InterpreterError { location: location.clone(),
+                                what: ErrorWhat::InvalidOperand(
+                                    "Cannot execute a type as a command".into()) });
+                        }
                         if matches!(value, Value::Enum(_) | Value::Struct(_) | Value::Terminal(_))
                         {
                             return Err(InterpreterError
@@ -1422,7 +1428,14 @@ impl Interpreter
                         let field = &operands[0];
                         let enum_index =
                             matches!(field, Value::String(name, _) if name == "index");
-                        let result = if let Value::Enum(item) = value.underlying() && enum_index
+                        let result = if matches!(field, Value::String(name, _) if name == "type")
+                            {
+                                let result = Value::Type(self.scope().types.get(
+                                    self.scope().types.value_type(&value)));
+                                reference = ValueReference::temporary(result.clone());
+                                result
+                            }
+                            else if let Value::Enum(item) = value.underlying() && enum_index
                             {
                                 reference.indexes.push(field.clone());
                                 reference.fields.push(Value::Boolean(true));
@@ -2801,6 +2814,8 @@ impl Interpreter
     {
         match value
         {
+            Value::Type(_) => Err(InterpreterError { location: location.clone(),
+                what: ErrorWhat::InvalidOperand("Cannot execute a type as a command".into()) }),
             Value::Terminal(_) => Err(InterpreterError
                 {
                     location: location.clone(),

@@ -5,7 +5,7 @@ use crate::{ runtime::process::Terminal,
              language::data::{ closure::ClosureValue, callable::CallableValue,
                                value::{ ExecResult, Value },
                                range::Range,
-                               types::{ EnumValue, StructValue, NamedValue } } };
+                               types::{ EnumValue, StructValue, NamedValue, TypeDefinition } } };
 
 // Immutable, canonical keys keep hashing consistent with language equality.
 // Collections are snapshots; map entry order and string execution flags do not
@@ -20,6 +20,7 @@ pub enum MapKey
     Named(Rc<NamedKey>),
     Callable(Rc<CallableValue>),
     Closure(Rc<ClosureValue>),
+    Type(Rc<TypeDefinition>),
     ExecResult(u8),
     Signaled,
     Integer(i64),
@@ -40,6 +41,7 @@ impl MapKey
         match value
         {
             Value::Closure(value) => Self::Closure(value.clone()),
+            Value::Type(value) => Self::Type(value.clone()),
             Value::Callable(value) => Self::Callable(value.clone()),
             Value::Named(value) => Self::Named(Rc::new(NamedKey
                 { value: value.clone(), contents: Self::from_value(&value.value) })),
@@ -98,6 +100,7 @@ impl MapKey
         match self
         {
             Self::Closure(value) => Value::Closure(value.clone()),
+            Self::Type(value) => Value::Type(value.clone()),
             Self::Callable(value) => Value::Callable(value.clone()),
             Self::Named(key) => Value::Named(key.value.clone()),
             Self::None => Value::None,

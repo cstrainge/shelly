@@ -1337,6 +1337,70 @@ to the same chain; a semicolon ends the chain, so put `else` after the closing
 brace or on the next line, without a separating semicolon. To pass the literal
 word `if` as a command argument, quote it.
 
+## Runtime types and type guards
+
+Every value has a read-only `.type` property returning a `Type` value. Type names
+are values in expression positions, so they can be compared, stored, returned,
+and used as match patterns:
+
+```text
+let $expected: Type = Integer
+let $foo: any = 1024
+echo ($foo.type == $expected)     # true
+
+match $foo.type
+{
+    Integer =>
+        {
+            let $number: Integer = $foo
+            echo $number
+        },
+    Float =>
+        {
+            let $number: Float = $foo
+            echo $number
+        }
+    _ => { echo "another type" }
+}
+
+if    $foo.type == Integer
+   && $foo == 1024
+{
+    let $number: Integer = $foo
+}
+```
+
+Type equality compares exact identities. `7` has type `Integer`; `7.0` has type
+`Float`. Neither has type `Number` or `any`, although those annotations accept
+them. A value wrapped in `type Count = Integer` has type `Count`, and remains
+distinct from `Integer`. Structs, enums, and imported types retain their defining
+identities. Redeclaring a type creates a new identity; existing values and stored
+type references keep the previous one. Type values are distinct from strings
+such as `"Integer"`; `String($foo.type)` returns the display name.
+
+Direct variable type guards narrow the variable inside the selected `match` arm,
+`if` branch, or `while`/`until` body. The compiler also follows `==`, `!=`, `!`,
+short-circuit `&&` and `||`, and remaining alternatives in `else` and `_` branches.
+For example, the right side of `&&` above sees `$foo` as an Integer. Incompatible
+annotations, returns, and fields in a narrowed branch are compile errors.
+
+Narrowing does not change the variable's declared assignment constraint or
+convert its value. Assignments, calls, and control-flow joins discard facts that
+may have changed. Closures check captured mutable values again when called;
+creation inside a guard does not permanently narrow a live capture. Runtime type
+checks still enforce annotations on writes and calls.
+
+Ordinary arrays report `Array` and maps report `HashMap`; a guard retains any
+stronger element/key/value constraints already known by the compiler. Named
+collection types report their own distinct identity. Type values can themselves
+be collection elements and hash keys, and require an initializer when annotated
+as `Type`. The property name `type` is reserved for metadata and cannot be declared
+as a struct field or method, or assigned through `.type`.
+
+Bare command arguments keep their word semantics: `foo Integer` passes the word
+`Integer`. Use `foo (Integer)` or a variable to pass a Type value. Existing
+`Integer(value)` and other conversion expressions keep their conversion behavior.
+
 ## Match expressions
 
 `match` evaluates a subject once and tries arm expressions from top to bottom.
