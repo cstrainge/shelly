@@ -6,7 +6,8 @@ mkdir -p "${root}/tests/cases/negative" "${root}/tests/support"
 cp -r "${suite}/tests/fixtures" "${root}/tests/fixtures"
 cp "${suite}/tests/support/process.shy" "${root}/tests/support/process.shy"
 printf "id\tgroup\tname\tfile\nHANG\tnegative\tinterrupt\ttests/cases/negative/HANG.shy\n" -> "${root}/tests/INVENTORY.tsv"
-let $source = "let \$stat: String; /proc/self/stat -> \$stat; echo \$pwd (\$stat.split \" \")[0] -> \"${fixture}/ready\"; loop {}"
+let $identity = process_identity_source
+let $source = "${identity} echo \$pwd \$audit_pid -> \"${fixture}/ready\"; loop {}"
 # Build a Shelly quoted string with explicit escaping.
 let $literal = (($source.replace "\\" "\\\\").replace "\"" "\\\"").replace "\$" "\\\$"
 printf 'check ["id": "HANG", "name": "interrupt", "source": "%s", "mode": "code", "args": [], "stdout": "", "status": 1, "valid": false, "error": "Array error:", "stderr_contains": [], "stderr_excludes": [], "stdout_excludes": []]\n' $literal -> "${root}/tests/cases/negative/HANG.shy"
@@ -36,9 +37,10 @@ let $marker: String
 let $fields = $marker.trim.split " "
 let $work = $fields[0]
 let $pid = $fields[1]
-require ($work.starts_with "/tmp/shelly-suite.") "unexpected case directory"
+require (($work.starts_with "/tmp/shelly-suite.") ||
+         (($os == "macos") && ($work.starts_with "/private/tmp/shelly-suite."))) "unexpected case directory"
 require (Boolean(test -d $work)) "interrupted directory disappeared"
 # The detached assertion driver still owns the nested case's three-second deadline.
-let $wait = run_process ["/usr/bin/sleep", "4"] [:]
-require (!(test -e "/proc/${pid}/stat")) "nested watchdog left frozen child alive"
+let $wait = run_process ["/bin/sleep", "4"] [:]
+require_reaped $pid "nested watchdog left frozen child alive"
 rm -rf -- $work

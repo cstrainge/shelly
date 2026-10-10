@@ -17,11 +17,11 @@ let $err: String
 "${fixture}/native.err" -> $err
 require (($out == "out") && ($err == "err")) "streams mixed"
 $options["stdin_file"] = "${fixture}/data/all-bytes"
-let $result = run_process ["/usr/bin/cat"] $options
+let $result = run_process ["/bin/cat"] $options
 require ($result["exit_code"] == 0) "binary stdin failed"
 require (Boolean(cmp -s "${fixture}/data/all-bytes" "${fixture}/native.out")) "binary bytes changed"
 $options["stdin_file"] = "${fixture}/missing-input"
-let $result = run_process ["/usr/bin/cat"] $options
+let $result = run_process ["/bin/cat"] $options
 require ($result["error"] != ()) "missing stdin did not report I/O failure"
 $options["stdin_file"] = "/dev/null"
 $options["cwd"] = "${fixture}/missing-directory"

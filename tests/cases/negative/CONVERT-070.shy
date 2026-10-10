@@ -1,7 +1,7 @@
 # CONVERT-070: matrix ExecResult to Array
 check ["id": "CONVERT-070",
     "name": "matrix ExecResult to Array",
-    "source": "let \$v = /bin/true; let \$converted: Array = Array(\$v); echo \$converted",
+    "source": "let \$v = /usr/bin/true; let \$converted: Array = Array(\$v); echo \$converted",
     "mode": "code",
     "args": [],
     "stdout": "",

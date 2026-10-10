@@ -1,7 +1,7 @@
 # CONVERT-106: matrix ExecResult to Range
 check ["id": "CONVERT-106",
     "name": "matrix ExecResult to Range",
-    "source": "let \$v = /bin/true; let \$converted: Range = Range(\$v); echo \$converted",
+    "source": "let \$v = /usr/bin/true; let \$converted: Range = Range(\$v); echo \$converted",
     "mode": "code",
     "args": [],
     "stdout": "",

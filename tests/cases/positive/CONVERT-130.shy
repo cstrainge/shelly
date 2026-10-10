@@ -1,7 +1,7 @@
 # CONVERT-130: matrix ExecResult to Number
 check ["id": "CONVERT-130",
     "name": "matrix ExecResult to Number",
-    "source": "let \$v = /bin/true; let \$converted: Number = Number(\$v); echo \$converted",
+    "source": "let \$v = /usr/bin/true; let \$converted: Number = Number(\$v); echo \$converted",
     "mode": "code",
     "args": [],
     "stdout": "0\n",

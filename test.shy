@@ -6,6 +6,19 @@ fn run_case($file: String, $library: String, $suite: String): Boolean
     let $work: String
     mktemp -d /tmp/shelly-suite.XXXXXXXXXX -> $work
     $work = $work.trim_end
+    # Darwin exposes /tmp through /private/tmp. Use the physical spelling for
+    # fixtures, HOME, cwd, and evidence normalization so their paths agree.
+    if $os == "macos"
+    {
+        let $physical: String
+        let $result = run_process ["/bin/pwd", "-P"] ["cwd": $work, "timeout_ms": 1000] -> $physical
+        if ($result["error"] != ()) || ($result["exit_code"] != 0)
+        {
+            rm -rf -- $work
+            return false
+        }
+        $work = $physical.trim_end
+    }
     if !(cp -r -- "${suite}/tests/fixtures/." $work)
     {
         rm -rf -- $work

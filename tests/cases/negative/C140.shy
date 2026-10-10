@@ -1,7 +1,7 @@
 # C140: Pipelines
 check ["id": "C140",
     "name": "Pipelines",
-    "source": "echo \"a\" | /usr/bin/cat",
+    "source": "echo \"a\" | /bin/cat",
     "mode": "code",
     "args": [],
     "stdout": "",

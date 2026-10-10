@@ -1,7 +1,7 @@
 # CONVERT-094: matrix ExecResult to HashMap
 check ["id": "CONVERT-094",
     "name": "matrix ExecResult to HashMap",
-    "source": "let \$v = /bin/true; let \$converted: HashMap = HashMap(\$v); echo \$converted",
+    "source": "let \$v = /usr/bin/true; let \$converted: HashMap = HashMap(\$v); echo \$converted",
     "mode": "code",
     "args": [],
     "stdout": "",

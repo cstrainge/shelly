@@ -1,7 +1,7 @@
 # BOOLCAST-119: status in expression
 check ["id": "BOOLCAST-119",
     "name": "status in expression",
-    "source": "echo Boolean(/bin/false)",
+    "source": "echo Boolean(/usr/bin/false)",
     "mode": "code",
     "args": [],
     "stdout": "false\n",

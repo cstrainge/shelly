@@ -1,7 +1,7 @@
 # C180: Quoted and unquoted home paths both reach filesystem
 check ["id": "C180",
     "name": "Quoted and unquoted home paths both reach filesystem",
-    "source": "let \$p = \"<FIXTURE>/home/sub\" ; /usr/bin/cat \"\$p/file.txt\" ; /usr/bin/cat \$p/file.txt",
+    "source": "let \$p = \"<FIXTURE>/home/sub\" ; /bin/cat \"\$p/file.txt\" ; /bin/cat \$p/file.txt",
     "mode": "code",
     "args": [],
     "stdout": "content\ncontent\n",

@@ -1,7 +1,7 @@
 # CONVERT-046: matrix ExecResult to Boolean
 check ["id": "CONVERT-046",
     "name": "matrix ExecResult to Boolean",
-    "source": "let \$v = /bin/true; let \$converted: Boolean = Boolean(\$v); echo \$converted",
+    "source": "let \$v = /usr/bin/true; let \$converted: Boolean = Boolean(\$v); echo \$converted",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

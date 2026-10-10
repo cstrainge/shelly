@@ -422,6 +422,7 @@ impl Interpreter
             .map(|path| Value::from_executable_string(path.display().to_string()))
             .unwrap_or_else(|_| Value::from_string(".".to_string())));
         self.set_variable("$OS",  Value::from_string(OS.to_string()));
+        self.set_variable("$os",  Value::from_string(OS.to_string()));
 
         self.set_variable("$args",
             Value::from_array(script_args.iter().map(|arg|

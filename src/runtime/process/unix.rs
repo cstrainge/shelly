@@ -163,12 +163,21 @@ impl ManagedChild
         {
             let error = io::Error::last_os_error();
             if error.raw_os_error() == Some(ESRCH) { return Ok(()); }
-            // Darwin skips zombies when signalling a group, returning EPERM if
-            // none remain alive. Do not mistake that for a cleanup failure, or
-            // hide a genuine denial involving a live descendant.
+            // Darwin can return EPERM while the group is exiting after a PTY
+            // hangup, before waitid reports the leader's exit. Allow that small
+            // race to settle, but require every member to be gone or a zombie:
+            // a denied group signal must never fall back to killing only its leader.
             #[cfg(target_os = "macos")]
-            if error.raw_os_error() == Some(EPERM) && self.group_exited()
-            { return Ok(()); }
+            if error.raw_os_error() == Some(EPERM)
+            {
+                let deadline = Instant::now() + Duration::from_millis(100);
+                loop
+                {
+                    if self.group_exited() { return Ok(()); }
+                    if Instant::now() >= deadline { break; }
+                    sleep(Duration::from_millis(2));
+                }
+            }
             return Err(io::Error::new(error.kind(), format!(
                 "Cannot send signal {} to process group {}: {}", signal, self.child.id(), error)));
         }
@@ -479,5 +488,76 @@ pub fn invoke(name: &str, args: &[Value], environment: &[(String, String)],
             Ok(Value::from_hash_map(result))
         },
         _ => Err(format!("Invalid arguments for {}", name)),
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests
+{
+    use super::*;
+
+    #[test]
+    fn completed_process_group_can_be_reaped()
+    {
+        let child = Command::new("/usr/bin/true").process_group(0).spawn().unwrap();
+        let mut child = ManagedChild { child, stopped: false };
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !child.exited().unwrap()
+        {
+            assert!(Instant::now() < deadline, "child did not exit");
+            sleep(Duration::from_millis(2));
+        }
+        assert!(child.group_exited(), "completed group is still reported alive");
+        assert!(child.stop().unwrap().success());
+    }
+
+    #[test]
+    fn closing_terminal_reaps_its_child()
+    {
+        for _ in 0..32
+        {
+            let terminal = open(&[
+                Value::from_array(vec![Value::from_string("/bin/sleep".into()),
+                    Value::from_string("30".into())]),
+                Value::from_hash_map(HashMap::new()),
+            ], &[], &str::to_string).unwrap();
+            let result = invoke("terminal_close", &[terminal], &[], str::to_string,
+                |_| Ok(()));
+            assert!(result.is_ok(), "terminal cleanup failed: {result:?}");
+        }
+    }
+
+    #[test]
+    fn exited_leader_with_live_descendant_requires_group_cleanup()
+    {
+        let child = Command::new("/bin/sh")
+            .args(["-c", "sleep 30 >/dev/null 2>&1 & echo $!"])
+            .stdout(Stdio::piped()).process_group(0).spawn().unwrap();
+        let mut child = ManagedChild { child, stopped: false };
+        let mut pid = String::new();
+        child.child.stdout.take().unwrap().read_to_string(&mut pid).unwrap();
+        let pid: i32 = pid.trim().parse().unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !child.exited().unwrap()
+        {
+            assert!(Instant::now() < deadline, "leader did not exit");
+            sleep(Duration::from_millis(2));
+        }
+        assert!(!child.group_exited(), "live descendant was treated as an exited group");
+        assert!(child.stop().unwrap().success());
+        loop
+        {
+            // SAFETY: information owns aligned storage of the declared size.
+            let mut information: proc_bsdshortinfo = unsafe { zeroed() };
+            let bytes = size_of::<proc_bsdshortinfo>() as i32;
+            let copied = unsafe { proc_pidinfo(pid, PROC_PIDT_SHORTBSDINFO, 1,
+                (&raw mut information).cast(), bytes) };
+            if copied == bytes && information.pbsi_status == SZOMB { break; }
+            if copied == 0 && io::Error::last_os_error().raw_os_error() == Some(ESRCH)
+            { break; }
+            assert_eq!(copied, bytes, "cannot inspect descendant");
+            assert!(Instant::now() < deadline, "live descendant survived cleanup");
+            sleep(Duration::from_millis(2));
+        }
     }
 }

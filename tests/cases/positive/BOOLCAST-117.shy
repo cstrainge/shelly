@@ -1,7 +1,7 @@
 # BOOLCAST-117: successful status
 check ["id": "BOOLCAST-117",
     "name": "successful status",
-    "source": "let \$r = /bin/true; echo Boolean(\$r)",
+    "source": "let \$r = /usr/bin/true; echo Boolean(\$r)",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

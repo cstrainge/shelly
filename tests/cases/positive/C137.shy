@@ -1,7 +1,7 @@
 # C137: cd variable storing absolute home path
 check ["id": "C137",
     "name": "cd variable storing absolute home path",
-    "source": "let \$p = \"<FIXTURE>/home/sub\" ; cd \$p ; /usr/bin/pwd",
+    "source": "let \$p = \"<FIXTURE>/home/sub\" ; cd \$p ; /bin/pwd",
     "mode": "code",
     "args": [],
     "stdout": "<FIXTURE>/home/sub\n",

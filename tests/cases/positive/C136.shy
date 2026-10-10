@@ -1,7 +1,7 @@
 # C136: cd relative directory
 check ["id": "C136",
     "name": "cd relative directory",
-    "source": "cd fixtures ; /usr/bin/pwd",
+    "source": "cd fixtures ; /bin/pwd",
     "mode": "code",
     "args": [],
     "stdout": "<FIXTURE>/fixtures\n",

@@ -1,7 +1,7 @@
 # C182: Home glob stored array retains paths
 check ["id": "C182",
     "name": "Home glob stored array retains paths",
-    "source": "let \$p = \"<FIXTURE>/home/sub\" ; let \$files = \$p/*.txt ; /usr/bin/cat \$files...",
+    "source": "let \$p = \"<FIXTURE>/home/sub\" ; let \$files = \$p/*.txt ; /bin/cat \$files...",
     "mode": "code",
     "args": [],
     "stdout": "content\n",

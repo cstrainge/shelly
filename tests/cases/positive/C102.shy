@@ -1,7 +1,7 @@
 # C102: Alias chain argument ordering
 check ["id": "C102",
     "name": "Alias chain argument ordering",
-    "source": "alias a = /usr/bin/echo \"A\"\nalias b = a \"B\"\nb \"C\"",
+    "source": "alias a = /bin/echo \"A\"\nalias b = a \"B\"\nb \"C\"",
     "mode": "code",
     "args": [],
     "stdout": "A B C\n",

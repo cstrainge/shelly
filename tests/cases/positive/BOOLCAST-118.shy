@@ -1,7 +1,7 @@
 # BOOLCAST-118: failed status
 check ["id": "BOOLCAST-118",
     "name": "failed status",
-    "source": "let \$r = /bin/false; echo Boolean(\$r)",
+    "source": "let \$r = /usr/bin/false; echo Boolean(\$r)",
     "mode": "code",
     "args": [],
     "stdout": "false\n",

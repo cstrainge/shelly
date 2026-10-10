@@ -1,7 +1,7 @@
 # C166: Builtin takes precedence over function
 check ["id": "C166",
     "name": "Builtin takes precedence over function",
-    "source": "fn cd(\$x) { echo \"wrong\" }\ncd fixtures ; /usr/bin/pwd",
+    "source": "fn cd(\$x) { echo \"wrong\" }\ncd fixtures ; /bin/pwd",
     "mode": "code",
     "args": [],
     "stdout": "<FIXTURE>/fixtures\n",

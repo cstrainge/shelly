@@ -13,7 +13,8 @@ The examples below describe the current implementation.
 
 ## Build and run
 
-Build on Linux or WSL with a Rust toolchain supporting edition 2024.
+Shelly runs on Linux (including WSL) and macOS. Build with a Rust toolchain
+supporting edition 2024.
 
 ```sh
 git clone https://github.com/cstrainge/shelly.git
@@ -1310,8 +1311,10 @@ let export $SHELLY_PROJECT = 'shelly'
 ```
 
 Useful predefined variables include `$args`, `$pwd`, `$HOSTNAME`, `$HOME`, `$PATH`,
-`$shelly` (an executable reference to this binary), `$version`, `$OS`,
+`$shelly` (an executable reference to this binary), `$version`, `$os` (also `$OS`),
 `$build_date`, `$build_time`, `$interactive`, `$login`, and `$rc_path`.
+`$os` identifies the host operating system, for example `"macos"` or `"linux"`,
+and can be used in functions to select platform-specific commands.
 `$rc_path` is the configured init path, `<not found>` when missing, or
 `<unloaded>` when init loading is disabled.
 

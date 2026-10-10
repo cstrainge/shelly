@@ -1,7 +1,7 @@
 # CONVERT-034: matrix ExecResult to Float
 check ["id": "CONVERT-034",
     "name": "matrix ExecResult to Float",
-    "source": "let \$v = /bin/true; let \$converted: Float = Float(\$v); echo \$converted",
+    "source": "let \$v = /usr/bin/true; let \$converted: Float = Float(\$v); echo \$converted",
     "mode": "code",
     "args": [],
     "stdout": "0\n",

@@ -19,7 +19,7 @@ require ($status["exit_code"] == 0) "PTY exit status"
 let $again = terminal_close $alias
 require ($again == $status) "terminal_close is not idempotent"
 require ($lookup[$terminal] == "identity") "terminal key changed after close"
-let $terminal = open_terminal ["/usr/bin/sleep", "30"] $options
+let $terminal = open_terminal ["/bin/sleep", "30"] $options
 let $reply = terminal_read $terminal 0
 require ($reply["timed_out"] && (!$reply["eof"]) && ($reply["text"] == "")) "read timeout is not EOF"
 let $status = terminal_close $terminal

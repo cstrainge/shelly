@@ -1,0 +1,9 @@
+# Interactive startup exposes the same OS variables and platform branches as scripts.
+check_repl [
+    "id": "PLATFORM", "name": "host OS in the REPL", "exit": 0,
+    "steps": [
+        ['echo ($os == $OS)', "output", "true"],
+        ['fn host_family() { if $os == "macos" { "bsd" } else { "unix" } }', "quiet", ""],
+        ['echo (host_family)', "output", (if $os == "macos" { "bsd" } else { "unix" })],
+    ],
+]

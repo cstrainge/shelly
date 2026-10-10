@@ -16,6 +16,57 @@ fn environment($fixture: String)
      "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "TERM": "dumb"]
 }
 
+# The returned program fragment binds the current Shelly process ID as $audit_pid.
+fn process_identity_source(): String
+{
+    if $os == "macos"
+    { 'let $audit_pid: String; /bin/sh -c "echo \\$PPID" -> $audit_pid; $audit_pid = $audit_pid.trim;' }
+    else
+    { 'let $audit_stat: String; /proc/self/stat -> $audit_stat; let $audit_pid = ($audit_stat.split " ")[0];' }
+}
+
+fn require_reaped($pid: String, $message: String)
+{
+    if $os == "macos"
+    {
+        let $state: String
+        let $result = run_process ["/bin/ps", "-p", $pid, "-o", "stat="] ["timeout_ms": 1000] -> $state
+        require ($result["error"] == ()) "process inspection failed"
+        require (($result["exit_code"] == 1) && ($state == "")) $message
+    }
+    else { require (!(test -e "/proc/${pid}/stat")) $message }
+}
+
+fn process_group_alive($pid: String): Boolean
+{
+    let $groups: String
+    let $result = run_process ["ps", "-eo", "pgid=,stat="] ["timeout_ms": 1000] -> $groups
+    require (($result["error"] == ()) && ($result["exit_code"] == 0)) "process-group inspection failed"
+    for $line in $groups.split "\n"
+    {
+        let $fields = []
+        for $field in $line.trim.split " "
+        { if $field != "" { $fields = [$fields..., $field] } }
+        if ($fields.count == 2) && ($fields[0] == $pid) && (!($fields[1].starts_with "Z"))
+        { return true }
+    }
+    false
+}
+
+fn diagnostic_matches($pattern: String, $file: String): Boolean
+{
+    # The diagnostic whitelist uses only noncapturing groups and an optional
+    # leading case-insensitive flag beyond POSIX extended regular expressions.
+    let $pattern = $pattern.replace "(?:" "("
+    let $flags = "-Eq"
+    if $pattern.starts_with "(?i)"
+    {
+        $pattern = $pattern.replace "(?i)" ""
+        $flags = "-Eiq"
+    }
+    Boolean(grep $flags -- $pattern $file)
+}
+
 fn check($case: HashMap)
 {
     validate_case $case
@@ -67,7 +118,7 @@ fn assess($case: HashMap, $result: HashMap, $stdout: String, $stderr: String, $f
     require (!(($stderr.contains "panicked at") || ($stderr.contains "stack overflow"))) "host panic"
     if $case["error"] != ""
     {
-        require (Boolean(grep -Pq -- $case["error"] "${fixture}/evidence.err")) "wrong error category"
+        require (diagnostic_matches $case["error"] "${fixture}/evidence.err") "wrong error category"
     }
     if $case["valid"] && ($case["stderr_contains"].count == 0)
     {

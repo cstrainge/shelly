@@ -79,7 +79,17 @@ watchdog. PTY reads use bounded waits. Temporary directories are removed after
 normal success or failure. Forced termination can leave directories behind;
 subsequent runs create independent directories and do not delete abandoned ones.
 
-The suite targets Linux/WSL and uses `/proc`, GNU `grep -P`, `mktemp`, `find`, `cp`,
-`ln`, `mkdir`, `rm`, `test`, `printf`, `cat`, `cmp`, `ps`, `sleep`, `printenv`, and
-`kill`. Individual language cases also exercise ordinary Unix commands. There is
-no dependency on another shell, Python, pexpect, or an external timeout helper.
+The suite targets Linux/WSL and macOS.
+It uses `mktemp`, `find`, `cp`, `ln`, `mkdir`, `rm`, `test`, `printf`, `cat`, `cmp`,
+`sleep`, `printenv`, and `kill`. Individual language cases also exercise ordinary
+Unix commands. `$os` identifies the host operating system for platform-specific
+test helpers. Cleanup and interrupted-runner checks execute on both platforms:
+Linux checks `/proc`, while macOS uses `ps` to verify that children were reaped.
+`native/process_groups.shy` checks descendants that ignore SIGTERM and terminal
+hangup, and `harness/diagnostics.shy` checks portable diagnostic regex matching.
+The native and REPL platform checks cover `$os` in scripts, stdin, command-line
+source, functions, and interactive sessions, including conflicting environment values.
+`/bin/sh` supplies process-ID and descendant fixtures; assertions and orchestration
+remain Shelly code. There is no dependency on Python, pexpect, or an external
+timeout helper. Sandboxed hosts must permit process inspection and PTY creation
+to run the complete suite; denied inspection is a failure, not a passing skip.

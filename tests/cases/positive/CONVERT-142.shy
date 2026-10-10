@@ -1,7 +1,7 @@
 # CONVERT-142: matrix ExecResult to any
 check ["id": "CONVERT-142",
     "name": "matrix ExecResult to any",
-    "source": "let \$v = /bin/true; let \$converted: any = any(\$v); echo \$converted",
+    "source": "let \$v = /usr/bin/true; let \$converted: any = any(\$v); echo \$converted",
     "mode": "code",
     "args": [],
     "stdout": "ExecResult(0)\n",

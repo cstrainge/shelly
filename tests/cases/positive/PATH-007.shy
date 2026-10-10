@@ -1,7 +1,7 @@
 # PATH-007: function receives shortened value
 check ["id": "PATH-007",
     "name": "function receives shortened value",
-    "source": "fn f(\$p) { echo (\$p == \"~/sub\"); /usr/bin/cat \"\$p/file.txt\" }; let \$p = \"<FIXTURE>/home/sub\"; f \$p",
+    "source": "fn f(\$p) { echo (\$p == \"~/sub\"); /bin/cat \"\$p/file.txt\" }; let \$p = \"<FIXTURE>/home/sub\"; f \$p",
     "mode": "code",
     "args": [],
     "stdout": "true\ncontent\n",

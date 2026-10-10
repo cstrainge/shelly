@@ -1,7 +1,7 @@
 # C184: Variable tilde expands at cd boundary
 check ["id": "C184",
     "name": "Variable tilde expands at cd boundary",
-    "source": "let \$p = \"~\" ; cd \$p ; /usr/bin/pwd",
+    "source": "let \$p = \"~\" ; cd \$p ; /bin/pwd",
     "mode": "code",
     "args": [],
     "stdout": "<FIXTURE>/home\n",

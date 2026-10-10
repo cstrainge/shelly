@@ -1,0 +1,32 @@
+# The host OS is available in functions and in every CLI execution mode,
+# even when a replacement environment supplies conflicting names.
+let $fixture = $args[0]
+let $kernel: String
+uname -s -> $kernel
+let $expected = if $kernel.trim == "Darwin" { "macos" }
+                else if $kernel.trim == "Linux" { "linux" } else { $OS }
+require (($os == $expected) && ($os == $OS)) "incorrect host OS variables"
+fn platform_branch(): String { if $os == "macos" { "bsd" } else { "unix" } }
+require ((platform_branch) == (if $expected == "macos" { "bsd" } else { "unix" })) "OS branch failed in a function"
+let $source = 'echo "${os}:${OS}"'
+printf "%s" $source -> "${fixture}/platform.shy"
+for ($command, $input) in [
+    [[`$shelly, "-m", "-c", $source], "/dev/null"],
+    [[`$shelly, "-m", "${fixture}/platform.shy"], "/dev/null"],
+    [[`$shelly, "-m", "-s"], "${fixture}/platform.shy"],
+]
+{
+    let $output: String
+    let $result = run_process $command [
+        "env": ["os": "spoofed", "OS": "spoofed"], "stdin_file": $input, "timeout_ms": 1000,
+    ] -> $output
+    require (($result["error"] == ()) && ($result["exit_code"] == 0)) "OS probe failed"
+    require ($output == "${expected}:${expected}\n") "host OS replaced by environment"
+}
+
+# Platform handling must preserve literal paths in a program's output.
+check ["id": "PLATFORM-LITERALS", "name": "literal paths remain unchanged",
+    "source": 'echo "/bin/true /bin/false /usr/bin/true /usr/bin/false"',
+    "mode": "code", "args": [], "stdout": "/bin/true /bin/false /usr/bin/true /usr/bin/false\n",
+    "status": 0, "valid": true, "error": "", "stderr_contains": [], "stderr_excludes": [], "stdout_excludes": [],
+]

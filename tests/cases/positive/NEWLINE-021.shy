@@ -1,7 +1,7 @@
 # NEWLINE-021: numeric group separate
 check ["id": "NEWLINE-021",
     "name": "numeric group separate",
-    "source": "echo first\n(1 + 2)\necho last",
+    "source": "echo \"first\"\n(1 + 2)\necho \"last\"",
     "mode": "code",
     "args": [],
     "stdout": "first\nlast\n",

@@ -1,0 +1,22 @@
+# Exercise the production diagnostic matcher on BSD and GNU grep, including
+# cases where losing grouping, optional bounds, or case folding would misclassify evidence.
+let $fixture = $args[0]
+for ($pattern, $text, $matches) in [
+    ["(?:Variable .*not found|Variable not found for SetVariable)", 'Variable "$missing" not found', true],
+    ["(?:Variable .*not found|Variable not found for SetVariable)", "Variable not found for SetVariable", true],
+    ["(?:Variable .*not found|Variable not found for SetVariable)", "Executable not found: missing", false],
+    ["Function .* expected (?:at least )?[0-9]+(?: to [0-9]+)? arguments, but got [0-9]+", "Function f expected at least 2 arguments, but got 1", true],
+    ["Function .* expected (?:at least )?[0-9]+(?: to [0-9]+)? arguments, but got [0-9]+", "Function f expected 2 to 4 arguments, but got 6", true],
+    ["Function .* expected (?:at least )?[0-9]+(?: to [0-9]+)? arguments, but got [0-9]+", "Function f expected arguments, but got none", false],
+    ["(?i)(invalid|expected|cannot).*(export|environment|variable.*name)", "INVALID EXPORT", true],
+    ["(?i)(invalid|expected|cannot).*(export|environment|variable.*name)", "Expected a valid variable NAME", true],
+    ["(?i)(invalid|expected|cannot).*(export|environment|variable.*name)", "Invalid array index", false],
+    ["(Method .* expected|Array methods require|sort requires)", "sort requires comparable elements", true],
+    ["(Method .* expected|Array methods require|sort requires)", "Parser error: unexpected character", false],
+    ["Array error:", "Array error: index out of bounds", true],
+    ["Array error:", "Hash map error: missing key", false],
+]
+{
+    printf "%s" $text -> "${fixture}/diagnostic"
+    require ((diagnostic_matches $pattern "${fixture}/diagnostic") == $matches) "diagnostic matcher misclassified evidence"
+}

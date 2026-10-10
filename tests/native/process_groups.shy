@@ -1,0 +1,31 @@
+# Exercise real descendants, including ones which ignore TERM and terminal hangup.
+let $fixture = $args[0]
+let $result = run_process ["/bin/sh", "-c",
+    'trap "" TERM; sleep 30 & echo "$$ $!"; wait'] [
+    "timeout_ms": 250, "stdout_file": "${fixture}/group-pids", "stderr_file": "${fixture}/group-errors",
+]
+require (($result["error"] == ()) && $result["timed_out"] && ($result["signal"] == 9)) "watchdog did not escalate to SIGKILL"
+let $pids: String
+"${fixture}/group-pids" -> $pids
+let $fields = $pids.trim.split " "
+require ($fields.count == 2) "descendant did not start"
+require_reaped $fields[0] "watchdog leader was not reaped"
+require (!(process_group_alive $fields[0])) "watchdog left a live descendant"
+
+let $terminal = open_terminal ["/bin/sh", "-c",
+    'trap "" HUP TERM; sleep 30 & echo "$$ $!"; wait'] [:]
+let $pids = ""
+for $attempt in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    let $text = $reply["text"]
+    $pids = "${pids}${text}"
+    if $pids.contains "\n" { break }
+}
+let $fields = $pids.trim.split " "
+require ($fields.count == 2) "terminal descendant did not start"
+require (process_group_alive $fields[0]) "live group was misclassified as stopped"
+let $status = terminal_close $terminal
+require ($status["signal"] == 9) "terminal_close did not kill the supervised group"
+require_reaped $fields[0] "terminal group leader was not reaped"
+require (!(process_group_alive $fields[0])) "terminal_close left a live descendant"

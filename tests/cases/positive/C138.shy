@@ -1,7 +1,7 @@
 # C138: Read home file through variable prefix
 check ["id": "C138",
     "name": "Read home file through variable prefix",
-    "source": "let \$p = \"<FIXTURE>/home/sub\" ; /usr/bin/cat \$p/file.txt",
+    "source": "let \$p = \"<FIXTURE>/home/sub\" ; /bin/cat \$p/file.txt",
     "mode": "code",
     "args": [],
     "stdout": "content\n",

@@ -1,7 +1,7 @@
 # C181: Home path survives function parameter conversion
 check ["id": "C181",
     "name": "Home path survives function parameter conversion",
-    "source": "fn read(\$p) { /usr/bin/cat \"\$p/file.txt\" }\nread \"<FIXTURE>/home/sub\"",
+    "source": "fn read(\$p) { /bin/cat \"\$p/file.txt\" }\nread \"<FIXTURE>/home/sub\"",
     "mode": "code",
     "args": [],
     "stdout": "content\n",

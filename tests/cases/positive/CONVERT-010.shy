@@ -1,7 +1,7 @@
 # CONVERT-010: matrix ExecResult to None
 check ["id": "CONVERT-010",
     "name": "matrix ExecResult to None",
-    "source": "let \$v = /bin/true; let \$converted: None = None(\$v); echo \$converted",
+    "source": "let \$v = /usr/bin/true; let \$converted: None = None(\$v); echo \$converted",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

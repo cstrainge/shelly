@@ -1,5 +1,11 @@
 #!/usr/bin/env shelly
-let $stat: String
-"/proc/self/stat" -> $stat
-let $pid = ($stat.split " ")[0]
-/bin/kill -TERM $pid
+let $pid: String
+if $os == "macos"
+{ /bin/sh -c "echo \$PPID" -> $pid }
+else
+{
+    let $stat: String
+    "/proc/self/stat" -> $stat
+    $pid = ($stat.split " ")[0]
+}
+/bin/kill -TERM $pid.trim
