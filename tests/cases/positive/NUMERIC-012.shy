@@ -5,7 +5,7 @@ check [
     "source": "echo (1 / 0.5)",
     "mode": "code",
     "args": [],
-    "stdout": "2\n",
+    "stdout": "2.0\n",
     "status": 0,
     "valid": true,
     "error": "",

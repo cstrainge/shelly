@@ -4138,3 +4138,4 @@ ARGCALL-031	positive	no calls for grouped plain string	tests/cases/positive/ARGC
 ARGCALL-032	positive	empty arguments remain empty	tests/cases/positive/ARGCALL-032.shy
 ARGCALL-033	positive	executable script path is passed once	tests/cases/positive/ARGCALL-033.shy
 ARGCALL-034	positive	alias call receives literal argument	tests/cases/positive/ARGCALL-034.shy
+NUMERIC-160	positive	Float display preserves numeric type	tests/cases/positive/NUMERIC-160.shy

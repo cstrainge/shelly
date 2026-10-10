@@ -131,9 +131,13 @@ Other typed bindings preserve the assigned value's type, including
 `ArgumentExpansion`; untyped assignments retain their expansion-to-array conversion.
 A Float never implicitly narrows to Integer; use `Integer(...)` explicitly.
 That checked conversion rejects fractional and out-of-range values.
+Promoted, converted, and computed Floats display with a decimal point (`7.0`)
+or scientific notation for very large or small values. Float literals retain
+their original spelling.
 
 ```text
 let $x: Float = 7
+echo $x                   # 7.0
 echo ($x / 2)              # 3.5
 $x = 9
 echo ($x / 2)              # 4.5
@@ -585,7 +589,9 @@ calls retain space-separated arguments, including `foo (expression)` on one line
 
 The existing builtin names also work, including `Integer`, `Float`, `String`,
 `Boolean`, `None`, `Range`, `Array`, `HashMap`, and `ExecResult`. Annotations check
-values without converting them. `Array` and `HashMap` accept those containers
+types and promote Integer values wherever Float is required, including inside
+typed collections. Other conversions require explicit `Type(value)` syntax.
+`Array` and `HashMap` accept those containers
 without constraining their contents; `any` accepts every value.
 
 Container annotations compose: `[String: [Item]]`, `[MyEnum: optional Item]`,
@@ -647,9 +653,10 @@ occur after declarations have been committed.
 
 ## Explicit type conversions
 
-Use `Type(value)` to request conversion. All builtin types support this syntax;
-annotations still check values without converting them. `Integer` and `Float`
-are concrete numeric types; `Number` accepts either (`Integer | Float`).
+Use `Type(value)` to request conversion. All builtin types support this syntax.
+Annotations implicitly promote Integer to Float wherever Float is required;
+other conversions, including Float to Integer, must be explicit. `Integer` and
+`Float` are concrete numeric types; `Number` accepts either (`Integer | Float`).
 
 | Target | Accepted input and behavior |
 | --- | --- |
@@ -716,7 +723,7 @@ use the same conversion rules:
 | `()` | False |
 | Boolean | Its existing value |
 | Integer or float | False for zero, true otherwise |
-| String | False for empty text, exact `"false"`, or text parsing as numeric zero; true otherwise |
+| String | False for empty text (`""`); true for every nonempty string |
 | Array, hash map, or argument expansion | False when empty, true otherwise |
 | Range | False for an empty bounded range; true otherwise |
 | Enum or struct | Always true, including empty structs |
@@ -725,7 +732,7 @@ use the same conversion rules:
 ```text
 let $result = /bin/true
 let $succeeded: Boolean = Boolean($result)  # true
-echo Boolean(0) Boolean("false") Boolean([1])  # false false true
+echo Boolean(0) Boolean("false") Boolean([1])  # false true true
 ```
 
 Boolean annotations check values without converting them: `let $flag: Boolean = 1`
@@ -1469,7 +1476,6 @@ whitespace and is always explicit: captures still preserve trailing newlines.
 
 ## Current limitations and known issues
 
-- Arithmetic converts operands to integers rather than preserving floating-point values.
 - Variables use dynamic caller scope; function definitions are hoisted within each input.
 - Command results are statuses, not captured stdout. Shell errors in noninteractive
   execution return a general failure status; only explicit `exit N` selects a specific status.
@@ -1521,7 +1527,7 @@ scripts, or the REPL. `cargo clippy --locked --all-targets` runs the Rust lints.
 ./target/debug/shelly -m test.shy C001
 ```
 
-The suite includes 4,139 process cases, 93 stateful REPL scenarios, prompt/path
+The suite includes 4,140 process cases, 93 stateful REPL scenarios, prompt/path
 checks, watchdog probes, native API tests, and harness failure controls. All
 orchestration and assertions run in Shelly; no Python, pexpect, or other shell is
 needed. Standard Unix utilities still provide file operations and byte/regex

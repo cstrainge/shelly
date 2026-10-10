@@ -1,0 +1,14 @@
+# NUMERIC-160: Float display preserves numeric type
+check [
+    "id": "NUMERIC-160",
+    "name": "Float display preserves numeric type",
+    "source": "let \$x: Float = 7; let \$y: Float = 7.0; echo \$x \$y (\$x / 2) (\$y / 2)\necho Float(7) Float(0) Float(-0.0) (7.5 + 0.5) (8.0 / 2) (8.0 % 2) Integer(7.0)\necho \"\${x}\" String(\$x)\nlet \$items: [Float] = [7, 8]; echo \$items...\nstruct S { value: Float }; echo S(value: 7)\necho [\"value\": \$x]\necho 7.00 0.0001 (0.5 / 2)\necho Float(\"1e20\") Float(\"1e-10\") Float(\"1.2345678901234567\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "7.0 7.0 3.5 3.5\n7.0 0.0 -0.0 8.0 4.0 0.0 7\n7.0 7.0\n7.0 8.0\nS(value: 7.0)\n[\"value\": 7.0]\n7.00 0.0001 0.25\n1e20 1e-10 1.2345678901234567\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

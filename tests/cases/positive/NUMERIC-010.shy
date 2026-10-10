@@ -5,7 +5,7 @@ check [
     "source": "echo (7.5 % 2) (-7.5 % 2) (7 % 2.5) (7.5 % -2) (-7 % -2.5)",
     "mode": "code",
     "args": [],
-    "stdout": "1.5 -1.5 2 1.5 -2\n",
+    "stdout": "1.5 -1.5 2.0 1.5 -2.0\n",
     "status": 0,
     "valid": true,
     "error": "",

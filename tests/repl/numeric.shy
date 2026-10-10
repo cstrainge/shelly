@@ -1,11 +1,12 @@
 check_repl ["id": "NUMERIC-REPL", "name": "Numeric widening and atomic failures",
     "steps": [
         ["let \$number: Float = 7", "quiet", ""],
-        ["echo (\$number / 2)", "output", "3.5"],
+        ["echo \$number (\$number / 2)", "output", "7.0 3.5"],
+        ["let \$literal: Float = 7.0; echo \$literal", "output", "7.0"],
         ["\$number = 9", "quiet", ""],
-        ["echo (\$number / 2)", "output", "4.5"],
+        ["echo \$number (\$number / 2)", "output", "9.0 4.5"],
         ["let \$number: Integer = \$number", "error", "Expected Integer"],
-        ["echo (\$number / 2)", "output", "4.5"],
+        ["echo \$number (\$number / 2)", "output", "9.0 4.5"],
         ["let \$floats: [Float] = [7]", "quiet", ""],
         ["let \$bad = [9, \"bad\"]", "quiet", ""],
         ["\$floats = \$bad", "error", "Expected Float"],
@@ -17,6 +18,6 @@ check_repl ["id": "NUMERIC-REPL", "name": "Numeric widening and atomic failures"
         ["echo (Integer(8.0) / 2)", "output", "4"],
         ["\$integer = \"7\" + 2", "error", "Strings cannot be used in arithmetic"],
         ["echo \$integer", "output", "7"],
-        ["echo (\$number / 2)", "output", "4.5"],
+        ["echo \$number (\$number / 2)", "output", "9.0 4.5"],
         ["echo (\"Hello, \" + \"world!\")", "output", "Hello, world!"]
     ], "exit": 0]

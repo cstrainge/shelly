@@ -162,7 +162,7 @@ impl Value
                 }),
             Value::Integer(i) => i.to_string(),
             Value::Float(_, Some(s)) => s.clone(),
-            Value::Float(f, None) => f.to_string(),
+            Value::Float(f, None) => format!("{f:?}"),
             Value::Boolean(b) => b.to_string(),
             Value::String(s, _) => s.clone(),
             Value::Array(arr) => arr.iter().map(|v| v.as_text()).collect::<Vec<String>>().join(":"),
@@ -235,8 +235,7 @@ impl Value
             Value::Integer(value) => *value != 0,
             Value::Float(value, _) => *value != 0.0,
             Value::Boolean(value) => *value,
-            Value::String(value, _) => !value.is_empty()
-                && value != "false" && value.parse::<f64>() != Ok(0.0),
+            Value::String(value, _) => !value.is_empty(),
             Value::Array(values) | Value::ArgumentExpansion(values) => !values.is_empty(),
             Value::HashMap(values) => !values.is_empty()
         }

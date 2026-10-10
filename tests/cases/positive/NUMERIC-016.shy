@@ -2,10 +2,10 @@
 check [
     "id": "NUMERIC-016",
     "name": "typed initializer and write",
-    "source": "let \$x: Float = 7; echo (\$x / 2); \$x = 9; echo (\$x / 2)",
+    "source": "let \$x: Float = 7; echo \$x (\$x / 2); \$x = 9; echo \$x (\$x / 2)",
     "mode": "code",
     "args": [],
-    "stdout": "3.5\n4.5\n",
+    "stdout": "7.0 3.5\n9.0 4.5\n",
     "status": 0,
     "valid": true,
     "error": "",
