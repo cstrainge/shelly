@@ -2,6 +2,7 @@
 use std::{ cell::RefCell, collections::{ HashMap, HashSet }, rc::Rc };
 
 use crate::language::{ ast::AstTopLevel,
+                       native::{ NativeFunction, NativeVisibility },
                        bytecode::{ FunctionBlock, FunctionBlockRef, FunctionRef, Instruction },
                        compiler::{ CompileResult, CompileTarget, compile_ast },
                        data::{ scoped_variables::ScopedVariables,
@@ -24,6 +25,7 @@ pub(super) struct Scope
     pub types: TypeRegistry,
     pub aliases: HashMap<String, Alias>,
     pub modules: HashMap<String, String>,
+    pub native_functions: HashMap<String, Rc<NativeFunction>>,
     pub exports: HashSet<String>,
     pub prelude_types: HashMap<String, TypeId>,
     pub imported_types: HashMap<String, Rc<TypeDefinition>>,
@@ -34,15 +36,20 @@ pub(super) struct Scope
 
 impl Scope
 {
-    pub fn new(builtins: impl IntoIterator<Item = &'static str>,
+    pub fn new(natives: impl IntoIterator<Item = Rc<NativeFunction>>,
                scope: String, types: TypeRegistry) -> Self
     {
+        let native_functions: HashMap<_, _> = natives.into_iter()
+            .filter(|item| item.visibility != NativeVisibility::Hidden)
+            .map(|item| (item.name.to_string(), item)).collect();
+        let builtins = native_functions.values().map(|item| item.name).collect();
         Self
             {
                 variables: ScopedVariables::new_from_environment(),
                 types,
                 aliases: HashMap::new(),
                 modules: HashMap::new(),
+                native_functions,
                 exports: HashSet::new(),
                 imported_types: HashMap::new(),
                 prelude_types: HashMap::new(),
@@ -52,7 +59,7 @@ impl Scope
                         parent: None,
                         function_name: None,
                         declared_functions: HashSet::new(),
-                        builtins: Rc::new(builtins.into_iter().collect()),
+                        builtins: Rc::new(builtins),
                         functions: HashMap::new(),
                     })),
                 current_function_block: None,
@@ -67,6 +74,7 @@ impl Scope
                 types: self.types.clone(),
                 aliases: self.aliases.clone(),
                 modules: self.modules.clone(),
+                native_functions: self.native_functions.clone(),
                 exports: self.exports.clone(),
                 imported_types: self.imported_types.clone(),
                 prelude_types: self.prelude_types.clone(),
@@ -74,6 +82,13 @@ impl Scope
                     self.base_function_block.borrow().clone())),
                 current_function_block: self.current_function_block.clone(),
             }
+    }
+
+    pub fn import_native(&mut self, function: Rc<NativeFunction>)
+    {
+        let mut block = self.base_function_block.borrow_mut();
+        Rc::make_mut(&mut block.builtins).insert(function.name);
+        self.native_functions.insert(function.name.to_string(), function);
     }
 
     pub fn import_function(&mut self, name: String, function: FunctionRef)

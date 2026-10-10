@@ -13,6 +13,7 @@ use crate::language::{ ast::{ AstExpression, AstExpressionKind, AstImportStateme
                        bytecode::{ FunctionRef, Instruction },
                        data::{ scoped_variables::{ ScopedValue, ValueReference, ValueVisibility },
                                types::{ TypeDefinition, TypeId }, value::Value },
+                       native::NativeFunction,
                        interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult,
                                       scope::Scope },
                        exclusions::exclude_statements,
@@ -63,6 +64,13 @@ impl Interpreter
         if !name.contains("::") { return self.scope().function(name); }
         let (scope, name) = self.module_member(name)?;
         scope.base_function(name)
+    }
+
+    pub(super) fn module_native_function(&self, name: &str) -> Option<Rc<NativeFunction>>
+    {
+        if !name.contains("::") { return self.scope().native_functions.get(name).cloned(); }
+        let (scope, name) = self.module_member(name)?;
+        scope.native_functions.get(name).cloned()
     }
 
     pub(super) fn variable_binding(&self, name: &str) -> Option<Rc<RefCell<ScopedValue>>>
@@ -336,7 +344,7 @@ impl Interpreter
                 let mut statements = parse_text(&mut Tokenizer::new(&mut buffer))?;
                 // Conditions see the caller before the new module's scope exists.
                 let imports = self.import_conditions(&mut statements)?;
-                let mut scope = Scope::new(self.built_ins.keys().copied(), key.clone(),
+                let mut scope = Scope::new(self.native_functions.values().cloned(), key.clone(),
                     self.scope().types.module_registry());
                 // Inherit shell settings as values, not aliases into the caller's bindings.
                 for (name, mut binding) in self.scope().variables.get_all_flattened()
@@ -412,8 +420,17 @@ impl Interpreter
                 self.scope_mut().types.names.insert(name.clone(), definition.id);
                 self.scope_mut().imported_types.insert(name.clone(), definition);
             }
+            else if let Some(function) = module.native_functions.get(name).cloned()
+            {
+                self.publish_native(&import.location, function, false)?;
+            }
             else if let Some(function) = module.base_function(name)
             {
+                if self.scope().native_functions.contains_key(name)
+                {
+                    return Err(module_error(&import.location,
+                        format!("Function '{}' is already bound", name)));
+                }
                 if    let Some(existing) = self.scope().base_function(name)
                    && !Rc::ptr_eq(&existing, &function)
                 {
@@ -449,6 +466,7 @@ impl Interpreter
                     if let Some(id) = module.types.names.get(name)
                     { names.insert(format!("{}{}", prefix, name), *id); }
                     if module.base_function(name).is_some()
+                        || module.native_functions.contains_key(name)
                     { functions.insert(format!("{}{}", prefix, name)); }
                 }
                 collect(scopes, module, &prefix, names, functions, visiting);
@@ -486,6 +504,7 @@ impl Interpreter
                     self.install_import(&import, &key)?;
                 }
                 self.refresh_module_names();
+                self.prepare_visibility(statements)?;
                 let first_type = self.scope().types.definition_count();
                 let code = self.scope_mut().compile(statements)?;
                 for index in first_type..self.scope().types.definition_count()

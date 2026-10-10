@@ -6,6 +6,7 @@ use std::{ cell::RefCell, collections::{ HashMap, HashSet },
            hash::{ Hash, Hasher } };
 
 use crate::language::{ text::location::Location,
+                       native::{ NativeType, NativeVisibility },
                        data::{ conversion::convert_builtin,
                                methods::{ BuiltinMethod, register_methods },
                                value::{ Value, ExecResult }, map_key::MapKey, range::Range } };
@@ -154,6 +155,7 @@ impl Display for EnumValue
 pub struct TypeRegistry
 {
     definitions: Rc<RefCell<Vec<Rc<TypeDefinition>>>>,
+    pub native_types: HashMap<String, NativeType>,
     pub qualified_functions: HashSet<String>,
     pub module_names: HashSet<String>,
     methods: HashMap<TypeId, HashMap<&'static str, Rc<BuiltinMethod>>>,
@@ -255,14 +257,14 @@ impl TypeRegistry
     pub fn new() -> Self
     {
         let mut registry = Self { definitions: Rc::new(RefCell::new(Vec::new())),
+            native_types: HashMap::new(),
             qualified_functions: HashSet::new(), module_names: HashSet::new(),
             methods: HashMap::new(),
             extensions: HashSet::new(),
             names: HashMap::new() };
         for name in Self::BUILTIN_NAMES
         {
-            let id = registry.register(name.to_string(), TypeKind::Builtin, None);
-            registry.names.insert(name.to_string(), id);
+            registry.register_native(name.to_string(), TypeKind::Builtin, NativeVisibility::Visible);
         }
         register_methods(&mut registry);
         registry
@@ -271,8 +273,9 @@ impl TypeRegistry
     pub fn module_registry(&self) -> Self
     {
         let mut registry = self.clone();
-        registry.names = Self::BUILTIN_NAMES.iter()
-            .map(|name| (name.to_string(), self.builtin_id(name).unwrap())).collect();
+        registry.names = self.native_types.iter()
+            .filter(|(_, item)| item.visibility != NativeVisibility::Hidden)
+            .map(|(name, item)| (name.clone(), item.id)).collect();
         registry.extensions.clear();
         registry.qualified_functions.clear();
         registry.module_names.clear();
@@ -292,6 +295,19 @@ impl TypeRegistry
         *self.definitions.borrow_mut() = staged.definitions.borrow().clone();
         staged.definitions = self.definitions.clone();
         *self = staged;
+    }
+
+    // Registration preserves the internal identity independently of module lookup names.
+    pub fn register_native(&mut self, name: String, kind: TypeKind,
+                           visibility: NativeVisibility) -> TypeId
+    {
+        assert!(!self.native_types.contains_key(&name), "Duplicate native type registration");
+        let location = (!matches!(kind, TypeKind::Builtin))
+            .then(|| Location::new("<native>", 1, 1));
+        let id = self.register(name.clone(), kind, location);
+        self.native_types.insert(name.clone(), NativeType { id, visibility });
+        if visibility != NativeVisibility::Hidden { self.names.insert(name, id); }
+        id
     }
 
     pub fn register(&mut self, name: String, kind: TypeKind, location: Option<Location>) -> TypeId

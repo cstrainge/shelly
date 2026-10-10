@@ -22,6 +22,7 @@ use hostname::get as get_hostname;
 
 use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
                          compiler::CompileError,
+                         native::{ NativeFunction, NativeFunctions, NativeVisibility },
                          data::{ value::{ ExecResult, Executable, Value },
                                  map_key::MapKey,
                                  methods::{ BoundMethod, MethodDefinition, method_key },
@@ -186,9 +187,6 @@ pub type BuiltIn<'a> = Rc<dyn Fn(&mut Interpreter,
                                  &Location,
                                  &[Value]) -> InterpreterResult<()> + 'a>;
 
-pub type BuiltIns<'a> = HashMap<&'static str, BuiltIn<'a>>;
-
-
 pub type InterpreterResult<T> = Result<T, InterpreterError>;
 
 
@@ -225,7 +223,7 @@ pub struct Interpreter
     // A source file can define several generations of nominal types after reloads.
     pub(super) type_scopes: HashMap<TypeId, String>,
     special_vars: SpecialVars,
-    pub(super) built_ins: BuiltIns<'static>,
+    pub(super) native_functions: NativeFunctions,
     captured_stdout: Option<Vec<u8>>,
     redirections: Vec<Redirection>,
     pub last_result: Option<Value>,
@@ -286,10 +284,15 @@ impl Interpreter
                rc_file: RcFile,
                script_args: Vec<String>) -> Self
     {
-        let mut built_ins: BuiltIns<'static> = HashMap::from([
+        let mut bodies: HashMap<&'static str, BuiltIn<'static>> = HashMap::from([
                 (
                     "cd",
                     Rc::new(Interpreter::handle_cd) as BuiltIn<'static>
+                ),
+
+                (
+                    "visible",
+                    Rc::new(Interpreter::handle_visible) as BuiltIn<'static>
                 ),
 
                 (
@@ -305,7 +308,7 @@ impl Interpreter
 
         for &name in COMMANDS
         {
-            built_ins.insert(name, Rc::new(move |interpreter, location, args|
+            bodies.insert(name, Rc::new(move |interpreter, location, args|
                 {
                     let environment = interpreter.exported_environment(location)?;
                     let mut capture = None;
@@ -347,6 +350,9 @@ impl Interpreter
                 }));
         }
 
+        let native_functions: NativeFunctions = bodies.into_iter().map(|(name, body)|
+            (name, NativeFunction::new(name, NativeVisibility::Visible, body))).collect();
+
         let special_vars: SpecialVars = HashMap::from([
                 (
                     "$pwd",
@@ -372,7 +378,7 @@ impl Interpreter
         let mut new_self = Self
             {
                 scopes: HashMap::from([
-                        (MAIN_SCOPE.to_string(), Scope::new(built_ins.keys().copied(),
+                        (MAIN_SCOPE.to_string(), Scope::new(native_functions.values().cloned(),
                             MAIN_SCOPE.to_string(), TypeRegistry::new()))
                     ]),
                 current_scope: MAIN_SCOPE.to_string(),
@@ -382,7 +388,7 @@ impl Interpreter
                 prelude_generation: 0,
                 type_scopes: HashMap::new(),
                 special_vars,
-                built_ins,
+                native_functions,
                 captured_stdout: None,
                 redirections: Vec::new(),
                 last_result: None,
@@ -577,7 +583,7 @@ impl Interpreter
             return true;
         }
 
-        self.built_ins.contains_key(command)
+        self.module_native_function(command).is_some()
     }
 
     pub fn execute_command(&mut self,
@@ -592,9 +598,9 @@ impl Interpreter
             self.execute_function(&location, command, &function,
                 &args.iter().cloned().map(Value::from_string).collect::<Vec<_>>())?;
         }
-        else if let Some(built_in) = self.built_ins.get(command).cloned()
+        else if let Some(built_in) = self.module_native_function(command)
         {
-            built_in(self, &location,
+            (built_in.body)(self, &location,
                 &args.iter().cloned().map(Value::from_string).collect::<Vec<_>>())?;
         }
         else
@@ -732,7 +738,8 @@ impl Interpreter
                     {
                         let value = Self::pop(&location, &mut stack)?;
                         if matches!(value,
-                            Value::String(_, Executable::Function(_) | Executable::Method(_)))
+                            Value::String(_, Executable::Function(_) | Executable::Native(_)
+                                | Executable::Method(_)))
                         {
                             self.execute_value(&location, value, Vec::new())?;
                             instruction_pointer += 1;
@@ -784,7 +791,8 @@ impl Interpreter
                         self.last_result = Some(match value
                             {
                                 value @ Value::String(_,
-                                    Executable::Function(_) | Executable::Method(_)) => value,
+                                    Executable::Function(_) | Executable::Native(_)
+                                        | Executable::Method(_)) => value,
                                 value =>
                                     self.bind_executable(
                                         Value::from_executable_string(value.as_text()))
@@ -797,6 +805,7 @@ impl Interpreter
                         {
                             Some(value @ Value::String(_,
                                                        Executable::Yes
+                                                           | Executable::Native(_)
                                                            | Executable::Function(_)
                                                            | Executable::Method(_))) =>
                                 {
@@ -1392,7 +1401,8 @@ impl Interpreter
                                 && !reference.indexes.is_empty();
                         if    execute
                            && matches!(value, Value::String(_, Executable::Yes
-                                | Executable::Function(_) | Executable::Method(_)))
+                                | Executable::Function(_) | Executable::Native(_)
+                                | Executable::Method(_)))
                         {
                             let previous = self.last_result.take();
                             let result = self.execute_value(&location, value, Vec::new());
@@ -2214,9 +2224,10 @@ impl Interpreter
 
     fn bind_executable(&self, value: Value) -> Value
     {
-        if    let Value::String(name, Executable::Yes) = &value
-           && !self.built_ins.contains_key(name.as_str())
+        if let Value::String(name, Executable::Yes) = &value
         {
+            if let Some(function) = self.module_native_function(name)
+            { return Value::String(name.clone(), Executable::Native(function)); }
             let function = self.module_function(name);
             if let Some(function) = function
             { return Value::String(name.clone(), Executable::Function(function)); }
@@ -2230,6 +2241,8 @@ impl Interpreter
     {
         if let Value::String(name, Executable::Function(function)) = value
         { return self.execute_function(location, &name, &function, &args); }
+        if let Value::String(_, Executable::Native(function)) = value
+        { return (function.body)(self, location, &args); }
         if let Value::String(_, Executable::Method(method)) = value
         { return self.execute_method(location, &method, &args); }
         self.execute(location, Self::command_name(location, value)?, args)
@@ -2311,7 +2324,7 @@ impl Interpreter
     {
         if    (executable.contains("::") && self.scope().types.module_names
                 .contains(executable.split("::").next().unwrap()))
-           || self.built_ins.contains_key(executable)
+           || self.module_native_function(executable).is_some()
            || self.scope().aliases.contains_key(executable)
            || self.module_function(executable).is_some()
         {
@@ -2463,9 +2476,9 @@ impl Interpreter
             .chain(args)
             .collect();
 
-        if let Some(built_in) = self.built_ins.get(executable.as_str()).cloned()
+        if let Some(built_in) = self.module_native_function(executable.as_str())
         {
-            return built_in(self, location, &args);
+            return (built_in.body)(self, location, &args);
         }
 
         if self.find_and_execute_function(location, &executable, &args)?

@@ -1,0 +1,64 @@
+# Native and scripted exports use the same import and reference paths.
+let $fixture = $args[0]
+mkdir -p "${fixture}/std"
+printf "%s" "visible \"Terminal\"; visible `cd; fn move(\$path: String) { cd \$path; echo moved }; fn terminal_identity(\$value: Terminal): Terminal { \$value }" -> "${fixture}/std/private.shy"
+printf "%s" "visible --export \"Terminal\"; visible --export `run_process; visible --export `cd; fn marker(): String { \"public\" }" -> "${fixture}/std/public.shy"
+printf "%s" "import std::public; visible --export `std::public::run_process; visible --export \"std::public::Terminal\"; visible --export `std::public::marker" -> "${fixture}/std/bridge.shy"
+printf "%s" "import std::public; visible `std::public::run_process; visible \"std::public::Terminal\"; fn marker(): String { std::public::marker }" -> "${fixture}/std/private_bridge.shy"
+printf "%s" "import std::public::{ run_process, Terminal }; fn marker(): String { \"selected\" }" -> "${fixture}/std/selected.shy"
+printf "%s" "visible --export \"UnknownNativeType\"" -> "${fixture}/std/missing.shy"
+printf "%s" "[when false] { visible --export \"UnknownNativeType\" }; fn marker(): String { \"false\" }" -> "${fixture}/std/skipped.shy"
+printf "%s" "let \$state = \"script\"; fn value(): String { \$state }" -> "${fixture}/std/script.shy"
+printf "%s" "import std::script; visible --export `std::script::value" -> "${fixture}/std/script_bridge.shy"
+
+fn visibility_case($source: String, $expected: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "${fixture}/std", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    require (($reply["error"] == ()) && ($reply["signal"] == ()) &&
+        (!$reply["timed_out"])) "visibility child failed"
+    let $stdout: String
+    let $stderr: String
+    "${fixture}/out" -> $stdout
+    "${fixture}/err" -> $stderr
+    if ($stdout != $expected) || (($diagnostic == "") &&
+        (($reply["exit_code"] != 0) || ($stderr != ""))) ||
+        (($diagnostic != "") && (($reply["exit_code"] == 0) ||
+        (!($stderr.contains $diagnostic))))
+    { echo $source $reply $stdout $stderr; fail "visibility case mismatch" }
+}
+visibility_case "visible \"Integer\"; visible --export \"Integer\"; let \$i: Integer = 7; echo \$i" "7\n" ""
+visibility_case "visible `cd; cd \".\"; echo ok" "ok\n" ""
+visibility_case "import std::private; std::private::move \".\"" "moved\n" ""
+visibility_case "import std::private; std::private::cd \".\"" "" "unavailable"
+visibility_case "import std::private::{ cd }" "" "has no member"
+visibility_case "import std::private; let \$x: std::private::Terminal" "" "Unknown type"
+visibility_case "import std::private::{ Terminal }" "" "has no member"
+visibility_case "import std::public; std::public::cd \".\"; echo (std::public::marker)" "public\n" ""
+visibility_case "import std::public; let \$ref = `std::public::run_process; let \$r = \$ref [\"true\"] [:]; echo \$r[\"exit_code\"]" "0\n" ""
+visibility_case "import std::public::{ run_process, Terminal }; let \$r = run_process [\"true\"] [:]; echo \$r[\"exit_code\"]" "0\n" ""
+visibility_case "import std::public; let \$ref = `std::public::cd; \$ref \".\"; echo ok" "ok\n" ""
+visibility_case "import std::bridge; let \$r = std::bridge::run_process [\"true\"] [:]; echo \$r[\"exit_code\"] (std::bridge::marker)" "0 public\n" ""
+visibility_case "import std::selected; let \$r = std::selected::run_process [\"true\"] [:]; echo \$r[\"exit_code\"]" "0\n" ""
+visibility_case "import std::private_bridge; std::private_bridge::run_process [\"true\"] [:]" "" "unavailable"
+visibility_case "import std::private_bridge::{ Terminal }" "" "has no member"
+visibility_case "import std::script_bridge; echo (std::script_bridge::value)" "script\n" ""
+visibility_case "import std::skipped; echo (std::skipped::marker)" "false\n" ""
+visibility_case "visible" "" "expects"
+visibility_case "visible --export" "" "not registered"
+visibility_case "visible --export \"Integer\" \"Float\"" "" "expects"
+visibility_case "visible \"run_process\"" "" "not registered"
+visibility_case "visible `unknown_native_function" "" "not registered"
+visibility_case "visible `echo" "" "not registered"
+visibility_case "visible \"UnknownNativeType\"" "" "not registered"
+visibility_case "visible 7" "" "expects"
+visibility_case "let \$items = []; visible `\$items.count" "" "expects"
+visibility_case "import std::missing" "" "not registered"
+visibility_case "struct Local {}; visible --export \"Local\"; echo Local()" "Local()\n" ""
+visibility_case "fn local(): String { \"local\" }; visible --export `local; echo (local)" "local\n" ""
+visibility_case "import std::script; fn value(): String { \"collision\" }; visible --export `std::script::value" "" "already bound"
+visibility_case "import std::public; fn cd() {}; visible --export `std::public::cd" "" "already bound"

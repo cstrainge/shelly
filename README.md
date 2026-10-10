@@ -992,8 +992,9 @@ A bare name has different behavior depending on its context:
 A backtick prefix creates a string marked executable without calling it. There is
 no closing backtick. For a known Shelly function, the reference retains that
 function's version, including its parameter and return constraints. Redefining
-the name does not change a previously stored reference. Builtins, external commands,
-and names without a known Shelly function remain name-based references.
+the name does not change a previously stored reference. A visible native function
+also retains its registered identity, including through qualified imports.
+External commands and unresolved names remain name-based references.
 
 ```text
 fn answer() { 2048 }
@@ -1512,6 +1513,63 @@ Imported functions execute with their defining module's variables and functions.
 Qualified function calls follow ordinary argument rules: `echo foo::read` passes
 the name as text; `echo (foo::read)` calls it. A backtick, as in `` `foo::read ``,
 keeps a callable reference.
+
+Native registration and module visibility are separate. Rust registers a type or
+function once; its registration can be `NativeVisibility::Visible` or
+`NativeVisibility::Hidden`. Visible registrations seed each module's local names.
+Hidden registrations remain available internally without appearing in module name
+lookup. Existing core native registrations remain visible by default.
+
+The `visible` builtin accepts one function reference or type name. It makes the
+symbol available locally; `--export` also adds it to the current module's exports:
+
+```shy
+# Example module: std/process_tools.shy
+visible "Terminal"                 # Local type for implementation signatures.
+visible `run_process               # Local native function used by wrappers.
+visible --export `open_terminal    # Native function exposed to importers.
+
+fn run($command: Array, $options: HashMap): HashMap
+{
+    run_process $command $options
+}
+```
+
+An importer can call `std::process_tools::run` and
+`std::process_tools::open_terminal`, or select those names with `::{ ... }`.
+The module does not export `Terminal` or `run_process` in this example. To expose
+a type as well, use `visible --export "Terminal"`. Scripted definitions continue
+to follow the normal module export rules, so the wrapper and the native function
+share one public interface.
+
+For a hidden native function, use a backtick reference such as ``visible `native_fn``.
+For a hidden native type, `visible "NativeType"` looks directly in the native
+registration table. Plain strings name types, not functions. Qualified references
+and type names work too: ``visible --export `other::helper`` and
+`visible --export "other::Type"` publish their unqualified names in the current
+module. Function references stored in variables are accepted. External commands
+and bound methods are not module function declarations and cannot be published.
+
+Literal top-level visibility declarations are processed before type checking, so
+annotations and wrappers throughout the same file can use native implementation
+types. Declarations inside excluded `[when false]` blocks are skipped. Computed
+arguments and calls inside functions or ordinary blocks take effect at runtime;
+new type names are then usable by subsequent compilations. Failed compilation
+rolls back the declarations prepared for that submission.
+
+Visibility changes apply to the current module. Hidden registrations do not
+become visible in unrelated modules; importers see only exported names. Repeated
+publication of the same object is allowed, conflicting bindings are errors, and
+calling `visible` without `--export` does not revoke an existing export. Native
+function references and imported types retain their original identities through
+imports and re-exports.
+
+On the Rust side, `NativeFunction::new(name, visibility, body)` creates a native
+function registration, and `TypeRegistry::register_native(name, kind, visibility)`
+registers a native type. The registry retains hidden entries while new module
+scopes copy only initially visible names. This lets a future `std/json.shy`
+select native JSON exports with `visible --export` and implement its remaining
+interface in Shelly; a native JSON API is not implemented yet.
 
 Standard-library imports use a separate search path:
 

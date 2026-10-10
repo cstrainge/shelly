@@ -6,6 +6,7 @@ use crate::{ runtime::process::Terminal,
                                  range::Range,
                                  methods::BoundMethod,
                                  types::{ EnumValue, StructValue, TypeKind } },
+                         native::NativeFunction,
                          bytecode::FunctionRef } };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -22,6 +23,7 @@ pub enum Executable
     Yes,
     No,
     Function(FunctionRef),
+    Native(Rc<NativeFunction>),
     Method(Rc<BoundMethod>)
 }
 
@@ -34,6 +36,7 @@ impl Debug for Executable
             Self::Yes => write!(f, "Yes"),
             Self::No => write!(f, "No"),
             Self::Function(function) => write!(f, "Function({:p})", Rc::as_ptr(function)),
+            Self::Native(function) => write!(f, "Native({})", function.name),
             Self::Method(method) => write!(f, "Method({:p})", Rc::as_ptr(method))
         }
     }
@@ -47,6 +50,7 @@ impl PartialEq for Executable
         {
             (Self::Yes, Self::Yes) | (Self::No, Self::No) => true,
             (Self::Function(left), Self::Function(right)) => Rc::ptr_eq(left, right),
+            (Self::Native(left), Self::Native(right)) => Rc::ptr_eq(left, right),
             (Self::Method(left), Self::Method(right)) => Rc::ptr_eq(left, right),
             _ => false
         }
