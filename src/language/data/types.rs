@@ -29,6 +29,7 @@ pub enum TypeKind
     Builtin,
     Pending,
     Array(TypeId),
+    FixedArray(Vec<TypeId>),
     Map(TypeId, TypeId),
     Optional(TypeId),
     Struct(Vec<FieldDefinition>),
@@ -176,7 +177,7 @@ impl TypeRegistry
         let definition = self.get(receiver);
         let receiver = match definition.kind
             {
-                TypeKind::Array(_) => self.builtin_id("Array").unwrap(),
+                TypeKind::Array(_) | TypeKind::FixedArray(_) => self.builtin_id("Array").unwrap(),
                 TypeKind::Map(_, _) => self.builtin_id("HashMap").unwrap(),
                 _ => receiver,
             };
@@ -220,7 +221,7 @@ impl TypeRegistry
     {
         let receiver = match self.get(receiver).kind
             {
-                TypeKind::Array(_) => self.builtin_id("Array")?,
+                TypeKind::Array(_) | TypeKind::FixedArray(_) => self.builtin_id("Array")?,
                 TypeKind::Map(_, _) => self.builtin_id("HashMap")?,
                 _ => receiver,
             };
@@ -381,7 +382,7 @@ impl TypeRegistry
         { return self.validate(left, &Value::None).is_ok() || self.may_overlap(left, inner); }
         let category = |definition: &TypeDefinition| match definition.kind
             {
-                TypeKind::Array(_) => "Array".to_string(),
+                TypeKind::Array(_) | TypeKind::FixedArray(_) => "Array".to_string(),
                 TypeKind::Map(_, _) => "HashMap".to_string(),
                 TypeKind::Builtin => definition.name.clone(),
                 _ => format!("nominal {}", definition.id.0)
@@ -421,18 +422,22 @@ impl TypeRegistry
                 {
                     (TypeKind::Array(a), TypeKind::Array(b))
                     | (TypeKind::Optional(a), TypeKind::Optional(b)) => a == b,
+                    (TypeKind::FixedArray(a), TypeKind::FixedArray(b)) => a == b,
                     (TypeKind::Map(a, b), TypeKind::Map(c, d)) => a == c && b == d,
                     _ => false,
                 })
         {
             return existing.id;
         }
-        let name = match kind
+        let name = match &kind
             {
-                TypeKind::Array(id) => format!("[{}]", self.get(id).name),
+                TypeKind::Array(id) => format!("[{}]", self.get(*id).name),
+                TypeKind::FixedArray(items) => format!("[{}{}]", items.iter()
+                    .map(|id| self.get(*id).name.clone()).collect::<Vec<_>>().join(", "),
+                    if items.len() == 1 { "," } else { "" }),
                 TypeKind::Map(key, value) =>
-                    format!("[{}: {}]", self.get(key).name, self.get(value).name),
-                TypeKind::Optional(id) => format!("optional {}", self.get(id).name),
+                    format!("[{}: {}]", self.get(*key).name, self.get(*value).name),
+                TypeKind::Optional(id) => format!("optional {}", self.get(*id).name),
                 _ => unreachable!("Only anonymous container constraints are interned")
             };
         self.register(name, kind, None)
@@ -454,6 +459,12 @@ impl TypeRegistry
                 for (index, value) in Rc::make_mut(values).iter_mut().enumerate()
                 {
                     *value = self.coerce(*element, value.clone())
+                        .map_err(|error| format!("Array element {}: {}", index, error))?;
+                },
+            (TypeKind::FixedArray(items), Value::Array(values)) if items.len() == values.len() =>
+                for (index, (id, value)) in items.iter().zip(Rc::make_mut(values)).enumerate()
+                {
+                    *value = self.coerce(*id, value.clone())
                         .map_err(|error| format!("Array element {}: {}", index, error))?;
                 },
             (TypeKind::Map(key_type, value_type), Value::HashMap(values)) =>
@@ -545,6 +556,18 @@ impl TypeRegistry
                         for (index, value) in values.iter().enumerate()
                         {
                             self.validate(*element, value)
+                                .map_err(|error| format!("Array element {}: {}", index, error))?;
+                        }
+                        true
+                    } else { false },
+                TypeKind::FixedArray(items) => if let Value::Array(values) = value
+                    {
+                        if items.len() != values.len()
+                        { return Err(format!("Expected {} array elements, got {}",
+                            items.len(), values.len())); }
+                        for (index, (id, value)) in items.iter().zip(values.iter()).enumerate()
+                        {
+                            self.validate(*id, value)
                                 .map_err(|error| format!("Array element {}: {}", index, error))?;
                         }
                         true
@@ -654,6 +677,12 @@ impl TypeRegistry
             (TypeKind::Array(element), MapKey::Array(values)) =>
                 {
                     for value in values.iter() { self.validate_key(*element, value)?; }
+                    return Ok(());
+                },
+            (TypeKind::FixedArray(items), MapKey::Array(values)) if items.len() == values.len() =>
+                {
+                    for (id, value) in items.iter().zip(values.iter())
+                    { self.validate_key(*id, value)?; }
                     return Ok(());
                 },
             (TypeKind::Map(key_type, value_type), MapKey::HashMap(entries)) =>

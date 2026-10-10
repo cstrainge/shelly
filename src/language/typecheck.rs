@@ -253,6 +253,16 @@ fn check_scope(
                             &statement.location,
                         )?);
                     }
+                    if statement.receiver.is_some() && statement.name == "next_item"
+                    {
+                        if statement.parameters.len() != 1
+                        { return Err(error(&statement.location,
+                            "next_item must accept no arguments beyond its receiver".into())); }
+                        if !statement.return_type.is_some_and(|id|
+                            matches!(registry.get(id).kind, TypeKind::Optional(_)))
+                        { return Err(error(&statement.location,
+                            "next_item must declare a return type T | ()".into())); }
+                    }
                     check_scope(registry, &mut statement.body, &names)?;
                 },
             AstStatement::BlockStatement(block) | AstStatement::LoopStatement(block) =>
@@ -582,6 +592,9 @@ fn resolve_type(
                     .ok_or_else(|| error(location, format!("Unknown type '{}'", name))),
             AstType::Array(inner) =>
                 TypeKind::Array(resolve_type(registry, inner, names, location)?),
+            AstType::FixedArray(items) => TypeKind::FixedArray(items.iter()
+                .map(|item| resolve_type(registry, item, names, location))
+                .collect::<CompileResult<Vec<_>>>()?),
             AstType::Optional(inner) =>
                 TypeKind::Optional(resolve_type(registry, inner, names, location)?),
             AstType::Map(key, value) => TypeKind::Map(

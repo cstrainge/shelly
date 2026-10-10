@@ -1,13 +1,13 @@
-# DESTRUCTURING-064: non-array element ()
+# DESTRUCTURING-064: unit ends iteration
 check ["id": "DESTRUCTURING-064",
-    "name": "non-array element ()",
+    "name": "unit ends iteration",
     "source": "for (\$a, \$b) in [()] { echo \"UNREACHABLE\" }",
     "mode": "code",
     "args": [],
     "stdout": "",
-    "status": 1,
-    "valid": false,
-    "error": "Array error:",
-    "stderr_contains": ["Array destructuring requires an array"],
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
     "stderr_excludes": ["Parser error:"],
     "stdout_excludes": []]

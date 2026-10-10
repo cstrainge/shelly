@@ -1,7 +1,7 @@
 # FOR-028: array values retain types
 check ["id": "FOR-028",
     "name": "array values retain types",
-    "source": "let \$a = [1,true,(),[2],[\"k\":3],1..3]; let \$n = 0; for \$v in \$a { if \$v == \$a[\$n] { \$n = \$n + 1 } }; echo \$n",
+    "source": "let \$a = [1,true,\"text\",[2],[\"k\":3],1..3]; let \$n = 0; for \$v in \$a { if \$v == \$a[\$n] { \$n = \$n + 1 } }; echo \$n",
     "mode": "code",
     "args": [],
     "stdout": "6\n",

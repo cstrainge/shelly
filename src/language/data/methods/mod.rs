@@ -1,13 +1,15 @@
 
 mod array;
 mod string;
+mod iteration;
 
 use std::rc::Rc;
 
 use crate::language::{ bytecode::FunctionRef,
                        data::{ value::Value, scoped_variables::ValueReference,
-                               types::{ TypeId, TypeRegistry },
-                               methods::{ array::{ sort, zip, count },
+                               types::{ TypeId, TypeKind, TypeRegistry },
+                               methods::{ iteration::next_item,
+                                          array::{ sort, zip, count },
                                           string::{ chars, contains, starts_with, ends_with,
                                                     replace, split, trim, trim_start, trim_end } } } };
 
@@ -16,12 +18,14 @@ pub fn method_key(receiver: TypeId, name: &str) -> String
     format!("\0method:{}:{}", receiver.0, name)
 }
 
-pub type MethodBody = fn(&Value, &[Value]) -> Result<Value, String>;
+pub type MethodBody = fn(&mut Value, &[Value]) -> Result<Value, String>;
 
 #[derive(Debug)]
 pub struct BuiltinMethod
 {
     pub name: &'static str,
+    pub mutates_receiver: bool,
+    pub native_iterator: bool,
     pub argument_count: usize,
     pub return_type: TypeId,
     pub body: MethodBody,
@@ -58,8 +62,11 @@ pub fn register_methods(registry: &mut TypeRegistry)
             ("trim_end", 0, string, trim_end as MethodBody),
         ]
     {
-        registry.register_method(string,
-            BuiltinMethod { name, argument_count, return_type, body });
+        registry.register_method(string, BuiltinMethod
+            {
+                name, argument_count, return_type, body,
+                mutates_receiver: false, native_iterator: false,
+            });
     }
     for receiver in ["Array", "ArgumentExpansion"]
     {
@@ -70,8 +77,24 @@ pub fn register_methods(registry: &mut TypeRegistry)
                 ("count", 0, integer, count as MethodBody),
             ]
         {
-            registry.register_method(receiver,
-                BuiltinMethod { name, argument_count, return_type, body });
+            registry.register_method(receiver, BuiltinMethod
+                {
+                    name, argument_count, return_type, body,
+                    mutates_receiver: false, native_iterator: false,
+                });
         }
+    }
+    let any = registry.builtin_id("any").unwrap();
+    let pair = registry.intern(TypeKind::FixedArray(vec![any, any]));
+    for (name, item) in [("Array", any), ("ArgumentExpansion", any),
+                         ("HashMap", pair), ("Range", integer)]
+    {
+        let receiver = registry.builtin_id(name).unwrap();
+        let return_type = registry.intern(TypeKind::Optional(item));
+        registry.register_method(receiver, BuiltinMethod
+            {
+                name: "next_item", argument_count: 0, return_type, body: next_item,
+                mutates_receiver: true, native_iterator: true,
+            });
     }
 }

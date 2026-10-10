@@ -1,0 +1,64 @@
+# Iterator protocol, private state, native cursors, fixed array types and diagnostics.
+let $fixture = $args[0]
+fn iterator_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    if ($out != $stdout) || ($reply["error"] != ()) || ($reply["signal"] != ()) ||
+        ($reply["timed_out"]) || (($diagnostic == "") &&
+        (($reply["exit_code"] != 0) || ($err != ""))) ||
+        (($diagnostic != "") && (($reply["exit_code"] == 0) || (!($err.contains $diagnostic))))
+    { echo $source $reply $out $err; fail "iterator case mismatch" }
+}
+iterator_case "struct Counter { n: Integer }; fn Counter::next_item(): Integer | () { if \$self.n == 0 { return () }; let \$value = \$self.n; \$self.n = \$self.n - 1; \$value }; let \$source = Counter(n: 2); for \$x in \$source { echo \$x }; echo \$source.n; for \$x in \$source { echo \$x }" "2\n1\n2\n2\n1\n" ""
+iterator_case "struct Counter { n: Integer }; fn Counter::next_item(): Integer | () { if \$self.n == 0 { return () }; let \$value = \$self.n; \$self.n = \$self.n - 1; \$value }; let \$source = Counter(n: 2); for \$x in \$source { for \$y in \$source { echo \$x \$y } }; echo \$source.n" "2 2\n2 1\n1 2\n1 1\n2\n" ""
+iterator_case "struct Counter { n: Integer }; fn Counter::next_item(): Integer | () { if \$self.n == 0 { return () }; let \$value = \$self.n; \$self.n = \$self.n - 1; \$value }; let \$source = Counter(n: 3); for \$x in \$source { if \$x == 3 { continue }; echo \$x; break }; echo \$source.n" "2\n3\n" ""
+iterator_case "struct Counter { n: Integer }; fn Counter::next_item(): Integer | () { if \$self.n == 0 { return () }; let \$value = \$self.n; \$self.n = \$self.n - 1; \$value }; fn first(\$source: Counter): Integer { for \$x in \$source { return \$x }; 0 }; echo (first Counter(n: 2))" "2\n" ""
+iterator_case "struct Counter { n: Integer }; fn Counter::next_item(): Integer | () { if \$self.n == 0 { return () }; let \$value = \$self.n; \$self.n = \$self.n - 1; \$value }; let \$source = Counter(n: 2); for \$x in \$source { \$source.n = 0; echo \$x }; echo \$source.n" "2\n1\n0\n" ""
+iterator_case "struct Counter { n: Integer }; fn Counter::next_item(): Integer | () { if \$self.n == 0 { return () }; let \$value = \$self.n; \$self.n = \$self.n - 1; \$value }; let \$source = Counter(n: 2); echo \$source.next_item \$source.next_item \$source.next_item \$source.n" "2 1 () 0\n" ""
+iterator_case "struct Counter { n: Integer }; fn Counter::next_item(): [Integer, String] | () { if \$self.n == 0 { return () }; \$self.n = \$self.n - 1; [\$self.n, \"value\"] }; for (\$k,\$v) in Counter(n: 2) { echo \$k \$v }" "1 value\n0 value\n" ""
+iterator_case "struct Counter { n: Integer }; fn Counter::next_item(): [Integer, String] | () { if \$self.n == 0 { return () }; \$self.n = \$self.n - 1; [\$self.n, \"value\"] }; for \$pair in Counter(n: 1) { echo \$pair[0] \$pair[1] }" "0 value\n" ""
+iterator_case "struct Counter { n: Integer }; fn Counter::next_item(): [Integer, String] | () { if \$self.n == 0 { return () }; \$self.n = \$self.n - 1; [\$self.n, \"value\"] }; for \$k,\$v in Counter(n: 1) { echo \$k \$v }" "0 value\n" ""
+iterator_case "struct Counter { n: Integer }; fn Counter::next_item(): [Integer, String] | () { if \$self.n == 0 { return () }; \$self.n = \$self.n - 1; [\$self.n, \"value\"] }; for (\$a,\$b,\$c) in Counter(n: 1) {}" "" "Array destructuring expected 3"
+iterator_case "for \$pair in [\"x\": ()] { echo \$pair[0] \$pair[1] }" "x ()\n" ""
+iterator_case "for (\$key,\$value) in [\"x\": ()] { echo \$key \$value }" "x ()\n" ""
+iterator_case "for \$x in [1,(),2] { echo \$x }; echo done" "1\ndone\n" ""
+iterator_case "for (\$x,\$y) in [()] { echo wrong }; echo done" "done\n" ""
+iterator_case "let \$items = [1,2]; let \$saved = \$items; echo \$items.next_item \$items.next_item \$items.next_item; echo \$saved" "1 2 ()\n1:2\n" ""
+iterator_case "let \$items = [\"x\": 1]; let \$saved = \$items; let \$pair = \$items.next_item; echo \$pair[0] \$pair[1] \$items.next_item \$saved[\"x\"]" "x 1 () 1\n" ""
+iterator_case "let \$r = 2..4; echo \$r.next_item \$r.next_item \$r.next_item" "2 3 ()\n" ""
+iterator_case "let \$r = 9223372036854775807..=9223372036854775807; echo \$r.next_item \$r.next_item" "9223372036854775807 ()\n" ""
+iterator_case "for \$x in -9223372036854775808..=9223372036854775807 { echo \$x; break }" "-9223372036854775808\n" ""
+iterator_case "let \$r = 1..; echo \$r.next_item" "" "both bounds"
+iterator_case "fn Array::next_item(): Integer | () { if \$self.count == 0 { return () }; \$self = []; 42 }; let \$a = [1,2]; for \$x in \$a { echo \$x }; echo \$a" "42\n1:2\n" ""
+iterator_case "fn String::next_item(): String | () { if \$self == \"\" { return () }; let \$v = \$self; \$self = \"\"; \$v }; let \$s = \"text\"; for \$x in \$s { echo \$x }; echo \$s" "text\ntext\n" ""
+iterator_case "enum State { Ready, Done }; fn State::next_item(): String | () { if \$self == State::Done { return () }; \$self = State::Done; \"ready\" }; for \$x in State::Ready { echo \$x }" "ready\n" ""
+iterator_case "struct Bad {}; fn Bad::next_item() { () }" "" "must declare a return type"
+iterator_case "struct Bad {}; fn Bad::next_item(): Integer { 1 }" "" "must declare a return type"
+iterator_case "struct Bad {}; fn Bad::next_item(\$x: Integer): Integer | () { \$x }" "" "must accept no arguments"
+iterator_case "struct Bad {}; fn Bad::next_item(\$x: optional Integer): Integer | () { \$x }" "" "must accept no arguments"
+iterator_case "struct Bad {}; fn Bad::next_item(\$x...): Integer | () { () }" "" "must accept no arguments"
+iterator_case "struct Bad {}; fn Bad::next_item(): Integer | () { \"wrong\" }; for \$x in Bad() {}" "" "Type error"
+iterator_case "struct Bad {}; fn Bad::next_item(): [Integer, String] | () { [1] }; for (\$x,\$y) in Bad() {}" "" "array elements"
+iterator_case "struct Bad {}; fn Bad::next_item(): [Integer, String] | () { [1,2] }; for (\$x,\$y) in Bad() {}" "" "Expected String"
+iterator_case "struct Bad {}; fn Bad::next_item(): Integer | () { 1 / 0 }; for \$x in Bad() {}" "" "Arithmetic error"
+iterator_case "struct Empty {}; fn Empty::next_item(): any | () { () }; for \$x in Empty() { echo wrong }; echo done" "done\n" ""
+iterator_case "struct Old {}; fn Old::next_item(): optional Integer { () }; for \$x in Old() {}; echo done" "done\n" ""
+iterator_case "fn pair(): [Float, String] | () { [7, \"seven\"] }; let \$p = pair; echo \$p[0] \$p[1]" "7.0 seven\n" ""
+iterator_case "let \$p: [Float, String] = [7,\"seven\"]; \$p[0] = 3; echo \$p[0] \$p[1]" "3.0 seven\n" ""
+iterator_case "let \$p: [Integer, String] = [1,\"a\"]; \$p[1] = 3" "" "Expected String"
+iterator_case "let \$p: [Integer, String] = [1,\"a\",true]" "" "array elements"
+iterator_case "let \$p: [Integer,] = [1]; echo \$p[0]" "1\n" ""
+iterator_case "let \$p: [Integer] = [1,2,3]; echo \$p.count" "3\n" ""
+iterator_case "let \$p: [Integer, String,] | () = (); echo \$p" "()\n" ""
+iterator_case "fn bad(): Integer | String { 1 }" "" "Parser error"
+iterator_case "fn bad(): Integer | { 1 }" "" "Parser error"
+iterator_case "let \$pairs: [[Integer, String]] = [[1,\"a\"],[2,\"b\"]]; for (\$a,\$b) in \$pairs { echo \$a \$b }" "1 a\n2 b\n" ""

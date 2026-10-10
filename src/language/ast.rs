@@ -440,6 +440,7 @@ pub enum AstType
 {
     Named(String),
     Array(Box<AstType>),
+    FixedArray(Vec<AstType>),
     Map(Box<AstType>, Box<AstType>),
     Optional(Box<AstType>)
 }

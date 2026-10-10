@@ -1,0 +1,13 @@
+# FOR-138: single binding receives map pair
+check ["id": "FOR-138",
+    "name": "single binding receives map pair",
+    "source": "for \$v in [\"x\":1] { echo \$v[0] \$v[1] }; echo \"AFTER_LOOP\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "x 1\nAFTER_LOOP\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

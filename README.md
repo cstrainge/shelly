@@ -1198,8 +1198,9 @@ loops follow the hoisting and global-alias rules for blocks.
 
 ### For
 
-Use one binding for array elements or range integers, and two bindings for map
-keys and values. The expression after `in` can be a literal, a variable, an
+Use one binding per yielded item, or destructure a yielded array into multiple
+bindings. Arrays yield their elements, ranges yield integers, and maps yield
+`[key, value]` pairs. The expression after `in` can be a literal, a variable, an
 indexed value, a conditional, or a function call:
 
 ```text
@@ -1217,8 +1218,8 @@ for $key, $value in $settings { echo $key $value }
 for $key, $value in ["answer": 42] { echo $key $value }
 ```
 
-A parenthesized binding list destructures each array element. This works with
-the arrays returned by `.zip` and with any array of arrays:
+A parenthesized binding list destructures each yielded array. This works with
+map entries, arrays returned by `.zip`, and custom iterators:
 
 ```text
 for ($test_file, $output_file) in $tests.zip $outputs
@@ -1245,9 +1246,82 @@ a collection held by a loop binding also leaves the original element unchanged.
 
 Range iteration is lazy and requires both integer bounds. `..` excludes the end,
 `..=` includes it, and reversed ranges are empty. Empty arrays, maps, and ranges
-skip the body. Other iterable types, unparenthesized pairs of bindings for
-arrays/ranges, one binding for maps, and duplicate binding names produce errors.
-Map key/value iteration continues to use the unparenthesized `$key, $value` form.
+skip the body. A map yields one `[key, value]` array per step, so either a single
+binding or `for ($key, $value) in $map` works. The existing unparenthesized
+`for $key, $value in $map` syntax remains supported and also destructures array
+items from other iterators. Duplicate binding names are errors.
+
+`for` uses the `next_item` protocol. Any type can define a zero-argument method
+whose declared return type is `T | ()`:
+
+```shy
+struct Counter { remaining: Integer }
+
+fn Counter::next_item(): Integer | ()
+{
+    if $self.remaining == 0 { return () }
+    let $item = $self.remaining
+    $self.remaining = $self.remaining - 1
+    $item
+}
+
+let $counter = Counter(remaining: 3)
+for $item in $counter { echo $item }  # 3, 2, 1
+echo $counter.remaining             # Still 3
+```
+
+The iterable is evaluated once and copied into a private receiver. Each step
+calls that receiver's `next_item` method. Changes to `$self` advance only that
+private value, so repeated and nested loops over the source have independent
+state. The method version is captured when the loop is compiled, following the
+same rules as other method calls. Methods can still perform ordinary external
+side effects or modify other variables in their defining scope.
+
+Returning `()` ends the loop; every other value is yielded, including `false`,
+zero, empty strings, and empty arrays. Consequently an array containing `()`
+ends iteration at that element. To yield a unit value as data, wrap it in an
+array or struct. A map entry whose value is `()` remains a valid two-element
+array and does not end iteration.
+
+Arrays, argument expansions, hash maps, and bounded ranges provide native
+`next_item` methods. Arrays and expansions return `any | ()`, maps return
+`[any, any] | ()`, and ranges return `Integer | ()`. Native loops use efficient
+private cursors, and ranges remain lazy. User-defined overrides participate in
+the same protocol. A type without `next_item` produces an iteration error;
+methods with parameters or a return type lacking `| ()` are rejected.
+
+A direct call such as `$items.next_item` advances the actual receiver: it removes
+the first array element or one map entry, or advances a range's start. `for`
+advances a private copy instead. A saved method reference such as
+``let $next = `$items.next_item`` retains the normal live-receiver behavior.
+
+Fixed-length array annotations describe each position's type, making structured
+yields explicit:
+
+```shy
+struct Pairs { remaining: Integer }
+
+fn Pairs::next_item(): [Integer, String] | ()
+{
+    if $self.remaining == 0 { return () }
+    $self.remaining = $self.remaining - 1
+    [$self.remaining, "item"]
+}
+
+for ($index, $label) in Pairs(remaining: 2) { echo $index $label }
+```
+
+`[Integer, String]` requires exactly two elements with those respective types.
+`[Integer,]` requires exactly one element; `[Integer]` remains a homogeneous array
+of any length. Fixed-length annotations can be nested and used for variables,
+parameters, returns, fields, and collections. Numeric widening applies to each
+position. Wrong lengths or element types fail validation. Destructuring still
+checks the actual yielded array before creating bindings.
+
+`T | ()` is another spelling of `optional T`, including in other annotations.
+Only this unit alternative is supported; general unions such as
+`Integer | String` are not implemented. Existing `optional T` iterator return
+annotations are equivalent.
 
 ### Unbounded loop
 
@@ -1787,7 +1861,8 @@ points, without their labels; the interpreter sees only numeric destinations.
 Blocks use `EnterScope` and `ExitScope`. `EnterLoop` pushes the continue/break
 addresses and saved execution depths; `ExitLoop` pops that frame. `Break` and
 `Continue` unwind scopes and temporary values before jumping. For loops also use
-iterator instructions; while and until use `ToBoolean` and conditional jumps.
+iterator instructions that capture and advance a private `next_item` receiver;
+while and until use `ToBoolean` and conditional jumps.
 Loop and iterator stacks belong to the current execution frame and are cleaned
 up on returns and errors.
 

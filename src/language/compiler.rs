@@ -1305,8 +1305,7 @@ fn compile_for_statement(instructions: &mut Vec<Instruction>,
         {
             location: location.clone(),
             code: Code::StartIteration,
-            operand: Some(Value::Integer(if statement.destructure
-                { 1 } else { statement.bindings.len() as i64 }))
+            operand: Some(method_snapshot(function_block, "next_item"))
         });
 
     // Register once. Continue targets the next iteration, not EnterLoop itself.
@@ -1345,7 +1344,7 @@ fn compile_for_statement(instructions: &mut Vec<Instruction>,
             code: Code::CheckResult,
             operand: None,
         });
-    if statement.destructure
+    if statement.destructure || statement.bindings.len() > 1
     {
         instructions.push(Instruction
             {

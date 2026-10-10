@@ -8,6 +8,6 @@ check ["id": "DESTRUCTURING-094",
     "status": 1,
     "valid": false,
     "error": "Iteration error:",
-    "stderr_contains": ["For loops require"],
+    "stderr_contains": ["has no next_item method"],
     "stderr_excludes": ["Parser error:"],
     "stdout_excludes": []]

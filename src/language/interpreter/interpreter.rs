@@ -1138,23 +1138,9 @@ impl Interpreter
 
                 Code::StartIteration =>
                     {
-                        let Some(Value::Integer(bindings @ (1 | 2))) = instruction.operand else
-                        {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        "Expected one or two loop bindings".to_string(),
-                                    ),
-                                });
-                        };
                         let value = Self::pop(&location, &mut stack)?;
-                        let iteration = Iteration::new(value, bindings)
-                            .map_err(|message| InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::IterationError(message.to_string())
-                                })?;
+                        let snapshot = instruction.operand.as_ref().unwrap_or(&Value::None);
+                        let iteration = Iteration::new(self, &location, value, snapshot)?;
                         iterations.push(iteration);
                     },
 
@@ -1165,10 +1151,9 @@ impl Interpreter
                                 location: location.clone(),
                                 what: ErrorWhat::InvalidOperand("No active iteration".to_string())
                             })?;
-                        if let Some((first, second)) = iteration.next()
+                        if let Some(value) = iteration.next(self, &location)?
                         {
-                            Self::push(&mut stack, first);
-                            if let Some(second) = second { Self::push(&mut stack, second); }
+                            Self::push(&mut stack, value);
                             self.last_result = Some(Value::Boolean(true));
                         }
                         else
@@ -2162,6 +2147,14 @@ impl Interpreter
         }
         drop(variable);
         let reference = self.variable_reference(name).unwrap();
+        self.write_receiver(location, name, &reference, value)
+    }
+
+    fn write_receiver(&mut self, location: &Location, name: &str,
+                      reference: &ValueReference, value: Value) -> InterpreterResult<()>
+    {
+        let invalid = |message| InterpreterError { location: location.clone(),
+            what: ErrorWhat::InvalidOperand(message) };
         let mut root = reference.root.borrow_mut();
         let mut updated = root.value.clone();
         Self::set_element(location, &mut updated, &reference.indexes, &reference.fields, value)?;
@@ -2248,7 +2241,7 @@ impl Interpreter
         self.execute(location, Self::command_name(location, value)?, args)
     }
 
-    fn resolve_method(&self, value: &Value, receiver: ValueReference,
+    pub(super) fn resolve_method(&self, value: &Value, receiver: ValueReference,
                       name: &str, snapshot: &Value) -> Option<BoundMethod>
     {
         for id in self.scope().types.method_types(self.scope().types.value_type(value))
@@ -2274,10 +2267,11 @@ impl Interpreter
         None
     }
 
-    fn execute_method(&mut self, location: &Location, method: &BoundMethod,
+    pub(super) fn execute_method(&mut self, location: &Location, method: &BoundMethod,
                       arguments: &[Value]) -> InterpreterResult<()>
     {
-        let receiver = self.eval_value_paths_to(self.read_reference(location, &method.receiver)?);
+        let mut receiver =
+            self.eval_value_paths_to(self.read_reference(location, &method.receiver)?);
         let (minimum, maximum) = match &method.definition
             {
                 MethodDefinition::Builtin(definition) =>
@@ -2303,9 +2297,12 @@ impl Interpreter
         {
             MethodDefinition::Builtin(definition) =>
                 {
-                    self.last_result = Some((definition.body)(&receiver, arguments)
+                    let value = (definition.body)(&mut receiver, arguments)
                         .map_err(|message| InterpreterError { location: location.clone(),
-                            what: ErrorWhat::InvalidOperand(message) })?);
+                            what: ErrorWhat::InvalidOperand(message) })?;
+                    if definition.mutates_receiver
+                    { self.write_receiver(location, "$self", &method.receiver, receiver)?; }
+                    self.last_result = Some(value);
                     Ok(())
                 },
             MethodDefinition::User(function) =>

@@ -1,0 +1,13 @@
+# FOR-134: empty iterator skips destructuring
+check ["id": "FOR-134",
+    "name": "empty iterator skips destructuring",
+    "source": "for \$k,\$v in [] {}; echo \"AFTER_LOOP\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "AFTER_LOOP\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

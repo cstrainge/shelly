@@ -461,6 +461,25 @@ fn parse_type_inner(
     buffer: &mut TokenBuffer<'_, '_>, allow_variadic: bool, variadic: &mut bool,
 ) -> ParseResult<AstType>
 {
+    let annotation = parse_type_atom(buffer, allow_variadic, variadic)?;
+    if try_expect_token(buffer, TokenKind::Pipe)?.is_some()
+    {
+        expect_token(buffer, TokenKind::ParenOpen)?;
+        expect_token(buffer, TokenKind::ParenClose)?;
+        return Ok(AstType::Optional(Box::new(annotation)));
+    }
+    Ok(annotation)
+}
+
+fn parse_type_atom(
+    buffer: &mut TokenBuffer<'_, '_>, allow_variadic: bool, variadic: &mut bool,
+) -> ParseResult<AstType>
+{
+    if try_expect_token(buffer, TokenKind::ParenOpen)?.is_some()
+    {
+        expect_token(buffer, TokenKind::ParenClose)?;
+        return Ok(AstType::Named("None".into()));
+    }
     if try_expect_token(buffer, TokenKind::SquareOpen)?.is_some()
     {
         skip_array_newlines(buffer)?;
@@ -470,6 +489,20 @@ fn parse_type_inner(
             {
                 skip_array_newlines(buffer)?;
                 AstType::Map(Box::new(first), Box::new(parse_type(buffer)?))
+            }
+            else if try_expect_token(buffer, TokenKind::Comma)?.is_some()
+            {
+                let mut items = vec![first];
+                loop
+                {
+                    skip_array_newlines(buffer)?;
+                    if try_expect_token(buffer, TokenKind::SquareClose)?.is_some()
+                    { return Ok(AstType::FixedArray(items)); }
+                    items.push(parse_type(buffer)?);
+                    skip_array_newlines(buffer)?;
+                    if try_expect_token(buffer, TokenKind::Comma)?.is_none() { break; }
+                }
+                AstType::FixedArray(items)
             }
             else { AstType::Array(Box::new(first)) };
         skip_array_newlines(buffer)?;

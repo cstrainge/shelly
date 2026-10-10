@@ -7,7 +7,7 @@ check ["id": "FOR-136",
     "stdout": "",
     "status": 1,
     "valid": false,
-    "error": "Iteration error:",
+    "error": "Array error:",
     "stderr_contains": [],
     "stderr_excludes": ["Parser error:"],
     "stdout_excludes": []]

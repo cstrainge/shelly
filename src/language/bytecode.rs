@@ -57,8 +57,8 @@ pub enum Code
     BindField,
     // Operand bits indicate a supplied start (1), end (2), and inclusive end (4).
     MakeRange,
-    // Start consumes the iterable; operand is the binding count. Next pushes
-    // yielded bindings and sets a boolean result for the following linked jump.
+    // Start captures a private receiver and the next_item method snapshot. Next
+    // pushes one non-None item and sets a boolean result for the linked jump.
     StartIteration,
     NextIteration,
     // Pop a yielded value into a fresh scoped binding without assignment coercions.

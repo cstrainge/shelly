@@ -14,14 +14,14 @@ fn elements(receiver: &Value) -> Result<&[Value], String>
     }
 }
 
-pub(super) fn count(receiver: &Value, _: &[Value]) -> Result<Value, String>
+pub(super) fn count(receiver: &mut Value, _: &[Value]) -> Result<Value, String>
 {
     let length = i64::try_from(elements(receiver)?.len())
         .map_err(|_| "Array length exceeds Integer range".to_string())?;
     Ok(Value::Integer(length))
 }
 
-pub(super) fn zip(receiver: &Value, arguments: &[Value]) -> Result<Value, String>
+pub(super) fn zip(receiver: &mut Value, arguments: &[Value]) -> Result<Value, String>
 {
     let left = elements(receiver)?;
     let right = elements(&arguments[0])?;
@@ -61,7 +61,7 @@ fn compare(left: &Value, right: &Value) -> Option<Ordering>
     }
 }
 
-pub(super) fn sort(receiver: &Value, _: &[Value]) -> Result<Value, String>
+pub(super) fn sort(receiver: &mut Value, _: &[Value]) -> Result<Value, String>
 {
     let values = elements(receiver)?;
     // Validate even singleton inputs. Comparison must be total within the chosen category.
