@@ -73,6 +73,7 @@ pub fn exclude_statements<E>(statements: &mut AstTopLevel,
                     { exclude_expression(expression, evaluate)?; }
                 },
             AstStatement::EnumDeclaration(_) | AstStatement::StructDeclaration(_)
+                | AstStatement::TypeDeclaration(_)
                 | AstStatement::AliasStatement(_) | AstStatement::BreakStatement(_)
                 | AstStatement::ContinueStatement(_) | AstStatement::NullStatement => {},
         }
@@ -144,7 +145,8 @@ fn exclude_expression<E>(expression: &mut AstExpression,
             },
         AstExpressionKind::Field(value, _, _) | AstExpressionKind::Splat(value)
             | AstExpressionKind::Grouped(value) | AstExpressionKind::ExecutableReference(value)
-            | AstExpressionKind::TryExecute(value) | AstExpressionKind::BooleanNot(value)
+            | AstExpressionKind::TryExecute(value) | AstExpressionKind::MathNegate(value)
+            | AstExpressionKind::BooleanNot(value)
             | AstExpressionKind::TypeConversion(_, value, _) =>
             exclude_expression(value, evaluate)?,
         AstExpressionKind::Redirect(value, redirects) =>

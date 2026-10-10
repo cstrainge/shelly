@@ -1,0 +1,101 @@
+# Named types, union annotations, identity and inherited operations.
+fn type_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "${fixture}/std", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $stdout) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "named type mismatch" }
+}
+type_case "type Count = Integer; let \$n: Count = 7; let \$m = Count(2); echo (\$n / \$m) (Integer(\$n)) (\$n == \$m) (\$n == 7)" "3 7 false false\n" ""
+type_case "type Count = Integer; let \$n: Count; echo \$n" "0\n" ""
+type_case "type Count = Integer; let \$n: Count = 7; let \$raw: Integer = \$n" "" "Expected Integer, got Count"
+type_case "type Count = Integer; type Other = Integer; let \$n: Count = 7; let \$m: Other = \$n" "" "Expected"
+type_case "type Count = Integer; let \$n: Count = 7; echo (\$n + 1)" "" "Named arithmetic requires matching types"
+type_case "type Count = Integer; type Other = Integer; echo (Count(7) + Other(2))" "" "Named arithmetic requires matching types"
+type_case "type Count = Integer; fn typed(\$n: Count): Count { \$n }; echo (typed 7) (typed Count(8))" "7 8\n" ""
+type_case "type Count = Integer; fn raw(\$n: Integer) { echo \$n }; raw Count(7)" "" "Expected Integer, got Count"
+type_case "type Ratio = Float; let \$x: Ratio = 7; echo \$x (\$x / Ratio(2)) (\$x % Ratio(2))" "7.0 3.5 1.0\n" ""
+type_case "type Word = String; let \$a: Word = \" a \"; echo (\$a + Word(\"b\")) \$a.trim" " a b a\n" ""
+type_case "type MyHash = [String: Integer]; let \$h: MyHash = [\"x\": 7]; for (\$k,\$v) in \$h { echo \$k \$v }; \$h[\"x\"] = 8; echo \$h[\"x\"] \$h.next_item \$h.next_item" "x 7\n8 x:8 ()\n" ""
+type_case "type Numbers = [Float]; let \$n: Numbers = [1,2]; echo \$n.count; for \$v in \$n { echo \$v }; \$n[0] = 3; echo \$n[0]" "2\n1.0\n2.0\n3.0\n" ""
+type_case "type Numbers = [Integer]; let \$n: Numbers = [1]; let \$saved = `\$n.next_item; echo (\$saved) (\$saved) \$n.count" "1 () 0\n" ""
+type_case "type Bounds = Range; let \$r: Bounds = 1..3; for \$v in \$r { echo \$v }; echo \$r.next_item \$r.next_item \$r.next_item" "1\n2\n1 2 ()\n" ""
+type_case "type Pair = [String, Integer]; let \$pairs: [Pair] = [[\"x\",1]]; for (\$k,\$v) in \$pairs { echo \$k \$v }" "x 1\n" ""
+type_case "type Numbers = [Integer]; let \$n: Numbers = [1,2]; echo \$n...; let \$a = [\$n...]; echo \$a.count" "1 2\n2\n" ""
+type_case "type Count = Integer; fn Count::double(): Count { \$self + \$self }; echo Count(4).double" "8\n" ""
+type_case "type Count = Integer; fn Integer::increment() { \$self = \$self + 1 }; let \$n: Count = 7; \$n.increment; echo \$n" "8\n" ""
+type_case "type Numbers = [Integer]; fn Numbers::count(): Integer { 42 }; let \$n: Numbers = [1,2]; echo \$n.count" "42\n" ""
+type_case "struct Point { x: Float }; type Position = Point; let \$p: Position = Point(x: 1); \$p.x = 2; echo \$p.x (Point(\$p)).x" "2.0 2.0\n" ""
+type_case "enum Base { A, B }; type State = Base; let \$s: State = State::B; echo \$s.index (\$s == Base::B) (\$s == State::B)" "1 false true\n" ""
+type_case "type Outer = Inner; type Inner = Integer; let \$n: Outer = 7; echo (Integer(\$n)) (\$n + Outer(1))" "7 8\n" ""
+type_case "type A = B; type B = A" "" "Recursive type definition"
+type_case "type A = [A]" "" "Recursive type definition"
+type_case "type A = Integer; type A = String" "" "Duplicate type"
+type_case "type A = Missing" "" "Unknown type"
+type_case "type A = [String; Integer]" "" "Parser error"
+type_case "let \$v: Integer | String = 1; \$v = \"x\"; echo \$v" "x\n" ""
+type_case "let \$v: Integer | String = true" "" "Expected"
+type_case "let \$v: Float | Integer = 7; echo \$v" "7\n" ""
+type_case "let \$v: Float | Boolean = 7; echo \$v" "7.0\n" ""
+type_case "let \$v: Integer | String | (); echo \$v" "()\n" ""
+type_case "let \$v: Integer | String" "" "requires an initializer"
+type_case "type Item = Integer | String | (); let \$v: Item; echo \$v; \$v = \"x\"; echo \$v" "()\nx\n" ""
+type_case "type A = Integer; type B = Integer; let \$x: A | B = 1" "" "Ambiguous conversion"
+type_case "type A = Integer; type B = Integer; let \$x: A | B = A(1); echo (\$x == A(1))" "true\n" ""
+type_case "let \$x: [Float] | [Float, Float] = [1,2]; echo \$x" "1.0:2.0\n" ""
+type_case "let \$x: [Float] | [Float, Integer] = [1,2]" "" "Ambiguous conversion"
+type_case "let \$v: [String: Integer | Boolean] = [\"x\": true]; echo \$v[\"x\"]" "true\n" ""
+type_case "struct Node { next: Node | Integer }; let \$n = Node(next: 1); echo \$n.next" "1\n" ""
+type_case "struct A { next: A | B }; struct B { next: A }" "" "Required struct field cycle"
+type_case "type Key = String; let \$h: [Key: Integer] = [\"x\": 1]; echo \$h[Key(\"x\")] \$h[\"x\"]; for (\$k,\$v) in \$h { echo (\$k == Key(\"x\")) \$v }" "1 ()\ntrue 1\n" ""
+type_case "type Count = Integer; let \$h = [Count(1): \"named\", 1: \"plain\"]; echo \$h[Count(1)] \$h[1]" "named plain\n" ""
+type_case "type Unit = (); for \$x in [Unit(()), Unit(())] { echo \$x }" "()\n()\n" ""
+type_case "struct I { n: Integer }; fn I::next_item(): Integer | String | () { if \$self.n == 0 { return () }; \$self.n = \$self.n - 1; if \$self.n == 0 { \"last\" } else { 1 } }; for \$v in I(n: 2) { echo \$v }" "1\nlast\n" ""
+type_case "struct Bad {}; fn Bad::next_item(): Integer | String { 1 }" "" "must declare a return type"
+type_case "type Count = Integer; let \$n: Count = 7; echo (- \$n) ((- \$n) == Count(-7))" "-7 true\n" ""
+type_case "type Count = Float; echo (- Count(2.5))" "-2.5\n" ""
+type_case "type Key = String; let \$h: [Key: Integer] = [\"x\": 1, Key(\"x\"): 2]" "" "Map keys collide"
+type_case "type Key = String; let \$h: [[Key]: Integer] = [[\"x\"]: 1]; echo \$h[[Key(\"x\")]]" "1\n" ""
+type_case "type Key = String; let \$h: [[String: Key]: Integer] = [[\"x\": \"y\"]: 1]; echo \$h[[\"x\": Key(\"y\")]]" "1\n" ""
+type_case "type MyHash = [String: Integer]; let \$h: MyHash = [\"x\": 1]; for (\$k,\$v) in \$h { let \$bad: Boolean = \$v }" "" "Type error"
+type_case "type A = Integer; struct S { count: A }; let \$s = S(count: 3); echo (\$s.count == A(3))" "true\n" ""
+type_case "type Numbers = [Integer]; fn Numbers::count(): Integer { 42 }; let \$n: Numbers = [1]; echo \$n.count" "42\n" ""
+type_case "[when false] { type Skipped = Missing }; [when true] { type Count = Integer }; echo Count(3)" "3\n" ""
+type_case "type Data = [Integer] | [String: Integer]; let \$d: Data = [1]; echo \$d.count; \$d = [\"a\": 2]; echo \$d.next_item" "1\na:2\n" ""
+
+let $fixture = $args[0]
+printf "%s" "type Count = Integer; type Table = [String: Count]; fn Count::double(): Count { \$self + \$self }; fn make(): Count { 7 }" -> "${fixture}/counts.shy"
+printf "%s" "import counts::{ Count, Table, make }; visible --export \"Count\"; visible --export \"Table\"; visible --export `make" -> "${fixture}/bridge.shy"
+printf "%s" "type Count = Integer" -> "${fixture}/other.shy"
+type_case "import counts; let \$n: counts::Count = 3; echo (\$n.double) ((counts::make) == counts::Count(7))" "6 true\n" ""
+type_case "import counts::{ Count, Table, make }; let \$h: Table = [\"a\": 2]; for (\$k,\$v) in \$h { echo \$k (\$v == Count(2)) }; echo (make)" "a true\n7\n" ""
+type_case "import counts; let \$n: Count = 1" "" "Unknown type"
+type_case "import counts; import bridge; let \$a: bridge::Count = counts::Count(3); echo (\$a == counts::Count(3)) (\$a.double)" "true 6\n" ""
+type_case "import counts; import other; let \$n: other::Count = counts::Count(3)" "" "Expected"
+type_case "import counts when false; echo ok" "ok\n" ""
+mkdir -p "${fixture}/std"
+printf "%s" "type PreludeCount = Integer" -> "${fixture}/std/prelude.shy"
+printf "%s" "fn value(): PreludeCount { 9 }" -> "${fixture}/prelude_user.shy"
+type_case "import prelude_user; let \$n: PreludeCount = prelude_user::value; echo (\$n == PreludeCount(9))" "true\n" ""
+type_case "type Count = Integer; let \$n = Count(7); echo (any(\$n) == \$n)" "true\n" ""
+type_case "type Inner = Integer; type Outer = Inner; type Item = Inner | Integer; let \$item = Item(Outer(7)); echo (\$item == Item(Inner(7)))" "true\n" ""
+type_case "type Count = Integer; type Other = Integer; echo (Count(Other(7)) == Count(7))" "true\n" ""
+type_case "type Count = Integer; let \$n: Count = 7.5" "" "Expected Integer"
+type_case "type Count = Integer; echo Count(\"7\")" "" "Expected Integer"
+type_case "type Flag = Boolean; echo (Flag(true) + Flag(false))" "" "Booleans cannot"
+type_case "type Count = Integer; type Bad = Count |" "" "Parser error"
+type_case "type Count = Integer; type Bad = | Count" "" "Parser error"
+type_case "type Count = Integer; let \$n: Count = 1; { type Count = String; let \$inner: Count = \"x\"; echo \$inner }; echo \$n" "x\n1\n" ""
+type_case "type Source = Integer; type A = Source | Integer; type B = Source | String; type Item = A | B; echo Item(Source(1))" "" "Ambiguous conversion"

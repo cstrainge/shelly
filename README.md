@@ -654,11 +654,84 @@ source. Dynamic values are checked during construction and updates. A failed
 check or compilation does not publish new types or functions; runtime failures
 occur after declarations have been committed.
 
+## Distinct named types and unions
+
+`type` declares a new identity backed by an existing type or type expression:
+
+```shy
+type Count = Integer
+type MyHash = [String: Integer]
+type Foo = Integer | String | ()
+
+let $count: Count = 7         # Wraps the integer in Count
+let $other = Count(2)         # Explicit construction
+let $total = $count + $other  # Still Count
+echo Integer($total)          # Explicitly unwraps: 9
+
+let $scores: MyHash = ["alice": 10]
+for ($name, $score) in $scores { echo $name $score }
+let $item: Foo                # A Foo containing ()
+$item = "ready"
+```
+
+These are distinct types, not interchangeable names. `Count(7) == 7` is false,
+and assigning a Count to an Integer requires `Integer($count)`. Annotations can
+wrap compatible underlying values in variables, arguments, returns, struct
+fields, and collections. Integer-to-Float promotion still applies inside the
+wrapper. `Count(value)` wraps compatible values and can explicitly convert from
+another named wrapper; parsing text requires `Count(Integer("7"))`.
+`any(value)` preserves the named identity.
+
+Named types inherit their underlying fields, methods, indexing, iteration,
+boolean conversion, and display behavior. Same-type arithmetic, including unary
+negation (`- $count`), preserves the named type. Arithmetic between distinct named
+types, or between a named and an unnamed value, requires explicit conversion.
+Methods retain their declared return types; an inherited method returning Integer
+returns an Integer. Define methods with `fn Count::method(...)` to override or
+extend the inherited behavior. Inherited mutating methods update the original
+receiver while enforcing its named type's constraints.
+
+Named collections yield their underlying items during indexing and iteration,
+with the declared item types available to the checker. Named hash keys retain
+their identity: use `Key("x")` to look up a key of type Key. Key annotations can
+wrap keys on assignment; conversions that would merge distinct entries are
+errors. Named structs are constructed by wrapping the underlying constructor,
+for example `Position(Point(x: 1))`; named enums also support `State::Variant`.
+
+A named type uses its underlying default when one exists. Structs and nonoptional
+unions require an initializer. A named value containing `()` remains a distinct
+value, so iterator termination still requires an actual `()` return. Declare
+iterator results as `Item | ()`.
+
+Named types follow the lexical scope, forward-reference, import/export, and REPL
+identity rules of structs and enums. Redeclaration creates a new identity without
+changing existing values or compiled annotations. Recursive `type` definitions
+are rejected; recursion through optional or collection fields of structs remains
+supported.
+
+Union annotations accept any listed member:
+
+```shy
+let $value: Integer | String = 7
+$value = "seven"
+let $number: Integer | Float = 7  # Stays Integer
+let $ratio: Float | Boolean = 7   # Promoted to Float
+let $maybe: Integer | String | () # Defaults to ()
+```
+
+An existing member match preserves the value. Otherwise, implicit conversions
+must produce one unambiguous result. For example, if A and B are distinct Integer
+types, assigning `7` to `A | B` is ambiguous; use `A(7)` or `B(7)`. Unions without
+`()` require an initializer. Parentheses group type expressions, and unions work
+inside collection annotations, such as `[String: Integer | Boolean]`.
+`T | ()` and `optional T` are equivalent.
+
 ## Explicit type conversions
 
 Use `Type(value)` to request conversion. All builtin types support this syntax.
-Annotations implicitly promote Integer to Float wherever Float is required;
-other conversions, including Float to Integer, must be explicit. `Integer` and
+Annotations implicitly promote Integer to Float wherever Float is required and
+wrap compatible values in declared named types. Other conversions, including
+Float to Integer and unwrapping named values, must be explicit. `Integer` and
 `Float` are concrete numeric types; `Number` accepts either (`Integer | Float`).
 
 | Target | Accepted input and behavior |
@@ -701,8 +774,9 @@ let $status: ExecResult = ExecResult(false)
 echo Boolean($status) Integer($status)  # false 1
 ```
 
-Conversions require one expression. Spaces before `(`, newlines inside the
-parentheses, and a trailing comma are allowed; a newline before `(` starts a
+Conversions require one expression. Newlines inside the parentheses and a
+trailing comma are allowed. Builtin conversions also allow a space before `(`;
+named type construction requires an attached `(`, as in `Count(7)`; a newline before `(` starts a
 separate statement. Use `None(())`, for example, rather than an empty `None()`.
 Type names take precedence over function names in this syntax. A struct or enum
 declaration with a builtin name shadows that conversion. Resolved conversion
@@ -1350,9 +1424,8 @@ position. Wrong lengths or element types fail validation. Destructuring still
 checks the actual yielded array before creating bindings.
 
 `T | ()` is another spelling of `optional T`, including in other annotations.
-Only this unit alternative is supported; general unions such as
-`Integer | String` are not implemented. Existing `optional T` iterator return
-annotations are equivalent.
+General unions are supported too: an iterator can return `Integer | String | ()`.
+Existing `optional T` iterator return annotations are equivalent.
 
 ### Unbounded loop
 
@@ -1860,13 +1933,14 @@ Reedline editor, completion, and prompt. The active tokenizer, parser, AST,
 compiler, values, and interpreter live under `src/language/`. Source is tokenized
 and parsed into an AST, checked against a staged type registry, compiled to
 bytecode, optimized, linked, then executed. The initial checking pass registers
-lexically scoped enum and struct identities before resolving field annotations.
+lexically scoped enum, struct, and named type identities before resolving annotations.
 It checks constructors, required-field cycles, annotations, known incompatible
 initializers, assignments and returns, and known member accesses. Runtime checks
 cover dynamic values, function arguments, return paths, and nested writes.
 Collection and local binding inference propagates known item types into loops;
 broader function and control-flow inference remains future work. Builtin types, container
-constraints, enums, and structs share stable `TypeId`s independent of name visibility.
+constraints, unions, enums, structs, and named types share stable `TypeId`s
+independent of name visibility.
 
 Two optimization passes run before linking: adjacent `PopResult`/`PushResult`
 pairs are removed, and redundant `CheckResult` instructions are dropped only

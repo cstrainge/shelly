@@ -1258,7 +1258,7 @@ impl Interpreter
                                 });
                         };
                         let value = Self::pop(&location, &mut stack)?;
-                        let values = match value
+                        let values = match value.underlying()
                             {
                                 Value::Array(values) | Value::ArgumentExpansion(values) => values,
                                 _ => return Err(InterpreterError
@@ -1413,13 +1413,13 @@ impl Interpreter
                         let field = &operands[0];
                         let enum_index =
                             matches!(field, Value::String(name, _) if name == "index");
-                        let result = if let Value::Enum(item) = &value && enum_index
+                        let result = if let Value::Enum(item) = value.underlying() && enum_index
                             {
                                 reference.indexes.push(field.clone());
                                 reference.fields.push(Value::Boolean(true));
                                 Value::Integer(item.variant as i64)
                             }
-                            else if let Value::Struct(item) = &value
+                            else if let Value::Struct(item) = value.underlying()
                                 && let Ok(index) = Self::struct_field_index(&location, item, field)
                             {
                                 reference.indexes.push(field.clone());
@@ -1665,7 +1665,7 @@ impl Interpreter
 
                 Code::ExpandArray =>
                     {
-                        let mut value = Self::pop(&location, &mut stack)?;
+                        let mut value = Self::pop(&location, &mut stack)?.underlying().clone();
 
                         match value
                         {
@@ -1887,6 +1887,38 @@ impl Interpreter
                         ));
                     },
 
+                Code::MathNegate =>
+                    {
+                        let error = |message: &str| InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::ArithmeticError(message.to_string()),
+                            };
+                        let mut value = self.last_result.take().unwrap_or(Value::None);
+                        let mut named = Vec::new();
+                        while let Value::Named(item) = value
+                        {
+                            named.push(item.definition.id);
+                            value = item.value.clone();
+                        }
+                        if let Some(message) = value.arithmetic_error()
+                        { return Err(error(message)); }
+                        value = match value
+                            {
+                                Value::Integer(number) => Value::Integer(number.checked_neg()
+                                    .ok_or_else(|| error("Integer overflow"))?),
+                                Value::Float(number, _) if number.is_finite() =>
+                                    Value::Float(-number, None),
+                                _ => return Err(error("Non-finite floating-point operand")),
+                            };
+                        for id in named.into_iter().rev()
+                        {
+                            value = self.scope().types.coerce(id, value)
+                                .map_err(|message| error(&message))?;
+                        }
+                        self.last_result = Some(value);
+                    },
+
                 Code::Discard => { Self::pop(&location, &mut stack)?; },
 
                 Code::MatchFail => return Err(InterpreterError
@@ -1936,13 +1968,34 @@ impl Interpreter
                                 location: location.clone(),
                                 what: ErrorWhat::ArithmeticError(message.to_string())
                             };
-                        let rhs = Self::pop(&location, &mut stack)?;
-                        let lhs = Self::pop(&location, &mut stack)?;
+                        let mut rhs = Self::pop(&location, &mut stack)?;
+                        let mut lhs = Self::pop(&location, &mut stack)?;
+                        let mut named = Vec::new();
+                        while matches!(lhs, Value::Named(_)) || matches!(rhs, Value::Named(_))
+                        {
+                            let (Value::Named(left), Value::Named(right)) = (&lhs, &rhs) else
+                            { return Err(error("Named arithmetic requires matching types; \
+                                convert explicitly")); };
+                            if left.definition.id != right.definition.id
+                            { return Err(error("Named arithmetic requires matching types; \
+                                convert explicitly")); }
+                            named.push(left.definition.id);
+                            (lhs, rhs) = (left.value.clone(), right.value.clone());
+                        }
+                        let wrap = |mut value: Value| -> InterpreterResult<Value>
+                            {
+                                for id in named.iter().rev()
+                                {
+                                    value = self.scope().types.coerce(*id, value)
+                                        .map_err(|message| error(&message))?;
+                                }
+                                Ok(value)
+                            };
                         if    matches!(instruction.code, Code::MathAdd)
                            && let (Value::String(left, _), Value::String(right, _)) = (&lhs, &rhs)
                         {
                             let text = format!("{}{}", left, right);
-                            Self::push(&mut stack, Value::from_string(text));
+                            Self::push(&mut stack, wrap(Value::from_string(text))?);
                             instruction_pointer += 1;
                             continue;
                         }
@@ -1972,7 +2025,7 @@ impl Interpreter
                                 };
                             if !result.is_finite()
                             { return Err(error("Floating-point overflow")); }
-                            Self::push(&mut stack, Value::Float(result, None));
+                            Self::push(&mut stack, wrap(Value::Float(result, None))?);
                             instruction_pointer += 1;
                             continue;
                         }
@@ -1992,7 +2045,7 @@ impl Interpreter
                                 Code::MathModulo => lhs.checked_rem(rhs),
                                 _ => unreachable!()
                             }.ok_or_else(|| error("Integer overflow"))?;
-                        Self::push(&mut stack, Value::Integer(result));
+                        Self::push(&mut stack, wrap(Value::Integer(result))?);
                     }
             }
 
@@ -2063,6 +2116,12 @@ impl Interpreter
     {
         match value
         {
+            Value::Named(mut item) =>
+                {
+                    let value = self.eval_value_paths_to(item.value.clone());
+                    Rc::make_mut(&mut item).value = value;
+                    Value::Named(item)
+                },
             Value::Struct(mut item) =>
                 {
                     let fields = item
@@ -2097,9 +2156,17 @@ impl Interpreter
     {
         for (index, field) in indexes.iter().zip(fields)
         {
+            if matches!(field, Value::None)
+            {
+                let Value::Named(item) = value else
+                { return Err(InterpreterError { location: location.clone(),
+                    what: ErrorWhat::InvalidOperand("Named receiver changed type".into()) }); };
+                value = item.value.clone();
+                continue;
+            }
             value = if matches!(field, Value::Boolean(true))
                 {
-                    match &value
+                    match value.underlying()
                     {
                         Value::Enum(item) if index.as_text() == "index" =>
                             Value::Integer(item.variant as i64),
@@ -2244,11 +2311,20 @@ impl Interpreter
     pub(super) fn resolve_method(&self, value: &Value, receiver: ValueReference,
                       name: &str, snapshot: &Value) -> Option<BoundMethod>
     {
+        let mut method_types = Vec::new();
+        let mut underlying = value;
+        while let Value::Named(item) = underlying
+        {
+            method_types.push(item.definition.id);
+            underlying = &item.value;
+        }
         let receiver_type = if name == "next_item"
-            { self.scope().types.inferred_value_type(value) }
-            else { self.scope().types.value_type(value) };
-        let method_types = self.scope().types.method_types(receiver_type);
-        for (index, id) in method_types.into_iter().enumerate()
+            { self.scope().types.inferred_value_type(underlying) }
+            else { self.scope().types.value_type(underlying) };
+        let base_types = self.scope().types.method_types(receiver_type);
+        let base_type = base_types[0];
+        method_types.extend(base_types);
+        for id in method_types
         {
             let key = method_key(id, name);
             let bound = match snapshot
@@ -2262,10 +2338,22 @@ impl Interpreter
                 { self.scope().lexical_function(&key).or_else(|| self.module_method(id, &key)) };
             let definition = if let Some(function) = function
                 { MethodDefinition::User(function) }
+                else if matches!(self.scope().types.get(id).kind, TypeKind::Named(_))
+                { continue; }
                 else if let Some(method) = self.scope().types.method(
-                    if index == 0 { receiver_type } else { id }, name)
+                    if id == base_type { receiver_type } else { id }, name)
                 { MethodDefinition::Builtin(method) }
                 else { continue; };
+            let mut receiver = receiver.clone();
+            let mut underlying = value;
+            while let Value::Named(item) = underlying
+            {
+                if item.definition.id == id || Some(id) == self.scope().types.builtin_id("any")
+                { break; }
+                receiver.indexes.push(Value::None);
+                receiver.fields.push(Value::None);
+                underlying = &item.value;
+            }
             return Some(BoundMethod
                 { receiver, name: name.to_string(), definition });
         }
@@ -2793,7 +2881,7 @@ impl Interpreter
         location: &Location, collection: &Value, index: &Value,
     ) -> InterpreterResult<Value>
     {
-        match collection
+        match collection.underlying()
         {
             Value::HashMap(values) => Ok(values
                 .get(&MapKey::from_value(index))
@@ -2818,6 +2906,13 @@ impl Interpreter
             *collection = value;
             return Ok(());
         };
+        if let Value::Named(item) = collection
+        {
+            let (indexes, fields) = if matches!(fields.first(), Some(Value::None))
+                { (rest, &fields[1..]) } else { (indexes, fields) };
+            return Self::set_element(location, &mut Rc::make_mut(item).value,
+                                      indexes, fields, value);
+        }
         if matches!(fields.first(), Some(Value::Boolean(true)))
         {
             if    matches!(collection, Value::Enum(_))

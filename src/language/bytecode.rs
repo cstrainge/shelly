@@ -95,6 +95,7 @@ pub enum Code
     // Convert last_result using the resolved target TypeId operand.
     ConvertType,
     BooleanNot,
+    MathNegate,
     // Before linking: label IDs local to this code vector. After linking: direct
     // instruction indexes pointing at JumpTarget. Preserve last_result and the stack.
     // Unconditional jumps also form loop back edges.

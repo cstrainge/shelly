@@ -92,7 +92,8 @@ impl Iteration
         if !return_type.is_some_and(|id|
             matches!(interpreter.scope().types.get(id).kind, TypeKind::Optional(_)))
         { return Err(iteration_error(location, "next_item must declare a return type T | ()")); }
-        let native = if native { Some(NativeIteration::new(value, location)?) } else { None };
+        let native = if native
+            { Some(NativeIteration::new(value.underlying().clone(), location)?) } else { None };
         Ok(Self { method, native, ended: false })
     }
 

@@ -597,13 +597,14 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                 return Ok(());
             },
 
-        AstExpressionKind::BooleanNot(inner) =>
+        AstExpressionKind::BooleanNot(inner) | AstExpressionKind::MathNegate(inner) =>
             {
                 compile_expression(instructions, function_block, inner)?;
                 instructions.push(Instruction
                     {
                         location: Some(expression.location.clone()),
-                        code: Code::BooleanNot,
+                        code: if matches!(expression.kind, AstExpressionKind::MathNegate(_))
+                            { Code::MathNegate } else { Code::BooleanNot },
                         operand: None
                     });
                 return Ok(());
@@ -1152,7 +1153,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     Code::PopResult | Code::Execute | Code::TryExecute
                     | Code::RedirectSource
                     | Code::ExecuteIfExecutable | Code::MakeExecutable
-                    | Code::ToBoolean | Code::ConvertType | Code::BooleanNot
+                    | Code::ToBoolean | Code::ConvertType | Code::BooleanNot | Code::MathNegate
                     | Code::NextIteration | Code::MatchPattern | Code::MatchFail => false,
 
                     // Do not carry a proof across control-flow boundaries.
@@ -1673,6 +1674,7 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
                         "Imports are only allowed at module top level".into()),
                 }),
             AstStatement::EnumDeclaration(_) | AstStatement::StructDeclaration(_)
+                | AstStatement::TypeDeclaration(_)
                 | AstStatement::NullStatement => { add_check = false; },
 
             AstStatement::LetStatement(let_statement) =>

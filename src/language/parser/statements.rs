@@ -673,6 +673,17 @@ fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
 }
 
 
+fn parse_type_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
+{
+    expect_token(buffer, TokenKind::Type)?;
+    let name = expect_type_name(buffer)?;
+    expect_token(buffer, TokenKind::Assign)?;
+    let annotation = parse_type(buffer)?;
+    expect_statement_end(buffer)?;
+    Ok(Some(AstStatement::TypeDeclaration(Box::new(AstTypeDeclaration
+        { location: name.location.clone(), name: name.token_value_text(), annotation }))))
+}
+
 fn parse_enum_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     let keyword = expect_token(buffer, TokenKind::Enum)?;
@@ -828,6 +839,7 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     if next_kind == TokenKind::Struct { return parse_struct_statement(buffer); }
 
     if next_kind == TokenKind::Enum { return parse_enum_statement(buffer); }
+    if next_kind == TokenKind::Type { return parse_type_statement(buffer); }
 
     if next_kind == TokenKind::Function
     {

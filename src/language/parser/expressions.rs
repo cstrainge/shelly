@@ -75,7 +75,9 @@ fn constructor_follows(
     {
         return Ok(None);
     };
-    if !multiline && TypeRegistry::is_builtin_name(&name.token_value_text())
+    let attached = !multiline && open.location.line == name.location.line
+        && open.location.column == name.location.column + name.token_value_text().chars().count();
+    if !multiline && (TypeRegistry::is_builtin_name(&name.token_value_text()) || attached)
     {
         let argument = Lookahead::new(&mut *peek.buffer);
         skip_array_newlines(&mut *argument.buffer)?;
@@ -89,9 +91,7 @@ fn constructor_follows(
             }
         }
     }
-    if    !multiline
-       && open.location.line == name.location.line
-       && open.location.column == name.location.column + name.token_value_text().chars().count()
+    if attached
     {
         return Ok(Some(ConstructorStart::Fields));
     }
@@ -305,7 +305,7 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
             TokenKind::Minus =>
                 {
                     // A standalone '-' remains a command argument. With an operand it is unary
-                    // negation, expressed as subtraction so normal checked arithmetic applies.
+                    // negation, preserving a named numeric operand's type.
                     let Some(operand) = parse_math_primary(&mut *lookahead.buffer)? else
                     {
                         return Ok(None);
@@ -313,9 +313,7 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                     AstExpression
                         {
                             location: token.location.clone(),
-                            kind: AstExpressionKind::MathExpression(AstMathOperator::Subtract,
-                                Box::new(new_ast_literal(token.location, Value::Integer(0), None)),
-                                Box::new(operand)),
+                            kind: AstExpressionKind::MathNegate(Box::new(operand)),
                             string_flag: None
                         }
                 },
@@ -461,14 +459,14 @@ fn parse_type_inner(
     buffer: &mut TokenBuffer<'_, '_>, allow_variadic: bool, variadic: &mut bool,
 ) -> ParseResult<AstType>
 {
-    let annotation = parse_type_atom(buffer, allow_variadic, variadic)?;
-    if try_expect_token(buffer, TokenKind::Pipe)?.is_some()
+    let first = parse_type_atom(buffer, allow_variadic, variadic)?;
+    let mut members = vec![first];
+    while try_expect_token(buffer, TokenKind::Pipe)?.is_some()
     {
-        expect_token(buffer, TokenKind::ParenOpen)?;
-        expect_token(buffer, TokenKind::ParenClose)?;
-        return Ok(AstType::Optional(Box::new(annotation)));
+        members.push(parse_type_atom(buffer, allow_variadic, variadic)?);
     }
-    Ok(annotation)
+    if members.len() == 1 { Ok(members.pop().unwrap()) }
+    else { Ok(AstType::Union(members)) }
 }
 
 fn parse_type_atom(
@@ -477,8 +475,11 @@ fn parse_type_atom(
 {
     if try_expect_token(buffer, TokenKind::ParenOpen)?.is_some()
     {
+        if try_expect_token(buffer, TokenKind::ParenClose)?.is_some()
+        { return Ok(AstType::Named("None".into())); }
+        let annotation = parse_type(buffer)?;
         expect_token(buffer, TokenKind::ParenClose)?;
-        return Ok(AstType::Named("None".into()));
+        return Ok(annotation);
     }
     if try_expect_token(buffer, TokenKind::SquareOpen)?.is_some()
     {
@@ -685,6 +686,7 @@ fn parse_math_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
             | AstExpressionKind::EnumVariant(_, _)
             | AstExpressionKind::MathExpression(_, _, _)
             | AstExpressionKind::BooleanNot(_)
+            | AstExpressionKind::MathNegate(_)
             | AstExpressionKind::TypeConversion(_, _, _)
             | AstExpressionKind::IfExpression(_)
             | AstExpressionKind::MatchExpression(_)
@@ -838,6 +840,7 @@ fn parse_operator_to_symbol(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
                               TokenKind::Function,
                               TokenKind::Struct,
                               TokenKind::Enum,
+                              TokenKind::Type,
                               TokenKind::Import,
                               TokenKind::TypeDelimiter,
                               TokenKind::Assign,

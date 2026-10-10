@@ -4,7 +4,7 @@ use std::{ rc::Rc, cmp::Ordering, hash::{ Hash, Hasher } };
 use crate::{ runtime::process::Terminal,
              language::data::{ value::{ ExecResult, Value },
                                range::Range,
-                               types::{ EnumValue, StructValue } } };
+                               types::{ EnumValue, StructValue, NamedValue } } };
 
 // Immutable, canonical keys keep hashing consistent with language equality.
 // Collections are snapshots; map entry order and string execution flags do not
@@ -16,6 +16,7 @@ pub enum MapKey
     Terminal(Rc<Terminal>),
     Enum(Rc<EnumValue>),
     Struct(Rc<StructKey>),
+    Named(Rc<NamedKey>),
     ExecResult(u8),
     Signaled,
     Integer(i64),
@@ -35,6 +36,8 @@ impl MapKey
     {
         match value
         {
+            Value::Named(value) => Self::Named(Rc::new(NamedKey
+                { value: value.clone(), contents: Self::from_value(&value.value) })),
             Value::None => Self::None,
             Value::Terminal(value) => Self::Terminal(value.clone()),
             Value::Enum(value) => Self::Enum(value.clone()),
@@ -89,6 +92,7 @@ impl MapKey
     {
         match self
         {
+            Self::Named(key) => Value::Named(key.value.clone()),
             Self::None => Value::None,
             Self::Terminal(value) => Value::Terminal(value.clone()),
             Self::Enum(value) => Value::Enum(value.clone()),
@@ -106,6 +110,40 @@ impl MapKey
             Self::HashMap(values) => Value::from_hash_map(values.iter()
                 .map(|(key, value)| (key.clone(), value.to_value())).collect())
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NamedKey
+{
+    value: Rc<NamedValue>,
+    contents: MapKey,
+}
+
+impl PartialEq for NamedKey
+{
+    fn eq(&self, other: &Self) -> bool
+    { self.value.definition.id == other.value.definition.id && self.contents == other.contents }
+}
+impl Eq for NamedKey {}
+impl PartialOrd for NamedKey
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+}
+impl Ord for NamedKey
+{
+    fn cmp(&self, other: &Self) -> Ordering
+    {
+        (self.value.definition.id, &self.contents)
+            .cmp(&(other.value.definition.id, &other.contents))
+    }
+}
+impl Hash for NamedKey
+{
+    fn hash<H: Hasher>(&self, state: &mut H)
+    {
+        self.value.definition.id.hash(state);
+        self.contents.hash(state);
     }
 }
 

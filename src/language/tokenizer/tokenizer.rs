@@ -110,6 +110,11 @@ pub enum TokenKind
     Enum,
 
     /**
+     * The `type` keyword used for defining a new type alias.
+     */
+    Type,
+
+    /**
      * Keyword used for importing modules or other resources into the current scope.
      */
     Import,
@@ -213,7 +218,10 @@ pub enum TokenKind
      * Open a square bracket with `[`. Used for array indexing or defining array literals.
      */
     SquareOpen,
-    // An opening bracket immediately following a value, without whitespace.
+
+    /**
+     * An opening bracket immediately following a value, without whitespace.
+     */
     IndexOpen,
 
     /**
@@ -451,6 +459,7 @@ impl Token
             TokenKind::Function          => "fn".to_string(),
             TokenKind::Struct            => "struct".to_string(),
             TokenKind::Enum              => "enum".to_string(),
+            TokenKind::Type              => "type".to_string(),
             TokenKind::Import            => "import".to_string(),
             TokenKind::TypeDelimiter     => ":".to_string(),
             TokenKind::Assign            => "=".to_string(),
@@ -759,6 +768,7 @@ impl<'a> Tokenizer<'a>
                 "fn"     => TokenKind::Function,
                 "struct" => TokenKind::Struct,
                 "enum"   => TokenKind::Enum,
+                "type"   => TokenKind::Type,
                 "import" => TokenKind::Import,
                 "true"   => TokenKind::Literal,
                 "false"  => TokenKind::Literal,

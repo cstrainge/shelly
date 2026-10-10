@@ -29,6 +29,7 @@ pub struct ValueReference
 {
     pub root: Rc<RefCell<ScopedValue>>,
     pub indexes: Vec<Value>,
+    // true selects a data field, false an index; None projects a named payload.
     pub fields: Vec<Value>,
     pub constraints: Vec<(usize, TypeId)>,
 }

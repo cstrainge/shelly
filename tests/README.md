@@ -76,6 +76,9 @@ array annotations, and recovery after iterator errors.
 The native and REPL `collection_iteration_types.shy` tests check declared and
 inferred element types, typed loop bindings, mixed/empty collections, mutations,
 native overrides, and inference across REPL submissions.
+The native and REPL `named_types.shy` tests cover distinct type identities,
+wrapping and explicit conversions, union coercion, inherited operations, typed
+iteration, module/prelude imports, redeclarations, and atomic failed writes.
 `native/visibility.shy` and `repl/visibility.shy` check native and scripted exports,
 private bindings, re-exports, callable identity, diagnostics, and REPL recovery.
 `repl/prelude_reload*.shy` checks reload identity, scope isolation, cached dependencies,

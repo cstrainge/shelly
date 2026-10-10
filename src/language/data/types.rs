@@ -31,6 +31,8 @@ pub enum TypeKind
     Array(TypeId),
     FixedArray(Vec<TypeId>),
     Map(TypeId, TypeId),
+    Union(Vec<TypeId>),
+    Named(TypeId),
     Optional(TypeId),
     Struct(Vec<FieldDefinition>),
     Enum(Vec<EnumVariant>)
@@ -62,6 +64,13 @@ pub struct StructValue
 {
     pub definition: Rc<TypeDefinition>,
     pub fields: Vec<Value>
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NamedValue
+{
+    pub definition: Rc<TypeDefinition>,
+    pub value: Value,
 }
 
 // Definitions compare by identity, including when embedded in canonical map keys.
@@ -167,6 +176,41 @@ pub struct TypeRegistry
 
 impl TypeRegistry
 {
+    pub fn underlying_type(&self, mut id: TypeId) -> TypeId
+    {
+        while let TypeKind::Named(inner) = self.get(id).kind { id = inner; }
+        id
+    }
+
+    pub fn union_type(&self, members: Vec<TypeId>) -> TypeId
+    {
+        fn collect(registry: &TypeRegistry, id: TypeId, members: &mut Vec<TypeId>,
+                   unit: &mut bool)
+        {
+            match &registry.get(id).kind
+            {
+                TypeKind::Union(items) =>
+                    for item in items { collect(registry, *item, members, unit); },
+                TypeKind::Optional(inner) =>
+                    { *unit = true; collect(registry, *inner, members, unit); },
+                _ if Some(id) == registry.builtin_id("None") => *unit = true,
+                _ => members.push(id),
+            }
+        }
+        let mut items = Vec::new();
+        let mut unit = false;
+        for id in members { collect(self, id, &mut items, &mut unit); }
+        items.sort();
+        items.dedup();
+        let id = match items.len()
+            {
+                0 => return self.builtin_id("None").unwrap(),
+                1 => items[0],
+                _ => self.intern(TypeKind::Union(items)),
+            };
+        if unit { self.intern(TypeKind::Optional(id)) } else { id }
+    }
+
     pub fn declare_extension(&mut self, receiver: TypeId, name: &str)
     {
         self.extensions.insert((receiver, name.to_string()));
@@ -175,6 +219,12 @@ impl TypeRegistry
     pub fn method_types(&self, receiver: TypeId) -> Vec<TypeId>
     {
         let definition = self.get(receiver);
+        if let TypeKind::Named(inner) = definition.kind
+        {
+            let mut types = vec![receiver];
+            types.extend(self.method_types(inner));
+            return types;
+        }
         let receiver = match definition.kind
             {
                 TypeKind::Array(_) | TypeKind::FixedArray(_) => self.builtin_id("Array").unwrap(),
@@ -233,6 +283,7 @@ impl TypeRegistry
     {
         match value
         {
+            Value::Named(item) => item.definition.id,
             Value::Enum(item) => item.definition.id,
             Value::Struct(item) => item.definition.id,
             value => self.builtin_id(&value.type_name()).unwrap(),
@@ -259,6 +310,7 @@ impl TypeRegistry
     pub fn method(&self, receiver: TypeId, name: &str) -> Option<Rc<BuiltinMethod>>
     {
         let definition = self.get(receiver);
+        if let TypeKind::Named(inner) = definition.kind { return self.method(inner, name); }
         let receiver = match definition.kind
             {
                 TypeKind::Array(_) | TypeKind::FixedArray(_) => self.builtin_id("Array")?,
@@ -298,6 +350,32 @@ impl TypeRegistry
     pub fn convert(&self, target: TypeId, value: &Value) -> Result<Value, String>
     {
         let definition = self.get(target);
+        if matches!(definition.kind, TypeKind::Builtin) && definition.name == "any"
+        { return Ok(value.clone()); }
+        if let TypeKind::Named(inner) = definition.kind
+        {
+            if self.validate(target, value).is_ok() { return Ok(value.clone()); }
+            let mut source = value;
+            loop
+            {
+                match self.coerce(inner, source.clone())
+                {
+                    Ok(value) => return self.coerce(target, value),
+                    Err(error) if self.may_assign(inner, self.value_type(source)) =>
+                        return Err(error),
+                    Err(error) => match source
+                        {
+                            Value::Named(item) => source = &item.value,
+                            _ => return Err(error),
+                        },
+                }
+            }
+        }
+        if let Value::Named(item) = value
+        {
+            if self.validate(target, &item.value).is_ok() { return Ok(item.value.clone()); }
+            return self.convert(target, &item.value);
+        }
         if !matches!(definition.kind, TypeKind::Builtin)
         {
             return Err(format!("Type '{}' has no conversion defined", definition.name));
@@ -388,6 +466,7 @@ impl TypeRegistry
         let definition = self.get(id);
         match &definition.kind
         {
+            TypeKind::Named(inner) => self.coerce(id, self.default_value(*inner)?),
             TypeKind::Optional(_) => Ok(Value::None),
             TypeKind::Array(_) => Ok(Value::from_array(Vec::new())),
             TypeKind::Map(_, _) => Ok(Value::from_hash_map(HashMap::new())),
@@ -422,6 +501,10 @@ impl TypeRegistry
         if left == right { return true; }
         let a = self.get(left);
         let b = self.get(right);
+        if let TypeKind::Union(items) = &a.kind
+        { return items.iter().any(|item| self.may_overlap(*item, right)); }
+        if let TypeKind::Union(items) = &b.kind
+        { return items.iter().any(|item| self.may_overlap(left, *item)); }
         if    matches!(a.kind, TypeKind::Builtin)
            && a.name == "any"
            || matches!(b.kind, TypeKind::Builtin)
@@ -447,6 +530,12 @@ impl TypeRegistry
     {
         let target = self.get(expected);
         let source = self.get(actual);
+        if let TypeKind::Named(inner) = target.kind
+        { return expected == actual || self.may_assign(inner, actual); }
+        if let TypeKind::Union(items) = &target.kind
+        { return items.iter().any(|item| self.may_assign(*item, actual)); }
+        if let TypeKind::Union(items) = &source.kind
+        { return items.iter().any(|item| self.may_assign(expected, *item)); }
         if let TypeKind::Optional(inner) = target.kind
         { return self.may_assign(inner, actual) || self.may_overlap(expected, actual); }
         if let TypeKind::Optional(inner) = source.kind
@@ -473,6 +562,7 @@ impl TypeRegistry
                     (TypeKind::Array(a), TypeKind::Array(b))
                     | (TypeKind::Optional(a), TypeKind::Optional(b)) => a == b,
                     (TypeKind::FixedArray(a), TypeKind::FixedArray(b)) => a == b,
+                    (TypeKind::Union(a), TypeKind::Union(b)) => a == b,
                     (TypeKind::Map(a, b), TypeKind::Map(c, d)) => a == c && b == d,
                     _ => false,
                 })
@@ -488,17 +578,42 @@ impl TypeRegistry
                 TypeKind::Map(key, value) =>
                     format!("[{}: {}]", self.get(*key).name, self.get(*value).name),
                 TypeKind::Optional(id) => format!("optional {}", self.get(*id).name),
+                TypeKind::Union(items) => items.iter()
+                    .map(|id| self.get(*id).name.clone()).collect::<Vec<_>>().join(" | "),
                 _ => unreachable!("Only anonymous container constraints are interned")
             };
         self.register(name, kind, None)
     }
 
-    // Apply only implicit numeric widening, then enforce the strict stored type.
+    // Apply numeric widening and named wrapping, then enforce the stored type.
     // Callers stage the value so failed conversions cannot mutate existing bindings.
     pub fn coerce(&self, id: TypeId, mut value: Value) -> Result<Value, String>
     {
         if self.validate(id, &value).is_ok() { return Ok(value); }
         let definition = self.get(id);
+        if let TypeKind::Named(inner) = definition.kind
+        {
+            let value = if let Value::Named(item) = &value
+                && item.definition.id == id { item.value.clone() } else { value };
+            return Ok(Value::Named(Rc::new(NamedValue
+                { definition, value: self.coerce(inner, value)? })));
+        }
+        if let TypeKind::Union(items) = &definition.kind
+        {
+            let mut result = None;
+            for member in items
+            {
+                if let Ok(candidate) = self.coerce(*member, value.clone())
+                {
+                    if result.as_ref().is_some_and(|previous| previous != &candidate)
+                    { return Err(format!("Ambiguous conversion to {}; convert explicitly",
+                        definition.name)); }
+                    result = Some(candidate);
+                }
+            }
+            return result.ok_or_else(|| format!("Expected {}, got {}",
+                definition.name, value.type_name()));
+        }
         match (&definition.kind, &mut value)
         {
             (TypeKind::Builtin, Value::Integer(number)) if definition.name == "Float" =>
@@ -518,13 +633,19 @@ impl TypeRegistry
                         .map_err(|error| format!("Array element {}: {}", index, error))?;
                 },
             (TypeKind::Map(key_type, value_type), Value::HashMap(values)) =>
-                for (key, value) in Rc::make_mut(values).iter_mut()
                 {
-                    // Keys retain their canonical numeric equivalence classes.
-                    self.validate_key(*key_type, key)
-                        .map_err(|error| format!("Map key: {}", error))?;
-                    *value = self.coerce(*value_type, value.clone())
-                        .map_err(|error| format!("Map value: {}", error))?;
+                    let mut converted = HashMap::new();
+                    for (key, value) in values.iter()
+                    {
+                        let key = self.coerce_key(*key_type, key)
+                            .map_err(|error| format!("Map key: {}", error))?;
+                        let value = self.coerce(*value_type, value.clone())
+                            .map_err(|error| format!("Map value: {}", error))?;
+                        if converted.insert(key, value).is_some()
+                        { return Err("Map keys collide after conversion; convert keys explicitly"
+                            .into()); }
+                    }
+                    *values = Rc::new(converted);
                 },
             (TypeKind::Struct(fields), Value::Struct(item)) if item.definition.id == id =>
                 for (field, value) in fields.iter().zip(&mut Rc::make_mut(item).fields)
@@ -544,6 +665,8 @@ impl TypeRegistry
         if self.validate_value(&value).is_ok() { return Ok(value); }
         if let Value::Struct(item) = &value
         { value = self.coerce(item.definition.id, value)?; }
+        if let Value::Named(item) = &value
+        { return self.coerce(item.definition.id, value); }
         match &mut value
         {
             Value::Struct(item) =>
@@ -564,6 +687,10 @@ impl TypeRegistry
         let definition = self.get(id);
         let valid = match &definition.kind
             {
+                TypeKind::Named(inner) => if let Value::Named(item) = value
+                    { item.definition.id == id && self.validate(*inner, &item.value).is_ok() }
+                    else { false },
+                TypeKind::Union(items) => items.iter().any(|id| self.validate(*id, value).is_ok()),
                 TypeKind::Builtin => match definition.name.as_str()
                     {
                         "any" => true,
@@ -654,6 +781,8 @@ impl TypeRegistry
     {
         match value
         {
+            Value::Named(item) =>
+                { self.validate(item.definition.id, value)?; self.validate_value(&item.value)?; },
             Value::Struct(item) =>
                 {
                     self.validate(item.definition.id, value)?;
@@ -688,16 +817,29 @@ impl TypeRegistry
                 ));
             }
             if done.contains(&id) { return Ok(()); }
-            if let TypeKind::Struct(fields) = &registry.get(id).kind
+            path.push(id);
+            match &registry.get(id).kind
             {
-                path.push(id);
-                for field in fields
+                TypeKind::Struct(fields) => for field in fields
+                    { visit(registry, field.type_id, path, done)?; },
+                TypeKind::Named(inner) => visit(registry, *inner, path, done)?,
+                TypeKind::Union(items) =>
                 {
-                    if matches!(registry.get(field.type_id).kind, TypeKind::Struct(_))
-                    { visit(registry, field.type_id, path, done)?; }
-                }
-                path.pop();
+                    let mut failure = None;
+                    let mut terminated = false;
+                    for item in items
+                    {
+                        match visit(registry, *item, &mut path.clone(), &mut done.clone())
+                        {
+                            Ok(()) => { terminated = true; break; },
+                            Err(error) => failure = Some(error),
+                        }
+                    }
+                    if !terminated { return Err(failure.unwrap()); }
+                },
+                _ => {},
             }
+            path.pop();
             done.insert(id);
             Ok(())
         }
@@ -705,11 +847,108 @@ impl TypeRegistry
         for root in roots { visit(self, *root, &mut Vec::new(), &mut done)?; }
         Ok(())
     }
+
+    pub fn check_named_cycles(&self, roots: &[TypeId]) -> Result<(), (TypeId, String)>
+    {
+        fn visit(registry: &TypeRegistry, id: TypeId, path: &mut Vec<TypeId>,
+                 done: &mut HashSet<TypeId>) -> bool
+        {
+            if path.contains(&id) { return false; }
+            if done.contains(&id) { return true; }
+            path.push(id);
+            let valid = match &registry.get(id).kind
+                {
+                    TypeKind::Named(inner) | TypeKind::Optional(inner)
+                    | TypeKind::Array(inner) => visit(registry, *inner, path, done),
+                    TypeKind::Map(key, value) => visit(registry, *key, path, done)
+                        && visit(registry, *value, path, done),
+                    TypeKind::Union(items) | TypeKind::FixedArray(items) =>
+                        items.iter().all(|id| visit(registry, *id, path, done)),
+                    _ => true,
+                };
+            path.pop();
+            if valid { done.insert(id); }
+            valid
+        }
+        let mut done = HashSet::new();
+        for id in roots
+        {
+            if !visit(self, *id, &mut Vec::new(), &mut done)
+            { return Err((*id, format!("Recursive type definition '{}'", self.get(*id).name))); }
+        }
+        Ok(())
+    }
 }
 
 
 impl TypeRegistry
 {
+    fn coerce_key(&self, id: TypeId, key: &MapKey) -> Result<MapKey, String>
+    {
+        if self.validate_key(id, key).is_ok() { return Ok(key.clone()); }
+        match &self.get(id).kind
+        {
+            TypeKind::Array(element) if matches!(key, MapKey::Array(_)) =>
+                {
+                    let MapKey::Array(values) = key else { unreachable!(); };
+                    Ok(MapKey::Array(Rc::new(values.iter()
+                        .map(|value| self.coerce_key(*element, value))
+                        .collect::<Result<Vec<_>, _>>()?)))
+                },
+            TypeKind::FixedArray(items) if matches!(key, MapKey::Array(_)) =>
+                {
+                    let MapKey::Array(values) = key else { unreachable!(); };
+                    if items.len() != values.len()
+                    { return Err(format!("Expected {} array elements, got {}",
+                        items.len(), values.len())); }
+                    Ok(MapKey::Array(Rc::new(items.iter().zip(values.iter())
+                        .map(|(id, value)| self.coerce_key(*id, value))
+                        .collect::<Result<Vec<_>, _>>()?)))
+                },
+            TypeKind::Named(inner) =>
+                {
+                    let key = self.coerce_key(*inner, key)?;
+                    Ok(MapKey::from_value(&self.coerce(id, key.to_value())?))
+                },
+            TypeKind::Map(key_type, value_type) if matches!(key, MapKey::HashMap(_)) =>
+                {
+                    let MapKey::HashMap(entries) = key else { unreachable!(); };
+                    let mut converted = HashMap::new();
+                    for (key, value) in entries.iter()
+                    {
+                        let key = self.coerce_key(*key_type, key)?;
+                        let value = self.coerce_key(*value_type, value)?;
+                        if converted.insert(key, value).is_some()
+                        {
+                            return Err("Map keys collide after conversion; \
+                                convert keys explicitly".into());
+                        }
+                    }
+                    let mut entries: Vec<_> = converted.into_iter().collect();
+                    entries.sort();
+                    Ok(MapKey::HashMap(Rc::new(entries)))
+                },
+            TypeKind::Optional(inner) => self.coerce_key(*inner, key),
+            TypeKind::Union(items) =>
+                {
+                    let mut result = None;
+                    for item in items
+                    {
+                        if let Ok(key) = self.coerce_key(*item, key)
+                        {
+                            if result.as_ref().is_some_and(|previous| previous != &key)
+                            { return Err("Ambiguous map key conversion; \
+                                convert explicitly".into()); }
+                            result = Some(key);
+                        }
+                    }
+                    result.ok_or_else(|| format!("Expected {}, got {}",
+                        self.get(id).name, key.to_value().type_name()))
+                },
+            _ => { self.validate_key(id, key)?; Ok(key.clone()) },
+        }
+    }
+
     // Key annotations describe equivalence classes: integral floats and integers
     // already share one canonical key, including within collection keys.
     fn validate_key(&self, id: TypeId, key: &MapKey) -> Result<(), String>
@@ -717,6 +956,10 @@ impl TypeRegistry
         let definition = self.get(id);
         match (&definition.kind, key)
         {
+            (TypeKind::Union(items), _) =>
+                {
+                    if items.iter().any(|id| self.validate_key(*id, key).is_ok()) { return Ok(()); }
+                },
             (TypeKind::Builtin, MapKey::Integer(integer)) if definition.name == "Float" =>
                 {
                     let float = Value::Float(*integer as f64, None);

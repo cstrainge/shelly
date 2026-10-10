@@ -73,6 +73,7 @@ pub enum AstExpressionKind
     MathExpression(AstMathOperator, Box<AstExpression>, Box<AstExpression>),
     BooleanExpression(AstBooleanOperator, Box<AstExpression>, Box<AstExpression>),
     BooleanNot(Box<AstExpression>),
+    MathNegate(Box<AstExpression>),
     TypeConversion(String, Box<AstExpression>, Option<TypeId>),
     IfExpression(Box<AstIfExpression>),
     MatchExpression(Box<AstMatchExpression>)
@@ -181,6 +182,7 @@ impl AstExpression
             | AstExpressionKind::MathExpression(_, _, _)
             | AstExpressionKind::BooleanExpression(_, _, _)
             | AstExpressionKind::BooleanNot(_)
+            | AstExpressionKind::MathNegate(_)
             | AstExpressionKind::TypeConversion(_, _, _)
             | AstExpressionKind::IfExpression(_)
             | AstExpressionKind::MatchExpression(_) =>
@@ -442,6 +444,7 @@ pub enum AstType
     Array(Box<AstType>),
     FixedArray(Vec<AstType>),
     Map(Box<AstType>, Box<AstType>),
+    Union(Vec<AstType>),
     Optional(Box<AstType>)
 }
 
@@ -458,6 +461,13 @@ pub struct AstStructDeclaration
     pub name: String,
     pub fields: Vec<AstFieldDeclaration>,
     pub location: Location
+}
+
+pub struct AstTypeDeclaration
+{
+    pub name: String,
+    pub annotation: AstType,
+    pub location: Location,
 }
 
 pub struct AstStructConstructor
@@ -498,6 +508,7 @@ pub enum AstStatement
     ImportStatement(Box<AstImportStatement>),
     EnumDeclaration(Box<AstEnumDeclaration>),
     StructDeclaration(Box<AstStructDeclaration>),
+    TypeDeclaration(Box<AstTypeDeclaration>),
     LetStatement(Box<AstLetStatement>),
     DiscardStatement(AstExpression),
     SetStatement(Box<AstSetStatement>),

@@ -7,7 +7,7 @@ check ["id": "ENUM-063",
     "stdout": "",
     "status": 1,
     "valid": false,
-    "error": "Parser error:",
+    "error": "Type error:",
     "stderr_contains": [],
     "stderr_excludes": [],
     "stdout_excludes": []]

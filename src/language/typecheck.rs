@@ -54,6 +54,7 @@ fn check_scope(
             {
                 AstStatement::EnumDeclaration(item) => (&item.name, &item.location),
                 AstStatement::StructDeclaration(item) => (&item.name, &item.location),
+                AstStatement::TypeDeclaration(item) => (&item.name, &item.location),
                 _ => continue
             };
         if matches!(name.as_str(), "any" | "optional")
@@ -73,6 +74,12 @@ fn check_scope(
     {
         match statement
         {
+            AstStatement::TypeDeclaration(declaration) =>
+                {
+                    let inner = resolve_type(registry, &declaration.annotation, &names,
+                                             &declaration.location)?;
+                    registry.finish(names[&declaration.name], TypeKind::Named(inner));
+                },
             AstStatement::EnumDeclaration(declaration) =>
                 {
                     let mut variants = Vec::<EnumVariant>::new();
@@ -126,6 +133,8 @@ fn check_scope(
             _ => {}
         }
     }
+    registry.check_named_cycles(&local_ids).map_err(|(id, message)|
+        error(&registry.get(id).location.clone().unwrap(), message))?;
     if let Err(message) = registry.check_required_cycles(&local_ids)
     {
         let location = registry.get(local_ids[0]).location.clone().unwrap();
@@ -140,7 +149,7 @@ fn check_scope(
         {
             let id = *names.get(receiver).ok_or_else(|| error(&function.location,
                 format!("Unknown type '{}'", receiver)))?;
-            let definition = registry.get(id);
+            let definition = registry.get(registry.underlying_type(id));
             let collision = match &definition.kind
                 {
                     TypeKind::Struct(fields) => fields.iter()
@@ -167,6 +176,7 @@ fn check_scope(
                 "Imports are only allowed at module top level".into())),
             AstStatement::EnumDeclaration(_)
             | AstStatement::StructDeclaration(_)
+            | AstStatement::TypeDeclaration(_)
             | AstStatement::NullStatement
             | AstStatement::AliasStatement(_)
             | AstStatement::BreakStatement(_)
@@ -380,7 +390,9 @@ fn check_expression(
             {
                 let id = *names.get(name).ok_or_else(|| error(&expression.location,
                     format!("Unknown type '{}'", name)))?;
-                if !matches!(registry.get(id).kind, TypeKind::Builtin)
+                if !matches!(registry.get(id).kind,
+                    TypeKind::Builtin | TypeKind::Named(_)
+                    | TypeKind::Struct(_) | TypeKind::Enum(_))
                 {
                     return Err(error(&expression.location,
                         format!("The shadowed type '{}' does not support positional conversion",
@@ -388,6 +400,16 @@ fn check_expression(
                 }
                 *type_id = Some(id);
                 check_expression(registry, value, names)?;
+                if    matches!(registry.get(id).kind, TypeKind::Struct(_) | TypeKind::Enum(_))
+                   && constant_value(registry, value)
+                        .is_some_and(|value| !matches!(value, Value::Named(_)))
+                {
+                    let message = if TypeRegistry::is_builtin_name(name)
+                        { format!("The shadowed type '{}' does not support positional conversion",
+                            name) }
+                        else { format!("Type '{}' has no positional constructor", name) };
+                    return Err(error(&expression.location, message));
+                }
             },
         AstExpressionKind::SpacedEmptyCall(name) =>
             {
@@ -461,14 +483,14 @@ fn check_expression(
                 if let Some(id) = known_type(registry, object)
                 {
                     if registry.method(id, name).is_some() { return Ok(()); }
-                    let definition = registry.get(id);
+                    let definition = registry.get(registry.underlying_type(id));
                     if matches!(definition.kind, TypeKind::Enum(_)) && name == "index"
                     { return Ok(()); }
                     if    registry.has_extension(id, name)
                        && !matches!(&definition.kind, TypeKind::Struct(fields)
                             if fields.iter().any(|field| field.name == *name))
                     { return Ok(()); }
-                    if    matches!(definition.kind, TypeKind::Optional(_))
+                    if    matches!(definition.kind, TypeKind::Optional(_) | TypeKind::Union(_))
                        || matches!(definition.kind, TypeKind::Builtin)
                        && definition.name == "any"
                     { return Ok(()); }
@@ -498,7 +520,7 @@ fn check_expression(
                 }
                 let id = names.get(name).ok_or_else(|| error(&expression.location,
                     format!("Unknown type or module member '{}'", qualified)))?;
-                let definition = registry.get(*id);
+                let definition = registry.get(registry.underlying_type(*id));
                 let TypeKind::Enum(variants) = &definition.kind else
                 {
                     return Err(error(
@@ -510,8 +532,10 @@ fn check_expression(
                     .ok_or_else(|| error(&expression.location,
                         format!("Unknown variant '{}::{}' (enum declared at {})", name, variant,
                             definition.location.as_ref().unwrap())))?;
-                expression.kind = AstExpressionKind::Literal(AstLiteral
-                    { value: Value::Enum(Rc::new(EnumValue { definition, variant: index })) });
+                let value = Value::Enum(Rc::new(EnumValue { definition, variant: index }));
+                let value = registry.coerce(*id, value)
+                    .map_err(|message| error(&expression.location, message))?;
+                expression.kind = AstExpressionKind::Literal(AstLiteral { value });
             },
         AstExpressionKind::Array(values) =>
             {
@@ -550,7 +574,8 @@ fn check_expression(
             },
         AstExpressionKind::Splat(value) | AstExpressionKind::Grouped(value)
         | AstExpressionKind::TryExecute(value)
-        | AstExpressionKind::BooleanNot(value) => check_expression(registry, value, names)?,
+        | AstExpressionKind::MathNegate(value) | AstExpressionKind::BooleanNot(value) =>
+            check_expression(registry, value, names)?,
         AstExpressionKind::Execute(call) => check_call(registry, call, names)?,
         AstExpressionKind::Redirect(source, redirects) =>
             {
@@ -603,6 +628,13 @@ fn resolve_type(
                 .collect::<CompileResult<Vec<_>>>()?),
             AstType::Optional(inner) =>
                 TypeKind::Optional(resolve_type(registry, inner, names, location)?),
+            AstType::Union(members) =>
+                {
+                    let members = members.iter()
+                        .map(|item| resolve_type(registry, item, names, location))
+                        .collect::<CompileResult<Vec<_>>>()?;
+                    return Ok(registry.union_type(members));
+                },
             AstType::Map(key, value) => TypeKind::Map(
                 resolve_type(registry, key, names, location)?,
                 resolve_type(registry, value, names, location)?,
@@ -629,11 +661,15 @@ fn known_type(registry: &TypeRegistry, expression: &AstExpression) -> Option<Typ
         {
             value: Value::Enum(item),
         }) => Some(item.definition.id),
+        AstExpressionKind::Literal(AstLiteral
+        {
+            value: Value::Named(item),
+        }) => Some(item.definition.id),
         AstExpressionKind::Grouped(inner) => known_type(registry, inner),
         AstExpressionKind::Field(object, name, _) =>
             {
                 let id = known_type(registry, object)?;
-                let definition = registry.get(id);
+                let definition = registry.get(registry.underlying_type(id));
                 if matches!(definition.kind, TypeKind::Enum(_)) && name == "index"
                 { return registry.builtin_id("Integer"); }
                 if let TypeKind::Struct(fields) = &definition.kind
@@ -720,7 +756,7 @@ fn check_known_value(
         {
             TypeKind::Builtin if definition.name == "any" => {},
             TypeKind::Optional(inner) => return check_known_value(registry, inner, expression),
-            _ if actual != expected =>
+            _ if !registry.may_assign(expected, actual) =>
                 return Err(format!("Expected {}, got {}", definition.name,
                                    registry.get(actual).name)),
             _ => {}
@@ -891,7 +927,8 @@ fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bind
                     {
                         let inferred = if item.destructure || item.bindings.len() > 1
                             {
-                                item_type.filter(|id| matches!(registry.get(*id).kind,
+                                item_type.filter(|id| matches!(registry
+                                    .get(registry.underlying_type(*id)).kind,
                                     TypeKind::Array(_) | TypeKind::FixedArray(_)))
                                     .and_then(|id| indexed_type(registry, id, Some(index)))
                             }
@@ -1040,7 +1077,7 @@ fn check_binding_expression(
             },
         AstExpressionKind::Splat(value)
         | AstExpressionKind::Field(value, _, _)
-        | AstExpressionKind::BooleanNot(value)
+        | AstExpressionKind::MathNegate(value) | AstExpressionKind::BooleanNot(value)
         | AstExpressionKind::TypeConversion(_, value, _)
         | AstExpressionKind::ExecutableReference(value)
         | AstExpressionKind::TryExecute(value) =>
@@ -1118,7 +1155,7 @@ fn binding_type_inner(
         AstExpressionKind::Field(object, name, _) =>
             {
                 let id = binding_type(registry, object, bindings)?;
-                let definition = registry.get(id);
+                let definition = registry.get(registry.underlying_type(id));
                 if matches!(definition.kind, TypeKind::Enum(_)) && name == "index"
                 { return registry.builtin_id("Integer"); }
                 if let TypeKind::Struct(fields) = &definition.kind
@@ -1147,6 +1184,7 @@ fn binding_type_inner(
 
 fn indexed_type(registry: &TypeRegistry, id: TypeId, index: Option<usize>) -> Option<TypeId>
 {
+    let id = registry.underlying_type(id);
     match &registry.get(id).kind
     {
         TypeKind::Array(element) => Some(*element),
@@ -1193,7 +1231,8 @@ fn expression_may_mutate(expression: &AstExpression) -> bool
         AstExpressionKind::Grouped(value) | AstExpressionKind::Splat(value)
         | AstExpressionKind::TypeConversion(_, value, _)
         | AstExpressionKind::ExecutableReference(value)
-        | AstExpressionKind::BooleanNot(value) => expression_may_mutate(value),
+        | AstExpressionKind::MathNegate(value) | AstExpressionKind::BooleanNot(value) =>
+            expression_may_mutate(value),
         AstExpressionKind::Array(values) => values.iter().any(expression_may_mutate),
         AstExpressionKind::HashMap(entries) => entries.iter().any(|(key, value)|
             expression_may_mutate(key) || expression_may_mutate(value)),

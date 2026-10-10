@@ -518,6 +518,7 @@ impl Interpreter
                                 => &item.name,
                             AstStatement::EnumDeclaration(item) => &item.name,
                             AstStatement::StructDeclaration(item) => &item.name,
+                            AstStatement::TypeDeclaration(item) => &item.name,
                             _ => continue,
                         };
                     self.scope_mut().exports.insert(name.clone());
