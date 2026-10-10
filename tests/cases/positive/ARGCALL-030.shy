@@ -1,0 +1,14 @@
+# ARGCALL-030: executable arguments preserve names under splat
+check [
+    "id": "ARGCALL-030",
+    "name": "executable arguments preserve names under splat",
+    "source": "fn answer() { 42 }; let \$values = [`answer]; echo \$values...",
+    "mode": "code",
+    "args": [],
+    "stdout": "answer\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

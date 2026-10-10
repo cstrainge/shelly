@@ -1,0 +1,14 @@
+# ARGCALL-001: git subcommand is literal
+check [
+    "id": "ARGCALL-001",
+    "name": "git subcommand is literal",
+    "source": "fn diff() { echo \"BAD\"; 7 }; fn git(\$word: String) { echo \$word }; git diff",
+    "mode": "code",
+    "args": [],
+    "stdout": "diff\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

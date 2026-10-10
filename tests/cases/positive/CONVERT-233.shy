@@ -1,7 +1,7 @@
 # CONVERT-233: identity reference preserves version
 check ["id": "CONVERT-233",
     "name": "identity reference preserves version",
-    "source": "fn f() { 1 }; let \$r = any(`f); fn g() { 2 }; echo \$r",
+    "source": "fn f() { 1 }; let \$r = any(`f); fn g() { 2 }; echo (\$r)",
     "mode": "code",
     "args": [],
     "stdout": "1\n",

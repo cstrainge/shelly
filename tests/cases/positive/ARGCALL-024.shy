@@ -1,0 +1,14 @@
+# ARGCALL-024: backtick argument remains reference
+check [
+    "id": "ARGCALL-024",
+    "name": "backtick argument remains reference",
+    "source": "fn answer() { 42 }; fn invoke(\$call) { (\$call) }; echo (invoke `answer)",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

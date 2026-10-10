@@ -1,0 +1,14 @@
+# ARGCALL-023: arguments evaluate left to right only when grouped
+check [
+    "id": "ARGCALL-023",
+    "name": "arguments evaluate left to right only when grouped",
+    "source": "let \$count = 0; fn next() { \$count = \$count + 1; \$count }; echo next (next) next (next) \$count",
+    "mode": "code",
+    "args": [],
+    "stdout": "next 1 next 2 2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

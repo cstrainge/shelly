@@ -14,4 +14,4 @@ for $line in $inventory.split "\n"
     require (Boolean(test -f "${suite}/${file}")) "missing case file"
     $count = $count + 1
 }
-require ($count == 4105) "unexpected process case count"
+require ($count == 4139) "unexpected process case count"

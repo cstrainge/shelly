@@ -1,0 +1,14 @@
+# ARGCALL-034: alias call receives literal argument
+check [
+    "id": "ARGCALL-034",
+    "name": "alias call receives literal argument",
+    "source": "fn diff() { echo \"BAD\"; 7 }; alias show = /usr/bin/printf \"%s\\n\"; show diff",
+    "mode": "code",
+    "args": [],
+    "stdout": "diff\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

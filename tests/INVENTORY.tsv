@@ -71,7 +71,7 @@ C069	positive	Backtick suppresses argument call	tests/cases/positive/C069.shy
 C070	positive	Backtick variable suppresses call but yields value	tests/cases/positive/C070.shy
 C071	positive	Grouped flagged value executes	tests/cases/positive/C071.shy
 C072	positive	Nested groups do not double call	tests/cases/positive/C072.shy
-C073	positive	Bare executable argument is called	tests/cases/positive/C073.shy
+C073	positive	Bare executable argument stays literal	tests/cases/positive/C073.shy
 C074	positive	Arguments evaluated in order once	tests/cases/positive/C074.shy
 C075	positive	Direct call result is not called again	tests/cases/positive/C075.shy
 C076	positive	Unknown bare value falls back to string	tests/cases/positive/C076.shy
@@ -470,7 +470,7 @@ ARRAY-033	positive	early return from literal element	tests/cases/positive/ARRAY-
 ARRAY-034	positive	short circuit skips invalid index	tests/cases/positive/ARRAY-034.shy
 ARRAY-035	positive	skipped array errors	tests/cases/positive/ARRAY-035.shy
 ARRAY-036	positive	executable element explicit parameters	tests/cases/positive/ARRAY-036.shy
-ARRAY-037	positive	executable element argument invokes	tests/cases/positive/ARRAY-037.shy
+ARRAY-037	positive	executable element argument stays a reference	tests/cases/positive/ARRAY-037.shy
 ARRAY-038	positive	executable element statement invokes	tests/cases/positive/ARRAY-038.shy
 ARRAY-039	positive	executable element group invokes	tests/cases/positive/ARRAY-039.shy
 ARRAY-040	positive	executable element backtick suppresses	tests/cases/positive/ARRAY-040.shy
@@ -2279,7 +2279,7 @@ EXTENSION-084	positive	bound return escape	tests/cases/positive/EXTENSION-084.sh
 EXTENSION-085	positive	type names lexical identity	tests/cases/positive/EXTENSION-085.shy
 EXTENSION-086	positive	any on custom types	tests/cases/positive/EXTENSION-086.shy
 EXTENSION-087	positive	array of method references	tests/cases/positive/EXTENSION-087.shy
-EXTENSION-088	positive	normal argument auto execution	tests/cases/positive/EXTENSION-088.shy
+EXTENSION-088	positive	explicit argument execution	tests/cases/positive/EXTENSION-088.shy
 EXTENSION-089	positive	backtick argument suppresses execution	tests/cases/positive/EXTENSION-089.shy
 EXTENSION-090	positive	README first and fallback	tests/cases/positive/EXTENSION-090.shy
 EXTENSION-091	positive	keyword method name	tests/cases/positive/EXTENSION-091.shy
@@ -2650,7 +2650,7 @@ MAP-045	positive	ordinary colon arguments	tests/cases/positive/MAP-045.shy
 MAP-046	positive	grouped colon argument in literal	tests/cases/positive/MAP-046.shy
 MAP-047	positive	short circuit skips map error	tests/cases/positive/MAP-047.shy
 MAP-048	positive	executable map value	tests/cases/positive/MAP-048.shy
-MAP-049	positive	automatic executable map value	tests/cases/positive/MAP-049.shy
+MAP-049	positive	executable map argument stays a reference	tests/cases/positive/MAP-049.shy
 MAP-050	positive	backtick map value suppresses call	tests/cases/positive/MAP-050.shy
 MAP-051	positive	map key flags ignored	tests/cases/positive/MAP-051.shy
 MAP-052	positive	nan key stable	tests/cases/positive/MAP-052.shy
@@ -3700,7 +3700,7 @@ STRUCT-034	positive	typed struct keys	tests/cases/positive/STRUCT-034.shy
 STRUCT-035	positive	typed enum keys	tests/cases/positive/STRUCT-035.shy
 STRUCT-036	positive	function argument and return	tests/cases/positive/STRUCT-036.shy
 STRUCT-037	positive	function copy mutation	tests/cases/positive/STRUCT-037.shy
-STRUCT-038	positive	field executable	tests/cases/positive/STRUCT-038.shy
+STRUCT-038	positive	callable data field argument stays a reference	tests/cases/positive/STRUCT-038.shy
 STRUCT-039	positive	field call arguments	tests/cases/positive/STRUCT-039.shy
 STRUCT-040	positive	field executable reference	tests/cases/positive/STRUCT-040.shy
 STRUCT-041	positive	field in arithmetic	tests/cases/positive/STRUCT-041.shy
@@ -4104,3 +4104,37 @@ NUMERIC-156	negative	command status rejected on left of %	tests/cases/negative/N
 NUMERIC-157	negative	command status rejected on right of %	tests/cases/negative/NUMERIC-157.shy
 NUMERIC-158	negative	command status unary minus rejected	tests/cases/negative/NUMERIC-158.shy
 NUMERIC-159	positive	explicit conversions allow arithmetic	tests/cases/positive/NUMERIC-159.shy
+ARGCALL-001	positive	git subcommand is literal	tests/cases/positive/ARGCALL-001.shy
+ARGCALL-002	positive	grouped subcommand executes	tests/cases/positive/ARGCALL-002.shy
+ARGCALL-003	positive	external executable argument is literal	tests/cases/positive/ARGCALL-003.shy
+ARGCALL-004	positive	builtin names are literal	tests/cases/positive/ARGCALL-004.shy
+ARGCALL-005	positive	alias name is literal	tests/cases/positive/ARGCALL-005.shy
+ARGCALL-006	positive	executable variable stays reference	tests/cases/positive/ARGCALL-006.shy
+ARGCALL-007	positive	grouped reference invokes	tests/cases/positive/ARGCALL-007.shy
+ARGCALL-008	positive	array element stays reference	tests/cases/positive/ARGCALL-008.shy
+ARGCALL-009	positive	map element stays reference	tests/cases/positive/ARGCALL-009.shy
+ARGCALL-010	positive	struct data field stays reference	tests/cases/positive/ARGCALL-010.shy
+ARGCALL-011	positive	grouped struct field invokes	tests/cases/positive/ARGCALL-011.shy
+ARGCALL-012	positive	builtin property method stays implicit	tests/cases/positive/ARGCALL-012.shy
+ARGCALL-013	positive	user property method evaluates once	tests/cases/positive/ARGCALL-013.shy
+ARGCALL-014	positive	named argument remains plain through return	tests/cases/positive/ARGCALL-014.shy
+ARGCALL-015	positive	passed reference preserves function version	tests/cases/positive/ARGCALL-015.shy
+ARGCALL-016	positive	bound method reference stays value	tests/cases/positive/ARGCALL-016.shy
+ARGCALL-017	positive	method result is not invoked twice	tests/cases/positive/ARGCALL-017.shy
+ARGCALL-018	positive	method argument is literal	tests/cases/positive/ARGCALL-018.shy
+ARGCALL-019	positive	grouped method argument executes	tests/cases/positive/ARGCALL-019.shy
+ARGCALL-020	positive	explicit returned reference is not invoked twice	tests/cases/positive/ARGCALL-020.shy
+ARGCALL-021	negative	grouped failure propagates	tests/cases/negative/ARGCALL-021.shy
+ARGCALL-022	positive	ungrouped missing command stays literal	tests/cases/positive/ARGCALL-022.shy
+ARGCALL-023	positive	arguments evaluate left to right only when grouped	tests/cases/positive/ARGCALL-023.shy
+ARGCALL-024	positive	backtick argument remains reference	tests/cases/positive/ARGCALL-024.shy
+ARGCALL-025	positive	grouped backtick still invokes	tests/cases/positive/ARGCALL-025.shy
+ARGCALL-026	positive	bare assignment still resolves commands	tests/cases/positive/ARGCALL-026.shy
+ARGCALL-027	positive	bare command statement still invokes	tests/cases/positive/ARGCALL-027.shy
+ARGCALL-028	negative	function parameter rejects literal without grouping	tests/cases/negative/ARGCALL-028.shy
+ARGCALL-029	positive	typed variable reference passed without invocation	tests/cases/positive/ARGCALL-029.shy
+ARGCALL-030	positive	executable arguments preserve names under splat	tests/cases/positive/ARGCALL-030.shy
+ARGCALL-031	positive	no calls for grouped plain string	tests/cases/positive/ARGCALL-031.shy
+ARGCALL-032	positive	empty arguments remain empty	tests/cases/positive/ARGCALL-032.shy
+ARGCALL-033	positive	executable script path is passed once	tests/cases/positive/ARGCALL-033.shy
+ARGCALL-034	positive	alias call receives literal argument	tests/cases/positive/ARGCALL-034.shy

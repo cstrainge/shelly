@@ -1,0 +1,14 @@
+# ARGCALL-026: bare assignment still resolves commands
+check [
+    "id": "ARGCALL-026",
+    "name": "bare assignment still resolves commands",
+    "source": "fn answer() { 42 }; let \$value = answer; echo \$value",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

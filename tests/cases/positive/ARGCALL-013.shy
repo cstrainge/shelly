@@ -1,0 +1,14 @@
+# ARGCALL-013: user property method evaluates once
+check [
+    "id": "ARGCALL-013",
+    "name": "user property method evaluates once",
+    "source": "let \$count = 0; fn Integer::next() { \$count = \$count + 1; \$self + 1 }; let \$value = 3; echo \$value.next \$count",
+    "mode": "code",
+    "args": [],
+    "stdout": "4 1\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

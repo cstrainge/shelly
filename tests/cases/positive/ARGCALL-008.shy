@@ -1,0 +1,14 @@
+# ARGCALL-008: array element stays reference
+check [
+    "id": "ARGCALL-008",
+    "name": "array element stays reference",
+    "source": "fn answer() { 42 }; let \$calls = [`answer]; echo \$calls[0]",
+    "mode": "code",
+    "args": [],
+    "stdout": "answer\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

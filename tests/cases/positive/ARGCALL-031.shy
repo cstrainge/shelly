@@ -1,0 +1,14 @@
+# ARGCALL-031: no calls for grouped plain string
+check [
+    "id": "ARGCALL-031",
+    "name": "no calls for grouped plain string",
+    "source": "fn answer() { 42 }; echo (\"answer\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "answer\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,10 +1,10 @@
-# ARRAY-037: executable element argument invokes
+# ARRAY-037: executable element argument stays a reference
 check ["id": "ARRAY-037",
-    "name": "executable element argument invokes",
+    "name": "executable element argument stays a reference",
     "source": "fn f() { 7 }; let \$a = [`f]; echo \$a[0]",
     "mode": "code",
     "args": [],
-    "stdout": "7\n",
+    "stdout": "f\n",
     "status": 0,
     "valid": true,
     "error": "",

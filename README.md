@@ -218,9 +218,10 @@ echo $b...                    # 1 2 3 4
 
 Indexed executable strings follow the same call rules as executable variables:
 `$commands[0] 3` calls with an argument; `$commands[0]` invokes a marked executable
-in statement or command-argument position. Prefix the access with a backtick to
-pass its name without invoking it. Indexing is expression syntax; quoted string
-interpolation still supports variable names rather than arbitrary expressions.
+in statement position. As a command argument it passes the reference unchanged;
+use `echo ($commands[0])` to call it and pass the result. Indexing is expression
+syntax; quoted string interpolation still supports variable names rather than
+arbitrary expressions.
 
 An array cannot be a command. A standalone `$a` or `$a[0]` whose value is an array
 and is discarded reports `Cannot execute an array as a command`; explicit calls
@@ -973,7 +974,8 @@ A bare name has different behavior depending on its context:
 | `foo` as a statement | Call `foo` with no arguments; an unknown command errors. |
 | `let $x = foo` | Call it if it resolves to a function, builtin, alias, or executable; otherwise store the word as text. |
 | `let $x = foo a b` | Call it with arguments; an unknown command errors. |
-| `echo foo` | Call `foo` with no arguments if it resolves, then pass its result to `echo`; otherwise pass the word. |
+| `echo foo` | Pass the literal word `foo`, even when it names a command. |
+| `echo (foo)` | Call `foo` with no arguments, then pass its result to `echo`. |
 | `echo (foo 3)` | Call `foo` with `3`, then pass its result directly to `echo`. |
 | `echo "foo"` | Pass literal text. |
 
@@ -989,21 +991,27 @@ let $call = `answer
 let $copy = $call            # Copy the reference without calling it
 $call                       # Call it; top-level values are not printed
 echo "$call"                # answer
-echo $call                  # 2048
+echo $call                  # answer
 echo ($call)                # 2048
 echo `answer                # answer
 ```
 
-A standalone variable, a variable command argument, or a variable/string inside
-parentheses is called with no arguments when its value is marked executable.
-Ordinary string values stay text. Direct call results and nested groups do not
-cause the returned value to be called a second time.
+A standalone variable or a variable/string inside parentheses is called with no
+arguments when its value is marked executable. In argument positions, bare names
+stay literal and executable variables, collection elements, and struct data fields
+pass their values without being called. Use parentheses to execute them:
+`git diff` passes the subcommand name, while `git (diff)` calls `diff` first and
+passes its result. This applies to arguments of external commands, Shelly functions,
+and methods. Property-style methods remain implicit: `echo $items.count` evaluates
+`.count`. Ordinary string values stay text. Direct call results and nested groups
+do not cause the returned value to be called a second time.
 
-A backtick argument suppresses the automatic call for that argument. Grouping
-changes this: ``echo (`answer)`` calls `answer`. A backtick-prefixed name cannot
+A backtick argument passes an executable reference. Grouping changes this:
+``echo (`answer)`` calls `answer`. A backtick-prefixed name cannot
 be the head of a grouped call with arguments: ``echo (`foo 3)`` is an error.
-To pass a stored reference's name without calling it, use `"$call"` or
-`` `$call ``. The backtick-variable form reads the value and marks its name
+To pass a stored reference without calling it, use `$call`. Use `"$call"`
+to pass ordinary text, or `` `$call `` to explicitly mark the value executable.
+The backtick-variable form reads the value and marks its name
 executable, so it can also create a reference from a stored ordinary string.
 
 Calls through variables with arguments work as statements, in assignments and
@@ -1513,7 +1521,7 @@ scripts, or the REPL. `cargo clippy --locked --all-targets` runs the Rust lints.
 ./target/debug/shelly -m test.shy C001
 ```
 
-The suite includes 4,105 process cases, 92 stateful REPL scenarios, prompt/path
+The suite includes 4,139 process cases, 93 stateful REPL scenarios, prompt/path
 checks, watchdog probes, native API tests, and harness failure controls. All
 orchestration and assertions run in Shelly; no Python, pexpect, or other shell is
 needed. Standard Unix utilities still provide file operations and byte/regex

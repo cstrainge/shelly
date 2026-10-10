@@ -1,0 +1,14 @@
+# ARGCALL-015: passed reference preserves function version
+check [
+    "id": "ARGCALL-015",
+    "name": "passed reference preserves function version",
+    "source": "fn answer() { 7 }; let \$call = `answer; fn answer() { 9 }; fn invoke(\$value) { (\$value) }; echo (invoke \$call)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

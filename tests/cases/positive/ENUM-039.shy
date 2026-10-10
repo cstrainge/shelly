@@ -1,7 +1,7 @@
 # ENUM-039: reference retained through explicit return
 check ["id": "ENUM-039",
     "name": "reference retained through explicit return",
-    "source": "fn answer() { 42 }; fn id(\$x) { return \$x }; let \$f = id `answer; echo \"\$f\"; echo \$f",
+    "source": "fn answer() { 42 }; fn id(\$x) { return \$x }; let \$f = id `answer; echo \"\$f\"; echo (\$f)",
     "mode": "code",
     "args": [],
     "stdout": "answer\n42\n",

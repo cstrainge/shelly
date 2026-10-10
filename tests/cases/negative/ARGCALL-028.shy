@@ -1,0 +1,14 @@
+# ARGCALL-028: function parameter rejects literal without grouping
+check [
+    "id": "ARGCALL-028",
+    "name": "function parameter rejects literal without grouping",
+    "source": "fn answer() { 42 }; fn take(\$value: Integer) { echo \"BAD\" }; take answer",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

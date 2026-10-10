@@ -1,0 +1,14 @@
+# ARGCALL-025: grouped backtick still invokes
+check [
+    "id": "ARGCALL-025",
+    "name": "grouped backtick still invokes",
+    "source": "fn answer() { 42 }; echo (`answer)",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

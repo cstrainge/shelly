@@ -1,0 +1,11 @@
+check_repl ["id": "ARGCALL-REPL", "name": "Explicit argument calls across inputs",
+    "steps": [
+        ["fn diff() { 7 }; fn git(\$value) { echo \$value }", "quiet", ""],
+        ["git diff", "output", "diff"],
+        ["git (diff)", "output", "7"],
+        ["let \$call = `diff; fn diff() { 9 }", "quiet", ""],
+        ["echo \$call (\$call) (diff)", "output", "diff 7 9"],
+        ["fn identity(\$value) { \$value }; echo (identity diff)", "output", "diff"],
+        ["let \$items = [1, 2]; echo \$items.count", "output", "2"],
+        ["echo (/usr/bin/printf \"grouped\\n\")", "output", "grouped\nExecResult(0)"]
+    ], "exit": 0]

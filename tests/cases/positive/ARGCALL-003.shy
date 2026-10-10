@@ -1,0 +1,14 @@
+# ARGCALL-003: external executable argument is literal
+check [
+    "id": "ARGCALL-003",
+    "name": "external executable argument is literal",
+    "source": "/usr/bin/printf \"%s\\n\" diff",
+    "mode": "code",
+    "args": [],
+    "stdout": "diff\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

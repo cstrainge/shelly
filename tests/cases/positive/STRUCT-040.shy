@@ -1,7 +1,7 @@
 # STRUCT-040: field executable reference
 check ["id": "STRUCT-040",
     "name": "field executable reference",
-    "source": "struct S { call }; fn f() { 42 }; let \$s = S(call: `f); let \$r = `\$s.call; echo \"\$r\" \$r",
+    "source": "struct S { call }; fn f() { 42 }; let \$s = S(call: `f); let \$r = `\$s.call; echo \"\$r\" (\$r)",
     "mode": "code",
     "args": [],
     "stdout": "f 42\n",

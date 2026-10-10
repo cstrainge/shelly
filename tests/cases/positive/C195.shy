@@ -1,10 +1,10 @@
 # C195: Backtick variable reference can be saved
 check ["id": "C195",
     "name": "Backtick variable reference can be saved",
-    "source": "fn f() { 7 }\nlet \$name = \"f\" ; let \$r = `\$name ; echo \$r",
+    "source": "fn f() { 7 }; let \$name = \"f\"; let \$r = `\$name; echo \$r (\$r)",
     "mode": "code",
     "args": [],
-    "stdout": "7\n",
+    "stdout": "f 7\n",
     "status": 0,
     "valid": true,
     "error": "",

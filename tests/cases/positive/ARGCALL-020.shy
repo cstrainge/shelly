@@ -1,0 +1,14 @@
+# ARGCALL-020: explicit returned reference is not invoked twice
+check [
+    "id": "ARGCALL-020",
+    "name": "explicit returned reference is not invoked twice",
+    "source": "fn answer() { echo \"BAD\"; 42 }; fn reference() { return `answer }; echo (reference)",
+    "mode": "code",
+    "args": [],
+    "stdout": "answer\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,14 @@
+# ARGCALL-022: ungrouped missing command stays literal
+check [
+    "id": "ARGCALL-022",
+    "name": "ungrouped missing command stays literal",
+    "source": "echo /usr/bin/does-not-exist-argument-test",
+    "mode": "code",
+    "args": [],
+    "stdout": "/usr/bin/does-not-exist-argument-test\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

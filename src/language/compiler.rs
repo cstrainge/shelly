@@ -113,11 +113,19 @@ fn bind_known_function(block: &FunctionBlockRef, value: Value) -> Value
 }
 
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ExpressionMode
+{
+    Value,
+    BindMethod,
+    Argument
+}
+
 fn compile_expression(instructions: &mut Vec<Instruction>,
                       function_block: &FunctionBlockRef,
                       expression: &AstExpression) -> CompileResult<()>
 {
-    compile_expression_mode(instructions, function_block, expression, false)
+    compile_expression_mode(instructions, function_block, expression, ExpressionMode::Value)
 }
 
 fn function_binding(function: &AstFunctionStatement) -> String
@@ -203,7 +211,7 @@ fn compile_receiver(instructions: &mut Vec<Instruction>, block: &FunctionBlockRe
 
 fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                            function_block: &FunctionBlockRef,
-                           expression: &AstExpression, bind_method: bool) -> CompileResult<()>
+                           expression: &AstExpression, mode: ExpressionMode) -> CompileResult<()>
 {
     match &expression.kind
     {
@@ -249,7 +257,8 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                 instructions.push(Instruction
                     {
                         location: Some(expression.location.clone()),
-                        code: if bind_method { Code::BindField } else { Code::GetField },
+                        code: if mode == ExpressionMode::BindMethod { Code::BindField }
+                              else { Code::GetField },
                         operand: Some(Value::from_array(vec![
                                 index.map_or_else(
                                     || Value::from_string(name.clone()),
@@ -386,7 +395,8 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
         AstExpressionKind::Grouped(inner) =>
             {
                 compile_expression_mode(instructions, function_block, inner,
-                    matches!(inner.kind, AstExpressionKind::Field(_, _, _)))?;
+                    if matches!(inner.kind, AstExpressionKind::Field(_, _, _))
+                    { ExpressionMode::BindMethod } else { ExpressionMode::Value })?;
 
                 // Calls already execute, and nested groups handle their own value. Only a
                 // variable or string literal can supply an unevaluated executable reference.
@@ -488,7 +498,8 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
 
         AstExpressionKind::ExecutableReference(inner) =>
             {
-                compile_expression_mode(instructions, function_block, inner, true)?;
+                compile_expression_mode(instructions, function_block, inner,
+                                        ExpressionMode::BindMethod)?;
                 instructions.push(Instruction
                     {
                         location: Some(expression.location.clone()),
@@ -522,10 +533,10 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                     {
                         location: Some(expression.location.clone()),
                         code: Code::Push,
-                        operand: Some(bind_known_function(
-                            function_block,
-                            Value::from_string(symbol.name.clone()),
-                        )),
+                        operand: Some(if mode == ExpressionMode::Argument
+                            { Value::from_string(symbol.name.clone()) }
+                            else { bind_known_function(function_block,
+                                       Value::from_string(symbol.name.clone())) }),
                     });
             },
 
@@ -951,7 +962,8 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
         AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _)
     )
     {
-        compile_expression_mode(instructions, function_block, &execute_statement.executable, true)?;
+        compile_expression_mode(instructions, function_block, &execute_statement.executable,
+                                ExpressionMode::BindMethod)?;
         instructions.push(Instruction
             {
                 location: None,
@@ -989,44 +1001,9 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
 
     for argument in &execute_statement.arguments
     {
-        // Bind a member before the implicit argument call, so a method result is
-        // never executed a second time. Callable data fields follow the same path.
-        compile_expression_mode(instructions, function_block, argument,
-            matches!(argument.kind, AstExpressionKind::Field(_, _, _)))?;
-
-        match &argument.kind
-        {
-            AstExpressionKind::Symbol(symbol) if !symbol.is_glob() =>
-                {
-                    instructions.push(Instruction
-                        {
-                            location: Some(argument.location.clone()),
-                            code: Code::PushResult,
-                            operand: None
-                        });
-                    instructions.push(Instruction
-                        {
-                            location: None,
-                            code: Code::TryExecute,
-                            operand: None
-                        });
-                },
-
-            AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _)
-                | AstExpressionKind::Field(_, _, _) =>
-                {
-                    instructions.push(Instruction
-                        {
-                            location: Some(argument.location.clone()),
-                            code: Code::ExecuteIfExecutable,
-                            operand: None
-                        });
-                },
-
-            // Backtick references are literals: pass their values without calling them.
-            // Grouped expressions and explicit calls already supplied their result.
-            _ => {}
-        }
+        // Arguments are values. Groups perform explicit calls; property-style methods
+        // still evaluate, while callable variables, elements, and data fields stay references.
+        compile_expression_mode(instructions, function_block, argument, ExpressionMode::Argument)?;
 
         instructions.push(Instruction
             {
@@ -1725,7 +1702,8 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
             AstStatement::ExpressionStatement(expression) =>
                 {
                     compile_expression_mode(instructions, function_block, expression,
-                        matches!(expression.kind, AstExpressionKind::Field(_, _, _)))?;
+                        if matches!(expression.kind, AstExpressionKind::Field(_, _, _))
+                        { ExpressionMode::BindMethod } else { ExpressionMode::Value })?;
 
                     if matches!(
                         &expression.kind,

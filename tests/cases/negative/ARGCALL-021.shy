@@ -1,0 +1,14 @@
+# ARGCALL-021: grouped failure propagates
+check [
+    "id": "ARGCALL-021",
+    "name": "grouped failure propagates",
+    "source": "echo (/usr/bin/does-not-exist-argument-test 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Executable not found:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

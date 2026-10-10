@@ -1,0 +1,14 @@
+# ARGCALL-016: bound method reference stays value
+check [
+    "id": "ARGCALL-016",
+    "name": "bound method reference stays value",
+    "source": "let \$items = [1, 2]; let \$call = `\$items.count; fn invoke(\$value) { (\$value) }; echo (invoke \$call)",
+    "mode": "code",
+    "args": [],
+    "stdout": "2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

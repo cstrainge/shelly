@@ -1,0 +1,14 @@
+# ARGCALL-019: grouped method argument executes
+check [
+    "id": "ARGCALL-019",
+    "name": "grouped method argument executes",
+    "source": "fn number() { 3 }; fn Integer::add(\$value: Integer) { \$self + \$value }; let \$value = 2; echo (\$value.add (number))",
+    "mode": "code",
+    "args": [],
+    "stdout": "5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

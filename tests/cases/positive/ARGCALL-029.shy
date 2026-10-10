@@ -1,0 +1,14 @@
+# ARGCALL-029: typed variable reference passed without invocation
+check [
+    "id": "ARGCALL-029",
+    "name": "typed variable reference passed without invocation",
+    "source": "fn answer() { 42 }; let \$call: String = `answer; fn take(\$value: String) { echo \"\$value\" }; take \$call",
+    "mode": "code",
+    "args": [],
+    "stdout": "answer\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

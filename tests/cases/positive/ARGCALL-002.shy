@@ -1,0 +1,14 @@
+# ARGCALL-002: grouped subcommand executes
+check [
+    "id": "ARGCALL-002",
+    "name": "grouped subcommand executes",
+    "source": "fn diff() { 7 }; fn git(\$value: Integer) { echo \$value }; git (diff)",
+    "mode": "code",
+    "args": [],
+    "stdout": "7\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

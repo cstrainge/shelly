@@ -1,6 +1,7 @@
-# STRUCT-038: callable data field argument stays a reference
-check ["id": "STRUCT-038",
-    "name": "callable data field argument stays a reference",
+# ARGCALL-010: struct data field stays reference
+check [
+    "id": "ARGCALL-010",
+    "name": "struct data field stays reference",
     "source": "struct S { call }; fn answer() { 42 }; let \$s = S(call: `answer); echo \$s.call",
     "mode": "code",
     "args": [],

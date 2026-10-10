@@ -1,7 +1,7 @@
 # C074: Arguments evaluated in order once
 check ["id": "C074",
     "name": "Arguments evaluated in order once",
-    "source": "fn a() { echo \"a\" ; return 1 }\nfn b() { echo \"b\" ; return 2 }\necho a b",
+    "source": "fn a() { echo \"a\"; return 1 }; fn b() { echo \"b\"; return 2 }; echo (a) (b)",
     "mode": "code",
     "args": [],
     "stdout": "a\nb\n1 2\n",

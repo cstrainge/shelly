@@ -1,10 +1,10 @@
-# MAP-049: automatic executable map value
+# MAP-049: executable map argument stays a reference
 check ["id": "MAP-049",
-    "name": "automatic executable map value",
+    "name": "executable map argument stays a reference",
     "source": "fn f() { 7 }; let \$m = [\"f\":`f]; echo \$m[\"f\"]",
     "mode": "code",
     "args": [],
-    "stdout": "7\n",
+    "stdout": "f\n",
     "status": 0,
     "valid": true,
     "error": "",

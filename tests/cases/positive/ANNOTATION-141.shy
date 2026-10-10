@@ -1,10 +1,10 @@
 # ANNOTATION-141: typed executable string
 check ["id": "ANNOTATION-141",
     "name": "typed executable string",
-    "source": "fn f() { 7 }; let \$x: String = `f; echo \$x",
+    "source": "fn f() { 7 }; let \$x: String = `f; echo \$x (\$x)",
     "mode": "code",
     "args": [],
-    "stdout": "7\n",
+    "stdout": "f 7\n",
     "status": 0,
     "valid": true,
     "error": "",

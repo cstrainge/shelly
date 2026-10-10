@@ -1,0 +1,14 @@
+# ARGCALL-027: bare command statement still invokes
+check [
+    "id": "ARGCALL-027",
+    "name": "bare command statement still invokes",
+    "source": "fn answer() { echo \"called\" }; answer",
+    "mode": "code",
+    "args": [],
+    "stdout": "called\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,10 +1,10 @@
-# C073: Bare executable argument is called
+# C073: Bare executable argument stays literal
 check ["id": "C073",
-    "name": "Bare executable argument is called",
+    "name": "Bare executable argument stays literal",
     "source": "fn f() { 7 }\necho f",
     "mode": "code",
     "args": [],
-    "stdout": "7\n",
+    "stdout": "f\n",
     "status": 0,
     "valid": true,
     "error": "",

@@ -1,7 +1,7 @@
-# EXTENSION-088: normal argument auto execution
+# EXTENSION-088: explicit argument execution
 check ["id": "EXTENSION-088",
-    "name": "normal argument auto execution",
-    "source": "fn value() { 3 }; fn Integer::add(\$n: Integer) { \$self + \$n }; let \$n = 2; echo (\$n.add value)",
+    "name": "explicit argument execution",
+    "source": "fn value() { 3 }; fn Integer::add(\$n: Integer) { \$self + \$n }; let \$n = 2; echo (\$n.add (value))",
     "mode": "code",
     "args": [],
     "stdout": "5\n",

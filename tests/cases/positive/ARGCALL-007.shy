@@ -1,0 +1,14 @@
+# ARGCALL-007: grouped reference invokes
+check [
+    "id": "ARGCALL-007",
+    "name": "grouped reference invokes",
+    "source": "fn answer() { 42 }; let \$call = `answer; echo (\$call)",
+    "mode": "code",
+    "args": [],
+    "stdout": "42\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]
