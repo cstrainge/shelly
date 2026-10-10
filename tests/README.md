@@ -91,7 +91,9 @@ The suite targets Linux/WSL and macOS.
 It uses `mktemp`, `find`, `cp`, `ln`, `mkdir`, `rm`, `test`, `printf`, `cat`, `cmp`,
 `sleep`, `printenv`, and `kill`. Individual language cases also exercise ordinary
 Unix commands. `$os` identifies the host operating system for platform-specific
-test helpers. Cleanup and interrupted-runner checks execute on both platforms:
+test helpers; `[when $os == "macos"]` declarations select the macOS helpers and
+temporary-path normalization when the runner and drivers are compiled.
+Cleanup and interrupted-runner checks execute on both platforms:
 Linux checks `/proc`, while macOS uses `ps` to verify that children were reaped.
 `native/process_groups.shy` checks descendants that ignore SIGTERM and terminal
 hangup, and `harness/diagnostics.shy` checks portable diagnostic regex matching.

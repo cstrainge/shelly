@@ -8,7 +8,7 @@ fn run_case($file: String, $library: String, $suite: String): Boolean
     $work = $work.trim_end
     # Darwin exposes /tmp through /private/tmp. Use the physical spelling for
     # fixtures, HOME, cwd, and evidence normalization so their paths agree.
-    if $os == "macos"
+    [when $os == "macos"]
     {
         let $physical: String
         let $result = run_process ["/bin/pwd", "-P"] ["cwd": $work, "timeout_ms": 1000] -> $physical

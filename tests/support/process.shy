@@ -16,25 +16,29 @@ fn environment($fixture: String)
      "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "TERM": "dumb"]
 }
 
-# The returned program fragment binds the current Shelly process ID as $audit_pid.
-fn process_identity_source(): String
+# Select the host helpers before compiling the test driver. The returned program
+# fragment binds the current Shelly process ID as $audit_pid.
+[when $os == "macos"]
 {
-    if $os == "macos"
+    fn process_identity_source(): String
     { 'let $audit_pid: String; /bin/sh -c "echo \\$PPID" -> $audit_pid; $audit_pid = $audit_pid.trim;' }
-    else
-    { 'let $audit_stat: String; /proc/self/stat -> $audit_stat; let $audit_pid = ($audit_stat.split " ")[0];' }
-}
 
-fn require_reaped($pid: String, $message: String)
-{
-    if $os == "macos"
+    fn require_reaped($pid: String, $message: String)
     {
         let $state: String
         let $result = run_process ["/bin/ps", "-p", $pid, "-o", "stat="] ["timeout_ms": 1000] -> $state
         require ($result["error"] == ()) "process inspection failed"
         require (($result["exit_code"] == 1) && ($state == "")) $message
     }
-    else { require (!(test -e "/proc/${pid}/stat")) $message }
+}
+
+[when $os != "macos"]
+{
+    fn process_identity_source(): String
+    { 'let $audit_stat: String; /proc/self/stat -> $audit_stat; let $audit_pid = ($audit_stat.split " ")[0];' }
+
+    fn require_reaped($pid: String, $message: String)
+    { require (!(test -e "/proc/${pid}/stat")) $message }
 }
 
 fn process_group_alive($pid: String): Boolean
