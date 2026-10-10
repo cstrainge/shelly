@@ -1,6 +1,7 @@
 
 use std::{ borrow::Cow,
            collections::BTreeMap,
+           sync::{ Arc, atomic::{ AtomicBool, Ordering } },
            process::ExitCode,
            path::{ Path, PathBuf },
            fs::read_dir,
@@ -38,7 +39,21 @@ use crate::{ language::{ interpreter::{ Interpreter, Interactive, RcFile, Startu
 
 struct ShellyPrompt
 {
-    prompt_text: String
+    prompt_text: String,
+    multiline: Arc<AtomicBool>,
+    color_mode: TtyColorMode
+}
+
+
+impl ShellyPrompt
+{
+    fn multiline_color(&self, normal: Color) -> Color
+    {
+        if    self.multiline.load(Ordering::Relaxed)
+           && matches!(self.color_mode, TtyColorMode::Tty256 | TtyColorMode::TtyTrueColor)
+        { Color::Yellow }
+        else { normal }
+    }
 }
 
 
@@ -81,12 +96,12 @@ impl Prompt for ShellyPrompt
 
     fn get_indicator_color(&self) -> Color
     {
-        Color::LightGray
+        self.multiline_color(Color::LightGray)
     }
 
     fn get_prompt_multiline_color(&self) -> Color
     {
-        Color::DarkGray
+        self.multiline_color(Color::DarkGray)
     }
 }
 
@@ -442,7 +457,8 @@ impl Completer for FirstTabCompleter
 struct ShellyEditMode
 {
     emacs: Emacs,
-    previous_tab: bool
+    previous_tab: bool,
+    multiline: Arc<AtomicBool>
 }
 
 impl EditMode for ShellyEditMode
@@ -450,6 +466,23 @@ impl EditMode for ShellyEditMode
     fn parse_event(&mut self, event: ReedlineRawEvent) -> ReedlineEvent
     {
         let event = self.emacs.parse_event(event);
+        if matches!(event, ReedlineEvent::Submit)
+        {
+            self.previous_tab = false;
+            let submitting = self.multiline.fetch_xor(true, Ordering::Relaxed);
+            // Close completion menus so the second press always submits the buffer.
+            return ReedlineEvent::Multiple(vec![
+                    ReedlineEvent::Esc,
+                    if submitting { ReedlineEvent::Submit } else { ReedlineEvent::Repaint }
+                ]);
+        }
+        if matches!(event, ReedlineEvent::CtrlC)
+        { self.multiline.store(false, Ordering::Relaxed); }
+        if matches!(event, ReedlineEvent::Enter) && self.multiline.load(Ordering::Relaxed)
+        {
+            self.previous_tab = false;
+            return ReedlineEvent::Edit(vec![EditCommand::InsertNewline]);
+        }
         let tab = matches!(&event, ReedlineEvent::UntilFound(events)
             if matches!(events.first(), Some(ReedlineEvent::Menu(name))
                 if name == "completion_menu"));
@@ -473,10 +506,13 @@ impl EditMode for ShellyEditMode
 }
 
 
-fn default_prompt(interpreter: &Interpreter) -> String
+fn default_prompt(interpreter: &Interpreter, color_mode: TtyColorMode) -> String
 {
     let cwd = interpreter.evaluate_variable("$pwd").unwrap_or_else(|_|
         current_dir().unwrap_or_else(|_| ".".into()).display().to_string());
+
+    if color_mode == TtyColorMode::TtyMonochrome
+    { return format!("\n<shelly> [{}]\n", cwd); }
 
     let formatted = format!("\n{} [{}]\n",
                             Color::Yellow.bold().paint("<shelly>"),
@@ -489,6 +525,7 @@ fn default_prompt(interpreter: &Interpreter) -> String
 pub struct Repl
 {
     tab_width: usize,
+    color_mode: TtyColorMode,
     interpreter: Interpreter
 }
 
@@ -521,28 +558,39 @@ impl Repl
         Self
             {
                 tab_width,
+                color_mode,
                 interpreter
             }
     }
 
     pub fn run(&mut self) -> RuntimeResult<ExitCode>
     {
-        let mut prompt = ShellyPrompt { prompt_text: String::new() };
+        let multiline = Arc::new(AtomicBool::new(false));
+        let mut prompt = ShellyPrompt
+            {
+                prompt_text: String::new(),
+                multiline: multiline.clone(),
+                color_mode: self.color_mode
+            };
         let mut keybindings = Keybindings::empty();
 
         Self::apply_keybindings(&mut keybindings);
 
         let mut editor = Reedline::create()
+            .with_ansi_colors(self.color_mode != TtyColorMode::TtyMonochrome)
             .use_kitty_keyboard_enhancement(true)
             .with_quick_completions(true)
             .with_edit_mode(Box::new(ShellyEditMode
                 {
                     emacs: Emacs::new(keybindings),
-                    previous_tab: false
+                    previous_tab: false,
+                    multiline: multiline.clone()
                 }));
 
         while !self.interpreter.halted
         {
+            // Reset after submission, cancellation, or a read error.
+            multiline.store(false, Ordering::Relaxed);
             let prompt_text = if self.interpreter.has_command("prompt")
                 {
                     let (result, bytes) = self.interpreter.capture_stdout(|interpreter|
@@ -554,7 +602,7 @@ impl Repl
 
                     if result.is_err()
                     {
-                        default_prompt(&self.interpreter)
+                        default_prompt(&self.interpreter, self.color_mode)
                     }
                     else
                     {
@@ -563,7 +611,7 @@ impl Repl
                 }
                 else
                 {
-                    default_prompt(&self.interpreter)
+                    default_prompt(&self.interpreter, self.color_mode)
                 };
 
             prompt.prompt_text = prompt_text;
@@ -699,7 +747,7 @@ impl Repl
         ctrl_binding(keybindings, KeyCode::Backspace, simple(EditCommand::BackspaceWord));
         ctrl_binding(keybindings, KeyCode::Delete, simple(EditCommand::DeleteWord));
 
-        ctrl_binding(keybindings, KeyCode::Enter, simple(EditCommand::InsertNewline));
+        ctrl_binding(keybindings, KeyCode::Enter, ReedlineEvent::Submit);
         shift_binding(keybindings, KeyCode::Enter, simple(EditCommand::InsertNewline));
     }
 }

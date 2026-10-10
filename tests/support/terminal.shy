@@ -119,3 +119,85 @@ fn repl_matches($kind: String, $expected: String, $output: String): Boolean
     if $kind == "quiet" { return true }
     ($kind == "output") && ($output.contains "\n${expected}\n")
 }
+
+# Raw PTY assertions for multiline capability detection and monochrome rendering.
+fn check_multiline_colors($cases: Array)
+{
+    fn raw_edit_keys($terminal: Terminal, $keys: String): String
+    {
+        terminal_write $terminal $keys
+        let $raw = ""
+        for $attempt in 0..50
+        {
+            let $reply = terminal_read $terminal 100
+            require (!$reply["eof"]) "editor exited while editing"
+            $raw = $raw + $reply["text"]
+            if $reply["timed_out"] { return $raw }
+        }
+        fail "editor did not settle"
+    }
+
+    # Reedline may emit a reset; monochrome must never enable a color or style.
+    fn require_monochrome($raw: String, $monochrome: Boolean)
+    {
+        if !$monochrome { return }
+        let $chunks = ($raw.replace "\x1b[0m" "").split "\x1b["
+        for $index in 1..$chunks.count
+        {
+            for $character in $chunks[$index].chars
+            {
+                if ("@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~".contains $character)
+                {
+                    require ($character != "m") "monochrome editor emitted styling"
+                    break
+                }
+            }
+        }
+    }
+
+    let $ctrl_enter = "\x1b[13;5u"
+    let $paste_start = "\x1b[200~"
+    let $paste_end = "\x1b[201~"
+
+    for ($term, $color_term, $mono, $no_color, $yellow) in $cases
+    {
+        let $monochrome = $mono || $no_color || ($term == "dumb")
+        let $environment = ["HOME": $args[0], "PATH": "/usr/bin:/bin", "TERM": $term,
+                            "LANG": "C.UTF-8"]
+        if $color_term != "" { $environment["COLORTERM"] = $color_term }
+        if $no_color { $environment["NO_COLOR"] = "1" }
+        let $options = if $mono { ["--norc", "-m", "-b"] } else { ["--norc", "-b"] }
+        let $terminal = open_terminal [`$shelly, $options...] [
+            "cwd": $args[0], "env": $environment, "rows": 40, "columns": 140,
+        ]
+        let _ = drain $terminal
+        let $raw = raw_edit_keys $terminal "${paste_start}let \$colored = [1,${paste_end}"
+        require_monochrome $raw $monochrome
+        require (!(($raw.contains "\x1b[33m$ ") || ($raw.contains "\x1b[33m# "))) "normal prompt marker is yellow"
+        let $raw = raw_edit_keys $terminal $ctrl_enter
+        require_monochrome $raw $monochrome
+        let $has_yellow = ($raw.contains "\x1b[33m$ ") || ($raw.contains "\x1b[33m# ")
+        require ($has_yellow == $yellow) "multiline prompt color does not match terminal capability"
+        let $raw = raw_edit_keys $terminal "\r2]"
+        require_monochrome $raw $monochrome
+        require (($raw.contains "\x1b[33m\r\n> ") == $yellow) "wrong continuation color"
+        let $raw = raw_edit_keys $terminal $ctrl_enter
+        require_monochrome $raw $monochrome
+        require (!(($raw.contains "\x1b[33m$ ") || ($raw.contains "\x1b[33m# "))) "submission retained yellow marker"
+        let $reply = submit $terminal "echo \$colored..."
+        require (repl_matches "output" "1 2" $reply["output"]) "color changed input contents"
+        let _ = raw_edit_keys $terminal $ctrl_enter
+        let $raw = raw_edit_keys $terminal "\x03"
+        require_monochrome $raw $monochrome
+        require (!(($raw.contains "\x1b[33m$ ") || ($raw.contains "\x1b[33m# "))) "cancellation retained yellow marker"
+        let $reply = submit $terminal "let \$mono_one = 1; let \$mono_two = 2"
+        let $raw = raw_edit_keys $terminal "${paste_start}echo \$mono_${paste_end}\t\t"
+        require_monochrome $raw $monochrome
+        terminal_write $terminal "\x03"
+        let _ = drain $terminal
+        terminal_write $terminal "\x04"
+        let _ = drain $terminal
+        let $status = terminal_close $terminal
+        require ($status["exit_code"] == 0) "color session failed"
+    }
+}

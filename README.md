@@ -37,8 +37,14 @@ REPL. `$args` is an array of the supplied arguments, excluding the script filena
 `$args...` passes its elements as separate arguments. Shell options go before the
 script filename or script arguments. Use `--help` for all options.
 
-In the REPL, Ctrl+Enter or Shift+Enter inserts a newline for multiline input;
-Enter submits the buffer. Definitions and variables persist between submissions.
+In the REPL, Ctrl+Enter switches to multiline entry without changing prompt width.
+The prompt marker and continuation `>` turn yellow on 256-color and true-color
+terminals while multiline entry is active. Monochrome mode disables editor and
+default-prompt coloring.
+Enter then inserts a newline at the cursor; Ctrl+Enter again submits the
+whole buffer and restores normal entry. Ctrl+C discards the buffer and restores
+normal entry. Outside multiline mode, Enter submits as usual. Shift+Enter always
+inserts a newline. Definitions and variables persist between submissions.
 Leave with `exit` or Ctrl+D. Tab completes a unique name or common prefix; a
 second Tab opens the completion menu. Arrow keys navigate an open menu.
 Ctrl+Enter and Shift+Enter require a terminal that reports those key combinations.
@@ -1507,7 +1513,7 @@ scripts, or the REPL. `cargo clippy --locked --all-targets` runs the Rust lints.
 ./target/debug/shelly -m test.shy C001
 ```
 
-The suite includes 4,105 process cases, 89 stateful REPL scenarios, prompt/path
+The suite includes 4,105 process cases, 92 stateful REPL scenarios, prompt/path
 checks, watchdog probes, native API tests, and harness failure controls. All
 orchestration and assertions run in Shelly; no Python, pexpect, or other shell is
 needed. Standard Unix utilities still provide file operations and byte/regex

@@ -1,0 +1,5 @@
+check_multiline_colors [
+    ["xterm-256color", "", false, false, true],
+    ["xterm", "truecolor", false, false, true],
+    ["xterm", "", false, false, false],
+]

@@ -1,0 +1,93 @@
+# Exercise actual key events, including enhanced Ctrl+Enter and Shift+Enter.
+fn edit_keys($terminal: Terminal, $keys: String): String
+{
+    terminal_write $terminal $keys
+    let $raw = ""
+    for $attempt in 0..50
+    {
+        let $reply = terminal_read $terminal 100
+        require (!$reply["eof"]) "editor exited while editing"
+        $raw = $raw + $reply["text"]
+        if $reply["timed_out"] { return (strip_ansi $raw) }
+    }
+    fail "editor did not settle"
+}
+
+let $terminal = session $args[0]
+let _ = drain $terminal
+let $ctrl_enter = "\x1b[13;5u"
+let $shift_enter = "\x1b[13;2u"
+let $paste_start = "\x1b[200~"
+let $paste_end = "\x1b[201~"
+
+# Switching modes preserves the buffer without submitting or inserting a newline.
+let _ = edit_keys $terminal "${paste_start}fn multiline_value()${paste_end}"
+let $output = edit_keys $terminal $ctrl_enter
+require (!($output.contains "[multiline]")) "mode toggle changed prompt alignment"
+require (!($output.contains "Error processing text:")) "toggle submitted incomplete text"
+for $line in ["{", "42", "}"]
+{
+    let $output = edit_keys $terminal "\r${paste_start}${line}${paste_end}"
+    require (!($output.contains "Error processing text:")) "Enter submitted multiline buffer"
+}
+terminal_write $terminal $ctrl_enter
+let $reply = drain $terminal
+require (repl_matches "quiet" "" $reply["output"]) "multiline definition failed"
+let $reply = submit $terminal "echo (multiline_value)"
+require (repl_matches "output" "42" $reply["output"]) "normal Enter not restored"
+
+# Enter splits at the cursor, preserving text to its right.
+let _ = edit_keys $terminal "${paste_start}let \$pair = [1, 2]${paste_end}${ctrl_enter}"
+let _ = edit_keys $terminal "\x1b[D\x1b[D\r3, "
+terminal_write $terminal $ctrl_enter
+let $reply = drain $terminal
+require (repl_matches "quiet" "" $reply["output"]) "cursor insertion damaged buffer"
+let $reply = submit $terminal "echo \$pair..."
+require (repl_matches "output" "1 3 2" $reply["output"]) "newline was not inserted at cursor"
+
+# Cancellation discards pending code and resets the mode.
+let $reply = submit $terminal "let \$kept = 7"
+let _ = edit_keys $terminal "${ctrl_enter}${paste_start}\$kept = 99${paste_end}\r"
+terminal_write $terminal "\x03"
+let _ = drain $terminal
+let $reply = submit $terminal "echo \$kept"
+require (repl_matches "output" "7" $reply["output"]) "Ctrl+C submitted or retained mode"
+
+# Both empty submission and rejected source leave normal Enter working.
+let _ = edit_keys $terminal $ctrl_enter
+terminal_write $terminal $ctrl_enter
+let _ = drain $terminal
+for $source in ["let", "1 / 0"]
+{
+    let _ = edit_keys $terminal "${ctrl_enter}${paste_start}${source}${paste_end}"
+    terminal_write $terminal $ctrl_enter
+    let $reply = drain $terminal
+    require (repl_matches "error" "" $reply["output"]) "invalid source did not fail"
+    let $reply = submit $terminal "echo (multiline_value)"
+    require (repl_matches "output" "42" $reply["output"]) "error retained multiline mode"
+}
+
+# Shift+Enter remains a one-off newline without toggling multiline mode.
+let _ = edit_keys $terminal "${paste_start}let \$shifted = [1,${paste_end}${shift_enter}2]"
+terminal_write $terminal "\r"
+let $reply = drain $terminal
+require (repl_matches "quiet" "" $reply["output"]) "Shift+Enter changed behavior"
+let $reply = submit $terminal "echo \$shifted..."
+require (repl_matches "output" "1 2" $reply["output"]) "Shift+Enter damaged buffer"
+
+# A completion menu must not consume the Ctrl+Enter submission.
+let $reply = submit $terminal "let \$choice_one = 1; let \$choice_two = 2"
+let _ = edit_keys $terminal "${ctrl_enter}${paste_start}echo \$choice_${paste_end}"
+let _ = edit_keys $terminal "\t"
+let _ = edit_keys $terminal "\t"
+terminal_write $terminal $ctrl_enter
+let $reply = drain $terminal
+require (repl_matches "error" "not found" $reply["output"]) "completion swallowed submission"
+let $reply = submit $terminal "echo (multiline_value)"
+require (repl_matches "output" "42" $reply["output"]) "menu submission retained mode"
+
+terminal_write $terminal "\x04"
+let $reply = drain $terminal
+require $reply["eof"] "Ctrl+D did not exit"
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "editor session failed"
