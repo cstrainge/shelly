@@ -1,7 +1,7 @@
 # MODULE-062: incompatible module nominal type
 let $module_fixture = $args[0]
-printf "%s" ("struct S {}".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/one.shy"
-printf "%s" ("struct S {}".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/two.shy"
+printf "%s" ("pub struct S {}".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/one.shy"
+printf "%s" ("pub struct S {}".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/two.shy"
 check [
     "id": "MODULE-062",
     "name": "incompatible module nominal type",

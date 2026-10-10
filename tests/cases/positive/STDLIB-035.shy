@@ -1,7 +1,7 @@
 # STDLIB-035: prelude resolves directly to prelude shy
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
-printf "%s" ("struct Direct {}".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("pub struct Direct {}".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
 mkdir -p "${std_fixture}/std/std"
 printf "%s" ("echo wrong".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/std/prelude.shy"
 printf "%s" ("echo Direct()".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"

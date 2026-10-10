@@ -1,0 +1,28 @@
+# Visibility, reference identities and rollback across REPL submissions.
+let $fixture = $args[0]
+printf "%s" 'let $private = 4; pub let $value = 7; pub struct Item { n: Integer }; fn hidden(): Integer { $private }; pub fn read(): Integer { hidden }; fn Item::secret(): Integer { $self.n }; pub fn Item::read(): Integer { $self.secret }' -> "${fixture}/api.shy"
+printf "%s" 'import api::{ read, $value, Item }; pub fn wrapper(): Integer { read }' -> "${fixture}/bridge.shy"
+printf "%s" 'pub import api::{ read, $value, Item }; pub visible `cd; pub fn broken(): Missing { () }' -> "${fixture}/broken.shy"
+check_repl ["id": "MODULE-PRIVACY", "name": "Module privacy across submissions", "steps": [
+    ['import api; let $item = api::Item(n: 3); echo (api::read) $item.read', "output", "4 3"],
+    ['api::hidden', "error", "unavailable"],
+    ['echo $api::private', "error", "not found"],
+    ['echo $item.secret', "error", "field"],
+    ['import api::{ read, $value }; let $saved = `read', "quiet", ""],
+    ['$value = 9; echo $api::value ($saved)', "output", "9 4"],
+    ['pub fn local(): Integer { 1 }; pub let $local = 2', "quiet", ""],
+    ['fn local(): Integer { 3 }; let $local = 4; echo (local) $local', "output", "3 4"],
+    ['import bridge; echo (bridge::wrapper)', "output", "4"],
+    ['bridge::read', "error", "unavailable"],
+    ['let $x: bridge::Item', "error", "Unknown type"],
+    ['bridge::api::read', "error", "unavailable"],
+    ['import broken::{ read, $value }; pub visible `cd', "error", "Unknown type"],
+    ['broken::read', "error", "Unknown type"],
+    ['echo ($saved) $value $item.read', "output", "4 9 3"],
+    ['pub visible', "error", "expects"],
+    ['fn bad() { pub visible `cd }', "error", "pub is only allowed"],
+    ['pub visible `api::read; echo (read)', "output", "4"],
+    ['visible --export `cd', "error", "use pub visible"],
+    ['pub import api::{ read }; echo (read)', "output", "4"],
+    ['echo $item.read $value ($saved)', "output", "3 9 4"]
+], "exit": 0]

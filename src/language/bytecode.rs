@@ -7,6 +7,8 @@ pub enum Code
 {
     Push,
     Execute,
+    // Consume a symbol reference and publish it in the current module (`pub visible`).
+    PublishSymbol,
     // Operand: [stream (1 stdout, 2 stderr, 3 both), variable, pending targets].
     BeginRedirect,
     EndRedirect,

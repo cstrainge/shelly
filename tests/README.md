@@ -82,6 +82,19 @@ iteration, module/prelude imports, redeclarations, and atomic failed writes.
 The native and REPL `function_types.shy` tests cover function prototypes, `any`,
 call-time contracts, higher-order functions, live methods, imports, versioned
 references, signature mismatches, and failed-call recovery.
+The native and REPL `widgets.shy` tests check the predefined `WidgetFn` type and
+typed `$widgets` array, callback captures, module initialization, incompatible
+signatures, return contracts, and recovery after rejected assignments.
+`repl/widget_prompt.shy` checks ordered widget rendering, empty and Unicode
+results, live captures, stdout isolation, list mutations, imported prompts,
+temporary variable cleanup, and recovery after widget or prompt errors.
+`repl/last_cmd_time.shy` checks previous-command duration, failed commands, blank
+input, prompt/widget timing isolation, and imported widget access.
+The native and REPL `workspace_widgets.shy` tests check Python and Node workspace
+detection, parent directories, paths with spaces, version-source precedence,
+matching and differing versions, missing Node, and environment/PATH changes after
+import. Native checks also exercise `package.json` parsing when Node is installed;
+REPL checks verify recovery and environment cleanup after a failed widget.
 The native and REPL `anonymous_functions.shy` tests cover function literals,
 live lexical captures, returned and nested closures, shared and independent
 bindings, caller shadowing, live receivers, typed collections, module interfaces,
@@ -92,6 +105,9 @@ short-circuit guards, typed collections, mutation invalidation, metadata errors,
 and recovery after failed checks.
 `native/visibility.shy` and `repl/visibility.shy` check native and scripted exports,
 private bindings, re-exports, callable identity, diagnostics, and REPL recovery.
+The native and REPL `module_privacy.shy` tests check private-by-default declarations,
+`pub` interfaces, methods and iterators, aliases, private imports and public re-exports,
+prelude isolation, `pub visible`, invalid modifiers, and failed-submission recovery.
 `repl/prelude_reload*.shy` checks reload identity, scope isolation, cached dependencies,
 and recovery after failed reloads. The native and REPL `prelude_startup.shy` tests
 check explicit profile reloads and availability in later startup scripts.

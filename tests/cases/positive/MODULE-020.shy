@@ -1,6 +1,6 @@
 # MODULE-020: callback executes in its home scope
 let $module_fixture = $args[0]
-printf "%s" ("let \$value = 1; fn call(\$callback) { \$callback }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+printf "%s" ("pub let \$value = 1; pub fn call(\$callback) { \$callback }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
 check [
     "id": "MODULE-020",
     "name": "callback executes in its home scope",

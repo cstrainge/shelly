@@ -980,6 +980,15 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
                              function_block: &FunctionBlockRef,
                              execute_statement: &AstExecuteStatement) -> CompileResult<()>
 {
+    if execute_statement.public
+    {
+        compile_expression_mode(instructions, function_block, &execute_statement.arguments[0],
+                                ExpressionMode::Argument)?;
+        instructions.push(Instruction { location: None, code: Code::PushResult, operand: None });
+        instructions.push(Instruction { location: Some(execute_statement.location.clone()),
+            code: Code::PublishSymbol, operand: None });
+        return Ok(());
+    }
     if matches!(
         execute_statement.executable.kind,
         AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _)
@@ -1175,7 +1184,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     // On successful continuation, both instructions consume the result.
                     Code::PushResult | Code::CheckResult | Code::EndIteration => true,
 
-                    Code::PopResult | Code::Execute | Code::TryExecute
+                    Code::PopResult | Code::Execute | Code::PublishSymbol | Code::TryExecute
                     | Code::RedirectSource
                     | Code::ExecuteIfExecutable | Code::MakeExecutable | Code::MakeClosure
                     | Code::ToBoolean | Code::ConvertType | Code::BooleanNot | Code::MathNegate

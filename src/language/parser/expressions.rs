@@ -863,6 +863,7 @@ fn parse_operator_to_symbol(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
 {
     let allowed_operators = [ TokenKind::Let,
                               TokenKind::Export,
+                              TokenKind::Public,
                               TokenKind::Alias,
                               TokenKind::Sub,
                               TokenKind::If,
@@ -1115,6 +1116,7 @@ fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
                     location: location.clone(),
                     kind: AstExpressionKind::Execute(Box::new(AstExecuteStatement
                         {
+                            public: false,
                             location,
                             expand_path: matches!(&expression.kind,
                                 AstExpressionKind::Symbol(symbol) if symbol.name.starts_with('~')),

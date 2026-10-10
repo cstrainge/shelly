@@ -302,10 +302,11 @@ impl TypeRegistry
         }
     }
 
-    pub fn import_extensions(&mut self, source: &Self, receiver: TypeId)
+    pub fn import_extensions(&mut self, source: &Self, receiver: TypeId,
+                             public: impl Fn(TypeId, &str) -> bool)
     {
         self.extensions.extend(source.extensions.iter()
-            .filter(|(id, _)| *id == receiver).cloned());
+            .filter(|(id, name)| *id == receiver && public(*id, name)).cloned());
     }
 
     pub fn has_extension(&self, receiver: TypeId, name: &str) -> bool
@@ -408,6 +409,10 @@ impl TypeRegistry
         {
             registry.register_native(name.to_string(), TypeKind::Builtin, NativeVisibility::Visible);
         }
+        let string = registry.builtin_id("String").unwrap();
+        let widget_function = registry.intern(TypeKind::Function(Vec::new(), string));
+        registry.register_native("WidgetFn".to_string(), TypeKind::Named(widget_function),
+                                 NativeVisibility::Visible);
         register_methods(&mut registry);
         registry
     }

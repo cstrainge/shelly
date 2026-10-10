@@ -3,9 +3,9 @@ let $module_fixture = $args[0]
 mkdir -p "${module_fixture}/app"
 printf "%s" ("import foo; foo::ping".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/app/main.shy"
 mkdir -p "${module_fixture}/app"
-printf "%s" ("fn ping() { echo \"sibling\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/app/foo.shy"
+printf "%s" ("pub fn ping() { echo \"sibling\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/app/foo.shy"
 mkdir -p "${module_fixture}/lib"
-printf "%s" ("fn ping() { echo \"path\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/lib/foo.shy"
+printf "%s" ("pub fn ping() { echo \"path\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/lib/foo.shy"
 check [
     "id": "MODULE-042",
     "name": "sibling wins over module path",

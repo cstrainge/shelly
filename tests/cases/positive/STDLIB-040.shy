@@ -1,9 +1,9 @@
 # STDLIB-040: prelude loads dependencies without implicit recursion
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
-printf "%s" ("import std::types::{ Shared }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("pub import std::types::{ Shared }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
 mkdir -p "${std_fixture}/std"
-printf "%s" ("struct Shared { code: Integer }; fn read() { 3 }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/types.shy"
+printf "%s" ("pub struct Shared { code: Integer }; pub fn read() { 3 }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/types.shy"
 printf "%s" ("import std::types; let \$s: Shared = Shared(code: 4); echo \$s (std::types::read)".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-040",

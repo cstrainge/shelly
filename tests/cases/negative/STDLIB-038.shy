@@ -1,7 +1,7 @@
 # STDLIB-038: prelude type error stops startup
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
-printf "%s" ("let \$bad: Integer = \"bad\"".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("pub let \$bad: Integer = \"bad\"".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
 printf "%s" ("echo wrong".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-038",

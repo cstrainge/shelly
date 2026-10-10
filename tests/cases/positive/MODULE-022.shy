@@ -1,7 +1,7 @@
 # MODULE-022: selected names can be reexported
 let $module_fixture = $args[0]
-printf "%s" ("import bar::{ ping }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
-printf "%s" ("fn ping() { echo \"nested\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/bar.shy"
+printf "%s" ("pub import bar::{ ping }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+printf "%s" ("pub fn ping() { echo \"nested\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/bar.shy"
 check [
     "id": "MODULE-022",
     "name": "selected names can be reexported",

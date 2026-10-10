@@ -1,0 +1,36 @@
+# Builtin widget callbacks use the ordinary named function and array contracts.
+fn widget_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "${fixture}/std", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $stdout) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "widget callback mismatch" }
+}
+
+widget_case 'echo $widgets.count; let $copy: [WidgetFn] = $widgets; echo $copy.count' "0\n0\n" ""
+widget_case 'fn label(): String { "named" }; $widgets = [`label, fn (): String { "closure" }]; for $widget in $widgets { echo ($widget) ($widget.type == WidgetFn) }' "named true\nclosure true\n" ""
+widget_case 'let $text = "before"; $widgets = [fn (): String { $text }]; $text = "after"; echo ($widgets[0])' "after\n" ""
+widget_case '$widgets = [fn (): String { "first" }]; $widgets = [$widgets..., fn (): String { "second" }]; $widgets[0] = fn (): String { "changed" }; for $widget in $widgets { echo ($widget) }; $widgets = []; echo $widgets.count' "changed\nsecond\n0\n" ""
+widget_case 'let $widget: WidgetFn = fn (): String { "typed" }; echo ($widget)' "typed\n" ""
+widget_case '$widgets = [7]' "" "requires a bound function"
+widget_case '$widgets = [fn ($n: Integer): String { String($n) }]' "" "arity is incompatible"
+widget_case '$widgets = [fn (): Integer { 7 }]' "" "return type is incompatible"
+widget_case '$widgets = [fn (): any { 7 }]; $widgets[0]' "" "Return value: Expected String"
+widget_case '$widgets = [fn (): String { "good" }]; $widgets[0] = fn (): Integer { 7 }' "" "return type is incompatible"
+widget_case '$widgets = [fn (): String { "good" }]; for $widget in $widgets { let $bad: Integer = ($widget) }' "" "Expected Integer, got String"
+
+let $fixture = $args[0]
+printf "%s" 'echo $widgets.count; pub let $callback: WidgetFn = fn (): String { "module" }; $widgets = [$callback]; pub fn widget_count(): Integer { $widgets.count }' -> "${fixture}/widget_module.shy"
+widget_case 'import widget_module; echo (widget_module::widget_count) $widgets.count; echo ($widget_module::callback.type == WidgetFn)' "0\n1 0\ntrue\n" ""

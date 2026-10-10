@@ -1,6 +1,6 @@
 # MODULE-044: conditions see caller before imported module
 let $module_fixture = $args[0]
-printf "%s" ("import absent when \$OS != \$OS; fn ping() { echo \"ok\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+printf "%s" ("pub import absent when \$OS != \$OS; pub fn ping() { echo \"ok\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
 check [
     "id": "MODULE-044",
     "name": "conditions see caller before imported module",

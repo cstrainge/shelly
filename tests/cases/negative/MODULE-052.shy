@@ -1,6 +1,6 @@
 # MODULE-052: self import cycle
 let $module_fixture = $args[0]
-printf "%s" ("import foo".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+printf "%s" ("pub import foo".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
 check [
     "id": "MODULE-052",
     "name": "self import cycle",

@@ -1,22 +1,23 @@
 visible "Terminal"
 let $fixture = $args[0]
-printf "%s" "visible --export \"Terminal\"; visible --export `cd; fn name(): String { \"exposed\" }" -> "${fixture}/exposed.shy"
-printf "%s" "visible \"Terminal\"; visible `cd; fn move() { cd \".\" }" -> "${fixture}/private.shy"
-printf "%s" "visible --export `cd; visible --export \"Terminal\"; let \$broken: Integer = \"wrong\"" -> "${fixture}/broken.shy"
+printf "%s" "pub visible \"Terminal\"; pub visible `cd; pub fn name(): String { \"exposed\" }" -> "${fixture}/exposed.shy"
+printf "%s" "visible \"Terminal\"; visible `cd; pub fn move() { cd \".\" }" -> "${fixture}/private.shy"
+printf "%s" "pub visible `cd; pub visible \"Terminal\"; pub let \$broken: Integer = \"wrong\"" -> "${fixture}/broken.shy"
 check_repl ["id": "VISIBILITY", "name": "VISIBILITY", "steps": [
     ["import exposed; let \$saved = `exposed::cd", "quiet", ""],
     ["\$saved \".\"; echo ok", "output", "ok"],
-    ["visible --export \$saved; visible \"exposed::Terminal\"", "quiet", ""],
+    ["pub visible \$saved; visible \"exposed::Terminal\"", "quiet", ""],
     ["fn identity(\$v: Terminal): Terminal { \$v }", "quiet", ""],
     ["import private; private::move", "quiet", ""],
     ["private::cd \".\"", "error", "unavailable"],
     ["import broken", "error", "Type error"],
     ["broken::cd \".\"", "error", "Unknown type"],
     ["echo (exposed::name); \$saved \".\"", "output", "exposed"],
-    ["visible --export \"MissingType\"", "error", "not registered"],
-    ["let \$flag = \"--export\"; visible \$flag \$saved", "quiet", ""],
+    ["pub visible \"MissingType\"", "error", "not registered"],
+    ["let \$flag = \"--export\"; visible \$flag \$saved", "error", "use pub visible"],
+    ["pub visible \$saved", "quiet", ""],
     ["visible `missing_function", "error", "not registered"],
     ["let \$type = \"Terminal\"; visible \$type", "quiet", ""],
     ["fn again(\$value: Terminal): Terminal { \$value }; echo ok", "output", "ok"],
-    ["visible --export `exposed::name; echo (name)", "output", "exposed"]
+    ["pub visible `exposed::name; echo (name)", "output", "exposed"]
 ], "exit": 0]

@@ -1,7 +1,7 @@
 # STDLIB-034: prelude searches later directories
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/two"
-printf "%s" ("struct Later {}".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/two/prelude.shy"
+printf "%s" ("pub struct Later {}".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/two/prelude.shy"
 printf "%s" ("echo Later()".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-034",

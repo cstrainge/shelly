@@ -2,6 +2,9 @@
 check_repl [
     "id": "PLATFORM", "name": "host OS in the REPL", "exit": 0,
     "steps": [
+        ['echo (($pid.type == Integer) && ($pid != 0))', "output", "true"],
+        ['let $saved_pid: Integer = $pid', "quiet", ""],
+        ['echo ($saved_pid == $pid)', "output", "true"],
         ['echo ($os == $OS)', "output", "true"],
         ['fn host_family() { if $os == "macos" { "bsd" } else { "unix" } }', "quiet", ""],
         ['echo (host_family)', "output", (if $os == "macos" { "bsd" } else { "unix" })],

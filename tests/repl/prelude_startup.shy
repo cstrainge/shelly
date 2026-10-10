@@ -1,11 +1,11 @@
 # The profile selects the prelude; the interactive init file can use its types.
 let $fixture = $args[0]
 mkdir -p "${fixture}/env-std" "${fixture}/profile-std"
-printf "%s" 'echo "wrong-prelude"; struct Wrong {}' -> "${fixture}/env-std/prelude.shy"
-printf "%s" 'echo "prelude-ready"; struct ProfileType {}' -> "${fixture}/profile-std/prelude.shy"
+printf "%s" 'echo "wrong-prelude"; pub struct Wrong {}' -> "${fixture}/env-std/prelude.shy"
+printf "%s" 'echo "prelude-ready"; pub struct ProfileType {}' -> "${fixture}/profile-std/prelude.shy"
 printf "%s" "echo profile-ready; let export \$SHELLY_STD_PATH = \"${fixture}/profile-std\"; prelude_reload" -> "${fixture}/.shelly_profile.shy"
 printf "%s" "echo init-ready ProfileType(); \$SHELLY_STD_PATH = \"${fixture}/env-std\"" -> "${fixture}/.shelly_init.shy"
-printf "%s" 'fn build(): ProfileType { ProfileType() }' -> "${fixture}/helper.shy"
+printf "%s" 'pub fn build(): ProfileType { ProfileType() }' -> "${fixture}/helper.shy"
 let $terminal = open_terminal [`$shelly, "--login", "-m", "-b"] [
     "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "${fixture}/bin:/usr/bin:/bin",
         "TERM": "xterm-256color", "LANG": "C.UTF-8", "SHELLY_STD_PATH": "${fixture}/env-std"],

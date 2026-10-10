@@ -12,10 +12,11 @@ use crate::language::{ ast::{ AstExpression, AstExpressionKind, AstImportStateme
                               AstStatement, AstTopLevel },
                        bytecode::{ FunctionRef, Instruction },
                        data::{ scoped_variables::{ ScopedValue, ValueReference, ValueVisibility },
-                               types::{ TypeDefinition, TypeId }, value::Value },
+                               types::{ TypeDefinition, TypeId }, value::Value,
+                               methods::method_key },
                        native::NativeFunction,
                        interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult,
-                                      scope::Scope },
+                                      scope::{ Alias, Scope } },
                        exclusions::exclude_statements,
                        parser::parse_text,
                        text::{ location::Location, read_buffer::ReadBuffer },
@@ -32,6 +33,15 @@ pub(super) struct Prelude
 }
 
 
+#[derive(Default)]
+struct ModuleBindings
+{
+    types: HashMap<String, TypeId>,
+    functions: HashSet<String>,
+    methods: HashMap<String, FunctionRef>,
+}
+
+
 fn module_error(location: &Location, message: impl Into<String>) -> InterpreterError
 {
     InterpreterError { location: location.clone(), what: ErrorWhat::ModuleError(message.into()) }
@@ -43,20 +53,36 @@ impl Interpreter
     // Return the original module and member, never a copied declaration.
     fn module_member<'a>(&'a self, name: &'a str) -> Option<(&'a Scope, &'a str)>
     {
-        let mut scope = self.scope();
+        self.module_member_in(self.scope(), name)
+    }
+
+    fn module_member_in<'a>(&'a self, mut scope: &'a Scope, name: &'a str)
+        -> Option<(&'a Scope, &'a str)>
+    {
         let mut member = name;
+        let mut local = true;
         while member.contains("::")
         {
             // Imports may bind a compound namespace such as std::net. Prefer the
             // longest bound prefix, then continue through the target module's imports.
             let (namespace, key) = scope.modules.iter()
                 .filter(|(namespace, _)| member.strip_prefix(namespace.as_str())
-                    .is_some_and(|tail| tail.starts_with("::")))
+                    .is_some_and(|tail| tail.starts_with("::"))
+                    && (local || scope.exports.contains(namespace.as_str())))
                 .max_by_key(|(namespace, _)| namespace.len())?;
             member = &member[namespace.len() + 2..];
             scope = self.scopes.get(key)?;
+            local = false;
         }
         scope.exports.contains(member).then_some((scope, member))
+    }
+
+    pub(super) fn module_alias_in(&self, home: &str, name: &str) -> Option<Rc<Alias>>
+    {
+        let scope = self.scopes.get(home)?;
+        if !name.contains("::") { return scope.aliases.get(name).cloned(); }
+        let (scope, name) = self.module_member_in(scope, name)?;
+        scope.aliases.get(name).cloned()
     }
 
     pub(super) fn module_function(&self, name: &str) -> Option<FunctionRef>
@@ -94,7 +120,10 @@ impl Interpreter
 
     pub(super) fn module_method(&self, id: TypeId, key: &str) -> Option<FunctionRef>
     {
-        self.scopes.get(self.type_scopes.get(&id)?)?.base_function(key)
+        let home = self.type_scopes.get(&id)?;
+        let scope = self.scopes.get(home)?;
+        if *home != self.current_scope && !scope.exports.contains(key) { return None; }
+        scope.base_function(key)
     }
 
     fn evaluate_condition(&mut self, condition: AstExpression) -> InterpreterResult<bool>
@@ -112,7 +141,7 @@ impl Interpreter
         let previous = self.last_result.take();
         let result = (||
             {
-                self.refresh_module_names();
+                self.refresh_module_names()?;
                 let mut condition = vec![AstStatement::ExpressionStatement(expression)];
                 let code = self.scope_mut().compile_condition(&mut condition)?;
                 self.execute_instructions(&code)?;
@@ -217,6 +246,7 @@ impl Interpreter
         let location = Location::new("<prelude>", 1, 1);
         let import = AstImportStatement
             {
+                public: false,
                 location: location.clone(), module: "std::prelude".into(), names: Vec::new(),
                 condition: None, enabled: true,
             };
@@ -240,7 +270,7 @@ impl Interpreter
             self.current_scope = caller;
             result?;
         }
-        self.refresh_module_names();
+        self.refresh_module_names()?;
         Ok(())
     }
 
@@ -256,6 +286,7 @@ impl Interpreter
         { return Err(module_error(location, "Cannot reload the prelude while it is loading")); }
         let import = AstImportStatement
             {
+                public: false,
                 location: location.clone(), module: "std::prelude".into(), names: Vec::new(),
                 condition: None, enabled: true,
             };
@@ -286,12 +317,12 @@ impl Interpreter
             }
         }
         if let Err(error) = self.install_prelude(location)
+            .and_then(|()| self.refresh_module_names())
         {
             self.scopes.insert(self.current_scope.clone(), checkpoint);
             self.prelude = previous;
             return Err(error);
         }
-        self.refresh_module_names();
         self.last_result = Some(Value::None);
         Ok(())
     }
@@ -313,7 +344,6 @@ impl Interpreter
         scope.types.names.extend(prelude.types.iter().map(|(name, item)| (name.clone(), item.id)));
         scope.prelude_types = prelude.types.iter()
             .map(|(name, item)| (name.clone(), item.id)).collect();
-        scope.exports.extend(prelude.types.keys().cloned());
         scope.imported_types.extend(prelude.types);
         scope.modules.insert("std::prelude".into(), prelude.scope);
         scope.types.module_names.insert("std".into());
@@ -440,53 +470,110 @@ impl Interpreter
                 }
                 self.scope_mut().import_function(name.clone(), function);
             }
+            else if let Some(alias) = module.aliases.get(name).cloned()
+            {
+                if self.scope().aliases.get(name).is_some_and(|item| !Rc::ptr_eq(item, &alias))
+                { return Err(module_error(&import.location,
+                    format!("Alias '{}' is already bound", name))); }
+                self.scope_mut().aliases.insert(name.clone(), alias);
+            }
+            else if let Some(key) = module.modules.get(name).cloned()
+            {
+                if self.scope().modules.get(name).is_some_and(|item| *item != key)
+                { return Err(module_error(&import.location,
+                    format!("Module '{}' is already bound", name))); }
+                self.scope_mut().modules.insert(name.clone(), key);
+                self.scope_mut().types.module_names
+                    .insert(name.split("::").next().unwrap().to_string());
+            }
             else
             {
                 return Err(module_error(&import.location,
                     format!("Member '{}' cannot be imported", name)));
             }
-            self.scope_mut().exports.insert(name.clone());
+            if import.public { self.scope_mut().exports.insert(name.clone()); }
         }
         self.scope_mut().modules.insert(import.module.clone(), key.to_string());
+        if import.public && import.names.is_empty()
+        { self.scope_mut().exports.insert(import.module.clone()); }
         Ok(())
     }
 
-    fn refresh_module_names(&mut self)
+    fn refresh_module_names(&mut self) -> InterpreterResult<()>
     {
         fn collect(scopes: &HashMap<String, Scope>, scope: &Scope, prefix: &str,
-                   names: &mut HashMap<String, TypeId>, functions: &mut HashSet<String>,
-                   visiting: &mut HashSet<String>)
+                   bindings: &mut ModuleBindings,
+                   visiting: &mut HashSet<String>, local: bool) -> InterpreterResult<()>
         {
             for (name, key) in &scope.modules
             {
+                if !local && !scope.exports.contains(name) { continue; }
                 if !visiting.insert(key.clone()) { continue; }
                 let module = &scopes[key];
                 let prefix = format!("{}{}::", prefix, name);
                 for name in &module.exports
                 {
+                    if name.starts_with("\0method:")
+                    {
+                        if let Some(function) = module.base_function(name)
+                        {
+                            if bindings.methods.get(name)
+                                .is_some_and(|item| !Rc::ptr_eq(item, &function))
+                            {
+                                let receiver = module.types
+                                    .get(function.argument_types[0].unwrap());
+                                let member = name.rsplit(':').next().unwrap();
+                                let location = function.code.iter()
+                                    .find_map(|instruction| instruction.location.as_ref())
+                                    .cloned().unwrap_or_default();
+                                return Err(module_error(&location, format!(
+                                    "Public method '{}::{}' is already bound",
+                                    receiver.name, member)));
+                            }
+                            bindings.methods.insert(name.clone(), function);
+                        }
+                        continue;
+                    }
                     if let Some(id) = module.types.names.get(name)
-                    { names.insert(format!("{}{}", prefix, name), *id); }
+                    { bindings.types.insert(format!("{}{}", prefix, name), *id); }
                     if module.base_function(name).is_some()
                         || module.native_functions.contains_key(name)
-                    { functions.insert(format!("{}{}", prefix, name)); }
+                        || module.aliases.contains_key(name)
+                    { bindings.functions.insert(format!("{}{}", prefix, name)); }
                 }
-                collect(scopes, module, &prefix, names, functions, visiting);
+                collect(scopes, module, &prefix, bindings, visiting, false)?;
                 visiting.remove(key);
             }
+            Ok(())
         }
-        let mut names = HashMap::new();
-        let mut functions = HashSet::new();
+        let mut bindings = ModuleBindings::default();
         let mut visiting = HashSet::from([self.current_scope.clone()]);
-        collect(&self.scopes, self.scope(), "", &mut names, &mut functions, &mut visiting);
+        collect(&self.scopes, self.scope(), "", &mut bindings, &mut visiting, true)?;
+        let ModuleBindings { types: names, functions, methods } = bindings;
         let extensions: Vec<_> = names.values().filter_map(|id|
             {
-                Some((*id, self.scopes.get(self.type_scopes.get(id)?)?.types.clone()))
+                let source = self.scopes.get(self.type_scopes.get(id)?)?;
+                Some((*id, source.types.clone(), source.exports.clone()))
             }).collect();
         let types = &mut self.scope_mut().types;
-        for (id, source) in extensions { types.import_extensions(&source, id); }
+        for (id, source, exports) in extensions
+        {
+            types.import_extensions(&source, id,
+                |id, name| exports.contains(&method_key(id, name)));
+        }
         types.names.retain(|name, _| !name.contains("::"));
         types.names.extend(names);
         types.qualified_functions = functions;
+        for (key, function) in &methods
+        {
+            if let Some(Some(receiver)) = function.argument_types.first()
+            {
+                let name = key.rsplit(':').next().unwrap();
+                types.declare_extension(*receiver, name);
+            }
+        }
+        self.scope_mut().refresh_methods(methods);
+        Ok(())
     }
 
     fn compile_module(&mut self, statements: &mut AstTopLevel, imports: Vec<AstImportStatement>,
@@ -504,7 +591,7 @@ impl Interpreter
                     let key = self.load_module(&file, &import.location)?;
                     self.install_import(&import, &key)?;
                 }
-                self.refresh_module_names();
+                self.refresh_module_names()?;
                 self.prepare_visibility(statements)?;
                 let first_type = self.scope().types.definition_count();
                 let code = self.scope_mut().compile(statements)?;
@@ -512,17 +599,19 @@ impl Interpreter
                 { self.type_scopes.insert(TypeId(index), self.current_scope.clone()); }
                 for statement in statements
                 {
-                    let name = match statement
+                    // pub visible publishes the referenced name, not the builtin's name.
+                    if matches!(statement, AstStatement::ExecuteStatement(_)) { continue; }
+                    let Some((name, _, public)) = statement.module_declaration()
+                        else { continue; };
+                    let name = match &*statement
                         {
-                            AstStatement::LetStatement(item) => &item.identifier,
-                            AstStatement::FunctionDefinition(item) if item.receiver.is_none()
-                                => &item.name,
-                            AstStatement::EnumDeclaration(item) => &item.name,
-                            AstStatement::StructDeclaration(item) => &item.name,
-                            AstStatement::TypeDeclaration(item) => &item.name,
-                            _ => continue,
+                            AstStatement::FunctionDefinition(item)
+                                if item.receiver_type.is_some()
+                                => method_key(item.receiver_type.unwrap(), &item.name),
+                            _ => name.to_string(),
                         };
-                    self.scope_mut().exports.insert(name.clone());
+                    if public { self.scope_mut().exports.insert(name); }
+                    else { self.scope_mut().exports.remove(&name); }
                 }
                 Ok(code)
             })();

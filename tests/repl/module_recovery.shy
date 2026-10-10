@@ -1,7 +1,7 @@
 # MODULE-RECOVERY
 let $module_fixture = $args[0]
-printf "%s" "let \$value = 7; struct Point { x: Integer }; fn ping() { \$value }" -> "${module_fixture}/foo.shy"
-printf "%s" "struct Broken {}; let \$value = 1 / 0" -> "${module_fixture}/bad.shy"
+printf "%s" "pub let \$value = 7; pub struct Point { x: Integer }; pub fn ping() { \$value }" -> "${module_fixture}/foo.shy"
+printf "%s" "pub struct Broken {}; pub let \$value = 1 / 0" -> "${module_fixture}/bad.shy"
 check_repl ["id": "MODULE-RECOVERY", "name": "MODULE-RECOVERY",
     "steps": [
         ["let \$kept = 17; fn kept() { \$kept }", "quiet", ""],
@@ -13,7 +13,7 @@ check_repl ["id": "MODULE-RECOVERY", "name": "MODULE-RECOVERY",
         ["let \$p: Point = foo::Point(x: 3)", "quiet", ""],
         ["import bad", "error", "Arithmetic error"],
         ["echo \$value \$p (kept)", "output", "7 Point(x: 3) 17"],
-        ["printf \"%s\" \"struct Broken {}; let \\\$value = 8; fn read() { \\\$value }\" -> \"bad.shy\"", "quiet", ""],
+        ["printf \"%s\" \"pub struct Broken {}; pub let \\\$value = 8; pub fn read() { \\\$value }\" -> \"bad.shy\"", "quiet", ""],
         ["import bad", "quiet", ""],
         ["echo (bad::read) bad::Broken()", "output", "8 Broken()"],
         ["import foo; let \$wrong: Integer = \"bad\"", "error", "Type error"],

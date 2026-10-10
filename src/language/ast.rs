@@ -204,6 +204,7 @@ pub enum AstExportFlag
 
 pub struct AstLetStatement
 {
+    pub public: bool,
     pub location: Location,
     pub export_flag: AstExportFlag,
     pub identifier: String,
@@ -216,6 +217,8 @@ pub struct AstLetStatement
 
 pub struct AstExecuteStatement
 {
+    // Only `pub visible` publishes a native/scripted reference through this call.
+    pub public: bool,
     pub location: Location,
     pub executable: AstExpression,
     pub expand_path: bool,
@@ -258,6 +261,7 @@ pub struct AstAliasArgument
 
 pub struct AstAliasStatement
 {
+    pub public: bool,
     pub location: Location,
     pub alias: String,
     pub target: String,
@@ -278,6 +282,7 @@ pub struct AstParameter
 
 pub struct AstFunctionStatement
 {
+    pub public: bool,
     // Evaluated before registration; excluded functions never reach type checking.
     pub condition: Option<AstExpression>,
     pub location: Location,
@@ -305,6 +310,7 @@ pub fn new_ast_let_statement(location: Location,
 {
     Some(AstStatement::LetStatement(Box::new(AstLetStatement
         {
+            public: false,
             location,
             export_flag,
             identifier,
@@ -338,6 +344,7 @@ pub fn new_ast_execute_statement(location: Location,
 {
     Some(AstStatement::ExecuteStatement(Box::new(AstExecuteStatement
         {
+            public: false,
             location,
             executable,
             expand_path,
@@ -353,6 +360,7 @@ pub fn new_ast_alias_statement(location: Location,
 {
     Some(AstStatement::AliasStatement(Box::new(AstAliasStatement
         {
+            public: false,
             location,
             alias,
             target,
@@ -440,6 +448,7 @@ pub struct AstFieldDeclaration
 
 pub struct AstStructDeclaration
 {
+    pub public: bool,
     pub name: String,
     pub fields: Vec<AstFieldDeclaration>,
     pub location: Location
@@ -447,6 +456,7 @@ pub struct AstStructDeclaration
 
 pub struct AstTypeDeclaration
 {
+    pub public: bool,
     pub name: String,
     pub annotation: AstType,
     pub location: Location,
@@ -469,6 +479,7 @@ pub enum AstAccess
 
 pub struct AstEnumDeclaration
 {
+    pub public: bool,
     pub location: Location,
     pub name: String,
     pub variants: Vec<(String, Location)>
@@ -477,6 +488,7 @@ pub struct AstEnumDeclaration
 
 pub struct AstImportStatement
 {
+    pub public: bool,
     pub location: Location,
     pub module: String,
     pub names: Vec<String>,
@@ -510,3 +522,24 @@ pub enum AstStatement
 
 
 pub type AstTopLevel = Vec<AstStatement>;
+
+
+impl AstStatement
+{
+    pub fn module_declaration(&self) -> Option<(&str, &Location, bool)>
+    {
+        Some(match self
+            {
+                Self::LetStatement(item) => (&item.identifier, &item.location, item.public),
+                Self::FunctionDefinition(item) => (&item.name, &item.location, item.public),
+                Self::StructDeclaration(item) => (&item.name, &item.location, item.public),
+                Self::EnumDeclaration(item) => (&item.name, &item.location, item.public),
+                Self::TypeDeclaration(item) => (&item.name, &item.location, item.public),
+                Self::AliasStatement(item) => (&item.alias, &item.location, item.public),
+                Self::ImportStatement(item) => (&item.module, &item.location, item.public),
+                Self::ExecuteStatement(item) if item.public
+                    => ("", &item.location, true),
+                _ => return None,
+            })
+    }
+}

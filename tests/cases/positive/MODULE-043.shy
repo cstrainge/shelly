@@ -3,9 +3,9 @@ let $module_fixture = $args[0]
 mkdir -p "${module_fixture}/app"
 printf "%s" ("import foo; foo::ping".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/app/main.shy"
 mkdir -p "${module_fixture}/first"
-printf "%s" ("fn ping() { echo \"first\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/first/foo.shy"
+printf "%s" ("pub fn ping() { echo \"first\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/first/foo.shy"
 mkdir -p "${module_fixture}/second"
-printf "%s" ("fn ping() { echo \"second\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/second/foo.shy"
+printf "%s" ("pub fn ping() { echo \"second\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/second/foo.shy"
 check [
     "id": "MODULE-043",
     "name": "module path searches in order",

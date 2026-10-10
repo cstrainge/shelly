@@ -1,9 +1,9 @@
 # STDLIB-024: standard cycles diagnosed
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
-printf "%s" ("import std::two".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/one.shy"
+printf "%s" ("pub import std::two".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/one.shy"
 mkdir -p "${std_fixture}/std"
-printf "%s" ("import std::one".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/two.shy"
+printf "%s" ("pub import std::one".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/two.shy"
 printf "%s" ("import std::one".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-024",

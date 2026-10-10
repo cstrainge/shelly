@@ -1,8 +1,8 @@
 # STDLIB-041: cached prelude survives file removal
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
-printf "%s" ("echo \"prelude\"; struct Shared { code: Integer }; enum State { Ready }; fn Shared::twice(): Integer { \$self.code * 2 }; let \$hidden = 7; fn hidden(\$x) { echo \$x }; rm \"<FIXTURE>/std/prelude.shy\"".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
-printf "%s" ("fn build(): Shared { Shared(code: 3) }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/one.shy"
+printf "%s" ("echo \"prelude\"; pub struct Shared { code: Integer }; pub enum State { Ready }; pub fn Shared::twice(): Integer { \$self.code * 2 }; pub let \$hidden = 7; pub fn hidden(\$x) { echo \$x }; rm \"<FIXTURE>/std/prelude.shy\"".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("pub fn build(): Shared { Shared(code: 3) }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/one.shy"
 printf "%s" ("import one; import std::prelude; echo (one::build)".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-041",

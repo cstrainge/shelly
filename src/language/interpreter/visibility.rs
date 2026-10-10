@@ -16,15 +16,14 @@ fn visibility_error(location: &Location, message: impl Into<String>) -> Interpre
 }
 
 
-fn visibility_arguments<'a>(location: &Location, args: &'a [Value])
-    -> InterpreterResult<(&'a Value, bool)>
+fn visibility_argument<'a>(location: &Location, args: &'a [Value])
+    -> InterpreterResult<&'a Value>
 {
     match args
     {
-        [value] => Ok((value, false)),
-        [Value::String(flag, Executable::No), value] if flag == "--export" => Ok((value, true)),
+        [value] => Ok(value),
         _ => Err(visibility_error(location,
-            "visible expects [--export] followed by one function reference or type name")),
+            "visible expects one function reference or type name; use pub visible to export")),
     }
 }
 
@@ -127,10 +126,16 @@ impl Interpreter
     pub(super) fn handle_visible(&mut self, location: &Location, args: &[Value])
         -> InterpreterResult<()>
     {
-        let (value, export) = visibility_arguments(location, args)?;
-        self.visible_symbol(location, value, export)?;
+        let value = visibility_argument(location, args)?;
+        self.visible_symbol(location, value, false)?;
         self.last_result = Some(Value::None);
         Ok(())
+    }
+
+    pub(super) fn publish_symbol(&mut self, location: &Location, value: &Value)
+        -> InterpreterResult<()>
+    {
+        self.visible_symbol(location, value, true)
     }
 
     pub(super) fn prepare_visibility(&mut self, statements: &AstTopLevel) -> InterpreterResult<()>
@@ -152,7 +157,7 @@ impl Interpreter
                 if symbol.name == "visible") { continue; }
             let Some(args) = call.arguments.iter().map(literal_argument)
                 .collect::<Option<Vec<_>>>() else { continue; };
-            let (value, export) = visibility_arguments(&call.location, &args)?;
+            let value = visibility_argument(&call.location, &args)?;
             // Scripted declarations can be forward-declared in this submission;
             // leave their publication to the runtime call after compilation.
             let known = match value
@@ -165,7 +170,7 @@ impl Interpreter
                             || self.scope().types.names.contains_key(name),
                     _ => false,
                 };
-            if known { self.visible_symbol(&call.location, value, export)?; }
+            if known { self.visible_symbol(&call.location, value, call.public)?; }
         }
         Ok(())
     }

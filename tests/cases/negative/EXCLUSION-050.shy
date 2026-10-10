@@ -1,6 +1,6 @@
 # EXCLUSION-050: all exclusion conditions precede imports
 let $module_fixture = $args[0]
-printf "%s" "let \$enabled = true" -> "${module_fixture}/foo.shy"
+printf "%s" "pub let \$enabled = true" -> "${module_fixture}/foo.shy"
 check [
     "id": "EXCLUSION-050",
     "name": "all exclusion conditions precede imports",

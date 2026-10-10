@@ -1,6 +1,6 @@
 # MODULE-040: qualified function argument type promotion
 let $module_fixture = $args[0]
-printf "%s" ("fn half(\$x: Float): Float { \$x / 2 }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+printf "%s" ("pub fn half(\$x: Float): Float { \$x / 2 }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
 check [
     "id": "MODULE-040",
     "name": "qualified function argument type promotion",

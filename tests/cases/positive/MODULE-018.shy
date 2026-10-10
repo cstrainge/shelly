@@ -1,7 +1,7 @@
 # MODULE-018: module types do not collide
 let $module_fixture = $args[0]
-printf "%s" ("struct S { x: Integer }; enum E { A }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/one.shy"
-printf "%s" ("struct S { x: Integer }; enum E { A }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/two.shy"
+printf "%s" ("pub struct S { x: Integer }; pub enum E { A }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/one.shy"
+printf "%s" ("pub struct S { x: Integer }; pub enum E { A }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/two.shy"
 check [
     "id": "MODULE-018",
     "name": "module types do not collide",

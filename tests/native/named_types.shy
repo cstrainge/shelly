@@ -76,9 +76,9 @@ type_case "[when false] { type Skipped = Missing }; [when true] { type Count = I
 type_case "type Data = [Integer] | [String: Integer]; let \$d: Data = [1]; echo \$d.count; \$d = [\"a\": 2]; echo \$d.next_item" "1\na:2\n" ""
 
 let $fixture = $args[0]
-printf "%s" "type Count = Integer; type Table = [String: Count]; fn Count::double(): Count { \$self + \$self }; fn make(): Count { 7 }" -> "${fixture}/counts.shy"
-printf "%s" "import counts::{ Count, Table, make }; visible --export \"Count\"; visible --export \"Table\"; visible --export `make" -> "${fixture}/bridge.shy"
-printf "%s" "type Count = Integer" -> "${fixture}/other.shy"
+printf "%s" "pub type Count = Integer; pub type Table = [String: Count]; pub fn Count::double(): Count { \$self + \$self }; pub fn make(): Count { 7 }" -> "${fixture}/counts.shy"
+printf "%s" "pub import counts::{ Count, Table, make }; pub visible \"Count\"; pub visible \"Table\"; pub visible `make" -> "${fixture}/bridge.shy"
+printf "%s" "pub type Count = Integer" -> "${fixture}/other.shy"
 type_case "import counts; let \$n: counts::Count = 3; echo (\$n.double) ((counts::make) == counts::Count(7))" "6 true\n" ""
 type_case "import counts::{ Count, Table, make }; let \$h: Table = [\"a\": 2]; for (\$k,\$v) in \$h { echo \$k (\$v == Count(2)) }; echo (make)" "a true\n7\n" ""
 type_case "import counts; let \$n: Count = 1" "" "Unknown type"
@@ -86,8 +86,8 @@ type_case "import counts; import bridge; let \$a: bridge::Count = counts::Count(
 type_case "import counts; import other; let \$n: other::Count = counts::Count(3)" "" "Expected"
 type_case "import counts when false; echo ok" "ok\n" ""
 mkdir -p "${fixture}/std"
-printf "%s" "type PreludeCount = Integer" -> "${fixture}/std/prelude.shy"
-printf "%s" "fn value(): PreludeCount { 9 }" -> "${fixture}/prelude_user.shy"
+printf "%s" "pub type PreludeCount = Integer" -> "${fixture}/std/prelude.shy"
+printf "%s" "pub fn value(): PreludeCount { 9 }" -> "${fixture}/prelude_user.shy"
 type_case "import prelude_user; let \$n: PreludeCount = prelude_user::value; echo (\$n == PreludeCount(9))" "true\n" ""
 type_case "type Count = Integer; let \$n = Count(7); echo (any(\$n) == \$n)" "true\n" ""
 type_case "type Inner = Integer; type Outer = Inner; type Item = Inner | Integer; let \$item = Item(Outer(7)); echo (\$item == Item(Inner(7)))" "true\n" ""

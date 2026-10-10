@@ -1,5 +1,5 @@
 let $fixture = $args[0]
-printf "%s" "struct Item { n: Integer }; fn Item::next_item(): Integer | () { if \$self.n == 0 { return () }; \$self.n = \$self.n - 1; \$self.n }; fn make(): Item { Item(n: 2) }" -> "${fixture}/custom.shy"
+printf "%s" "pub struct Item { n: Integer }; pub fn Item::next_item(): Integer | () { if \$self.n == 0 { return () }; \$self.n = \$self.n - 1; \$self.n }; pub fn make(): Item { Item(n: 2) }" -> "${fixture}/custom.shy"
 check_repl ["id": "ITERATOR", "name": "ITERATOR", "steps": [
     ["struct Counter { n: Integer }; let \$counter = Counter(n: 2)", "quiet", ""],
     ["fn Counter::next_item(): Integer | () { if \$self.n == 0 { return () }; \$self.n = \$self.n - 1; \$self.n }", "quiet", ""],

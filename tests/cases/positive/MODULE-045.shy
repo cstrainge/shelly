@@ -1,7 +1,7 @@
 # MODULE-045: exported environment reaches module
 let $module_fixture = $args[0]
 printf "%s" ("import foo; foo::ping".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/app.shy"
-printf "%s" ("fn ping() { echo \$MARKER }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+printf "%s" ("pub fn ping() { echo \$MARKER }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
 check [
     "id": "MODULE-045",
     "name": "exported environment reaches module",

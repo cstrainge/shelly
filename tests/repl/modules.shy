@@ -1,6 +1,6 @@
 # MODULE-REPL
 let $module_fixture = $args[0]
-printf "%s" "let \$value: Integer = 7; struct Point { x: Integer }; fn ping() { \$value }; fn fail() { let \$value = 99; 1 / 0 }" -> "${module_fixture}/foo.shy"
+printf "%s" "pub let \$value: Integer = 7; pub struct Point { x: Integer }; pub fn ping() { \$value }; pub fn fail() { let \$value = 99; 1 / 0 }" -> "${module_fixture}/foo.shy"
 check_repl ["id": "MODULE-REPL", "name": "MODULE-REPL",
     "steps": [
         ["let \$enabled = false", "quiet", ""],

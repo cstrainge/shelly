@@ -1,9 +1,9 @@
 # STDLIB-043: prelude used by import conditions
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
-printf "%s" ("let \$value = 7; struct Packet { code: Integer }; enum State { Ready }; fn ping(\$x) { echo \$x \$value }; fn read() { \$value }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/net.shy"
+printf "%s" ("pub let \$value = 7; pub struct Packet { code: Integer }; pub enum State { Ready }; pub fn ping(\$x) { echo \$x \$value }; pub fn read() { \$value }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/net.shy"
 mkdir -p "${std_fixture}/std"
-printf "%s" ("echo \"prelude\"; struct Shared { code: Integer }; enum State { Ready }; fn Shared::twice(): Integer { \$self.code * 2 }; let \$hidden = 7; fn hidden(\$x) { echo \$x }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("echo \"prelude\"; pub struct Shared { code: Integer }; pub enum State { Ready }; pub fn Shared::twice(): Integer { \$self.code * 2 }; pub let \$hidden = 7; pub fn hidden(\$x) { echo \$x }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
 printf "%s" ("import std::net when State::Ready == State::Ready; std::net::ping hi".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-043",

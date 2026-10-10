@@ -82,8 +82,8 @@ prototype_case "type F = fn([Integer]): Integer; fn f(\$values: [Integer]): Inte
 prototype_case "type Dynamic = any; let \$x: Dynamic = 1; \$x = \"any is a type\"; echo \$x" "any is a type\n" ""
 
 let $fixture = $args[0]
-printf "%s" "type Transform = fn(Integer): String; fn describe(\$n: Integer): String { String(\$n) }; let \$callback: Transform = `describe; fn factory(): Transform { `describe }" -> "${fixture}/callbacks.shy"
-printf "%s" "import callbacks::{ Transform }; visible --export \"Transform\"" -> "${fixture}/callback_bridge.shy"
+printf "%s" "pub type Transform = fn(Integer): String; pub fn describe(\$n: Integer): String { String(\$n) }; pub let \$callback: Transform = `describe; pub fn factory(): Transform { `describe }" -> "${fixture}/callbacks.shy"
+printf "%s" "pub import callbacks::{ Transform }; pub visible \"Transform\"" -> "${fixture}/callback_bridge.shy"
 prototype_case "import callbacks; let \$f: callbacks::Transform = `callbacks::describe; echo (\$f 21)" "21\n" ""
 prototype_case "import callbacks::{ Transform, describe, \$callback }; let \$f: Transform = `describe; echo (\$f 22) (\$callback 23)" "22 23\n" ""
 prototype_case "import callbacks; import callback_bridge; let \$f: callback_bridge::Transform = callbacks::factory; echo (\$f 24)" "24\n" ""

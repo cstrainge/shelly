@@ -1,10 +1,10 @@
 let $fixture = $args[0]
 mkdir -p "${fixture}/one" "${fixture}/two"
-printf "%s" "echo \"boot-once\"; struct Shared { code: Integer }; enum State { Ready }; fn Shared::twice(): Integer { \$self.code * 2 }" -> "${fixture}/one/prelude.shy"
-printf "%s" "echo \"must-not-load\"; struct Wrong {}" -> "${fixture}/two/prelude.shy"
-printf "%s" "fn build(): Shared { Shared(code: 4) }" -> "${fixture}/two/net.shy"
-printf "%s" "fn build(): Shared { Shared(code: 5) }" -> "${fixture}/local.shy"
-printf "%s" "fn build(): Shared { Shared(code: 6) }" -> "${fixture}/other.shy"
+printf "%s" "echo \"boot-once\"; pub struct Shared { code: Integer }; pub enum State { Ready }; pub fn Shared::twice(): Integer { \$self.code * 2 }" -> "${fixture}/one/prelude.shy"
+printf "%s" "echo \"must-not-load\"; pub struct Wrong {}" -> "${fixture}/two/prelude.shy"
+printf "%s" "pub fn build(): Shared { Shared(code: 4) }" -> "${fixture}/two/net.shy"
+printf "%s" "pub fn build(): Shared { Shared(code: 5) }" -> "${fixture}/local.shy"
+printf "%s" "pub fn build(): Shared { Shared(code: 6) }" -> "${fixture}/other.shy"
 let $terminal = open_terminal [`$shelly, "--norc", "-m", "-b"] [
     "cwd": $fixture, "env": ["HOME": $fixture,
         "PATH": "${fixture}/bin:/usr/bin:/bin", "TERM": "xterm-256color", "LANG": "C.UTF-8",

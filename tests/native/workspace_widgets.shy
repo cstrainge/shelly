@@ -1,0 +1,90 @@
+# Workspace detection, version precedence and failure cases use isolated fixtures.
+fn workspace_widget_case($directory: String, $widget: String,
+                         $extra: [String: String], $expected: String)
+{
+    let $fixture = $args[0]
+    let $environment = ["HOME": $fixture, "SHELLY_STD_PATH": "${fixture}/std",
+        "PATH": "${fixture}/nodebin:${fixture}/bin:/usr/bin:/bin", "LANG": "C.UTF-8",
+        "FAKE_NODE_VERSION": "v20.11.1", "FAKE_NODE_ENGINE": "", "FAKE_NODE_FAIL": "no"]
+    for ($key, $value) in $extra { $environment[$key] = $value }
+    let $output: String
+    let $reply = run_process [`$shelly, "-m", "-c",
+        "import std::widgets::{ ${widget} }; echo (${widget})"] [
+        "cwd": $directory, "env": $environment, "timeout_ms": 3000,
+        "stderr_file": "${fixture}/widget.err"] -> $output
+    let $errors: String
+    "${fixture}/widget.err" -> $errors
+    if ($reply["error"] != ()) || ($reply["exit_code"] != 0) ||
+        ($output != "${expected}\n") || ($errors != "")
+    { echo $widget $directory $reply $output $errors; fail "workspace widget mismatch" }
+}
+
+let $fixture = $args[0]
+let $suite = $args[1]
+mkdir -p "${fixture}/std" "${fixture}/nodebin" "${fixture}/outside"
+cp "${suite}/std/widgets.shy" "${fixture}/std/widgets.shy"
+printf "%s\n" '#!/usr/bin/env shelly' 'if $FAKE_NODE_FAIL == "yes" { exit 1 }; if $args[0] == "--version" { echo $FAKE_NODE_VERSION } else { echo $FAKE_NODE_ENGINE }' -> "${fixture}/nodebin/node"
+chmod +x "${fixture}/nodebin/node"
+workspace_widget_case "${fixture}/outside" "venv_widget" [:] ""
+workspace_widget_case "${fixture}/outside" "venv_widget" ["VIRTUAL_ENV": "/active/venv"] ""
+workspace_widget_case "${fixture}/outside" "node_widget" [:] ""
+
+for $marker in ["pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", ".venv", "venv"]
+{
+    let $project = "${fixture}/python-${marker}"
+    mkdir -p "${project}/nested"
+    if ($marker == ".venv") || ($marker == "venv") { mkdir "${project}/${marker}" }
+    else { printf "%s" "" -> "${project}/${marker}" }
+    workspace_widget_case "${project}/nested" "venv_widget" [:] "venv: inactive"
+    let $environment = ["VIRTUAL_ENV": "${fixture}/envs/my environment/"]
+    workspace_widget_case "${project}/nested" "venv_widget" $environment "venv: my environment"
+}
+
+let $project = "${fixture}/node project"
+mkdir -p "${project}/nested"
+printf "%s" '{}' -> "${project}/package.json"
+workspace_widget_case "${project}/nested" "node_widget" [:] "node: 20.11.1"
+printf "%s" '18.0.0' -> "${project}/.node-version"
+workspace_widget_case "${project}/nested" "node_widget" [:] "node: expected 18.0.0, current: 20.11.1"
+printf "%s\n" '# preferred version' 'v20.11.1 # comment' -> "${project}/.nvmrc"
+workspace_widget_case "${project}/nested" "node_widget" [:] "node: 20.11.1"
+printf "%s" '22.0.0' -> "${project}/.nvmrc"
+workspace_widget_case "${project}/nested" "node_widget" [:] "node: expected 22.0.0, current: 20.11.1"
+printf "%s" 'lts/*' -> "${project}/.nvmrc"
+workspace_widget_case "${project}/nested" "node_widget" [:] "node: expected lts/*, current: 20.11.1"
+printf "%s" '' -> "${project}/.nvmrc"
+workspace_widget_case "${project}/nested" "node_widget" [:] "node: expected 18.0.0, current: 20.11.1"
+rm "${project}/.nvmrc" "${project}/.node-version"
+workspace_widget_case "${project}/nested" "node_widget" ["FAKE_NODE_ENGINE": ">=18 <23"] "node: expected >=18 <23, current: 20.11.1"
+workspace_widget_case "${project}/nested" "node_widget" ["FAKE_NODE_FAIL": "yes"] "node: missing"
+printf "%s" '20.11.1' -> "${project}/.nvmrc"
+workspace_widget_case "${project}/nested" "node_widget" ["FAKE_NODE_FAIL": "yes"] "node: expected 20.11.1, current: missing"
+rm "${project}/package.json"
+workspace_widget_case "${project}/nested" "node_widget" [:] "node: 20.11.1"
+printf "%s" 'v20.11.1-dev' -> "${project}/.nvmrc"
+workspace_widget_case "${project}/nested" "node_widget" ["FAKE_NODE_VERSION": "v20.11.1-dev"] "node: 20.11.1-dev"
+mkdir "${fixture}/without-node"
+for ($name, $path) in [["pwd", "/bin/pwd"], ["test", "/bin/test"], ["echo", "/bin/echo"],
+                      ["dirname", "/usr/bin/dirname"], ["cat", "/bin/cat"]]
+{ ln -s $path "${fixture}/without-node/${name}" }
+workspace_widget_case $project "node_widget" ["PATH": "${fixture}/without-node"] "node: expected v20.11.1-dev, current: missing"
+
+# Exercise the actual JSON parser when a host Node installation is available.
+let $version: String
+let $reply = run_process ["node", "--version"] ["env": ["PATH": "/usr/local/bin:/usr/bin:/bin"]] -> $version
+if ($reply["error"] == ()) && ($reply["exit_code"] == 0)
+{
+    $version = $version.trim
+    let $current = $version.replace "v" ""
+    rm "${project}/.nvmrc"
+    printf "%s" "{\"engines\": {\"node\": \"${version}\"}}" -> "${project}/package.json"
+    workspace_widget_case $project "node_widget" ["PATH": "/usr/local/bin:/usr/bin:/bin"] "node: ${current}"
+    printf "%s" '{"engines":{"node": ">=18"}}' -> "${project}/package.json"
+    workspace_widget_case $project "node_widget" ["PATH": "/usr/local/bin:/usr/bin:/bin"] "node: expected >=18, current: ${current}"
+    for $metadata in ['{broken json', '{"engines":{"node":42}}', '{"engines":null}', 'null', '{}']
+    {
+        printf "%s" $metadata -> "${project}/package.json"
+        workspace_widget_case $project "node_widget" ["PATH": "/usr/local/bin:/usr/bin:/bin"] "node: ${current}"
+    }
+}
+else { echo "SKIP real Node JSON probes: Node is not installed" }

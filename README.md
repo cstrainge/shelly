@@ -62,6 +62,103 @@ Define `fn prompt() { ... }` in the init file to customize the prompt. Shelly us
 its printed stdout as the prompt text and falls back to the default prompt if
 the call fails.
 
+Before each prompt, Shelly calls the functions in `$widgets` in order. Each returned
+nonempty string is enclosed in brackets, and the results are joined without a separator.
+An empty string contributes no text or brackets; whitespace is preserved.
+The temporary `String` variable `$rendered_widgets` holds that text only while
+`prompt` runs; an empty widget array produces `""`. Widget stdout is discarded.
+Widget or prompt errors use the default prompt, and later cycles can recover.
+
+`$last_cmd_time` is a `String` containing the elapsed time of the last submitted
+REPL command, including failed commands. It starts as `"0:00"` and uses whole
+seconds: `mins:seconds`, `hours:mins:seconds` from one hour, and
+`days:hours:mins:seconds` from one day (for example `"2:05"`, `"1:02:05"`, and
+`"1:03:02:05"`). Typing, widgets, and prompt evaluation are excluded. Every new
+prompt gets fresh timing: empty or whitespace-only input and editor cancellation
+reset it to `"0:00"`, even when the prompt function prints nothing.
+Prompts and widgets can both read it:
+
+```text
+$widgets = [$widgets..., fn (): String { "took ${last_cmd_time}" }]
+```
+
+The standard library's [std/widgets.shy](std/widgets.shy) provides these widgets.
+Import the ones you want and register their function references in `$widgets`:
+
+| Widget | Example rendered text | Behavior |
+| --- | --- | --- |
+| `clock_widget` | `[14:32]` | Local time in 24-hour format (`HH:MM`). |
+| `clock_12_widget` | `[02:32 PM]` | Local time in 12-hour format with AM/PM. |
+| `git_widget` | `[git: main]` or `[git: main, 2 changed]` | Git branch, with a count of status entries when there are changes. Empty outside a Git repository or if either Git command fails. |
+| `command_time_widget` | `[Took: 0:02]` | Last command's duration. Empty when `$last_cmd_time` is `"0:00"`, including commands shorter than one second. |
+| `venv_widget` | `[venv: myenv]` or `[venv: inactive]` | Active Python environment's name. Empty outside a Python workspace. |
+| `node_widget` | `[node: 20.11.1]` or `[node: expected 20.11.1, current: 22.0.0]` | Current Node version, with the expected version when it differs. Empty outside a Node project. |
+
+Both clock widgets return `""` if `date` fails. Empty results contribute no brackets.
+Use `clock_12_widget` instead of `clock_widget` for a 12-hour clock, and add
+`command_time_widget` to show command durations alongside the clock and Git status.
+
+The workspace widgets search the current directory and its parents without changing
+the working directory. Python markers are `pyproject.toml`, `setup.py`, `setup.cfg`,
+`requirements.txt`, and `.venv` or `venv` directories. Within a Python workspace,
+`venv_widget` shows the basename of `$VIRTUAL_ENV`, or `venv: inactive` if it is unset
+or empty.
+
+Node markers are `package.json`, `.nvmrc`, and `.node-version`. At the nearest project
+root, `node_widget` reads the expected version from `.nvmrc`, then `.node-version`,
+then `package.json`'s `engines.node`. It compares that text with `node --version`,
+ignoring a leading `v`. Exact matches show only the current version; ranges and
+aliases remain visible as the expected version. Missing Node displays `node: missing`,
+with the expected version when a version file provides one. Widget child processes
+use the shell's current exported environment, so changing `$VIRTUAL_ENV` or `$PATH`
+after importing the widgets takes effect at the next prompt.
+
+To add both workspace widgets alongside those already registered:
+
+```text
+import std::widgets::{ venv_widget, node_widget }
+$widgets = [$widgets..., `venv_widget, `node_widget]
+```
+
+For example, add this to `~/.shelly_init.shy` to register the standard-library
+clock and Git widgets and display them on the first prompt line:
+
+```text
+import std::widgets::{ clock_widget, git_widget }
+
+$widgets = [$widgets..., `clock_widget, `git_widget]
+
+fn prompt()
+{
+    echo "\n<shelly> ${rendered_widgets}"
+    echo ": ${pwd}"
+}
+```
+
+The backticks store function references for later execution, and `$widgets...`
+preserves any widgets already registered. Their order in `$widgets` controls their
+display order. A prompt might look like this:
+
+```text
+<shelly> [14:32][git: main, 2 changed]
+: ~/workdir/shelly
+$
+```
+
+Place `${rendered_widgets}` anywhere in the text printed by `prompt` to position
+the widget group. For example, this puts it after the working directory instead:
+
+```text
+fn prompt()
+{
+    echo "\n<shelly>"
+    echo ": ${pwd} ${rendered_widgets}"
+}
+```
+
+You can also use `echo $rendered_widgets` to give widgets their own line. The Git
+widget returns `""` outside a Git repository, so it contributes no brackets there.
+
 ## Statements, values, and arithmetic
 
 Commands use space-separated arguments. Newlines and semicolons separate
@@ -1721,13 +1818,25 @@ Shelly imports the environment. New variables are private unless declared with
 let export $SHELLY_PROJECT = 'shelly'
 ```
 
-Useful predefined variables include `$args`, `$pwd`, `$HOSTNAME`, `$HOME`, `$PATH`,
+Useful predefined variables include `$args`, `$pid`, `$pwd`, `$HOSTNAME`, `$HOME`, `$PATH`,
 `$shelly` (an executable reference to this binary), `$version`, `$os` (also `$OS`),
 `$build_date`, `$build_time`, `$interactive`, `$login`, and `$rc_path`.
+`$pid` is the running Shelly process's ID as an `Integer`.
+`$last_cmd_time` is the last REPL command's formatted elapsed time as a `String`.
 `$os` identifies the host operating system, for example `"macos"` or `"linux"`,
 and can be used in functions to select platform-specific commands.
 `$rc_path` is the configured init path, `<not found>` when missing, or
 `<unloaded>` when init loading is disabled.
+
+Each module also starts with an empty `$widgets: [WidgetFn]` array, where
+`WidgetFn` is a predefined distinct type equivalent to `type WidgetFn = fn(): String`.
+Assign named function references or closures to the array; each callback takes no
+arguments and returns a `String`.
+
+```text
+$widgets = [fn (): String { "ready" }]
+for $widget in $widgets { echo ($widget) }
+```
 
 ### File and variable redirection
 
@@ -1840,6 +1949,33 @@ whitespace and is always explicit: captures still preserve trailing newlines.
 
 ## Modules
 
+Module declarations are private by default. Prefix a declaration with `pub` to
+make it available to importers, both through qualified names and selected imports:
+
+```shy
+# Example module: counter.shy
+let $state = 0
+fn increment(): Integer { $state = $state + 1; $state }
+
+pub fn next(): Integer { increment }
+pub let $label: String = "counter"
+pub type Count = Integer
+pub struct Snapshot { count: Count }
+pub enum Status { Ready, Done }
+pub fn Snapshot::read(): Count { $self.count }
+pub alias advance = increment
+```
+
+Private names remain available inside their defining module, including in public
+functions, methods, and aliases. `pub` is allowed only at module top level, including
+declarations inside an enabled `[when ...]` declaration block. Methods are private
+unless marked `pub`, even when their receiver type is public. Struct fields and
+enum variants retain their existing access rules.
+
+`pub let export $NAME = ...` makes a variable public and exports it to child
+processes. Plain `let export` affects the child environment only; it does not make
+the variable accessible through imports.
+
 Imports are top-level declarations:
 
 ```shy
@@ -1860,14 +1996,29 @@ For command-line source and REPL input, the first search directory is the curren
 directory. Modules are cached by canonical path and initialized once per
 interpreter. Circular imports are errors.
 
-Only names listed in `::{ ... }` enter the enclosing scope. Other top-level
-variables, functions, structs, and enums remain accessible through the module
+Only public names listed in `::{ ... }` enter the enclosing scope. Other public
+variables, functions, types, structs, enums, and aliases remain accessible through the module
 namespace: `$foo::value`, `foo::run`, `foo::Point`, and `foo::State::Ready`.
 Selected imports clone the original object's `Rc` into the enclosing scope map.
 They preserve type and function identity, and assigning through an imported
 variable updates the module's binding. A new `let` declaration creates a separate
 local binding. Reimporting the same object is allowed; importing a different
-object over an existing name is an error. Aliases are module-local.
+object over an existing name is an error. Public aliases retain their defining
+module when resolving their targets.
+
+Imports are private too. Re-export selected names with `pub import`, or publish
+an entire module namespace with an unselected `pub import`:
+
+```shy
+import implementation::{ helper }       # Local access only.
+pub import counter::{ next, Count }     # Export next and Count, not counter's namespace.
+pub import net                         # Export the net namespace.
+```
+
+An importing script can then use `bridge::next`, `bridge::Count`, and
+`bridge::net::ping`. It cannot access `bridge::implementation::helper` or
+`bridge::counter::next`. Implicit prelude bindings are local to each module;
+re-export a prelude type explicitly when it belongs in that module's interface.
 
 Imported functions execute with their defining module's variables and functions.
 Qualified function calls follow ordinary argument rules: `echo foo::read` passes
@@ -1881,15 +2032,15 @@ Hidden registrations remain available internally without appearing in module nam
 lookup. Existing core native registrations remain visible by default.
 
 The `visible` builtin accepts one function reference or type name. It makes the
-symbol available locally; `--export` also adds it to the current module's exports:
+symbol available locally; `pub visible` also adds it to the current module's exports:
 
 ```shy
 # Example module: std/process_tools.shy
 visible "Terminal"                 # Local type for implementation signatures.
 visible `run_process               # Local native function used by wrappers.
-visible --export `open_terminal    # Native function exposed to importers.
+pub visible `open_terminal         # Native function exposed to importers.
 
-fn run($command: Array, $options: HashMap): HashMap
+pub fn run($command: Array, $options: HashMap): HashMap
 {
     run_process $command $options
 }
@@ -1898,37 +2049,39 @@ fn run($command: Array, $options: HashMap): HashMap
 An importer can call `std::process_tools::run` and
 `std::process_tools::open_terminal`, or select those names with `::{ ... }`.
 The module does not export `Terminal` or `run_process` in this example. To expose
-a type as well, use `visible --export "Terminal"`. Scripted definitions continue
+a type as well, use `pub visible "Terminal"`. Scripted definitions continue
 to follow the normal module export rules, so the wrapper and the native function
 share one public interface.
 
 For a hidden native function, use a backtick reference such as ``visible `native_fn``.
 For a hidden native type, `visible "NativeType"` looks directly in the native
 registration table. Plain strings name types, not functions. Qualified references
-and type names work too: ``visible --export `other::helper`` and
-`visible --export "other::Type"` publish their unqualified names in the current
+and type names work too: ``pub visible `other::helper`` and
+`pub visible "other::Type"` publish their unqualified names in the current
 module. Function references stored in variables are accepted. External commands
 and bound methods are not module function declarations and cannot be published.
 
 Literal top-level visibility declarations are processed before type checking, so
 annotations and wrappers throughout the same file can use native implementation
 types. Declarations inside excluded `[when false]` blocks are skipped. Computed
-arguments and calls inside functions or ordinary blocks take effect at runtime;
-new type names are then usable by subsequent compilations. Failed compilation
+arguments take effect at runtime. Local `visible` calls inside functions or ordinary
+blocks also take effect at runtime; `pub visible` requires module top level.
+New type names are then usable by subsequent compilations. Failed compilation
 rolls back the declarations prepared for that submission.
 
 Visibility changes apply to the current module. Hidden registrations do not
 become visible in unrelated modules; importers see only exported names. Repeated
 publication of the same object is allowed, conflicting bindings are errors, and
-calling `visible` without `--export` does not revoke an existing export. Native
-function references and imported types retain their original identities through
+calling local `visible` does not revoke an existing export. `visible --export` is
+replaced by `pub visible`. Native function references and imported types retain
+their original identities through
 imports and re-exports.
 
 On the Rust side, `NativeFunction::new(name, visibility, body)` creates a native
 function registration, and `TypeRegistry::register_native(name, kind, visibility)`
 registers a native type. The registry retains hidden entries while new module
 scopes copy only initially visible names. This lets a future `std/json.shy`
-select native JSON exports with `visible --export` and implement its remaining
+select native JSON exports with `pub visible` and implement its remaining
 interface in Shelly; a native JSON API is not implemented yet.
 
 Standard-library imports use a separate search path:
@@ -1964,7 +2117,7 @@ Qualified access retains the `std::` prefix, including variables
 (`$std::foo::value`) and types (`std::foo::Type`).
 
 Shelly selects `std::prelude` by searching for `prelude.shy` using the same
-standard-library search path. Its exported types are automatically available
+standard-library search path. Its public types are automatically available
 without qualification in the main scope and subsequently loaded modules. These
 imports share the original type handles and preserve type identity. Prelude
 functions and variables remain qualified unless explicitly selected:

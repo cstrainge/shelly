@@ -1,22 +1,22 @@
 let $fixture = $args[0]
 mkdir -p "${fixture}/one" "${fixture}/bad" "${fixture}/parse" "${fixture}/recursive" "${fixture}/conflict" "${fixture}/missing"
-printf "%s" "struct Stable {}; fn label(): String { \"dependency\" }" -> "${fixture}/one/dep.shy"
-printf "%s" "import dep::{ Stable }; echo loaded-one; let \$label = \"one\"; struct Shared { code: Integer }; struct Removed {}; enum State { Ready }; fn Shared::label(): String { \$label }; fn read(): String { \$label }" -> "${fixture}/one/prelude.shy"
-printf "%s" "fn build(): Shared { Shared(code: 10) }; fn label(): String { std::prelude::read }; fn state(): State { State::Ready }" -> "${fixture}/one/helper.shy"
-printf "%s" "fn build(): Shared { Shared(code: 20) }; fn label(): String { std::prelude::read }" -> "${fixture}/local.shy"
-printf "%s" "fn build(): Shared { Shared(code: 30) }; fn label(): String { std::prelude::read }" -> "${fixture}/other.shy"
-printf "%s" "fn reload() { prelude_reload }; fn build(): Shared { Shared(code: 40) }; fn label(): String { std::prelude::read }" -> "${fixture}/caller.shy"
-printf "%s" "fn build(): Added { Added() }" -> "${fixture}/newtype.shy"
-printf "%s" "struct Bad {}; let \$bad = 1 / 0" -> "${fixture}/bad/prelude.shy"
+printf "%s" "pub struct Stable {}; pub fn label(): String { \"dependency\" }" -> "${fixture}/one/dep.shy"
+printf "%s" "pub import dep::{ Stable }; echo loaded-one; pub let \$label = \"one\"; pub struct Shared { code: Integer }; pub struct Removed {}; pub enum State { Ready }; pub fn Shared::label(): String { \$label }; pub fn read(): String { \$label }" -> "${fixture}/one/prelude.shy"
+printf "%s" "pub import std::prelude::{ Shared }; pub fn build(): Shared { Shared(code: 10) }; pub fn label(): String { std::prelude::read }; pub fn state(): State { State::Ready }" -> "${fixture}/one/helper.shy"
+printf "%s" "pub fn build(): Shared { Shared(code: 20) }; pub fn label(): String { std::prelude::read }" -> "${fixture}/local.shy"
+printf "%s" "pub fn build(): Shared { Shared(code: 30) }; pub fn label(): String { std::prelude::read }" -> "${fixture}/other.shy"
+printf "%s" "pub fn reload() { prelude_reload }; pub fn build(): Shared { Shared(code: 40) }; pub fn label(): String { std::prelude::read }" -> "${fixture}/caller.shy"
+printf "%s" "pub fn build(): Added { Added() }" -> "${fixture}/newtype.shy"
+printf "%s" "pub struct Bad {}; pub let \$bad = 1 / 0" -> "${fixture}/bad/prelude.shy"
 printf "%s" "let \$" -> "${fixture}/parse/prelude.shy"
 printf "%s" "prelude_reload" -> "${fixture}/recursive/prelude.shy"
-printf "%s" "struct Local {}; struct Shared {}" -> "${fixture}/conflict/prelude.shy"
+printf "%s" "pub struct Local {}; pub struct Shared {}" -> "${fixture}/conflict/prelude.shy"
 check_repl ["id": "PRELUDE-RELOAD", "name": "PRELUDE-RELOAD", "steps": [
     ["let \$SHELLY_STD_PATH = \"<FIXTURE>/one\"", "quiet", ""],
     ["prelude_reload", "output", "loaded-one"],
     ["import std::helper; import std::prelude::{ read, \$label }; let \$saved = Shared(code: 3); let \$state = State::Ready; let \$bound = `\$saved.label; let \$function = `std::prelude::read; let \$stable = Stable()", "quiet", ""],
     ["echo \$saved.label (read) \$label", "output", "one one one"],
-    ["printf \"%s\" \"import dep::{ Stable }; echo loaded-two; let \\\$label = \\\"two\\\"; struct Shared { code: Integer }; struct Added {}; enum State { Ready }; fn Shared::label(): String { \\\$label }; fn read(): String { \\\$label }\" -> \"<FIXTURE>/one/prelude.shy\"", "quiet", ""],
+    ["printf \"%s\" \"pub import dep::{ Stable }; echo loaded-two; pub let \\\$label = \\\"two\\\"; pub struct Shared { code: Integer }; pub struct Added {}; pub enum State { Ready }; pub fn Shared::label(): String { \\\$label }; pub fn read(): String { \\\$label }\" -> \"<FIXTURE>/one/prelude.shy\"", "quiet", ""],
     ["prelude_reload", "output", "loaded-two"],
     ["let \$new = Shared(code: 3); echo \$saved.label \$new.label (\$saved == \$new) (\$state == State::Ready)", "output", "one two false false"],
     ["echo (read) \$label (std::prelude::read) (\$bound) (\$function) (\$stable == Stable())", "output", "one one two one one true"],
@@ -31,7 +31,7 @@ check_repl ["id": "PRELUDE-RELOAD", "name": "PRELUDE-RELOAD", "steps": [
     ["import other; let \$future: Shared = other::build; echo \$future.label", "output", "two"],
     ["echo (local::label) (std::helper::label)", "output", "two one"],
     ["import caller", "quiet", ""],
-    ["printf \"%s\" \"import dep::{ Stable }; echo loaded-three; let \\\$label = \\\"three\\\"; struct Shared { code: Integer }; struct Added {}; enum State { Ready }; fn Shared::label(): String { \\\$label }; fn read(): String { \\\$label }\" -> \"<FIXTURE>/one/prelude.shy\"", "quiet", ""],
+    ["printf \"%s\" \"pub import dep::{ Stable }; echo loaded-three; pub let \\\$label = \\\"three\\\"; pub struct Shared { code: Integer }; pub struct Added {}; pub enum State { Ready }; pub fn Shared::label(): String { \\\$label }; pub fn read(): String { \\\$label }\" -> \"<FIXTURE>/one/prelude.shy\"", "quiet", ""],
     ["caller::reload", "output", "loaded-three"],
     ["echo (caller::label) (other::label) (std::prelude::read) \$saved.label", "output", "three two two one"],
     ["import newtype; echo (newtype::build)", "output", "Added()"],

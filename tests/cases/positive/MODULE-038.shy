@@ -1,6 +1,6 @@
 # MODULE-038: imported variable receiver mutation
 let $module_fixture = $args[0]
-printf "%s" ("let \$items = [1]".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+printf "%s" ("pub let \$items = [1]".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
 check [
     "id": "MODULE-038",
     "name": "imported variable receiver mutation",

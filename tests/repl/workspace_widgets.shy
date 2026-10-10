@@ -1,0 +1,40 @@
+# Imported widgets see current exported environment and Node selection on each prompt.
+let $fixture = $args[0]
+let $suite = $args[1]
+mkdir -p "${fixture}/std" "${fixture}/project/nested" "${fixture}/node-one" "${fixture}/node-two"
+cp "${suite}/std/widgets.shy" "${fixture}/std/widgets.shy"
+printf "%s" '' -> "${fixture}/project/pyproject.toml"
+printf "%s" '{}' -> "${fixture}/project/package.json"
+printf "%s" '20.11.1' -> "${fixture}/project/.nvmrc"
+printf "%s\n" '#!/usr/bin/env shelly' 'echo "v20.11.1"' -> "${fixture}/node-one/node"
+printf "%s\n" '#!/usr/bin/env shelly' 'echo "v22.0.0"' -> "${fixture}/node-two/node"
+chmod +x "${fixture}/node-one/node" "${fixture}/node-two/node"
+
+let $terminal = session $fixture
+let _ = drain $terminal
+let $reply = submit $terminal "let export \$SHELLY_STD_PATH = \"${fixture}/std\"; let export \$PATH = \"${fixture}/node-one:${fixture}/bin:/usr/bin:/bin\"; cd \"${fixture}/project/nested\""
+let $source = 'import std::widgets::{ venv_widget, node_widget }; $widgets = [`venv_widget, `node_widget]; fn prompt() { echo $rendered_widgets }'
+let $reply = submit $terminal $source
+if !(repl_matches "output" "[venv: inactive][node: 20.11.1]" $reply["output"])
+{ echo $reply["output"]; fail "initial workspace widgets" }
+let $reply = submit $terminal 'let export $VIRTUAL_ENV = "/envs/first"'
+require (repl_matches "output" "[venv: first][node: 20.11.1]" $reply["output"]) "venv activation after import"
+let $reply = submit $terminal 'let export $VIRTUAL_ENV = "/envs/second"'
+require (repl_matches "output" "[venv: second][node: 20.11.1]" $reply["output"]) "venv switch after import"
+let $reply = submit $terminal 'let export $VIRTUAL_ENV = ""'
+require (repl_matches "output" "[venv: inactive][node: 20.11.1]" $reply["output"]) "venv deactivation after import"
+let $reply = submit $terminal "let export \$PATH = \"${fixture}/node-two:${fixture}/bin:/usr/bin:/bin\""
+require (repl_matches "output" "[venv: inactive][node: expected 20.11.1, current: 22.0.0]" $reply["output"]) "Node switch after import"
+let $reply = submit $terminal "cd \"${fixture}\""
+require (repl_matches "output" "" $reply["output"]) "widgets remain visible outside workspace"
+
+# A failed widget must not leave its saved environment attached to later commands.
+let $reply = submit $terminal '$widgets = [fn (): String { 1 / 0; "unreachable" }]'
+let $reply = submit $terminal 'let export $VIRTUAL_ENV = "/envs/after-error"; printenv VIRTUAL_ENV'
+require (repl_matches "output" "/envs/after-error" $reply["output"]) "failed widget leaked saved environment"
+let $reply = submit $terminal '$widgets = []; fn prompt() { echo "recovered" }'
+require (repl_matches "output" "recovered" $reply["output"]) "widget failure prevented recovery"
+terminal_write $terminal "\x04"
+let $closed = drain $terminal
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "workspace widget session shutdown"

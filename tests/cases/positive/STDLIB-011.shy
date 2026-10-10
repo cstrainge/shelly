@@ -1,7 +1,7 @@
 # STDLIB-011: standard module ignores module path
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
-printf "%s" ("let \$value = 7; struct Packet { code: Integer }; enum State { Ready }; fn ping(\$x) { echo \$x \$value }; fn read() { \$value }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/net.shy"
+printf "%s" ("pub let \$value = 7; pub struct Packet { code: Integer }; pub enum State { Ready }; pub fn ping(\$x) { echo \$x \$value }; pub fn read() { \$value }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/net.shy"
 mkdir -p "${std_fixture}/lib"
 printf "%s" ("echo wrong".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/lib/net.shy"
 printf "%s" ("import std::net; std::net::ping hi".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"

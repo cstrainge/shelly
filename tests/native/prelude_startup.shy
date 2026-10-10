@@ -1,8 +1,8 @@
 # Login profiles select the prelude before either script or interactive execution.
 let $fixture = $args[0]
 mkdir -p "${fixture}/env-std" "${fixture}/profile-std"
-printf "%s" 'echo "env-prelude"; struct EnvType {}' -> "${fixture}/env-std/prelude.shy"
-printf "%s" 'echo "profile-prelude"; struct ProfileType {}' -> "${fixture}/profile-std/prelude.shy"
+printf "%s" 'echo "env-prelude"; pub struct EnvType {}' -> "${fixture}/env-std/prelude.shy"
+printf "%s" 'echo "profile-prelude"; pub struct ProfileType {}' -> "${fixture}/profile-std/prelude.shy"
 let $profile = "echo profile; let export \$SHELLY_STD_PATH = \"${fixture}/profile-std\"; prelude_reload"
 printf "%s" $profile -> "${fixture}/.shelly_profile.shy"
 
@@ -45,7 +45,7 @@ startup_case ["--login"] "echo wrong" "profile\n" 7 ""
 
 # Establish a known previous prelude even on hosts without a system profile.
 printf "%s" 'echo env-prelude; struct EnvType {}' -> "${fixture}/env-std/prelude.shy"
-let $recover_profile = "let export \$SHELLY_STD_PATH = \"${fixture}/env-std\"; prelude_reload; " + $profile
+pub let $recover_profile = "let export \$SHELLY_STD_PATH = \"${fixture}/env-std\"; prelude_reload; " + $profile
 printf "%s" $recover_profile -> "${fixture}/.shelly_profile.shy"
 printf "%s" 'let $' -> "${fixture}/profile-std/prelude.shy"
 # Explicit reload errors are startup-script errors; the prior prelude is preserved.

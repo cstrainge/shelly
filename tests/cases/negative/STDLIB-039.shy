@@ -1,7 +1,7 @@
 # STDLIB-039: prelude explicit self import diagnosed
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
-printf "%s" ("import std::prelude".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("pub import std::prelude".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
 printf "%s" ("echo wrong".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-039",

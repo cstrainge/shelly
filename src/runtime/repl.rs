@@ -5,7 +5,8 @@ use std::{ borrow::Cow,
            process::ExitCode,
            path::{ Path, PathBuf },
            fs::read_dir,
-           env::{ current_dir, home_dir, split_paths } };
+           env::{ current_dir, home_dir, split_paths },
+           time::{ Duration, Instant } };
 
 use reedline::{ Color,
                 ColumnarMenu,
@@ -591,28 +592,10 @@ impl Repl
         {
             // Reset after submission, cancellation, or a read error.
             multiline.store(false, Ordering::Relaxed);
-            let prompt_text = if self.interpreter.has_command("prompt")
-                {
-                    let (result, bytes) = self.interpreter.capture_stdout(|interpreter|
-                        {
-                            interpreter.execute_command(location_here!(),
-                                                        "prompt",
-                                                        vec![])
-                        });
-
-                    if result.is_err()
-                    {
-                        default_prompt(&self.interpreter, self.color_mode)
-                    }
-                    else
-                    {
-                        String::from_utf8_lossy(&bytes).to_string()
-                    }
-                }
-                else
-                {
-                    default_prompt(&self.interpreter, self.color_mode)
-                };
+            let prompt_text = self.interpreter.evaluate_prompt(location_here!())
+                .ok().flatten()
+                .unwrap_or_else(|| default_prompt(&self.interpreter, self.color_mode));
+            if self.interpreter.halted { break; }
 
             prompt.prompt_text = prompt_text;
 
@@ -638,12 +621,20 @@ impl Repl
                         completer: Box::new(FirstTabCompleter(completer))
                     });
 
-            match editor.read_line(&prompt)
+            let input = editor.read_line(&prompt);
+            if !matches!(&input, Ok(Signal::Success(text)) if !text.trim().is_empty())
+            {
+                self.interpreter.record_command_time(Duration::ZERO);
+            }
+            match input
             {
                 Ok(Signal::Success(text)) =>
                     {
+                        if text.trim().is_empty() { continue; }
                         let mut buffer = SimpleBuffer::new("<repl>", &text, Some(self.tab_width));
+                        let started = Instant::now();
                         let result = self.interpreter.execute_from_buffer(&mut buffer);
+                        self.interpreter.record_command_time(started.elapsed());
 
                         if let Err(error) = result
                         {

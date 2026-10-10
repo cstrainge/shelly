@@ -26,7 +26,7 @@ fn error(location: &Location, message: String) -> CompileError
 pub fn check_ast(registry: &mut TypeRegistry, ast: &mut AstTopLevel,
                  variables: &ScopedVariables) -> CompileResult<()>
 {
-    let names = check_scope(registry, ast, &registry.names.clone())?;
+    let names = check_scope(registry, ast, &registry.names.clone(), true)?;
     let bindings = variables.get_all_flattened().into_iter().map(|(name, value)|
         {
             let inferred = if value.reference.is_none()
@@ -42,7 +42,7 @@ pub fn check_ast(registry: &mut TypeRegistry, ast: &mut AstTopLevel,
 
 
 fn check_scope(
-    registry: &mut TypeRegistry, ast: &mut AstTopLevel, parent: &Names,
+    registry: &mut TypeRegistry, ast: &mut AstTopLevel, parent: &Names, module_level: bool,
 ) -> CompileResult<Names>
 {
     let mut names = parent.clone();
@@ -52,6 +52,9 @@ fn check_scope(
     let mut local_ids = Vec::new();
     for statement in ast.iter()
     {
+        if    !module_level
+           && let Some((_, location, true)) = statement.module_declaration()
+        { return Err(error(location, "pub is only allowed at module top level".into())); }
         let (name, location) = match statement
             {
                 AstStatement::EnumDeclaration(item) => (&item.name, &item.location),
@@ -253,17 +256,17 @@ fn check_scope(
                 },
             AstStatement::BlockStatement(block) | AstStatement::LoopStatement(block) =>
                 {
-                    check_scope(registry, &mut block.body, &names)?;
+                    check_scope(registry, &mut block.body, &names, false)?;
                 },
             AstStatement::ForStatement(statement) =>
                 {
                     check_expression(registry, &mut statement.iterable, &names)?;
-                    check_scope(registry, &mut statement.body.body, &names)?;
+                    check_scope(registry, &mut statement.body.body, &names, false)?;
                 },
             AstStatement::ConditionalLoopStatement(statement) =>
                 {
                     check_expression(registry, &mut statement.condition, &names)?;
-                    check_scope(registry, &mut statement.body.body, &names)?;
+                    check_scope(registry, &mut statement.body.body, &names, false)?;
                 }
         }
     }
@@ -324,7 +327,7 @@ fn check_function(registry: &mut TypeRegistry, function: &mut AstFunctionStateme
         { return Err(error(&function.location,
             "next_item must declare a return type T | ()".into())); }
     }
-    check_scope(registry, &mut function.body, names)?;
+    check_scope(registry, &mut function.body, names, false)?;
     Ok(())
 }
 
@@ -434,7 +437,8 @@ fn check_expression(
         let location = expression.location.clone();
         let executable = replace(expression, new_ast_literal(location.clone(), Value::None, None));
         expression.kind = AstExpressionKind::Execute(Box::new(AstExecuteStatement
-            { location, executable, expand_path: false, arguments: vec![argument] }));
+            { public: false, location, executable, expand_path: false,
+              arguments: vec![argument] }));
     }
     match &mut expression.kind
     {
@@ -643,11 +647,11 @@ fn check_expression(
                 for branch in &mut conditional.branches
                 {
                     check_expression(registry, &mut branch.condition, names)?;
-                    check_scope(registry, &mut branch.body.body, names)?;
+                    check_scope(registry, &mut branch.body.body, names, false)?;
                 }
                 if let Some(block) = &mut conditional.else_body
                 {
-                    check_scope(registry, &mut block.body, names)?;
+                    check_scope(registry, &mut block.body, names, false)?;
                 }
             },
         AstExpressionKind::MatchExpression(matching) =>
@@ -657,7 +661,7 @@ fn check_expression(
                 {
                     if let Some(pattern) = &mut arm.pattern
                     { check_expression(registry, pattern, names)?; }
-                    check_scope(registry, &mut arm.body.body, names)?;
+                    check_scope(registry, &mut arm.body.body, names, false)?;
                 }
             },
         AstExpressionKind::Variable(_) | AstExpressionKind::VariableSplat(_)

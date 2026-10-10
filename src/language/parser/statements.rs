@@ -288,6 +288,7 @@ fn parse_execute_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
                         string_flag: None,
                         kind: AstExpressionKind::Execute(Box::new(AstExecuteStatement
                             {
+                                public: false,
                                 location,
                                 expand_path: matches!(&exec_expression.kind,
                                     AstExpressionKind::Symbol(symbol)
@@ -420,6 +421,7 @@ fn parse_function_body(buffer: &mut TokenBuffer<'_, '_>, location: Location,
 
     let mut function = AstFunctionStatement
         {
+            public: false,
             location: location.clone(), name, receiver, receiver_type: None,
             condition: None, parameters, return_annotation, return_type: None, body: code,
         };
@@ -677,7 +679,8 @@ fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
     }
     expect_statement_end(buffer)?;
     Ok(Some(AstStatement::StructDeclaration(Box::new(AstStructDeclaration
-        { location: name.location.clone(), name: name.token_value_text(), fields }))))
+        { public: false, location: name.location.clone(), name: name.token_value_text(),
+          fields }))))
 }
 
 
@@ -689,7 +692,8 @@ fn parse_type_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
     let annotation = parse_type(buffer)?;
     expect_statement_end(buffer)?;
     Ok(Some(AstStatement::TypeDeclaration(Box::new(AstTypeDeclaration
-        { location: name.location.clone(), name: name.token_value_text(), annotation }))))
+        { public: false, location: name.location.clone(), name: name.token_value_text(),
+          annotation }))))
 }
 
 fn parse_enum_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
@@ -722,7 +726,8 @@ fn parse_enum_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
     }
     expect_statement_end(buffer)?;
     Ok(Some(AstStatement::EnumDeclaration(Box::new(AstEnumDeclaration
-        { location: name.location.clone(), name: name.token_value_text(), variants }))))
+        { public: false, location: name.location.clone(), name: name.token_value_text(),
+          variants }))))
 }
 
 
@@ -779,7 +784,7 @@ fn parse_import_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
         else { None };
     expect_statement_end(buffer)?;
     Ok(Some(AstStatement::ImportStatement(Box::new(AstImportStatement
-        { location: keyword.location, module, names, condition, enabled: true }))))
+        { public: false, location: keyword.location, module, names, condition, enabled: true }))))
 }
 
 
@@ -805,6 +810,7 @@ fn parse_exclusion(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstSt
     let mut statement = match kind
         {
             Some(TokenKind::Function) => parse_function_statement(buffer)?.unwrap(),
+            Some(TokenKind::Public) => parse_public_statement(buffer)?.unwrap(),
             Some(TokenKind::BlockOpen) =>
                 AstStatement::BlockStatement(Box::new(parse_block(buffer)?)),
             None => return Err(ParserError { location: Some(keyword.location),
@@ -817,7 +823,62 @@ fn parse_exclusion(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstSt
     {
         AstStatement::FunctionDefinition(function) => function.condition = Some(condition),
         AstStatement::BlockStatement(block) => block.condition = Some(condition),
-        _ => unreachable!(),
+        _ => return Err(ParserError { location: Some(keyword.location),
+            kind: ParserErrorKind::InvalidExclusion(
+                "[when ...] must precede a function or a declaration block".into()) }),
+    }
+    Ok(Some(statement))
+}
+
+
+fn parse_public_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
+{
+    let keyword = expect_token(buffer, TokenKind::Public)?;
+    let invalid = || ParserError { location: Some(keyword.location.clone()),
+        kind: ParserErrorKind::InvalidVisibility(
+            "pub must precede a named module declaration or import".into()) };
+    let kind =
+        {
+            let peek = Lookahead::new(buffer);
+            peek.buffer.next()?.map(|token| (token.kind, token.token_value_text()))
+        };
+    if matches!(&kind, Some((TokenKind::Symbol, name)) if name == "visible")
+    {
+        expect_token(buffer, TokenKind::Symbol)?;
+        let arguments = parse_command_arguments(buffer)?;
+        expect_statement_end(buffer)?;
+        if arguments.len() != 1
+        { return Err(ParserError { location: Some(keyword.location),
+            kind: ParserErrorKind::InvalidVisibility(
+                "pub visible expects one function reference or type name".into()) }); }
+        let mut statement = new_ast_execute_statement(keyword.location.clone(), false,
+            new_ast_symbol(keyword.location, "visible".into(), None), arguments).unwrap();
+        if let AstStatement::ExecuteStatement(call) = &mut statement { call.public = true; }
+        return Ok(Some(statement));
+    }
+    let kind = kind.map(|(kind, _)| kind);
+    let mut statement = match kind
+        {
+            Some(TokenKind::Let) => parse_let_statement(buffer)?,
+            Some(TokenKind::Function) => parse_function_statement(buffer)?,
+            Some(TokenKind::Struct) => parse_struct_statement(buffer)?,
+            Some(TokenKind::Enum) => parse_enum_statement(buffer)?,
+            Some(TokenKind::Type) => parse_type_statement(buffer)?,
+            Some(TokenKind::Alias) => parse_alias_statement(buffer)?,
+            Some(TokenKind::Import) => parse_import_statement(buffer)?,
+            Some(TokenKind::SquareOpen) => parse_exclusion(buffer)?,
+            _ => return Err(invalid()),
+        }.ok_or_else(invalid)?;
+    match &mut statement
+    {
+        AstStatement::LetStatement(item) => item.public = true,
+        AstStatement::FunctionDefinition(item) => item.public = true,
+        AstStatement::StructDeclaration(item) => item.public = true,
+        AstStatement::EnumDeclaration(item) => item.public = true,
+        AstStatement::TypeDeclaration(item) => item.public = true,
+        AstStatement::AliasStatement(item) => item.public = true,
+        AstStatement::ImportStatement(item) => item.public = true,
+        _ => return Err(invalid()),
     }
     Ok(Some(statement))
 }
@@ -834,6 +895,8 @@ pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
         let Some(token) = lookahead.buffer.next()? else { return Ok(None); };
         token.kind
     };
+
+    if next_kind == TokenKind::Public { return parse_public_statement(buffer); }
 
     // A function's parameter list can also look like a parenthesized command argument. Once fn
     // starts a declaration, preserve its errors (including incomplete input) instead of falling

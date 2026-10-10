@@ -20,8 +20,8 @@ fn closure_case($source: String, $stdout: String, $diagnostic: String)
     { echo $source $reply $out $err; $failed = $failed + 1 }
 }
 let $fixture = $args[0]
-printf "%s" "type F = fn(): Integer; let \$n: Integer = 1; fn make(): F { fn (): Integer { \$n = \$n + 1; \$n } }; let \$callback: F = make" -> "${fixture}/closures.shy"
-printf "%s" "import closures::{ F, \$callback }; visible --export \"F\"" -> "${fixture}/closure_bridge.shy"
+printf "%s" "pub type F = fn(): Integer; pub let \$n: Integer = 1; pub fn make(): F { fn (): Integer { \$n = \$n + 1; \$n } }; pub let \$callback: F = make" -> "${fixture}/closures.shy"
+printf "%s" "pub import closures::{ F, \$callback }; pub visible \"F\"" -> "${fixture}/closure_bridge.shy"
 closure_case "fn foo(\$func: fn(Integer): String) { echo (\$func 7) }; foo fn (\$x: Integer): String\n    {\n        \"This is a string with an integer \${x}!\"\n    }" "This is a string with an integer 7!\n" ""
 closure_case "let \$f = fn (\$x: Integer): Integer { \$x + 1 }; echo (\$f 2)" "3\n" ""
 closure_case "let \$f = fn () { 42 }; let \$copy = \$f; echo (\$copy) (\$f == \$copy)" "42 true\n" ""

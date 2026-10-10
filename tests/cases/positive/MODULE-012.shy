@@ -1,6 +1,6 @@
 # MODULE-012: method on qualified type
 let $module_fixture = $args[0]
-printf "%s" ("let \$value: Integer = 7\nfn ping(\$x) { echo \"ping\" \$x \$value }\nfn next() { \$value = \$value + 1; \$value }\nstruct Point { x: Integer }\nenum State { On, Off }\nfn Point::twice(): Integer { \$self.x * 2 }\n".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+printf "%s" ("pub let \$value: Integer = 7\npub fn ping(\$x) { echo \"ping\" \$x \$value }\npub fn next() { \$value = \$value + 1; \$value }\npub struct Point { x: Integer }\npub enum State { On, Off }\npub fn Point::twice(): Integer { \$self.x * 2 }\n".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
 check [
     "id": "MODULE-012",
     "name": "method on qualified type",

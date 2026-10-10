@@ -1,7 +1,7 @@
 # MODULE-076: different selected variables collide
 let $module_fixture = $args[0]
-printf "%s" ("let \$x = 1".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/one.shy"
-printf "%s" ("let \$x = 2".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/two.shy"
+printf "%s" ("pub let \$x = 1".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/one.shy"
+printf "%s" ("pub let \$x = 2".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/two.shy"
 check [
     "id": "MODULE-076",
     "name": "different selected variables collide",

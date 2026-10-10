@@ -1,0 +1,10 @@
+check_repl ["id": "WIDGETS", "name": "Builtin widget callbacks across submissions", "steps": [
+    ['echo $widgets.count', "output", "0"],
+    ['let $text = "before"; $widgets = [fn (): String { $text }]', "quiet", ""],
+    ['$text = "after"; echo ($widgets[0])', "output", "after"],
+    ['$widgets[0] = fn (): Integer { 7 }', "error", "return type is incompatible"],
+    ['echo ($widgets[0]) ($widgets[0].type == WidgetFn)', "output", "after true"],
+    ['$widgets = [7]', "error", "requires a bound function"],
+    ['echo $widgets.count', "output", "1"],
+    ['$widgets = []; echo $widgets.count', "output", "0"],
+], "exit": 0]

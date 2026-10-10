@@ -1,0 +1,130 @@
+# Module interfaces are explicit; private implementation state stays usable internally.
+let $fixture = $args[0]
+let $suite = $args[1]
+mkdir -p "${fixture}/std"
+printf "%s" 'pub struct Shared {}; struct PreludePrivate {}; pub fn helper(): String { "prelude" }; fn private_helper() { "private" }' -> "${fixture}/std/prelude.shy"
+let $api = '*
+let $secret: Integer = 9
+let export $ENV_SECRET = "secret"
+fn hidden(): Integer { $secret }
+struct Internal {}
+enum InternalFlag { Ready }
+type InternalCount = Integer
+pub let $value: Integer = 7
+pub let export $ENV_PUBLIC = "public"
+pub type Count = Integer
+pub type Callback = fn(): Integer
+pub struct Item { n: Integer }
+pub enum Flag { Ready, Done }
+fn Item::secret(): Integer { $self.n + 100 }
+pub fn Item::read(): Integer { $self.secret }
+pub fn Item::next_item(): Integer | ()
+{
+    if $self.n == 0 { return () }
+    $self.n = $self.n - 1
+    $self.n
+}
+pub struct PrivateIterator { n: Integer }
+fn PrivateIterator::next_item(): Integer | () { () }
+pub fn private_loop() { for $n in PrivateIterator(n: 1) {}; echo internal }
+pub fn exposed(): Integer { hidden }
+pub fn make(): Item { Item(n: 2) }
+pub fn shared(): Shared { Shared() }
+pub let $callback: Callback = `hidden
+alias implementation = hidden
+pub alias say = implementation
+alias hush = echo hidden
+[when true] pub fn enabled(): String { "enabled" }
+pub [when true] fn also_enabled(): String { "also" }
+[when false] pub fn skipped(): UnknownType { unavailable }
+[when true] { pub let $conditional = 3; let $private_conditional = 4 }
+*'
+printf "%s" $api -> "${fixture}/api.shy"
+printf "%s" 'import api::{ exposed, Item, $value }; pub fn wrapped(): Integer { exposed }' -> "${fixture}/private_bridge.shy"
+printf "%s" 'pub import api::{ exposed, Item, $value, Count, say }' -> "${fixture}/public_bridge.shy"
+printf "%s" 'pub import api' -> "${fixture}/namespace.shy"
+printf "%s" 'import namespace; pub fn wrapped(): Integer { namespace::api::exposed }' -> "${fixture}/nested_private.shy"
+printf "%s" 'pub fn revision(): Integer { 1 }; fn revision(): Integer { 2 }; pub let $v = 1; let $v = 2' -> "${fixture}/redeclared.shy"
+printf "%s" 'pub visible "Terminal"; pub visible `cd; visible `run_process; pub fn move() { cd "." }' -> "${fixture}/native_api.shy"
+printf "%s" 'pub fn String::tag(): String { "tag:${self}" }; fn String::secret_tag(): String { "secret" }; pub fn internal(): String { "x".secret_tag }' -> "${fixture}/extensions.shy"
+printf "%s" 'pub fn String::tag(): String { "other" }' -> "${fixture}/other_extensions.shy"
+cp "${suite}/std/widgets.shy" "${fixture}/std/widgets.shy"
+
+fn privacy_case($source: String, $expected: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "${fixture}/std", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    require (($reply["error"] == ()) && ($reply["signal"] == ()) &&
+        (!$reply["timed_out"])) "privacy child failed"
+    if ($out != $expected) || (($diagnostic == "") &&
+        (($reply["exit_code"] != 0) || ($err != ""))) ||
+        (($diagnostic != "") && (($reply["exit_code"] == 0) || (!($err.contains $diagnostic))))
+    { echo $source $reply $out $err; fail "module privacy mismatch" }
+}
+privacy_case 'import api; echo (api::exposed) $api::value (api::enabled) (api::also_enabled)' "9 7 enabled also\n" ""
+privacy_case 'import api::{ exposed, $value, Item, Flag, Count, $callback }; let $x: Count = 3; echo (exposed) $value (Item(n: 5).read) Flag::Ready (Integer($x)) ($callback)' "9 7 105 Flag::Ready 3 9\n" ""
+privacy_case 'import api; let $x: any = api::make; echo $x.read; for $n in $x { echo $n }; api::private_loop' "102\n1\n0\ninternal\n" ""
+privacy_case 'import api; $api::value = 8; import api::{ $value }; echo $value' "8\n" ""
+privacy_case 'import api; echo $api::ENV_PUBLIC (api::shared) $api::conditional' "public Shared() 3\n" ""
+privacy_case 'echo pub' "pub\n" ""
+privacy_case 'import api; echo (api::say); import api::{ say }; echo (say)' "9\n9\n" ""
+for $name in ["hidden", "hush", "skipped"]
+{ privacy_case "import api; api::${name}" "" "unavailable" }
+for $name in ["secret", "ENV_SECRET", "HOME", "widgets", "private_conditional"]
+{ privacy_case "import api; echo \$api::${name}" "" "not found" }
+for $name in ["Internal", "InternalFlag", "InternalCount", "Shared", "PreludePrivate"]
+{ privacy_case "import api; let \$x: api::${name}" "" "Unknown type" }
+for $name in ["hidden", "hush", "Internal", "InternalCount", "\$secret", "\$ENV_SECRET"]
+{ privacy_case "import api::{ ${name} }" "" "has no member" }
+privacy_case 'pub import api::{ hidden }' "" "has no member"
+privacy_case 'import api; pub visible `api::hidden' "" "not registered"
+privacy_case 'import api; pub visible "api::Internal"' "" "not registered"
+privacy_case 'import api; let $flag: api::InternalFlag = api::InternalFlag::Ready' "" "Unknown type"
+privacy_case 'import api; let $x = api::make; echo $x.secret' "" "field"
+privacy_case 'import api; let $x: any = api::make; echo $x.secret' "" "field"
+privacy_case 'import api; let $x = api::PrivateIterator(n: 1); for $n in $x {}' "" "next_item"
+privacy_case 'import private_bridge; echo (private_bridge::wrapped)' "9\n" ""
+privacy_case 'import private_bridge; private_bridge::exposed' "" "unavailable"
+privacy_case 'import private_bridge; echo $private_bridge::value' "" "not found"
+privacy_case 'import private_bridge; let $x: private_bridge::Item' "" "Unknown type"
+privacy_case 'import private_bridge; private_bridge::api::exposed' "" "unavailable"
+privacy_case 'import public_bridge; echo (public_bridge::exposed) $public_bridge::value (public_bridge::say); let $x: public_bridge::Count = 1; echo public_bridge::Item(n: 1).read' "9 7 9\n101\n" ""
+privacy_case 'import public_bridge; public_bridge::api::exposed' "" "unavailable"
+privacy_case 'import namespace; echo (namespace::api::exposed) $namespace::api::value namespace::api::Item(n: 1).read' "9 7 101\n" ""
+privacy_case 'import namespace::{ api }; echo (api::exposed)' "9\n" ""
+privacy_case 'import namespace::{ api }; api::hidden' "" "unavailable"
+privacy_case 'import nested_private; nested_private::namespace::api::exposed' "" "unavailable"
+privacy_case 'import nested_private; let $x: nested_private::namespace::api::Item' "" "Unknown type"
+privacy_case 'import native_api; native_api::cd "."; let $x: optional native_api::Terminal = (); echo $x' "()\n" ""
+privacy_case 'import native_api; native_api::run_process ["true"] [:]' "" "unavailable"
+privacy_case 'import native_api::{ run_process }' "" "has no member"
+privacy_case 'import std::widgets::{ widget_workspace }' "" "has no member"
+privacy_case 'import std::widgets::{ widget_node_version }' "" "has no member"
+privacy_case 'import std::widgets::{ widget_node_normalize }' "" "has no member"
+privacy_case 'import std::prelude; std::prelude::private_helper' "" "unavailable"
+privacy_case 'let $x: PreludePrivate' "" "Unknown type"
+privacy_case 'echo Shared() (std::prelude::helper)' "Shared() prelude\n" ""
+privacy_case 'import redeclared; redeclared::revision' "" "unavailable"
+privacy_case 'import redeclared; echo $redeclared::v' "" "not found"
+privacy_case 'pub' "" "pub must precede"
+privacy_case 'pub echo hello' "" "pub must precede"
+privacy_case 'pub let _ = 1' "" "pub must precede"
+privacy_case 'pub fn () { 1 }' "" "Parser error"
+privacy_case 'pub pub fn f() {}' "" "pub must precede"
+privacy_case 'fn f() { pub fn nested() {} }' "" "pub is only allowed"
+privacy_case '{ pub let $value = 1 }' "" "pub is only allowed"
+privacy_case 'if true { pub struct S {} }' "" "pub is only allowed"
+privacy_case 'let $f = fn () { pub type T = Integer }' "" "pub is only allowed"
+privacy_case 'fn f() { pub visible `cd }' "" "pub is only allowed"
+privacy_case 'visible --export `cd' "" "use pub visible"
+privacy_case 'import extensions; echo "x".tag (extensions::internal)' "tag:x secret\n" ""
+privacy_case 'import extensions; echo "x".secret_tag' "" "field"
+privacy_case 'import extensions; import other_extensions; echo "x".tag' "" "already bound"

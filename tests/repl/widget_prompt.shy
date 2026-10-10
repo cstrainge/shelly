@@ -1,0 +1,77 @@
+# Widget results are fresh per prompt and temporary bindings are always cleaned up.
+let $fixture = $args[0]
+let $terminal = session $fixture
+let _ = drain $terminal
+for ($source, $kind, $expected) in [
+    ['echo $rendered_widgets', "error", "not found"],
+    ['fn prompt() { echo "widgets=${rendered_widgets}" }', "output", "widgets="],
+    ['$widgets = [fn (): String { "first" }, fn (): String { "second" }]', "output", "widgets=[first][second]"],
+    ['let $text = "before"; $widgets = [fn (): String { $text }, fn (): String { "" }, fn (): String { "λ" }]', "output", "widgets=[before][λ]"],
+    ['$text = "after"', "output", "widgets=[after][λ]"],
+    ['echo $rendered_widgets', "error", "not found"],
+    ['fn prompt() { echo "widgets=${rendered_widgets}"; 1 / 0 }', "output", "<shelly> [~]"],
+    ['echo $rendered_widgets', "error", "not found"],
+    ['fn prompt() { echo "widgets=${rendered_widgets}" }', "output", "widgets=[after][λ]"],
+    ['let $rendered_widgets = "outside"', "output", "widgets=[after][λ]"],
+    ['echo $rendered_widgets', "output", "outside"],
+    ['fn prompt() { echo "widgets=${rendered_widgets}"; 1 / 0 }', "output", "<shelly> [~]"],
+    ['echo $rendered_widgets', "output", "outside"],
+    ['fn prompt() { echo "widgets=${rendered_widgets}" }', "output", "widgets=[after][λ]"],
+    ['$widgets = [fn (): String { "" }, fn (): String { " " }, fn (): String { "" }]', "output", "widgets=[ ]"],
+    ['let $empty_calls = 0; $widgets = [fn (): String { $empty_calls = $empty_calls + 1; "" }]', "output", "widgets="],
+    ['echo $empty_calls', "output", "1"],
+    ['$widgets = []', "output", "widgets="],
+]
+{
+    let $reply = submit $terminal $source
+    if !(repl_matches $kind $expected $reply["output"])
+    { echo $source $reply["output"]; fail "incorrect widget prompt or cleanup" }
+}
+
+# Printed output is discarded; only each callback's returned String is displayed.
+let $reply = submit $terminal '$widgets = [fn (): String { echo "unwanted-widget-stdout"; "returned" }]'
+require ($reply["output"].contains "\nwidgets=[returned]\n") "widget return was not rendered"
+require (!($reply["output"].contains "\nunwanted-widget-stdout\n")) "widget stdout leaked"
+
+# The callback array is snapshotted; callbacks may replace it for the next prompt.
+let $reply = submit $terminal '$widgets = [fn (): String { $widgets = [fn (): String { "replacement" }]; "original" }, fn (): String { "tail" }]'
+require ($reply["output"].contains "\nwidgets=[original][tail]\n") "widget mutation changed current list"
+let $reply = submit $terminal 'echo next'
+require ($reply["output"].contains "\nwidgets=[replacement]\n") "widget replacement did not persist"
+
+terminal_write $terminal "\x04"
+let $closed = drain $terminal
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "widget prompt session shutdown"
+
+# Widgets run before the default prompt too, and an explicit exit stops the editor.
+let $terminal = session $fixture
+let _ = drain $terminal
+let $reply = submit $terminal 'let $calls = 0; $widgets = [fn (): String { $calls = $calls + 1; String($calls) }]'
+let $reply = submit $terminal 'echo $calls'
+require (repl_matches "output" "1" $reply["output"]) "default prompt skipped widgets"
+let $reply = submit $terminal '$widgets = [fn (): String { exit 7; "unreachable" }]'
+require $reply["eof"] "widget exit left the editor running"
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 7) "widget exit status was lost"
+
+# Imported prompt functions receive the temporary binding in their defining module.
+printf "%s" 'pub fn prompt() { echo "module=${rendered_widgets}" }' -> "${fixture}/widget_prompt.shy"
+let $terminal = session $fixture
+let _ = drain $terminal
+let $reply = submit $terminal '$widgets = [fn (): String { "replacement" }]'
+let $reply = submit $terminal 'import widget_prompt::{ prompt }'
+require ($reply["output"].contains "\nmodule=[replacement]\n") "imported prompt lacks rendered widgets"
+let $reply = submit $terminal 'echo $widget_prompt::rendered_widgets'
+require (repl_matches "error" "not found" $reply["output"]) "rendered widgets escaped imported prompt"
+
+# Failure uses the existing default prompt, then the next successful cycle recovers.
+let $reply = submit $terminal '$widgets = [fn (): String { 1 / 0; "unreachable" }]'
+require ($reply["output"].contains "\n<shelly>") "failed widget did not fall back"
+let $reply = submit $terminal '$widgets = [fn (): String { "recovered" }]'
+require ($reply["output"].contains "\nmodule=[recovered]\n") "widget failure prevented recovery"
+
+terminal_write $terminal "\x04"
+let $closed = drain $terminal
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "widget prompt session shutdown"

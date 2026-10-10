@@ -1,6 +1,6 @@
 # MODULE-039: qualified redirection capture
 let $module_fixture = $args[0]
-printf "%s" ("let \$text: String".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+printf "%s" ("pub let \$text: String".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
 check [
     "id": "MODULE-039",
     "name": "qualified redirection capture",

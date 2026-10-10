@@ -1,16 +1,16 @@
 let $fixture = $args[0]
 mkdir -p "${fixture}/one" "${fixture}/bad" "${fixture}/parse" "${fixture}/recursive" "${fixture}/conflict" "${fixture}/missing"
-printf "%s" "struct Stable {}; fn label(): String { \"dependency\" }" -> "${fixture}/one/dep.shy"
-printf "%s" "import dep::{ Stable }; echo loaded-one; let \$label = \"one\"; struct Shared { code: Integer }; struct Removed {}; enum State { Ready }; fn Shared::label(): String { \$label }; fn read(): String { \$label }" -> "${fixture}/one/prelude.shy"
-printf "%s" "fn build(): Shared { Shared(code: 10) }; fn label(): String { std::prelude::read }; fn state(): State { State::Ready }" -> "${fixture}/one/helper.shy"
-printf "%s" "fn build(): Shared { Shared(code: 20) }; fn label(): String { std::prelude::read }" -> "${fixture}/local.shy"
-printf "%s" "fn build(): Shared { Shared(code: 30) }; fn label(): String { std::prelude::read }" -> "${fixture}/other.shy"
-printf "%s" "fn reload() { prelude_reload }; fn build(): Shared { Shared(code: 40) }; fn label(): String { std::prelude::read }" -> "${fixture}/caller.shy"
-printf "%s" "fn build(): Added { Added() }" -> "${fixture}/newtype.shy"
-printf "%s" "struct Bad {}; let \$bad = 1 / 0" -> "${fixture}/bad/prelude.shy"
+printf "%s" "pub struct Stable {}; pub fn label(): String { \"dependency\" }" -> "${fixture}/one/dep.shy"
+printf "%s" "pub import dep::{ Stable }; echo loaded-one; pub let \$label = \"one\"; pub struct Shared { code: Integer }; pub struct Removed {}; pub enum State { Ready }; pub fn Shared::label(): String { \$label }; pub fn read(): String { \$label }" -> "${fixture}/one/prelude.shy"
+printf "%s" "pub fn build(): Shared { Shared(code: 10) }; pub fn label(): String { std::prelude::read }; pub fn state(): State { State::Ready }" -> "${fixture}/one/helper.shy"
+printf "%s" "pub fn build(): Shared { Shared(code: 20) }; pub fn label(): String { std::prelude::read }" -> "${fixture}/local.shy"
+printf "%s" "pub fn build(): Shared { Shared(code: 30) }; pub fn label(): String { std::prelude::read }" -> "${fixture}/other.shy"
+printf "%s" "pub fn reload() { prelude_reload }; pub fn build(): Shared { Shared(code: 40) }; pub fn label(): String { std::prelude::read }" -> "${fixture}/caller.shy"
+printf "%s" "pub fn build(): Added { Added() }" -> "${fixture}/newtype.shy"
+printf "%s" "pub struct Bad {}; pub let \$bad = 1 / 0" -> "${fixture}/bad/prelude.shy"
 printf "%s" "let \$" -> "${fixture}/parse/prelude.shy"
 printf "%s" "prelude_reload" -> "${fixture}/recursive/prelude.shy"
-printf "%s" "struct Local {}; struct Shared {}" -> "${fixture}/conflict/prelude.shy"
+printf "%s" "pub struct Local {}; pub struct Shared {}" -> "${fixture}/conflict/prelude.shy"
 check_repl ["id": "PRELUDE-RELOAD", "name": "PRELUDE-RELOAD", "steps": [
     ["let \$SHELLY_STD_PATH = \"<FIXTURE>/one\"; prelude_reload", "output", "loaded-one"],
     ["let \$saved = Shared(code: 3); struct Local {}", "quiet", ""],

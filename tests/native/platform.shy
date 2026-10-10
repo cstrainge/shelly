@@ -1,6 +1,28 @@
 # The host OS is available in functions and in every CLI execution mode,
 # even when a replacement environment supplies conflicting names.
 let $fixture = $args[0]
+require (($last_cmd_time.type == String) && ($last_cmd_time == "0:00")) "initial command time"
+let $own_pid: Integer = $pid
+require (($pid.type == Integer) && ($pid != 0)) "invalid process ID"
+fn current_pid(): Integer { $pid }
+require ((current_pid) == $own_pid) "process ID changed in a function"
+let $reported_pid: String
+ps -p $pid -o pid= -> $reported_pid
+require (Integer($reported_pid.trim) == $own_pid) "process ID not found by ps"
+let $pid_source = 'let $value: Integer = $pid; echo $value'
+printf "%s" $pid_source -> "${fixture}/pid.shy"
+for ($command, $input) in [
+    [[`$shelly, "-m", "-c", $pid_source], "/dev/null"],
+    [[`$shelly, "-m", "${fixture}/pid.shy"], "/dev/null"],
+    [[`$shelly, "-m", "-s"], "${fixture}/pid.shy"],
+]
+{
+    let $output: String
+    let $result = run_process $command ["stdin_file": $input, "timeout_ms": 1000] -> $output
+    require (($result["error"] == ()) && ($result["exit_code"] == 0)) "process ID probe failed"
+    let $child_pid = Integer($output.trim)
+    require (($child_pid != 0) && ($child_pid != $own_pid)) "child inherited parent process ID"
+}
 let $kernel: String
 uname -s -> $kernel
 let $expected = if $kernel.trim == "Darwin" { "macos" }

@@ -1,7 +1,7 @@
 # STDLIB-044: prelude excluded types unavailable
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
-printf "%s" ("[when false] { struct Hidden {} }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("[when false] { pub struct Hidden {} }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
 printf "%s" ("let \$x: Hidden = Hidden()".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-044",

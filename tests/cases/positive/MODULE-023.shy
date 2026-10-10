@@ -1,8 +1,8 @@
 # MODULE-023: diamond dependencies initialize once
 let $module_fixture = $args[0]
-printf "%s" ("import shared::{ next }; fn read() { next }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/left.shy"
-printf "%s" ("import shared::{ next }; fn read() { next }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/right.shy"
-printf "%s" ("echo \"loaded\"; let \$n = 0; fn next() { \$n = \$n + 1; \$n }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/shared.shy"
+printf "%s" ("pub import shared::{ next }; pub fn read() { next }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/left.shy"
+printf "%s" ("pub import shared::{ next }; pub fn read() { next }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/right.shy"
+printf "%s" ("echo \"loaded\"; pub let \$n = 0; pub fn next() { \$n = \$n + 1; \$n }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/shared.shy"
 check [
     "id": "MODULE-023",
     "name": "diamond dependencies initialize once",

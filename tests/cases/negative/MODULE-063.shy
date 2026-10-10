@@ -1,6 +1,6 @@
 # MODULE-063: module initialization error
 let $module_fixture = $args[0]
-printf "%s" ("let \$x = 1 / 0".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+printf "%s" ("pub let \$x = 1 / 0".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
 check [
     "id": "MODULE-063",
     "name": "module initialization error",

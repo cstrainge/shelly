@@ -1,7 +1,7 @@
 # MODULE-053: indirect import cycle
 let $module_fixture = $args[0]
-printf "%s" ("import bar".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
-printf "%s" ("import foo".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/bar.shy"
+printf "%s" ("pub import bar".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+printf "%s" ("pub import foo".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/bar.shy"
 check [
     "id": "MODULE-053",
     "name": "indirect import cycle",

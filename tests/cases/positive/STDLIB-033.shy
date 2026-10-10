@@ -1,7 +1,7 @@
 # STDLIB-033: prelude first directory wins
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/one"
-printf "%s" ("struct First {}".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/one/prelude.shy"
+printf "%s" ("pub struct First {}".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/one/prelude.shy"
 mkdir -p "${std_fixture}/two"
 printf "%s" ("echo wrong".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/two/prelude.shy"
 printf "%s" ("echo First()".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"

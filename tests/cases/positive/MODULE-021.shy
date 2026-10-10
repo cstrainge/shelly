@@ -1,7 +1,7 @@
 # MODULE-021: nested module lookup
 let $module_fixture = $args[0]
-printf "%s" ("import bar".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
-printf "%s" ("fn ping() { echo \"nested\" }; struct S {}".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/bar.shy"
+printf "%s" ("pub import bar".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/foo.shy"
+printf "%s" ("pub fn ping() { echo \"nested\" }; pub struct S {}".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/bar.shy"
 check [
     "id": "MODULE-021",
     "name": "nested module lookup",

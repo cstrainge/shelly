@@ -11,10 +11,11 @@ use std::{ collections::{ HashMap, HashSet, VecDeque },
            fs::File,
            io::{ BufReader, Error, ErrorKind, Read, Write, copy, pipe, stdout, stderr },
            path::{ Path, PathBuf, Component, MAIN_SEPARATOR_STR, is_separator },
-           process::{ Command, Stdio },
+           process::{ Command, Stdio, id },
            rc::Rc,
            mem::replace,
-           thread::Builder };
+           thread::Builder,
+           time::Duration };
 
 use glob::{ MatchOptions, Pattern, glob };
 
@@ -225,8 +226,10 @@ pub struct Interpreter
     pub(super) type_scopes: HashMap<TypeId, String>,
     special_vars: SpecialVars,
     pub(super) native_functions: NativeFunctions,
+    pub(super) widget_environment: Option<Vec<(String, String)>>,
     captured_stdout: Option<Vec<u8>>,
     redirections: Vec<Redirection>,
+    last_cmd_time: Duration,
     pub last_result: Option<Value>,
     pub exit_code: u8,
     pub halted: bool
@@ -256,8 +259,10 @@ impl Interpreter
             .expect("The current scope must be registered.")
     }
 
-    fn exported_environment(&self, location: &Location) -> InterpreterResult<Vec<(String, String)>>
+    pub(super) fn exported_environment(&self, location: &Location)
+        -> InterpreterResult<Vec<(String, String)>>
     {
+        if let Some(environment) = &self.widget_environment { return Ok(environment.clone()); }
         self.scope().variables.get_all_flattened()
             .iter()
             .filter(|(_, value)| value.exported == ValueVisibility::Exported)
@@ -356,6 +361,36 @@ impl Interpreter
 
         let special_vars: SpecialVars = HashMap::from([
                 (
+                    "$last_cmd_time",
+                    Rc::new(|interpreter: &Interpreter|
+                        {
+                            let seconds = interpreter.last_cmd_time.as_secs();
+                            let minutes = (seconds / 60) % 60;
+                            let hours = (seconds / 3600) % 24;
+                            let text = if seconds >= 86400
+                                {
+                                    format!("{}:{:02}:{:02}:{:02}", seconds / 86400,
+                                            hours, minutes, seconds % 60)
+                                }
+                                else if seconds >= 3600
+                                {
+                                    format!("{}:{:02}:{:02}", hours, minutes, seconds % 60)
+                                }
+                                else
+                                {
+                                    format!("{}:{:02}", seconds / 60, seconds % 60)
+                                };
+                            Ok(Value::from_string(text))
+                        }) as ReadFunction
+                ),
+                (
+                    "$pid",
+                    Rc::new(|_interpreter: &Interpreter|
+                        {
+                            Ok(Value::Integer(i64::from(id())))
+                        }) as ReadFunction
+                ),
+                (
                     "$pwd",
                     Rc::new(|_interpreter: &Interpreter|
                         {
@@ -390,8 +425,10 @@ impl Interpreter
                 type_scopes: HashMap::new(),
                 special_vars,
                 native_functions,
+                widget_environment: None,
                 captured_stdout: None,
                 redirections: Vec::new(),
+                last_cmd_time: Duration::ZERO,
                 last_result: None,
                 exit_code: 0,
                 halted: false
@@ -562,6 +599,11 @@ impl Interpreter
         {
             eprintln!("Error processing startup file {}: {}", origin, error);
         }
+    }
+
+    pub fn record_command_time(&mut self, elapsed: Duration)
+    {
+        self.last_cmd_time = elapsed;
     }
 
     pub fn capture_stdout<T>(&mut self,
@@ -853,6 +895,13 @@ impl Interpreter
                         }
                     },
 
+                Code::PublishSymbol =>
+                    {
+                        let value = Self::pop(&location, &mut stack)?;
+                        self.publish_symbol(&location, &value)?;
+                        self.last_result = Some(Value::None);
+                    },
+
                 Code::Execute =>
                     {
                         let mut args = Vec::new();
@@ -956,8 +1005,9 @@ impl Interpreter
                         arguments.reverse();
                         let target = Self::pop_as_text(&location, &mut stack)?;
 
-                        self.scope_mut().aliases
-                            .insert(alias.clone(), Alias { name: target, arguments });
+                        let scope = self.current_scope.clone();
+                        self.scope_mut().aliases.insert(alias.clone(),
+                            Rc::new(Alias { scope, name: target, arguments }));
                     },
 
                 Code::BindParameter | Code::BindRestParameter =>
@@ -2317,7 +2367,7 @@ impl Interpreter
         value
     }
 
-    fn execute_value(
+    pub(super) fn execute_value(
         &mut self, location: &Location, value: Value, args: Vec<Value>,
     ) -> InterpreterResult<()>
     {
@@ -2477,7 +2527,7 @@ impl Interpreter
         if    (executable.contains("::") && self.scope().types.module_names
                 .contains(executable.split("::").next().unwrap()))
            || self.module_native_function(executable).is_some()
-           || self.scope().aliases.contains_key(executable)
+           || self.module_alias_in(&self.current_scope, executable).is_some()
            || self.module_function(executable).is_some()
         {
             return true;
@@ -2620,7 +2670,16 @@ impl Interpreter
                executable: String,
                args: Vec<Value>) -> InterpreterResult<()>
     {
-        let (executable, resolved_args) = self.resolve_alias(location, &executable)?;
+        let (executable, resolved_args, home) = self.resolve_alias(location, &executable)?;
+        let caller = replace(&mut self.current_scope, home);
+        let result = self.execute_resolved(location, executable, resolved_args, args);
+        self.current_scope = caller;
+        result
+    }
+
+    fn execute_resolved(&mut self, location: &Location, executable: String,
+                        resolved_args: Vec<String>, args: Vec<Value>) -> InterpreterResult<()>
+    {
         let executable = self.eval_path_from(&executable);
         let args: Vec<Value> = resolved_args
             .into_iter()
@@ -3383,15 +3442,16 @@ impl Interpreter
 
     fn resolve_alias(&self,
                      location: &Location,
-                     command: &str) -> InterpreterResult<(String, Vec<String>)>
+                     command: &str) -> InterpreterResult<(String, Vec<String>, String)>
     {
-        let mut name = command;
+        let mut name = command.to_string();
+        let mut home = self.current_scope.clone();
         let mut arguments = VecDeque::new();
         let mut visited = HashSet::new();
 
-        while let Some(alias) = self.scope().aliases.get(name)
+        while let Some(alias) = self.module_alias_in(&home, &name)
         {
-            if !visited.insert(name)
+            if !visited.insert((home.clone(), name.clone()))
             {
                 return Err(InterpreterError
                     {
@@ -3410,15 +3470,16 @@ impl Interpreter
 
             // An alias such as `ls = ls -h` adds defaults to the real command.
             // Apply it once, including when reached through another alias.
-            if alias.name == name
+            let same_command = alias.name == name.rsplit("::").next().unwrap();
+            home = alias.scope.clone();
+            name = alias.name.clone();
+            if same_command
             {
                 break;
             }
-
-            name = &alias.name;
         }
 
-        Ok((name.to_string(), arguments.into_iter().collect()))
+        Ok((name, arguments.into_iter().collect(), home))
     }
 
     fn handle_cd(&mut self, location: &Location, args: &[Value]) -> InterpreterResult<()>

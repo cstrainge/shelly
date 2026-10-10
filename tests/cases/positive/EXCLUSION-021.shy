@@ -1,6 +1,6 @@
 # EXCLUSION-021: included import enters surrounding module scope
 let $module_fixture = $args[0]
-printf "%s" "let \$value = 7; struct S {}; fn ping() { \$value }" -> "${module_fixture}/foo.shy"
+printf "%s" "pub let \$value = 7; pub struct S {}; pub fn ping() { \$value }" -> "${module_fixture}/foo.shy"
 check [
     "id": "EXCLUSION-021",
     "name": "included import enters surrounding module scope",

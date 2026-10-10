@@ -44,6 +44,9 @@ pub enum TokenKind
      */
     Export,
 
+    /** The `pub` keyword marks a module declaration as public. */
+    Public,
+
     /**
      * The `alias` keyword used for defining an alias.
      */
@@ -442,6 +445,7 @@ impl Token
             TokenKind::AutoIdentifier    => "$".to_string(),
             TokenKind::Let               => "let".to_string(),
             TokenKind::Export            => "export".to_string(),
+            TokenKind::Public            => "pub".to_string(),
             TokenKind::Alias             => "alias".to_string(),
             TokenKind::Comma             => ",".to_string(),
             TokenKind::Sub               => "sub".to_string(),
@@ -752,6 +756,7 @@ impl<'a> Tokenizer<'a>
             {
                 "let"    => TokenKind::Let,
                 "export" => TokenKind::Export,
+                "pub"    => TokenKind::Public,
                 "alias"  => TokenKind::Alias,
                 "sub"    => TokenKind::Sub,
                 "if"     => TokenKind::If,

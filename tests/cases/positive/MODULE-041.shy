@@ -3,9 +3,9 @@ let $module_fixture = $args[0]
 mkdir -p "${module_fixture}/app"
 printf "%s" ("import foo; foo::bar::ping".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/app/main.shy"
 mkdir -p "${module_fixture}/lib"
-printf "%s" ("import bar".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/lib/foo.shy"
+printf "%s" ("pub import bar".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/lib/foo.shy"
 mkdir -p "${module_fixture}/lib"
-printf "%s" ("fn ping() { echo \"nested\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/lib/bar.shy"
+printf "%s" ("pub fn ping() { echo \"nested\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/lib/bar.shy"
 check [
     "id": "MODULE-041",
     "name": "module imports relative to containing file",

@@ -1,6 +1,6 @@
 # EXCLUSION-022: module excluded exports are absent from compilation
 let $module_fixture = $args[0]
-printf "%s" "[when false] fn ping(\$x: Missing) {}; [when true] { let \$value = 7; struct S {}; fn ping() { \$value } }" -> "${module_fixture}/foo.shy"
+printf "%s" "[when false] pub fn ping(\$x: Missing) {}; [when true] { pub let \$value = 7; pub struct S {}; pub fn ping() { \$value } }" -> "${module_fixture}/foo.shy"
 check [
     "id": "EXCLUSION-022",
     "name": "module excluded exports are absent from compilation",
