@@ -1,0 +1,14 @@
+# NUMERIC-022: return promotion
+check [
+    "id": "NUMERIC-022",
+    "name": "return promotion",
+    "source": "fn implicit(): Float { 7 }; fn explicit(): Float { return 9 }; echo ((implicit) / 2) ((explicit) / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.5 4.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

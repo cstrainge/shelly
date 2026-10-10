@@ -937,7 +937,7 @@ impl Interpreter
                         {
                             return Err(invalid("Invalid parameter binding operand".to_string()));
                         };
-                        let value = if matches!(instruction.code, Code::BindRestParameter)
+                        let mut value = if matches!(instruction.code, Code::BindRestParameter)
                             {
                                 Value::from_array(
                                     function_arguments.get(*index as usize..).unwrap_or(&[])
@@ -959,7 +959,7 @@ impl Interpreter
                             };
                         if let Some(id) = type_id
                         {
-                            self.types.validate(id, &value).map_err(|message|
+                            value = self.types.coerce(id, value).map_err(|message|
                                 invalid(format!("Type error for parameter '{}': {}", name,
                                                 message)))?;
                         }
@@ -1060,15 +1060,15 @@ impl Interpreter
                                     ),
                                 });
                         };
-                        let value = stack.back().ok_or_else(|| InterpreterError
+                        let value = stack.back_mut().ok_or_else(|| InterpreterError
                             {
                                 location: location.clone(),
                                 what: ErrorWhat::InvalidOperand(
                                     "Missing value for type validation".to_string(),
                                 ),
                             })?;
-                        self.types
-                            .validate(TypeId(id as usize), value)
+                        *value = self.types
+                            .coerce(TypeId(id as usize), value.clone())
                             .map_err(|message| InterpreterError
                                 {
                                     location: location.clone(),
@@ -1334,8 +1334,8 @@ impl Interpreter
                                 definition,
                                 fields: values,
                             }));
-                        self.types
-                            .validate_value(&value)
+                        let value = self.types
+                            .coerce_value(value)
                             .map_err(|message| invalid(format!("Type error: {}", message)))?;
                         Self::push(&mut stack, value);
                     },
@@ -1501,8 +1501,8 @@ impl Interpreter
                         indexes.reverse();
                         let mut updated = self.read_raw_variable(name, &location)?;
                         Self::set_element(&location, &mut updated, &indexes, fields, value)?;
-                        self.types
-                            .validate_value(&updated)
+                        let updated = self.types
+                            .coerce_value(updated)
                             .map_err(|message| InterpreterError
                                 {
                                     location: location.clone(),
@@ -1930,14 +1930,46 @@ impl Interpreter
                             };
                         let rhs = Self::pop(&location, &mut stack)?;
                         let lhs = Self::pop(&location, &mut stack)?;
+                        if    matches!(instruction.code, Code::MathAdd)
+                           && let (Value::String(left, _), Value::String(right, _)) = (&lhs, &rhs)
+                        {
+                            let text = format!("{}{}", left, right);
+                            Self::push(&mut stack, Value::from_string(text));
+                            instruction_pointer += 1;
+                            continue;
+                        }
                         if let Some(message) = lhs
-                            .integer_conversion_error()
-                            .or_else(|| rhs.integer_conversion_error())
+                            .arithmetic_error()
+                            .or_else(|| rhs.arithmetic_error())
                         {
                             return Err(error(message));
                         }
-                        let rhs = rhs.checked_integer().ok_or_else(|| error("Integer overflow"))?;
-                        let lhs = lhs.checked_integer().ok_or_else(|| error("Integer overflow"))?;
+                        if matches!(lhs, Value::Float(_, _)) || matches!(rhs, Value::Float(_, _))
+                        {
+                            let lhs = lhs.arithmetic_float()
+                                .ok_or_else(|| error("Non-finite floating-point operand"))?;
+                            let rhs = rhs.arithmetic_float()
+                                .ok_or_else(|| error("Non-finite floating-point operand"))?;
+                            if    rhs == 0.0
+                               && matches!(instruction.code, Code::MathDivide | Code::MathModulo)
+                            { return Err(error("Division or remainder by zero")); }
+                            let result = match instruction.code
+                                {
+                                    Code::MathAdd => lhs + rhs,
+                                    Code::MathSubtract => lhs - rhs,
+                                    Code::MathMultiply => lhs * rhs,
+                                    Code::MathDivide => lhs / rhs,
+                                    Code::MathModulo => lhs % rhs,
+                                    _ => unreachable!(),
+                                };
+                            if !result.is_finite()
+                            { return Err(error("Floating-point overflow")); }
+                            Self::push(&mut stack, Value::Float(result, None));
+                            instruction_pointer += 1;
+                            continue;
+                        }
+                        let (Value::Integer(lhs), Value::Integer(rhs)) = (lhs, rhs)
+                        else { unreachable!("Arithmetic operands have been checked") };
                         if    rhs == 0
                            && matches!(instruction.code, Code::MathDivide | Code::MathModulo)
                         {
@@ -2094,7 +2126,7 @@ impl Interpreter
     }
 
     fn write_variable(&mut self, location: &Location, name: &str,
-                      value: Value) -> InterpreterResult<()>
+                      mut value: Value) -> InterpreterResult<()>
     {
         let invalid = |message| InterpreterError { location: location.clone(),
             what: ErrorWhat::InvalidOperand(message) };
@@ -2102,7 +2134,7 @@ impl Interpreter
             .ok_or_else(|| invalid("Variable not found for SetVariable instruction.".to_string()))?;
         if let Some(id) = variable.type_id
         {
-            self.types.validate(id, &value).map_err(|message|
+            value = self.types.coerce(id, value).map_err(|message|
                 invalid(format!("Type error for '{}': {}", name, message)))?;
         }
         drop(variable);
@@ -2110,6 +2142,23 @@ impl Interpreter
         let mut root = reference.root.borrow_mut();
         let mut updated = root.value.clone();
         Self::set_element(location, &mut updated, &reference.indexes, &reference.fields, value)?;
+        updated = self.types.coerce_value(updated)
+            .map_err(|message| invalid(format!("Type error: {}", message)))?;
+        if let Some(id) = root.type_id
+        {
+            updated = self.types.coerce(id, updated)
+                .map_err(|message| invalid(format!("Type error for '{}': {}", name, message)))?;
+        }
+        for (depth, id) in &reference.constraints
+        {
+            let value = Self::read_projection(location, updated.clone(),
+                &reference.indexes[..*depth], &reference.fields[..*depth])?;
+            let value = self.types.coerce(*id, value)
+                .map_err(|message| invalid(format!("Type error for receiver: {}", message)))?;
+            Self::set_element(location, &mut updated, &reference.indexes[..*depth],
+                &reference.fields[..*depth], value)?;
+        }
+        // Receiver promotion must also satisfy the original owner's constraints.
         self.types.validate_value(&updated)
             .map_err(|message| invalid(format!("Type error: {}", message)))?;
         if let Some(id) = root.type_id
@@ -2365,19 +2414,14 @@ impl Interpreter
         call_result?;
         if !self.halted && let Some(id) = function.return_type
         {
-            let value = self.last_result.as_ref().unwrap_or(&Value::None);
-            if let Err(message) = self.types.validate(id, value)
-            {
-                self.last_result = None;
-                return Err(InterpreterError
+            let value = self.last_result.take().unwrap_or(Value::None);
+            self.last_result = Some(self.types.coerce(id, value).map_err(|message|
+                InterpreterError
                     {
                         location: location.clone(),
                         what: ErrorWhat::ArgumentMismatch(format!(
-                            "Type error for return value of '{}': {}",
-                            name, message
-                        )),
-                    });
-            }
+                            "Type error for return value of '{}': {}", name, message)),
+                    })?);
         }
         Ok(())
     }

@@ -1,0 +1,14 @@
+# NUMERIC-036: match typed result
+check [
+    "id": "NUMERIC-036",
+    "name": "match typed result",
+    "source": "let \$x: Float = match 7 { 7 => { 9 } _ => { 2.5 } }; echo (\$x / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "4.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

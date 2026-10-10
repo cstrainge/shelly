@@ -1,0 +1,14 @@
+# NUMERIC-037: if typed result
+check [
+    "id": "NUMERIC-037",
+    "name": "if typed result",
+    "source": "fn f(\$b: Boolean): Float { if \$b { 7 } else { 9.0 } }; echo ((f true) / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

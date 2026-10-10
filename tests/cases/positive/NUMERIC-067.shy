@@ -1,0 +1,14 @@
+# NUMERIC-067: concat produces data not executable
+check [
+    "id": "NUMERIC-067",
+    "name": "concat produces data not executable",
+    "source": "let \$command = `echo; let \$text = \$command + \"\"; echo \$text",
+    "mode": "code",
+    "args": [],
+    "stdout": "echo\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

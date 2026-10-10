@@ -116,8 +116,24 @@ value before committing it.
 
 Unannotated bindings remain dynamically typed. A new `let` declaration may replace
 an existing binding and its annotation; inner declarations shadow outer bindings.
-Typed bindings preserve the assigned value's type, including `ArgumentExpansion`;
-untyped assignments retain their existing expansion-to-array conversion.
+An `Integer` is promoted to `Float` wherever a Float is required: declarations,
+assignments, parameters (including variadic parameters), return values, struct
+fields, and typed collection elements or values. Promotion applies recursively
+through optional types and nested collections. Strings and booleans are not
+implicitly promoted. `Number` preserves whether its value is an Integer or Float.
+Other typed bindings preserve the assigned value's type, including
+`ArgumentExpansion`; untyped assignments retain their expansion-to-array conversion.
+A Float never implicitly narrows to Integer; use `Integer(...)` explicitly.
+That checked conversion rejects fractional and out-of-range values.
+
+```text
+let $x: Float = 7
+echo ($x / 2)              # 3.5
+$x = 9
+echo ($x / 2)              # 4.5
+let $n: Integer = Integer(8.0)
+echo ($n / 2)              # 4
+```
 
 Values include signed 64-bit integers, floating-point values, booleans, strings,
 arrays, hash maps, ranges, enums, structs, the no-value result displayed as `()`, and external
@@ -130,13 +146,22 @@ Use `$args...` or `${args}...` to expand command arguments. A splat cannot be
 the executable: `$cmd... 2` is a parse error; use `$cmd 2` to call a stored command.
 
 Arithmetic supports `+`, `-`, `*`, `/`, and `%`, with normal precedence,
-left associativity, and parentheses. **Operations currently convert operands to
-integers**: `7 / 2` produces `3`, and `2.9 + 1.9` produces `3`. Numeric strings
-convert to integers; a string that cannot be parsed as an integer converts to
-zero. Boolean operands convert to `1` or `0`. This is not floating-point arithmetic.
-Signed numbers and unary minus work: `-2 + 3` produces `1`, and `-(2 + 3)` produces
-`-5`. Division/remainder by zero and integer overflow produce language errors,
-including in release builds.
+left associativity, and parentheses. Integer operands produce Integer results:
+`7 / 2` produces `3`, truncating toward zero. If either operand is a Float, the
+other numeric operand is promoted and the result remains a Float: `7.0 / 2`,
+`7 / 2.0`, and `7.0 / 2.0` all produce `3.5`. This applies to all five operators;
+`2.5 + 1` produces `3.5`, and `7.5 % 2` produces `1.5`.
+
+When both operands are Strings, `+` concatenates them: `"Hello, " + "world!"`
+produces `"Hello, world!"`, and `"7" + "2"` produces `"72"`. The result is plain
+string data, even when an operand carries an executable marker.
+
+All other arithmetic requires numeric operands. Strings (including numeric text),
+booleans, arrays, maps, ranges, structs, enums, command statuses, and `()` produce
+errors. Use an explicit numeric conversion when needed, such as `Integer("7") + 2`.
+Signed numbers and unary minus work: `-2 + 3` produces `1`, and `-(2.5 + 3)`
+produces `-5.5`. Division/remainder by zero, integer overflow, and non-finite
+floating-point operands or results produce language errors, including in release builds.
 
 Expressions can stand alone, including inside functions. A top-level expression
 is evaluated without automatically printing its value; use `echo` to display it.
@@ -367,8 +392,8 @@ keys keep the last value, while all key and value expressions still execute.
 Maps use reference-counted storage and copy-on-write, like arrays. Indexed writes
 insert or replace the final key; missing intermediate containers cause an error.
 A missing read returns `()` without inserting an entry. Maps compare by their
-entries, convert to false only when empty, and convert to zero for integer
-arithmetic. Text conversion produces a bracketed list of key/value pairs in a
+entries and convert to false only when empty. Arithmetic on maps is an error.
+Text conversion produces a bracketed list of key/value pairs in a
 stable order, with quoted strings and bracketed nested collections. Passing a map
 as an argument uses that text; `...` treats a map as one value and does not iterate
 its entries. A map cannot be executed as a command.
@@ -419,8 +444,8 @@ implemented yet.
 Ranges compare by their bounds and inclusivity: `1..3` differs from `1..=2`
 even though they expand to the same elements. They can be map keys and function
 return values, but cannot be commands. Boolean conversion is false for an empty
-bounded range and true otherwise. Explicit numeric conversion of a range is an error;
-the existing arithmetic coercion still treats it as zero.
+bounded range and true otherwise. Explicit numeric conversion of a range and
+arithmetic on a range are errors.
 
 Arithmetic binds more tightly than range operators, which bind more tightly than
 comparisons. Spaces around `..` and `..=` are optional. Parenthesize open ranges
@@ -696,7 +721,7 @@ let $succeeded: Boolean = Boolean($result)  # true
 echo Boolean(0) Boolean("false") Boolean([1])  # false false true
 ```
 
-Type annotations check values without converting them: `let $flag: Boolean = 1`
+Boolean annotations check values without converting them: `let $flag: Boolean = 1`
 is an error. `!!value` remains a shorthand for boolean conversion.
 `Boolean(value)` requires one expression; use `Boolean(())` to convert `None`.
 
@@ -858,7 +883,8 @@ Parameter types are checked before the function body runs and remain constraints
 on assignments to those parameters. The return annotation applies to both explicit
 and implicit returns. Bare `return` and fallthrough returning `()` require a type
 that accepts `None`, such as `optional Number` or `any`. Unannotated parameters and
-returns remain unrestricted. Arguments are not coerced to meet annotations.
+returns remain unrestricted. Integer arguments widen to Float where required;
+other implicit conversions are rejected.
 
 Trailing parameters annotated `optional T` may be omitted from right to left:
 
@@ -1481,7 +1507,7 @@ scripts, or the REPL. `cargo clippy --locked --all-targets` runs the Rust lints.
 ./target/debug/shelly -m test.shy C001
 ```
 
-The suite includes 3,946 process cases, 87 stateful REPL scenarios, prompt/path
+The suite includes 4,105 process cases, 89 stateful REPL scenarios, prompt/path
 checks, watchdog probes, native API tests, and harness failure controls. All
 orchestration and assertions run in Shelly; no Python, pexpect, or other shell is
 needed. Standard Unix utilities still provide file operations and byte/regex

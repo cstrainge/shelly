@@ -1,0 +1,14 @@
+# CONVERT-303: enum index promotes to Float
+check [
+    "id": "CONVERT-303",
+    "name": "enum index promotes to Float",
+    "source": "enum E { A, B, C }; let \$x: Float = E::B.index; echo (\$x / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "0.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

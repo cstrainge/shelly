@@ -1,0 +1,14 @@
+# NUMERIC-025: array initialization copy
+check [
+    "id": "NUMERIC-025",
+    "name": "array initialization copy",
+    "source": "let \$original = [7, 9]; let \$x: [Float] = \$original; echo (\$x[0] / 2) (\$original[0] / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.5 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

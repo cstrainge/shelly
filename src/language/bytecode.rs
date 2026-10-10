@@ -21,7 +21,7 @@ pub enum Code
     MakeExecutable,
     ExitFunction,
     NewVariable,
-    // Validate the stack top without consuming it, before replacing a binding.
+    // Widen and validate the stack top without consuming it, before replacing a binding.
     ValidateType,
     // Operand: [name, type ID or None, argument index, optional default value].
     BindParameter,

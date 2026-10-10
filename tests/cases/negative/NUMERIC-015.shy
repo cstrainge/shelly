@@ -1,0 +1,14 @@
+# NUMERIC-015: nested array arithmetic rejected
+check [
+    "id": "NUMERIC-015",
+    "name": "nested array arithmetic rejected",
+    "source": "echo ([[1, 2.5], 1] / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

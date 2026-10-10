@@ -1,0 +1,14 @@
+# C013: Numeric text arithmetic rejected
+check [
+    "id": "C013",
+    "name": "Numeric text arithmetic rejected",
+    "source": "echo \"12\" + 3",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

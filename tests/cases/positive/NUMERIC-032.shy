@@ -1,0 +1,14 @@
+# NUMERIC-032: struct within any field
+check [
+    "id": "NUMERIC-032",
+    "name": "struct within any field",
+    "source": "struct Inner { x: Float }; struct Outer { child: any }; let \$x = Outer(child: Inner(x: 7)); \$x.child.x = 9; echo (\$x.child.x / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "4.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

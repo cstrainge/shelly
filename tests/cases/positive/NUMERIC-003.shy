@@ -1,0 +1,14 @@
+# NUMERIC-003: float right
+check [
+    "id": "NUMERIC-003",
+    "name": "float right",
+    "source": "echo (7 / 2.0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

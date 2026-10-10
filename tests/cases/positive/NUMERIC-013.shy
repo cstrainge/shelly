@@ -1,0 +1,14 @@
+# NUMERIC-013: nested arithmetic
+check [
+    "id": "NUMERIC-013",
+    "name": "nested arithmetic",
+    "source": "echo ((7.0 / 2 + 1) * 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "9\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

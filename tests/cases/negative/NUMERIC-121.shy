@@ -1,0 +1,14 @@
+# NUMERIC-121: map rejected on left of /
+check [
+    "id": "NUMERIC-121",
+    "name": "map rejected on left of /",
+    "source": "echo ([\"a\": 1] / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

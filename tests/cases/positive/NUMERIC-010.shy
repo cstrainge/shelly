@@ -1,0 +1,14 @@
+# NUMERIC-010: float remainder
+check [
+    "id": "NUMERIC-010",
+    "name": "float remainder",
+    "source": "echo (7.5 % 2) (-7.5 % 2) (7 % 2.5) (7.5 % -2) (-7 % -2.5)",
+    "mode": "code",
+    "args": [],
+    "stdout": "1.5 -1.5 2 1.5 -2\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

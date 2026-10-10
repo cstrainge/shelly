@@ -1,0 +1,14 @@
+# NUMERIC-061: empty strings
+check [
+    "id": "NUMERIC-061",
+    "name": "empty strings",
+    "source": "echo ((\"\" + \"\") == \"\") (\"\" + \"x\") (\"x\" + \"\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "true x x\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

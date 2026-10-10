@@ -1,0 +1,14 @@
+# NUMERIC-018: Number source
+check [
+    "id": "NUMERIC-018",
+    "name": "Number source",
+    "source": "let \$n: Number = 7; let \$x: Float = \$n; echo (\$x / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

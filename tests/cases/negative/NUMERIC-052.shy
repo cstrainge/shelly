@@ -1,0 +1,14 @@
+# NUMERIC-052: arithmetic failure 1.0 / 0
+check [
+    "id": "NUMERIC-052",
+    "name": "arithmetic failure 1.0 / 0",
+    "source": "echo (1.0 / 0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

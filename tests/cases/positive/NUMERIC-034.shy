@@ -1,0 +1,14 @@
+# NUMERIC-034: Float method receiver and return
+check [
+    "id": "NUMERIC-034",
+    "name": "Float method receiver and return",
+    "source": "fn Float::change(): Float { \$self = 9; 7 }; let \$x: Float = 1; let \$y = \$x.change; echo (\$x / 2) (\$y / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "4.5 3.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

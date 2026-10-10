@@ -277,27 +277,33 @@ impl Value
         }
     }
 
-    pub fn integer_conversion_error(&self) -> Option<&'static str>
+    pub fn arithmetic_error(&self) -> Option<&'static str>
     {
         match self
         {
+            Value::Integer(_) | Value::Float(_, _) => None,
             Value::Terminal(_) => Some("Terminals cannot be used in arithmetic"),
             Value::Enum(_) => Some("Enums cannot be used in arithmetic"),
             Value::Struct(_) => Some("Structs cannot be used in arithmetic"),
-            Value::Array(values) | Value::ArgumentExpansion(values) =>
-                values.iter().find_map(Self::integer_conversion_error),
-            _ => None
+            Value::String(_, _) => Some("Strings cannot be used in arithmetic"),
+            Value::Boolean(_) => Some("Booleans cannot be used in arithmetic"),
+            Value::Array(_) | Value::ArgumentExpansion(_) =>
+                Some("Arrays cannot be used in arithmetic"),
+            Value::HashMap(_) => Some("Maps cannot be used in arithmetic"),
+            Value::Range(_) => Some("Ranges cannot be used in arithmetic"),
+            Value::ExecResult(_) => Some("Command statuses cannot be used in arithmetic"),
+            Value::None => Some("None cannot be used in arithmetic"),
         }
     }
 
-    pub fn checked_integer(&self) -> Option<i64>
+    pub fn arithmetic_float(&self) -> Option<f64>
     {
-        match self
-        {
-            Value::Enum(_) | Value::Struct(_) | Value::Terminal(_) => None,
-            Value::Array(values) | Value::ArgumentExpansion(values) => values.iter()
-                .try_fold(0i64, |sum, value| sum.checked_add(value.checked_integer()?)),
-            _ => Some(self.as_integer())
-        }
+        let number = match self
+            {
+                Value::Integer(number) => *number as f64,
+                Value::Float(number, _) => *number,
+                _ => return None,
+            };
+        number.is_finite().then_some(number)
     }
 }

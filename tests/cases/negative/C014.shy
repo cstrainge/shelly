@@ -1,0 +1,14 @@
+# C014: Nonnumeric text arithmetic rejected
+check [
+    "id": "C014",
+    "name": "Nonnumeric text arithmetic rejected",
+    "source": "echo \"abc\" + 3",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,14 @@
+# C167: Boolean arithmetic rejected
+check [
+    "id": "C167",
+    "name": "Boolean arithmetic rejected",
+    "source": "echo true + true",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

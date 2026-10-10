@@ -1,0 +1,14 @@
+# C173: Boolean variable arithmetic rejected
+check [
+    "id": "C173",
+    "name": "Boolean variable arithmetic rejected",
+    "source": "let \$b = true; echo \$b + \$b",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

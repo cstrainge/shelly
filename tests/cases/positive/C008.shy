@@ -1,10 +1,10 @@
-# C008: Documented integer conversion of floats
+# C008: Floating-point addition
 check ["id": "C008",
-    "name": "Documented integer conversion of floats",
+    "name": "Floating-point addition",
     "source": "echo 2.9 + 1.9",
     "mode": "code",
     "args": [],
-    "stdout": "3\n",
+    "stdout": "4.8\n",
     "status": 0,
     "valid": true,
     "error": "",

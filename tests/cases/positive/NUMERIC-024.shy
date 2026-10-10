@@ -1,0 +1,14 @@
+# NUMERIC-024: variadic promotion
+check [
+    "id": "NUMERIC-024",
+    "name": "variadic promotion",
+    "source": "fn f(\$values: Float...) { \$values }; let \$x = f 7 9; echo (\$x[0] / 2) (\$x[1] / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.5 4.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

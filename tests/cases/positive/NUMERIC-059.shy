@@ -1,0 +1,14 @@
+# NUMERIC-059: string concatenation
+check [
+    "id": "NUMERIC-059",
+    "name": "string concatenation",
+    "source": "echo (\"Hello, \" + \"world!\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "Hello, world!\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

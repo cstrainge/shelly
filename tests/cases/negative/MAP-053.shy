@@ -1,0 +1,13 @@
+# MAP-053: map arithmetic rejected
+check ["id": "MAP-053",
+    "name": "map arithmetic rejected",
+    "source": "echo ([:] + 0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

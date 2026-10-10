@@ -1,0 +1,14 @@
+# NUMERIC-008: float subtract
+check [
+    "id": "NUMERIC-008",
+    "name": "float subtract",
+    "source": "echo (7 - 2.5)",
+    "mode": "code",
+    "args": [],
+    "stdout": "4.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

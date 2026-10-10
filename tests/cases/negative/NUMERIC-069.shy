@@ -1,0 +1,14 @@
+# NUMERIC-069: concat cannot initialize Integer
+check [
+    "id": "NUMERIC-069",
+    "name": "concat cannot initialize Integer",
+    "source": "let \$x: Integer = \"7\" + \"2\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

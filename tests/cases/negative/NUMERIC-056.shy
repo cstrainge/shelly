@@ -1,0 +1,14 @@
+# NUMERIC-056: arithmetic failure Float("1e308") * 10
+check [
+    "id": "NUMERIC-056",
+    "name": "arithmetic failure Float(\"1e308\") * 10",
+    "source": "echo (Float(\"1e308\") * 10)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

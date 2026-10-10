@@ -670,7 +670,7 @@ fn check_known_value(
 {
     if let Some(value) = constant_value(registry, expression)
     {
-        return registry.validate(expected, &value);
+        return registry.coerce(expected, value).map(|_| ());
     }
     if    let Some(actual) = known_type(registry, expression)
        && matches!(registry.get(actual).kind, TypeKind::Struct(_) | TypeKind::Enum(_))
@@ -836,7 +836,7 @@ fn check_binding_expression(
         if    let Some(actual) = binding_type(registry, expression, bindings)
             // A string in an implicit return may execute and yield another type.
            && registry.validate(actual, &Value::from_string(String::new())).is_err()
-           && !registry.may_overlap(id, actual)
+           && !registry.may_assign(id, actual)
         {
             return Err(error(&expression.location, format!("Expected {}, got {}",
                 registry.get(id).name, registry.get(actual).name)));

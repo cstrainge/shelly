@@ -1,0 +1,14 @@
+# NUMERIC-124: map rejected on right of %
+check [
+    "id": "NUMERIC-124",
+    "name": "map rejected on right of %",
+    "source": "echo (2.5 % [\"a\": 1])",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

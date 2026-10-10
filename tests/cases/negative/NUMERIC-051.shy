@@ -1,0 +1,14 @@
+# NUMERIC-051: bad dynamic map promotion
+check [
+    "id": "NUMERIC-051",
+    "name": "bad dynamic map promotion",
+    "source": "let \$source = [\"a\": \"bad\"]; let \$x: [String: Float] = \$source",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

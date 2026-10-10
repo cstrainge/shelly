@@ -1,0 +1,14 @@
+# NUMERIC-068: concatenation uses returned values
+check [
+    "id": "NUMERIC-068",
+    "name": "concatenation uses returned values",
+    "source": "fn word(): String { \"hello\" }; let \$x = (word) + \"!\"; echo \$x",
+    "mode": "code",
+    "args": [],
+    "stdout": "hello!\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,14 @@
+# NUMERIC-011: float unary
+check [
+    "id": "NUMERIC-011",
+    "name": "float unary",
+    "source": "echo (-(2.5 + 1))",
+    "mode": "code",
+    "args": [],
+    "stdout": "-3.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

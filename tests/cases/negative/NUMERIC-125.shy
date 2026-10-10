@@ -1,0 +1,14 @@
+# NUMERIC-125: map unary minus rejected
+check [
+    "id": "NUMERIC-125",
+    "name": "map unary minus rejected",
+    "source": "echo -([\"a\": 1])",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,14 @@
+# NUMERIC-026: array element write
+check [
+    "id": "NUMERIC-026",
+    "name": "array element write",
+    "source": "let \$x: [Float] = [7]; \$x[0] = 9; echo (\$x[0] / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "4.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

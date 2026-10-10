@@ -1,0 +1,14 @@
+# NUMERIC-092: text unary minus rejected
+check [
+    "id": "NUMERIC-092",
+    "name": "text unary minus rejected",
+    "source": "echo -(\"text\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

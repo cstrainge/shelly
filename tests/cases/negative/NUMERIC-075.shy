@@ -1,0 +1,14 @@
+# NUMERIC-075: numeric text rejected on left of *
+check [
+    "id": "NUMERIC-075",
+    "name": "numeric text rejected on left of *",
+    "source": "echo (\"7\" * 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,14 @@
+# NUMERIC-141: None rejected on left of *
+check [
+    "id": "NUMERIC-141",
+    "name": "None rejected on left of *",
+    "source": "echo (() * 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

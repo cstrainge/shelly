@@ -1,0 +1,14 @@
+# NUMERIC-060: numeric text concatenation
+check [
+    "id": "NUMERIC-060",
+    "name": "numeric text concatenation",
+    "source": "echo (\"7\" + \"2\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "72\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

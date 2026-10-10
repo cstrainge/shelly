@@ -1,0 +1,14 @@
+# NUMERIC-033: struct method assignment
+check [
+    "id": "NUMERIC-033",
+    "name": "struct method assignment",
+    "source": "struct S { x: Float }; fn S::change() { \$self.x = 9 }; let \$s = S(x: 7); \$s.change; echo (\$s.x / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "4.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

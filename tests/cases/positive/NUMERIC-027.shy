@@ -1,0 +1,14 @@
+# NUMERIC-027: nested collections
+check [
+    "id": "NUMERIC-027",
+    "name": "nested collections",
+    "source": "let \$x: [String: [optional Float]] = [\"a\": [7, ()]]; \$x[\"a\"][0] = 9; echo (\$x[\"a\"][0] / 2) (\$x[\"a\"][1] == ())",
+    "mode": "code",
+    "args": [],
+    "stdout": "4.5 true\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

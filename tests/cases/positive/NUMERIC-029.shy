@@ -1,0 +1,14 @@
+# NUMERIC-029: canonical Float keys
+check [
+    "id": "NUMERIC-029",
+    "name": "canonical Float keys",
+    "source": "let \$x: [Float: Float] = [7: 9]; echo (\$x[7.0] / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "4.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

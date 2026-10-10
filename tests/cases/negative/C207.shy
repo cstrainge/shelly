@@ -1,6 +1,6 @@
-# C207: Checked array arithmetic overflow
+# C207: Array arithmetic rejected before coercion
 check ["id": "C207",
-    "name": "Checked array arithmetic overflow",
+    "name": "Array arithmetic rejected before coercion",
     "source": "echo \$args + 0",
     "mode": "code",
     "args": ["9223372036854775807", "1"],

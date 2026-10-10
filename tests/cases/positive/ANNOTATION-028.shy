@@ -1,0 +1,14 @@
+# ANNOTATION-028: initialize Float from Number
+check [
+    "id": "ANNOTATION-028",
+    "name": "initialize Float from Number",
+    "source": "let \$n: Number = 7; let \$x: Float = \$n; echo (\$x / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

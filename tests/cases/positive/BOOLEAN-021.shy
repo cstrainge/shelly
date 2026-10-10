@@ -1,7 +1,7 @@
-# BOOLEAN-021: echo 1 + (false || 2) (false && 0) + 4
+# BOOLEAN-021: echo 1 + Integer(false || 2) Integer(false && 0) + 4
 check ["id": "BOOLEAN-021",
-    "name": "echo 1 + (false || 2) (false && 0) + 4",
-    "source": "echo 1 + (false || 2) (false && 0) + 4",
+    "name": "echo 1 + Integer(false || 2) Integer(false && 0) + 4",
+    "source": "echo 1 + Integer(false || 2) Integer(false && 0) + 4",
     "mode": "code",
     "args": [],
     "stdout": "2 4\n",

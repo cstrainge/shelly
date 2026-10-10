@@ -1,0 +1,14 @@
+# NUMERIC-004: float both
+check [
+    "id": "NUMERIC-004",
+    "name": "float both",
+    "source": "echo (7.0 / 2.0)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

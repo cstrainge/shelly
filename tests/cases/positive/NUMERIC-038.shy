@@ -1,0 +1,14 @@
+# NUMERIC-038: explicit Integer conversion
+check [
+    "id": "NUMERIC-038",
+    "name": "explicit Integer conversion",
+    "source": "let \$x: Integer = Integer(7.0); echo (\$x / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

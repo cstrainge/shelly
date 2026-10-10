@@ -1,0 +1,14 @@
+# NUMERIC-023: typed Integer return widens
+check [
+    "id": "NUMERIC-023",
+    "name": "typed Integer return widens",
+    "source": "fn integer(): Integer { 7 }; fn floating(): Float { integer }; echo ((floating) / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

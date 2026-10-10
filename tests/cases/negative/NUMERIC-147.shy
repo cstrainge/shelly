@@ -1,0 +1,14 @@
+# NUMERIC-147: None unary minus rejected
+check [
+    "id": "NUMERIC-147",
+    "name": "None unary minus rejected",
+    "source": "echo -(())",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

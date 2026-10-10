@@ -1,0 +1,14 @@
+# NUMERIC-047: float arithmetic preserves type
+check [
+    "id": "NUMERIC-047",
+    "name": "float arithmetic preserves type",
+    "source": "let \$x: Integer = 4.0 / 2",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

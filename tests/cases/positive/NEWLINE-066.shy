@@ -1,10 +1,10 @@
 # NEWLINE-066: parenthesized map argument
 check ["id": "NEWLINE-066",
     "name": "parenthesized map argument",
-    "source": "echo ([:] + 0)",
+    "source": "echo ([:])",
     "mode": "code",
     "args": [],
-    "stdout": "0\n",
+    "stdout": "[:]\n",
     "status": 0,
     "valid": true,
     "error": "",

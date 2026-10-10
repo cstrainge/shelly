@@ -1,0 +1,14 @@
+# NUMERIC-028: map value write
+check [
+    "id": "NUMERIC-028",
+    "name": "map value write",
+    "source": "let \$x: [String: Float] = [\"a\": 7]; \$x[\"b\"] = 9; echo (\$x[\"a\"] / 2) (\$x[\"b\"] / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.5 4.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

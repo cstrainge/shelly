@@ -1,0 +1,14 @@
+# NUMERIC-158: command status unary minus rejected
+check [
+    "id": "NUMERIC-158",
+    "name": "command status unary minus rejected",
+    "source": "echo -((/usr/bin/true))",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

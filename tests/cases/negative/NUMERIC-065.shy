@@ -1,0 +1,14 @@
+# NUMERIC-065: mixed numeric text arithmetic rejected
+check [
+    "id": "NUMERIC-065",
+    "name": "mixed numeric text arithmetic rejected",
+    "source": "echo (\"7\" + 2.5)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

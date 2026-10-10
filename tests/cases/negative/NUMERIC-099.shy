@@ -1,0 +1,14 @@
+# NUMERIC-099: Boolean rejected on left of /
+check [
+    "id": "NUMERIC-099",
+    "name": "Boolean rejected on left of /",
+    "source": "echo (true / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,14 @@
+# NUMERIC-039: no Float initializer narrowing
+check [
+    "id": "NUMERIC-039",
+    "name": "no Float initializer narrowing",
+    "source": "let \$x: Integer = 7.0",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

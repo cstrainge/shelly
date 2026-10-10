@@ -1,0 +1,14 @@
+# NUMERIC-114: array unary minus rejected
+check [
+    "id": "NUMERIC-114",
+    "name": "array unary minus rejected",
+    "source": "echo -([1, 2])",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -1,0 +1,14 @@
+# NUMERIC-035: array typed method receiver
+check [
+    "id": "NUMERIC-035",
+    "name": "array typed method receiver",
+    "source": "fn Array::change() { \$self[0] = 9 }; let \$x: [Float] = [7]; \$x.change; echo (\$x[0] / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "4.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

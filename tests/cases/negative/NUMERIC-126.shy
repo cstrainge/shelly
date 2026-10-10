@@ -1,0 +1,14 @@
+# NUMERIC-126: range rejected on left of +
+check [
+    "id": "NUMERIC-126",
+    "name": "range rejected on left of +",
+    "source": "echo ((1..3) + 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

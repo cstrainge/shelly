@@ -1,0 +1,14 @@
+# NUMERIC-007: float add
+check [
+    "id": "NUMERIC-007",
+    "name": "float add",
+    "source": "echo (2.5 + 1)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

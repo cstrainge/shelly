@@ -1,0 +1,14 @@
+# NUMERIC-057: arithmetic failure Float("1e308") + Float("1e308")
+check [
+    "id": "NUMERIC-057",
+    "name": "arithmetic failure Float(\"1e308\") + Float(\"1e308\")",
+    "source": "echo (Float(\"1e308\") + Float(\"1e308\"))",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

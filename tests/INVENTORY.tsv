@@ -6,13 +6,13 @@ C004	positive	Operator precedence	tests/cases/positive/C004.shy
 C005	positive	Left associative subtraction	tests/cases/positive/C005.shy
 C006	positive	Arithmetic grouping	tests/cases/positive/C006.shy
 C007	positive	Integer division and modulo	tests/cases/positive/C007.shy
-C008	positive	Documented integer conversion of floats	tests/cases/positive/C008.shy
+C008	positive	Floating-point addition	tests/cases/positive/C008.shy
 C009	positive	Negative integer in arithmetic	tests/cases/positive/C009.shy
 C010	positive	Parenthesized negative integer	tests/cases/positive/C010.shy
 C011	positive	Unary negation of group	tests/cases/positive/C011.shy
 C012	positive	Boolean and float literals	tests/cases/positive/C012.shy
-C013	positive	Numeric string conversion	tests/cases/positive/C013.shy
-C014	positive	Nonnumeric string integer coercion	tests/cases/positive/C014.shy
+C013	negative	Numeric text arithmetic rejected	tests/cases/negative/C013.shy
+C014	negative	Nonnumeric text arithmetic rejected	tests/cases/negative/C014.shy
 C015	positive	Adjacent operator text	tests/cases/positive/C015.shy
 C016	negative	Missing variable	tests/cases/negative/C016.shy
 C017	negative	Assignment to undeclared variable	tests/cases/negative/C017.shy
@@ -165,13 +165,13 @@ C163	negative	Stored missing executable fails when invoked	tests/cases/negative/
 C164	positive	Zero argument reference assignment invokes	tests/cases/positive/C164.shy
 C165	positive	Alias arguments retain variable spelling	tests/cases/positive/C165.shy
 C166	positive	Builtin takes precedence over function	tests/cases/positive/C166.shy
-C167	positive	Boolean arithmetic conversion	tests/cases/positive/C167.shy
+C167	negative	Boolean arithmetic rejected	tests/cases/negative/C167.shy
 C168	positive	Private declaration shadows exported variable	tests/cases/positive/C168.shy
 C169	positive	CLI state variables	tests/cases/positive/C169.shy
 C170	positive	File mode arguments exclude filename	tests/cases/positive/C170.shy
 C171	positive	Multiple distinct function parameters	tests/cases/positive/C171.shy
 C172	positive	Variable path prefix preserves spaces	tests/cases/positive/C172.shy
-C173	positive	Boolean variable arithmetic conversion	tests/cases/positive/C173.shy
+C173	negative	Boolean variable arithmetic rejected	tests/cases/negative/C173.shy
 C174	positive	Options and standalone dash remain text	tests/cases/positive/C174.shy
 C175	positive	Unary minus precedence	tests/cases/positive/C175.shy
 C176	positive	Signed float retains source spelling	tests/cases/positive/C176.shy
@@ -205,7 +205,7 @@ C203	negative	Extra exit arguments	tests/cases/negative/C203.shy
 C204	negative	Checked signed division overflow	tests/cases/negative/C204.shy
 C205	negative	Checked signed remainder overflow	tests/cases/negative/C205.shy
 C206	negative	Checked unary negation overflow	tests/cases/negative/C206.shy
-C207	negative	Checked array arithmetic overflow	tests/cases/negative/C207.shy
+C207	negative	Array arithmetic rejected before coercion	tests/cases/negative/C207.shy
 C208	negative	Truncated UTF8 source	tests/cases/negative/C208.shy
 C209	negative	Invalid UTF8 within a command	tests/cases/negative/C209.shy
 ANNOTATION-001	positive	default Number	tests/cases/positive/ANNOTATION-001.shy
@@ -233,9 +233,9 @@ ANNOTATION-022	negative	initialize Integer from String	tests/cases/negative/ANNO
 ANNOTATION-023	negative	initialize Integer from None	tests/cases/negative/ANNOTATION-023.shy
 ANNOTATION-024	negative	initialize Integer from [Number]	tests/cases/negative/ANNOTATION-024.shy
 ANNOTATION-025	negative	initialize Integer from [String: Number]	tests/cases/negative/ANNOTATION-025.shy
-ANNOTATION-026	negative	initialize Float from Integer	tests/cases/negative/ANNOTATION-026.shy
+ANNOTATION-026	positive	initialize Float from Integer	tests/cases/positive/ANNOTATION-026.shy
 ANNOTATION-027	positive	initialize Float from Float	tests/cases/positive/ANNOTATION-027.shy
-ANNOTATION-028	negative	initialize Float from Number	tests/cases/negative/ANNOTATION-028.shy
+ANNOTATION-028	positive	initialize Float from Number	tests/cases/positive/ANNOTATION-028.shy
 ANNOTATION-029	negative	initialize Float from Boolean	tests/cases/negative/ANNOTATION-029.shy
 ANNOTATION-030	negative	initialize Float from String	tests/cases/negative/ANNOTATION-030.shy
 ANNOTATION-031	negative	initialize Float from None	tests/cases/negative/ANNOTATION-031.shy
@@ -620,7 +620,7 @@ BOOLEAN-017	positive	let $r = `name; echo ($r == "name") (`name == "name")	tests
 BOOLEAN-018	positive	echo !$args ($args == $args)	tests/cases/positive/BOOLEAN-018.shy
 BOOLEAN-019	positive	echo hello! --flag=value a&b a=b "==" "!"	tests/cases/positive/BOOLEAN-019.shy
 BOOLEAN-020	positive	echo (true || (false && $missing_boolean)) (false || (true && !false))	tests/cases/positive/BOOLEAN-020.shy
-BOOLEAN-021	positive	echo 1 + (false || 2) (false && 0) + 4	tests/cases/positive/BOOLEAN-021.shy
+BOOLEAN-021	positive	echo 1 + Integer(false || 2) Integer(false && 0) + 4	tests/cases/positive/BOOLEAN-021.shy
 BOOLEAN-022	positive	fn f() { (false || true) == (true && true) }; echo (f)	tests/cases/positive/BOOLEAN-022.shy
 BOOLEAN-023	positive	echo (1 == 1 == true) (1 != 2 != false)	tests/cases/positive/BOOLEAN-023.shy
 BOOLEAN-024	positive	echo (foo==foo) (foo!=bar) !foo	tests/cases/positive/BOOLEAN-024.shy
@@ -2000,7 +2000,7 @@ CONVERT-299	negative	nested index readonly	tests/cases/negative/CONVERT-299.shy
 CONVERT-300	negative	invalid enum field	tests/cases/negative/CONVERT-300.shy
 CONVERT-301	negative	index not String	tests/cases/negative/CONVERT-301.shy
 CONVERT-302	negative	typed parameter index not String	tests/cases/negative/CONVERT-302.shy
-CONVERT-303	negative	index not Float	tests/cases/negative/CONVERT-303.shy
+CONVERT-303	positive	enum index promotes to Float	tests/cases/positive/CONVERT-303.shy
 CONVERT-304	negative	enum not integer cast	tests/cases/negative/CONVERT-304.shy
 CONVERT-305	negative	index member chaining	tests/cases/negative/CONVERT-305.shy
 CONVERT-306	negative	empty index field	tests/cases/negative/CONVERT-306.shy
@@ -2654,7 +2654,7 @@ MAP-049	positive	automatic executable map value	tests/cases/positive/MAP-049.shy
 MAP-050	positive	backtick map value suppresses call	tests/cases/positive/MAP-050.shy
 MAP-051	positive	map key flags ignored	tests/cases/positive/MAP-051.shy
 MAP-052	positive	nan key stable	tests/cases/positive/MAP-052.shy
-MAP-053	positive	numeric map conversion	tests/cases/positive/MAP-053.shy
+MAP-053	negative	map arithmetic rejected	tests/cases/negative/MAP-053.shy
 MAP-054	positive	key equality / 0 / 0	tests/cases/positive/MAP-054.shy
 MAP-055	positive	key equality / 0 / -0.0	tests/cases/positive/MAP-055.shy
 MAP-056	positive	key equality / 0 / 1	tests/cases/positive/MAP-056.shy
@@ -3506,7 +3506,7 @@ RANGE-032	positive	range map key	tests/cases/positive/RANGE-032.shy
 RANGE-033	positive	range equality	tests/cases/positive/RANGE-033.shy
 RANGE-034	positive	range collection key	tests/cases/positive/RANGE-034.shy
 RANGE-035	positive	range map-valued key	tests/cases/positive/RANGE-035.shy
-RANGE-036	positive	range default numeric conversion	tests/cases/positive/RANGE-036.shy
+RANGE-036	negative	range arithmetic rejected	tests/cases/negative/RANGE-036.shy
 RANGE-037	positive	boolean range conversion	tests/cases/positive/RANGE-037.shy
 RANGE-038	positive	range comparison precedence	tests/cases/positive/RANGE-038.shy
 RANGE-039	positive	open range comparison	tests/cases/positive/RANGE-039.shy
@@ -3737,7 +3737,7 @@ STRUCT-071	negative	missing required any	tests/cases/negative/STRUCT-071.shy
 STRUCT-072	negative	missing required typed	tests/cases/negative/STRUCT-072.shy
 STRUCT-073	negative	number is not string	tests/cases/negative/STRUCT-073.shy
 STRUCT-074	negative	number is not bool	tests/cases/negative/STRUCT-074.shy
-STRUCT-075	negative	float is not integer	tests/cases/negative/STRUCT-075.shy
+STRUCT-075	positive	Float field promotes Integer	tests/cases/positive/STRUCT-075.shy
 STRUCT-076	negative	integer is not float	tests/cases/negative/STRUCT-076.shy
 STRUCT-077	negative	wrong nested array	tests/cases/negative/STRUCT-077.shy
 STRUCT-078	negative	wrong nested map key	tests/cases/negative/STRUCT-078.shy
@@ -3945,3 +3945,162 @@ DISCARD-023	negative	annotation rejected	tests/cases/negative/DISCARD-023.shy
 DISCARD-024	negative	export rejected	tests/cases/negative/DISCARD-024.shy
 DISCARD-025	negative	named underscore constraint retained	tests/cases/negative/DISCARD-025.shy
 DISCARD-026	negative	typed function tail cannot return discarded value	tests/cases/negative/DISCARD-026.shy
+NUMERIC-001	positive	integer division	tests/cases/positive/NUMERIC-001.shy
+NUMERIC-002	positive	float left	tests/cases/positive/NUMERIC-002.shy
+NUMERIC-003	positive	float right	tests/cases/positive/NUMERIC-003.shy
+NUMERIC-004	positive	float both	tests/cases/positive/NUMERIC-004.shy
+NUMERIC-005	positive	negative integer division	tests/cases/positive/NUMERIC-005.shy
+NUMERIC-006	positive	negative float division	tests/cases/positive/NUMERIC-006.shy
+NUMERIC-007	positive	float add	tests/cases/positive/NUMERIC-007.shy
+NUMERIC-008	positive	float subtract	tests/cases/positive/NUMERIC-008.shy
+NUMERIC-009	positive	float multiply	tests/cases/positive/NUMERIC-009.shy
+NUMERIC-010	positive	float remainder	tests/cases/positive/NUMERIC-010.shy
+NUMERIC-011	positive	float unary	tests/cases/positive/NUMERIC-011.shy
+NUMERIC-012	positive	float small divisor	tests/cases/positive/NUMERIC-012.shy
+NUMERIC-013	positive	nested arithmetic	tests/cases/positive/NUMERIC-013.shy
+NUMERIC-014	negative	array arithmetic rejected	tests/cases/negative/NUMERIC-014.shy
+NUMERIC-015	negative	nested array arithmetic rejected	tests/cases/negative/NUMERIC-015.shy
+NUMERIC-016	positive	typed initializer and write	tests/cases/positive/NUMERIC-016.shy
+NUMERIC-017	positive	typed variable source	tests/cases/positive/NUMERIC-017.shy
+NUMERIC-018	positive	Number source	tests/cases/positive/NUMERIC-018.shy
+NUMERIC-019	positive	untyped value remains integer	tests/cases/positive/NUMERIC-019.shy
+NUMERIC-020	positive	optional Float	tests/cases/positive/NUMERIC-020.shy
+NUMERIC-021	positive	parameter promotion	tests/cases/positive/NUMERIC-021.shy
+NUMERIC-022	positive	return promotion	tests/cases/positive/NUMERIC-022.shy
+NUMERIC-023	positive	typed Integer return widens	tests/cases/positive/NUMERIC-023.shy
+NUMERIC-024	positive	variadic promotion	tests/cases/positive/NUMERIC-024.shy
+NUMERIC-025	positive	array initialization copy	tests/cases/positive/NUMERIC-025.shy
+NUMERIC-026	positive	array element write	tests/cases/positive/NUMERIC-026.shy
+NUMERIC-027	positive	nested collections	tests/cases/positive/NUMERIC-027.shy
+NUMERIC-028	positive	map value write	tests/cases/positive/NUMERIC-028.shy
+NUMERIC-029	positive	canonical Float keys	tests/cases/positive/NUMERIC-029.shy
+NUMERIC-030	positive	struct constructor and write	tests/cases/positive/NUMERIC-030.shy
+NUMERIC-031	positive	nested struct in untyped collections	tests/cases/positive/NUMERIC-031.shy
+NUMERIC-032	positive	struct within any field	tests/cases/positive/NUMERIC-032.shy
+NUMERIC-033	positive	struct method assignment	tests/cases/positive/NUMERIC-033.shy
+NUMERIC-034	positive	Float method receiver and return	tests/cases/positive/NUMERIC-034.shy
+NUMERIC-035	positive	array typed method receiver	tests/cases/positive/NUMERIC-035.shy
+NUMERIC-036	positive	match typed result	tests/cases/positive/NUMERIC-036.shy
+NUMERIC-037	positive	if typed result	tests/cases/positive/NUMERIC-037.shy
+NUMERIC-038	positive	explicit Integer conversion	tests/cases/positive/NUMERIC-038.shy
+NUMERIC-039	negative	no Float initializer narrowing	tests/cases/negative/NUMERIC-039.shy
+NUMERIC-040	negative	no Float write narrowing	tests/cases/negative/NUMERIC-040.shy
+NUMERIC-041	negative	no Float variable narrowing	tests/cases/negative/NUMERIC-041.shy
+NUMERIC-042	negative	no Float parameter narrowing	tests/cases/negative/NUMERIC-042.shy
+NUMERIC-043	negative	no Float return narrowing	tests/cases/negative/NUMERIC-043.shy
+NUMERIC-044	negative	no Float field narrowing	tests/cases/negative/NUMERIC-044.shy
+NUMERIC-045	negative	no Float array narrowing	tests/cases/negative/NUMERIC-045.shy
+NUMERIC-046	negative	no Float map value narrowing	tests/cases/negative/NUMERIC-046.shy
+NUMERIC-047	negative	float arithmetic preserves type	tests/cases/negative/NUMERIC-047.shy
+NUMERIC-048	negative	no string promotion	tests/cases/negative/NUMERIC-048.shy
+NUMERIC-049	negative	no boolean promotion	tests/cases/negative/NUMERIC-049.shy
+NUMERIC-050	negative	bad dynamic array promotion	tests/cases/negative/NUMERIC-050.shy
+NUMERIC-051	negative	bad dynamic map promotion	tests/cases/negative/NUMERIC-051.shy
+NUMERIC-052	negative	arithmetic failure 1.0 / 0	tests/cases/negative/NUMERIC-052.shy
+NUMERIC-053	negative	arithmetic failure 1 / 0.0	tests/cases/negative/NUMERIC-053.shy
+NUMERIC-054	negative	arithmetic failure 1.0 % 0	tests/cases/negative/NUMERIC-054.shy
+NUMERIC-055	negative	arithmetic failure 1 % -0.0	tests/cases/negative/NUMERIC-055.shy
+NUMERIC-056	negative	arithmetic failure Float("1e308") * 10	tests/cases/negative/NUMERIC-056.shy
+NUMERIC-057	negative	arithmetic failure Float("1e308") + Float("1e308")	tests/cases/negative/NUMERIC-057.shy
+NUMERIC-058	negative	explicit Integer rejects fractions	tests/cases/negative/NUMERIC-058.shy
+NUMERIC-059	positive	string concatenation	tests/cases/positive/NUMERIC-059.shy
+NUMERIC-060	positive	numeric text concatenation	tests/cases/positive/NUMERIC-060.shy
+NUMERIC-061	positive	empty strings	tests/cases/positive/NUMERIC-061.shy
+NUMERIC-062	positive	Unicode concatenation	tests/cases/positive/NUMERIC-062.shy
+NUMERIC-063	positive	string operands evaluated once	tests/cases/positive/NUMERIC-063.shy
+NUMERIC-064	positive	string typed function result	tests/cases/positive/NUMERIC-064.shy
+NUMERIC-065	negative	mixed numeric text arithmetic rejected	tests/cases/negative/NUMERIC-065.shy
+NUMERIC-066	negative	string subtraction rejected	tests/cases/negative/NUMERIC-066.shy
+NUMERIC-067	positive	concat produces data not executable	tests/cases/positive/NUMERIC-067.shy
+NUMERIC-068	positive	concatenation uses returned values	tests/cases/positive/NUMERIC-068.shy
+NUMERIC-069	negative	concat cannot initialize Integer	tests/cases/negative/NUMERIC-069.shy
+NUMERIC-070	negative	concat cannot initialize Float	tests/cases/negative/NUMERIC-070.shy
+NUMERIC-071	negative	numeric text rejected on left of +	tests/cases/negative/NUMERIC-071.shy
+NUMERIC-072	negative	numeric text rejected on right of +	tests/cases/negative/NUMERIC-072.shy
+NUMERIC-073	negative	numeric text rejected on left of -	tests/cases/negative/NUMERIC-073.shy
+NUMERIC-074	negative	numeric text rejected on right of -	tests/cases/negative/NUMERIC-074.shy
+NUMERIC-075	negative	numeric text rejected on left of *	tests/cases/negative/NUMERIC-075.shy
+NUMERIC-076	negative	numeric text rejected on right of *	tests/cases/negative/NUMERIC-076.shy
+NUMERIC-077	negative	numeric text rejected on left of /	tests/cases/negative/NUMERIC-077.shy
+NUMERIC-078	negative	numeric text rejected on right of /	tests/cases/negative/NUMERIC-078.shy
+NUMERIC-079	negative	numeric text rejected on left of %	tests/cases/negative/NUMERIC-079.shy
+NUMERIC-080	negative	numeric text rejected on right of %	tests/cases/negative/NUMERIC-080.shy
+NUMERIC-081	negative	numeric text unary minus rejected	tests/cases/negative/NUMERIC-081.shy
+NUMERIC-082	negative	text rejected on left of +	tests/cases/negative/NUMERIC-082.shy
+NUMERIC-083	negative	text rejected on right of +	tests/cases/negative/NUMERIC-083.shy
+NUMERIC-084	negative	text rejected on left of -	tests/cases/negative/NUMERIC-084.shy
+NUMERIC-085	negative	text rejected on right of -	tests/cases/negative/NUMERIC-085.shy
+NUMERIC-086	negative	text rejected on left of *	tests/cases/negative/NUMERIC-086.shy
+NUMERIC-087	negative	text rejected on right of *	tests/cases/negative/NUMERIC-087.shy
+NUMERIC-088	negative	text rejected on left of /	tests/cases/negative/NUMERIC-088.shy
+NUMERIC-089	negative	text rejected on right of /	tests/cases/negative/NUMERIC-089.shy
+NUMERIC-090	negative	text rejected on left of %	tests/cases/negative/NUMERIC-090.shy
+NUMERIC-091	negative	text rejected on right of %	tests/cases/negative/NUMERIC-091.shy
+NUMERIC-092	negative	text unary minus rejected	tests/cases/negative/NUMERIC-092.shy
+NUMERIC-093	negative	Boolean rejected on left of +	tests/cases/negative/NUMERIC-093.shy
+NUMERIC-094	negative	Boolean rejected on right of +	tests/cases/negative/NUMERIC-094.shy
+NUMERIC-095	negative	Boolean rejected on left of -	tests/cases/negative/NUMERIC-095.shy
+NUMERIC-096	negative	Boolean rejected on right of -	tests/cases/negative/NUMERIC-096.shy
+NUMERIC-097	negative	Boolean rejected on left of *	tests/cases/negative/NUMERIC-097.shy
+NUMERIC-098	negative	Boolean rejected on right of *	tests/cases/negative/NUMERIC-098.shy
+NUMERIC-099	negative	Boolean rejected on left of /	tests/cases/negative/NUMERIC-099.shy
+NUMERIC-100	negative	Boolean rejected on right of /	tests/cases/negative/NUMERIC-100.shy
+NUMERIC-101	negative	Boolean rejected on left of %	tests/cases/negative/NUMERIC-101.shy
+NUMERIC-102	negative	Boolean rejected on right of %	tests/cases/negative/NUMERIC-102.shy
+NUMERIC-103	negative	Boolean unary minus rejected	tests/cases/negative/NUMERIC-103.shy
+NUMERIC-104	negative	array rejected on left of +	tests/cases/negative/NUMERIC-104.shy
+NUMERIC-105	negative	array rejected on right of +	tests/cases/negative/NUMERIC-105.shy
+NUMERIC-106	negative	array rejected on left of -	tests/cases/negative/NUMERIC-106.shy
+NUMERIC-107	negative	array rejected on right of -	tests/cases/negative/NUMERIC-107.shy
+NUMERIC-108	negative	array rejected on left of *	tests/cases/negative/NUMERIC-108.shy
+NUMERIC-109	negative	array rejected on right of *	tests/cases/negative/NUMERIC-109.shy
+NUMERIC-110	negative	array rejected on left of /	tests/cases/negative/NUMERIC-110.shy
+NUMERIC-111	negative	array rejected on right of /	tests/cases/negative/NUMERIC-111.shy
+NUMERIC-112	negative	array rejected on left of %	tests/cases/negative/NUMERIC-112.shy
+NUMERIC-113	negative	array rejected on right of %	tests/cases/negative/NUMERIC-113.shy
+NUMERIC-114	negative	array unary minus rejected	tests/cases/negative/NUMERIC-114.shy
+NUMERIC-115	negative	map rejected on left of +	tests/cases/negative/NUMERIC-115.shy
+NUMERIC-116	negative	map rejected on right of +	tests/cases/negative/NUMERIC-116.shy
+NUMERIC-117	negative	map rejected on left of -	tests/cases/negative/NUMERIC-117.shy
+NUMERIC-118	negative	map rejected on right of -	tests/cases/negative/NUMERIC-118.shy
+NUMERIC-119	negative	map rejected on left of *	tests/cases/negative/NUMERIC-119.shy
+NUMERIC-120	negative	map rejected on right of *	tests/cases/negative/NUMERIC-120.shy
+NUMERIC-121	negative	map rejected on left of /	tests/cases/negative/NUMERIC-121.shy
+NUMERIC-122	negative	map rejected on right of /	tests/cases/negative/NUMERIC-122.shy
+NUMERIC-123	negative	map rejected on left of %	tests/cases/negative/NUMERIC-123.shy
+NUMERIC-124	negative	map rejected on right of %	tests/cases/negative/NUMERIC-124.shy
+NUMERIC-125	negative	map unary minus rejected	tests/cases/negative/NUMERIC-125.shy
+NUMERIC-126	negative	range rejected on left of +	tests/cases/negative/NUMERIC-126.shy
+NUMERIC-127	negative	range rejected on right of +	tests/cases/negative/NUMERIC-127.shy
+NUMERIC-128	negative	range rejected on left of -	tests/cases/negative/NUMERIC-128.shy
+NUMERIC-129	negative	range rejected on right of -	tests/cases/negative/NUMERIC-129.shy
+NUMERIC-130	negative	range rejected on left of *	tests/cases/negative/NUMERIC-130.shy
+NUMERIC-131	negative	range rejected on right of *	tests/cases/negative/NUMERIC-131.shy
+NUMERIC-132	negative	range rejected on left of /	tests/cases/negative/NUMERIC-132.shy
+NUMERIC-133	negative	range rejected on right of /	tests/cases/negative/NUMERIC-133.shy
+NUMERIC-134	negative	range rejected on left of %	tests/cases/negative/NUMERIC-134.shy
+NUMERIC-135	negative	range rejected on right of %	tests/cases/negative/NUMERIC-135.shy
+NUMERIC-136	negative	range unary minus rejected	tests/cases/negative/NUMERIC-136.shy
+NUMERIC-137	negative	None rejected on left of +	tests/cases/negative/NUMERIC-137.shy
+NUMERIC-138	negative	None rejected on right of +	tests/cases/negative/NUMERIC-138.shy
+NUMERIC-139	negative	None rejected on left of -	tests/cases/negative/NUMERIC-139.shy
+NUMERIC-140	negative	None rejected on right of -	tests/cases/negative/NUMERIC-140.shy
+NUMERIC-141	negative	None rejected on left of *	tests/cases/negative/NUMERIC-141.shy
+NUMERIC-142	negative	None rejected on right of *	tests/cases/negative/NUMERIC-142.shy
+NUMERIC-143	negative	None rejected on left of /	tests/cases/negative/NUMERIC-143.shy
+NUMERIC-144	negative	None rejected on right of /	tests/cases/negative/NUMERIC-144.shy
+NUMERIC-145	negative	None rejected on left of %	tests/cases/negative/NUMERIC-145.shy
+NUMERIC-146	negative	None rejected on right of %	tests/cases/negative/NUMERIC-146.shy
+NUMERIC-147	negative	None unary minus rejected	tests/cases/negative/NUMERIC-147.shy
+NUMERIC-148	negative	command status rejected on left of +	tests/cases/negative/NUMERIC-148.shy
+NUMERIC-149	negative	command status rejected on right of +	tests/cases/negative/NUMERIC-149.shy
+NUMERIC-150	negative	command status rejected on left of -	tests/cases/negative/NUMERIC-150.shy
+NUMERIC-151	negative	command status rejected on right of -	tests/cases/negative/NUMERIC-151.shy
+NUMERIC-152	negative	command status rejected on left of *	tests/cases/negative/NUMERIC-152.shy
+NUMERIC-153	negative	command status rejected on right of *	tests/cases/negative/NUMERIC-153.shy
+NUMERIC-154	negative	command status rejected on left of /	tests/cases/negative/NUMERIC-154.shy
+NUMERIC-155	negative	command status rejected on right of /	tests/cases/negative/NUMERIC-155.shy
+NUMERIC-156	negative	command status rejected on left of %	tests/cases/negative/NUMERIC-156.shy
+NUMERIC-157	negative	command status rejected on right of %	tests/cases/negative/NUMERIC-157.shy
+NUMERIC-158	negative	command status unary minus rejected	tests/cases/negative/NUMERIC-158.shy
+NUMERIC-159	positive	explicit conversions allow arithmetic	tests/cases/positive/NUMERIC-159.shy

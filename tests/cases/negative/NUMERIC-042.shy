@@ -1,0 +1,14 @@
+# NUMERIC-042: no Float parameter narrowing
+check [
+    "id": "NUMERIC-042",
+    "name": "no Float parameter narrowing",
+    "source": "fn f(\$x: Integer) { echo \"bad\" }; f 7.0",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type error|Unknown field|Cannot access|Cannot assign|For loops require|Cannot execute|Cannot index|Arithmetic error)",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

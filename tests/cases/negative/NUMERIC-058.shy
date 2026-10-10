@@ -1,0 +1,14 @@
+# NUMERIC-058: explicit Integer rejects fractions
+check [
+    "id": "NUMERIC-058",
+    "name": "explicit Integer rejects fractions",
+    "source": "echo Integer(3.5)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "(Type conversion error:|Enum index is read-only)",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

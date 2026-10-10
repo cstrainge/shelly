@@ -1,0 +1,14 @@
+# NUMERIC-070: concat cannot initialize Float
+check [
+    "id": "NUMERIC-070",
+    "name": "concat cannot initialize Float",
+    "source": "let \$x: Float = \"7\" + \"2\"",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Type error:",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

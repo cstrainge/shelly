@@ -1,0 +1,14 @@
+# NUMERIC-020: optional Float
+check [
+    "id": "NUMERIC-020",
+    "name": "optional Float",
+    "source": "let \$x: optional Float; echo (\$x == ()); \$x = 7; echo (\$x / 2); \$x = (); echo (\$x == ())",
+    "mode": "code",
+    "args": [],
+    "stdout": "true\n3.5\ntrue\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

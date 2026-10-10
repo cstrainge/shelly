@@ -1,0 +1,14 @@
+# NUMERIC-081: numeric text unary minus rejected
+check [
+    "id": "NUMERIC-081",
+    "name": "numeric text unary minus rejected",
+    "source": "echo -(\"7\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

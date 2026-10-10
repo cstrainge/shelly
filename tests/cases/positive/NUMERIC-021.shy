@@ -1,0 +1,14 @@
+# NUMERIC-021: parameter promotion
+check [
+    "id": "NUMERIC-021",
+    "name": "parameter promotion",
+    "source": "fn half(\$n: Float) { \$n / 2 }; let \$n = 7; echo (half \$n) (\$n / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.5 3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

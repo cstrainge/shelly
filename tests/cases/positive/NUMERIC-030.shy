@@ -1,0 +1,14 @@
+# NUMERIC-030: struct constructor and write
+check [
+    "id": "NUMERIC-030",
+    "name": "struct constructor and write",
+    "source": "struct S { x: Float }; let \$s = S(x: 7); echo (\$s.x / 2); \$s.x = 9; echo (\$s.x / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3.5\n4.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

@@ -1,0 +1,14 @@
+# NUMERIC-031: nested struct in untyped collections
+check [
+    "id": "NUMERIC-031",
+    "name": "nested struct in untyped collections",
+    "source": "struct S { x: Float }; let \$values = [S(x: 7)]; \$values[0].x = 9; echo (\$values[0].x / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "4.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

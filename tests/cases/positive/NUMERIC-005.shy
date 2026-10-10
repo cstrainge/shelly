@@ -1,0 +1,14 @@
+# NUMERIC-005: negative integer division
+check [
+    "id": "NUMERIC-005",
+    "name": "negative integer division",
+    "source": "echo (-7 / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "-3\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

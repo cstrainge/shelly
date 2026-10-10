@@ -1,0 +1,14 @@
+# NUMERIC-150: command status rejected on left of -
+check [
+    "id": "NUMERIC-150",
+    "name": "command status rejected on left of -",
+    "source": "echo ((/usr/bin/true) - 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

@@ -333,6 +333,18 @@ impl TypeRegistry
             || b == "Number" && matches!(a.as_str(), "Integer" | "Float")
     }
 
+    // Assignment compatibility is directional: an Integer may widen to Float.
+    pub fn may_assign(&self, expected: TypeId, actual: TypeId) -> bool
+    {
+        let target = self.get(expected);
+        let source = self.get(actual);
+        if let TypeKind::Optional(inner) = target.kind
+        { return self.may_assign(inner, actual) || self.may_overlap(expected, actual); }
+        if let TypeKind::Optional(inner) = source.kind
+        { return self.may_assign(expected, inner) || self.may_overlap(expected, actual); }
+        target.name == "Float" && source.name == "Integer" || self.may_overlap(expected, actual)
+    }
+
     // Only uncommitted placeholders are completed; old definitions are immutable.
     pub fn finish(&mut self, id: TypeId, kind: TypeKind)
     {
@@ -365,6 +377,66 @@ impl TypeRegistry
                 _ => unreachable!("Only anonymous container constraints are interned")
             };
         self.register(name, kind, None)
+    }
+
+    // Apply only implicit numeric widening, then enforce the strict stored type.
+    // Callers stage the value so failed conversions cannot mutate existing bindings.
+    pub fn coerce(&self, id: TypeId, mut value: Value) -> Result<Value, String>
+    {
+        if self.validate(id, &value).is_ok() { return Ok(value); }
+        let definition = self.get(id);
+        match (&definition.kind, &mut value)
+        {
+            (TypeKind::Builtin, Value::Integer(number)) if definition.name == "Float" =>
+                value = Value::Float(*number as f64, None),
+            (TypeKind::Optional(inner), value) if !matches!(value, Value::None) =>
+                *value = self.coerce(*inner, value.clone())?,
+            (TypeKind::Array(element), Value::Array(values)) =>
+                for (index, value) in Rc::make_mut(values).iter_mut().enumerate()
+                {
+                    *value = self.coerce(*element, value.clone())
+                        .map_err(|error| format!("Array element {}: {}", index, error))?;
+                },
+            (TypeKind::Map(key_type, value_type), Value::HashMap(values)) =>
+                for (key, value) in Rc::make_mut(values).iter_mut()
+                {
+                    // Keys retain their canonical numeric equivalence classes.
+                    self.validate_key(*key_type, key)
+                        .map_err(|error| format!("Map key: {}", error))?;
+                    *value = self.coerce(*value_type, value.clone())
+                        .map_err(|error| format!("Map value: {}", error))?;
+                },
+            (TypeKind::Struct(fields), Value::Struct(item)) if item.definition.id == id =>
+                for (field, value) in fields.iter().zip(&mut Rc::make_mut(item).fields)
+                {
+                    *value = self.coerce(field.type_id, value.clone()).map_err(|error|
+                        format!("Field '{}.{}' (declared at {}): {}", definition.name,
+                                field.name, field.location, error))?;
+                },
+            _ => {}
+        }
+        self.validate(id, &value)?;
+        Ok(value)
+    }
+
+    pub fn coerce_value(&self, mut value: Value) -> Result<Value, String>
+    {
+        if self.validate_value(&value).is_ok() { return Ok(value); }
+        if let Value::Struct(item) = &value
+        { value = self.coerce(item.definition.id, value)?; }
+        match &mut value
+        {
+            Value::Struct(item) =>
+                for value in &mut Rc::make_mut(item).fields
+                { *value = self.coerce_value(value.clone())?; },
+            Value::Array(values) | Value::ArgumentExpansion(values) =>
+                for value in Rc::make_mut(values) { *value = self.coerce_value(value.clone())?; },
+            Value::HashMap(values) =>
+                for value in Rc::make_mut(values).values_mut()
+                { *value = self.coerce_value(value.clone())?; },
+            _ => {}
+        }
+        Ok(value)
     }
 
     pub fn validate(&self, id: TypeId, value: &Value) -> Result<(), String>

@@ -1,0 +1,14 @@
+# NUMERIC-103: Boolean unary minus rejected
+check [
+    "id": "NUMERIC-103",
+    "name": "Boolean unary minus rejected",
+    "source": "echo -(true)",
+    "mode": "code",
+    "args": [],
+    "stdout": "",
+    "status": 1,
+    "valid": false,
+    "error": "Arithmetic error:",
+    "stderr_contains": [],
+    "stderr_excludes": ["Parser error:"],
+    "stdout_excludes": []]

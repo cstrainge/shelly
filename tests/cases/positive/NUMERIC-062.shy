@@ -1,0 +1,14 @@
+# NUMERIC-062: Unicode concatenation
+check [
+    "id": "NUMERIC-062",
+    "name": "Unicode concatenation",
+    "source": "echo (\"hé\" + \"llo 世界\")",
+    "mode": "code",
+    "args": [],
+    "stdout": "héllo 世界\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]

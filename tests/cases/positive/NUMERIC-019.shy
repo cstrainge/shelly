@@ -1,0 +1,14 @@
+# NUMERIC-019: untyped value remains integer
+check [
+    "id": "NUMERIC-019",
+    "name": "untyped value remains integer",
+    "source": "let \$n = 7; echo (\$n / 2); let \$x = 7.0; echo (\$x / 2)",
+    "mode": "code",
+    "args": [],
+    "stdout": "3\n3.5\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
+    "stderr_contains": [],
+    "stderr_excludes": [],
+    "stdout_excludes": []]
