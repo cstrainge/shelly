@@ -120,6 +120,7 @@ pub struct Function
     pub functions: FunctionBlockRef,
 
     pub arguments: Vec<String>,
+    pub argument_types: Vec<Option<TypeId>>,
     pub minimum_arguments: usize,
     pub variadic: bool,
     pub return_type: Option<TypeId>,

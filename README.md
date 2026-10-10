@@ -726,6 +726,69 @@ types, assigning `7` to `A | B` is ambiguous; use `A(7)` or `B(7)`. Unions witho
 inside collection annotations, such as `[String: Integer | Boolean]`.
 `T | ()` and `optional T` are equivalent.
 
+## Function prototypes
+
+Function prototypes are types, and can appear in `type` declarations or directly
+in annotations:
+
+```shy
+type Transform = fn(Integer): String
+type Factory = fn(): Transform
+
+fn describe($value: Integer): String { String($value) }
+let $convert: Transform = `describe
+echo ($convert 7)                       # 7
+
+let $callbacks: [fn(Integer): String] = [`describe]
+echo ($callbacks[0] 8)                  # 8
+```
+
+The syntax is `fn(Type, Type, ...): ReturnType`, with a comma-separated list of
+parameter types. `fn()` takes no arguments. Omitting `: ReturnType` means `()`:
+`fn(Integer)` and `fn(Integer): ()` describe the same contract. This default is
+specific to prototypes; existing function definitions without a return annotation
+keep their dynamic return behavior. Prototypes require an initializer unless
+made optional. Each prototype has a fixed argument count; a variadic function can
+satisfy any prototype whose arguments it accepts.
+
+`any` is a proper type name and explicitly permits values of any type:
+
+```shy
+fn first($args...): any { $args[0] }
+
+let $number: fn(Integer): Integer = `first
+let $text: fn(String): String = `first
+
+echo ($number 42) ($text "hello")
+```
+
+Known incompatible signatures and argument counts are rejected when the reference
+is bound. `any` parameters and returns, including unannotated function parameters,
+allow more specific prototypes; every call checks its arguments and returned value.
+For example, a function declared to return `any` can satisfy `fn(): Integer`, but
+returning a String through that prototype is an error. Integer-to-Float promotion
+and named-type wrapping apply at these call boundaries. Existing contracts remain
+in force when a callable is assigned to another prototype, even one using `any`.
+
+Prototypes accept bound scripted functions, native functions, and bound methods.
+Native checks use available signature metadata and enforce the prototype at call
+time. A plain string or external-command reference does not provide a function
+signature. Native return values are preserved: `cd`, for example, can be used as
+`fn(String): ExecResult`.
+
+A typed reference preserves its function version or its method's live receiver.
+Copying it does not call it: `let $copy = $convert` copies the reference;
+`($convert 7)` calls it. Use `($factory)` to call a zero-argument factory and obtain
+its returned function. Typed functions compare by callable identity and prototype,
+can be hash keys, and are distinct from strings with the same display name.
+
+Named prototypes remain distinct, with the same wrapping and explicit conversion
+rules as other named types. They can be imported and used in fields, collections,
+parameters, returns, and other prototypes. For a union of a function and `()`,
+write `(fn(Integer): String) | ()`; without those parentheses,
+`fn(Integer): String | ()` describes a function returning either String or `()`.
+Recursive `type` definitions remain unsupported.
+
 ## Explicit type conversions
 
 Use `Type(value)` to request conversion. All builtin types support this syntax.

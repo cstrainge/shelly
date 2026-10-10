@@ -7,7 +7,7 @@ use std::{ cell::RefCell, collections::{ HashMap, HashSet },
 
 use crate::language::{ text::location::Location,
                        native::{ NativeType, NativeVisibility },
-                       data::{ conversion::convert_builtin,
+                       data::{ callable::CallableValue, conversion::convert_builtin,
                                methods::{ BuiltinMethod, register_methods },
                                value::{ Value, ExecResult }, map_key::MapKey, range::Range } };
 
@@ -32,6 +32,7 @@ pub enum TypeKind
     FixedArray(Vec<TypeId>),
     Map(TypeId, TypeId),
     Union(Vec<TypeId>),
+    Function(Vec<TypeId>, TypeId),
     Named(TypeId),
     Optional(TypeId),
     Struct(Vec<FieldDefinition>),
@@ -283,6 +284,7 @@ impl TypeRegistry
     {
         match value
         {
+            Value::Callable(item) => item.prototype.id,
             Value::Named(item) => item.definition.id,
             Value::Enum(item) => item.definition.id,
             Value::Struct(item) => item.definition.id,
@@ -530,6 +532,13 @@ impl TypeRegistry
     {
         let target = self.get(expected);
         let source = self.get(actual);
+        if let TypeKind::Function(_, _) = target.kind
+        {
+            if matches!(source.kind, TypeKind::Function(_, _))
+            { return self.accepts_signature_type(expected, actual); }
+            // Legacy bound references retain their string representation until coerced.
+            if source.name == "String" { return true; }
+        }
         if let TypeKind::Named(inner) = target.kind
         { return expected == actual || self.may_assign(inner, actual); }
         if let TypeKind::Union(items) = &target.kind
@@ -563,6 +572,7 @@ impl TypeRegistry
                     | (TypeKind::Optional(a), TypeKind::Optional(b)) => a == b,
                     (TypeKind::FixedArray(a), TypeKind::FixedArray(b)) => a == b,
                     (TypeKind::Union(a), TypeKind::Union(b)) => a == b,
+                    (TypeKind::Function(a, r), TypeKind::Function(b, s)) => a == b && r == s,
                     (TypeKind::Map(a, b), TypeKind::Map(c, d)) => a == c && b == d,
                     _ => false,
                 })
@@ -571,6 +581,9 @@ impl TypeRegistry
         }
         let name = match &kind
             {
+                TypeKind::Function(args, result) => format!("fn({}): {}", args.iter()
+                    .map(|id| self.get(*id).name.clone()).collect::<Vec<_>>().join(", "),
+                    self.get(*result).name),
                 TypeKind::Array(id) => format!("[{}]", self.get(*id).name),
                 TypeKind::FixedArray(items) => format!("[{}{}]", items.iter()
                     .map(|id| self.get(*id).name.clone()).collect::<Vec<_>>().join(", "),
@@ -597,6 +610,12 @@ impl TypeRegistry
                 && item.definition.id == id { item.value.clone() } else { value };
             return Ok(Value::Named(Rc::new(NamedValue
                 { definition, value: self.coerce(inner, value)? })));
+        }
+        if let TypeKind::Function(parameters, result) = &definition.kind
+        {
+            self.check_callable(parameters, *result, &value)?;
+            return Ok(Value::Callable(Rc::new(CallableValue
+                { prototype: definition, target: value })));
         }
         if let TypeKind::Union(items) = &definition.kind
         {
@@ -760,6 +779,8 @@ impl TypeRegistry
                         }
                         true
                     } else { false },
+                TypeKind::Function(_, _) => matches!(value, Value::Callable(item)
+                    if item.prototype.id == id),
                 TypeKind::Pending => false
             };
         if valid
@@ -862,6 +883,9 @@ impl TypeRegistry
                     | TypeKind::Array(inner) => visit(registry, *inner, path, done),
                     TypeKind::Map(key, value) => visit(registry, *key, path, done)
                         && visit(registry, *value, path, done),
+                    TypeKind::Function(items, result) =>
+                        items.iter().all(|id| visit(registry, *id, path, done))
+                            && visit(registry, *result, path, done),
                     TypeKind::Union(items) | TypeKind::FixedArray(items) =>
                         items.iter().all(|id| visit(registry, *id, path, done)),
                     _ => true,

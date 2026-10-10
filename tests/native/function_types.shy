@@ -1,0 +1,101 @@
+# First-class function prototypes and runtime contracts.
+fn prototype_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "${fixture}/std", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $stdout) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "function prototype mismatch" }
+}
+prototype_case "type Transform = fn(Integer): String; fn describe(\$n: Integer): String { String(\$n) }; let \$f: Transform = `describe; echo (\$f 7)" "7\n" ""
+prototype_case "fn foo(\$args...): any { \$args[0] }; let \$a: fn(Integer): Integer = `foo; let \$b: fn(String): String = `foo; echo (\$a 7) (\$b \"ok\")" "7 ok\n" ""
+prototype_case "fn foo(\$args...): any { \$args[0] }; let \$f: fn(Integer): Float = `foo; echo (\$f 7)" "7.0\n" ""
+prototype_case "fn foo(\$args...): any { \"bad\" }; let \$f: fn(Integer): Integer = `foo; \$f 7" "" "Return value: Expected Integer"
+prototype_case "fn foo(\$args...): any { echo ran; () }; let \$f: fn(Integer) = `foo; \$f \"bad\"" "" "Argument 1: Expected Integer"
+prototype_case "fn foo(\$args...): any { () }; let \$f: fn(Integer) = `foo; \$f" "" "Expected 1 arguments"
+prototype_case "fn foo(\$args...): any { () }; let \$f: fn(Integer) = `foo; \$f 1 2" "" "Expected 1 arguments"
+prototype_case "fn empty(): () { () }; let \$f: fn() = `empty; echo (\$f)" "()\n" ""
+prototype_case "fn foo(\$args...): any { 7 }; let \$f: fn() = `foo; \$f" "" "Return value: Expected None"
+prototype_case "fn wrong(): Integer { 7 }; let \$f: fn() = `wrong" "" "return type is incompatible"
+prototype_case "fn wrong(\$n: String): String { \$n }; let \$f: fn(Integer): String = `wrong" "" "parameter 1 is incompatible"
+prototype_case "fn wrong(\$a,\$b): any { \$a }; let \$f: fn(Integer): any = `wrong" "" "arity is incompatible"
+prototype_case "fn accepts(\$n: Float): Float { \$n }; let \$f: fn(Integer): Float = `accepts; echo (\$f 7)" "7.0\n" ""
+prototype_case "fn narrow(\$n: Integer): Integer { \$n }; let \$f: fn(Float): Integer = `narrow" "" "parameter 1 is incompatible"
+prototype_case "let \$f: fn() = \"echo\"" "" "requires a bound function"
+prototype_case "let \$f: fn() = `/bin/true" "" "requires a bound function"
+prototype_case "let \$f: fn() = 7" "" "requires a bound function"
+prototype_case "let \$f: fn()" "" "requires an initializer"
+prototype_case "let \$f: (fn(): Integer) | (); echo \$f" "()\n" ""
+prototype_case "fn describe(\$n: Integer): String { String(\$n) }; fn apply(\$f: fn(Integer): String, \$n: Integer): String { \$f \$n }; echo (apply `describe 8)" "8\n" ""
+prototype_case "fn describe(\$n: Integer): String { String(\$n) }; type Transform = fn(Integer): String; fn factory(): Transform { `describe }; let \$make: fn(): Transform = `factory; let \$f = (\$make); echo (\$f 9)" "9\n" ""
+prototype_case "fn describe(\$n: Integer): String { String(\$n) }; let \$a: [fn(Integer): String] = [`describe]; echo (\$a[0] 10)" "10\n" ""
+prototype_case "fn describe(\$n: Integer): String { String(\$n) }; let \$h: [String: fn(Integer): String] = [\"f\": `describe]; echo (\$h[\"f\"] 11)" "11\n" ""
+prototype_case "fn describe(\$n: Integer): String { String(\$n) }; struct Holder { callback: fn(Integer): String }; let \$h = Holder(callback: `describe); echo (\$h.callback 12)" "12\n" ""
+prototype_case "type F = fn(Integer): Integer; type G = F; fn id(\$x: Integer): Integer { \$x }; let \$g: G = `id; echo (\$g 13)" "13\n" ""
+prototype_case "type F = fn(Integer): Integer; type G = fn(Integer): Integer; fn id(\$x: Integer): Integer { \$x }; let \$f: F = `id; let \$g: G = \$f" "" "Expected G, got F"
+prototype_case "type F = fn(Integer): Integer; type G = fn(Integer): Integer; fn id(\$x: Integer): Integer { \$x }; let \$f: F = `id; let \$g = G(\$f); echo (\$g 14)" "14\n" ""
+prototype_case "let \$s = \" hello \"; let \$f: fn(): String = `\$s.trim; echo (\$f); \$s = \" world \"; echo (\$f)" "hello\nworld\n" ""
+prototype_case "struct Counter { n: Integer }; fn Counter::add(\$n: Integer): Integer { \$self.n = \$self.n + \$n; \$self.n }; let \$c = Counter(n: 1); let \$f: fn(Integer): Integer = `\$c.add; echo (\$f 3) \$c.n" "4 4\n" ""
+prototype_case "let \$items = [1,2]; let \$next: fn(): Integer | () = `\$items.next_item; echo (\$next) (\$next) (\$next)" "1 2 ()\n" ""
+prototype_case "fn id(\$x): any { \$x }; let \$f: fn(Integer): Integer = `id; let \$same: fn(Integer): Integer = `id; echo (\$f == \$same); let \$h = [\$f: \"ok\"]; echo \$h[\$same]" "true\nok\n" ""
+prototype_case "fn a(): Integer { 1 }; fn b(): Integer { 1 }; let \$a: fn(): Integer = `a; let \$b: fn(): Integer = `b; echo (\$a == \$b)" "false\n" ""
+prototype_case "fn id(\$n: any): any { \$n }; let \$f: fn(any): any = `id; echo (\$f true) (\$f [1,2])" "true 1:2\n" ""
+prototype_case "fn many(\$n: Integer...): Integer { \$n.count }; let \$f: fn(Integer, Integer): Integer = `many; echo (\$f 1 2)" "2\n" ""
+prototype_case "fn many(\$n: Integer...): Integer { \$n.count }; let \$f: fn(String): Integer = `many" "" "parameter 1 is incompatible"
+prototype_case "fn optional_arg(\$n: optional Integer): any { \$n }; let \$f: fn(): any = `optional_arg; echo (\$f)" "()\n" ""
+prototype_case "fn f(\$n: Integer | String): any { \$n }; let \$f: fn(Integer): any = `f; echo (\$f 1)" "1\n" ""
+prototype_case "fn f(\$n: Integer): any { \$n }; let \$f: fn(Integer | String): any = `f" "" "parameter 1 is incompatible"
+prototype_case "type F = fn(Missing): Integer" "" "Unknown type"
+prototype_case "type F = fn(F): Integer" "" "Recursive type definition"
+prototype_case "type F = fn(Integer String): Integer" "" "Parser error"
+prototype_case "type F = fn(Integer):" "" "Parser error"
+prototype_case "type F = fn(Integer,): Integer; fn id(\$n): any { \$n }; let \$f: F = `id; echo (\$f 8)" "8\n" ""
+prototype_case "type F = fn(): Integer; fn one(): Integer { 1 }; let \$f: F = `one; echo (\$f + \$f)" "" "Functions cannot be used in arithmetic"
+prototype_case "fn id(\$x): any { \$x }; type F = fn(Integer): Integer; type G = fn(Integer): Integer; let \$f: F | G = `id" "" "Ambiguous conversion"
+prototype_case "fn id(\$x): any { \$x }; type F = fn(Integer): Integer; type G = fn(Integer): Integer; let \$f: F | G = F(`id); echo (\$f 4)" "4\n" ""
+prototype_case "fn id(\$x): any { \$x }; let \$f: (fn(Integer): Integer) | () = `id; echo (\$f 4)" "4\n" ""
+prototype_case "fn id(\$x): any { \$x }; fn higher(\$f: fn(Integer): Integer): Integer { \$f 5 }; let \$h: fn(fn(Integer): Integer): Integer = `higher; echo (\$h `id)" "5\n" ""
+prototype_case "fn id(\$x): any { \$x }; fn higher(\$f: fn(Integer): Integer): Integer { \$f 5 }; let \$h: fn(fn(String): String): Integer = `higher" "" "parameter 1 is incompatible"
+prototype_case "fn generic(\$args...): any { \$args[0] }; let \$broad: fn(any): any = `generic; let \$narrow: fn(Integer): Integer = \$broad; echo (\$narrow 7)" "7\n" ""
+prototype_case "fn generic(\$args...): any { \$args[0] }; let \$specific: fn(Integer): Integer = `generic; let \$broad: fn(any): any = \$specific; \$broad \"bad\"" "" "Argument 1: Expected Integer"
+prototype_case "fn noop(): () { () }; type Action = fn(); let \$a: Action = `noop; echo (\$a)" "()\n" ""
+prototype_case "let \$cd: fn(String): ExecResult = `cd; \$cd \".\"; echo ok" "ok\n" ""
+prototype_case "let \$run: fn(Array, HashMap): HashMap = `run_process; let \$r = \$run [\"true\"] [:]; echo \$r[\"exit_code\"]" "0\n" ""
+prototype_case "let \$run: fn(Array, HashMap): Integer = `run_process; \$run [\"true\"] [:]" "" "Return value: Expected Integer"
+prototype_case "let \$s = \"abc\"; let \$f: fn(): Integer = `\$s.trim" "" "signature is incompatible"
+prototype_case "fn foo(): any { 1 }; let \$f: fn(): Integer = `foo; echo (\$f == \"foo\") Boolean(\$f)" "false true\n" ""
+prototype_case "fn one(): Integer { 1 }; type F = fn(): Integer; let \$f: F = `one; let \$saved = `\$f; echo (\$saved)" "1\n" ""
+prototype_case "fn one(): Integer { 1 }; let \$f: fn(): Integer = `one; let \$copy = \$f; echo (\$copy)" "1\n" ""
+prototype_case "type F = fn(\nInteger,\nString,\n): String; fn f(\$n,\$s): any { \$s }; let \$f: F = `f; echo (\$f 1 \"ok\")" "ok\n" ""
+prototype_case "type F = fn([Integer]): Integer; fn f(\$values: [Integer]): Integer { \$values.count }; let \$f: F = `f; echo (\$f [1,2])" "2\n" ""
+prototype_case "type Dynamic = any; let \$x: Dynamic = 1; \$x = \"any is a type\"; echo \$x" "any is a type\n" ""
+
+let $fixture = $args[0]
+printf "%s" "type Transform = fn(Integer): String; fn describe(\$n: Integer): String { String(\$n) }; let \$callback: Transform = `describe; fn factory(): Transform { `describe }" -> "${fixture}/callbacks.shy"
+printf "%s" "import callbacks::{ Transform }; visible --export \"Transform\"" -> "${fixture}/callback_bridge.shy"
+prototype_case "import callbacks; let \$f: callbacks::Transform = `callbacks::describe; echo (\$f 21)" "21\n" ""
+prototype_case "import callbacks::{ Transform, describe, \$callback }; let \$f: Transform = `describe; echo (\$f 22) (\$callback 23)" "22 23\n" ""
+prototype_case "import callbacks; import callback_bridge; let \$f: callback_bridge::Transform = callbacks::factory; echo (\$f 24)" "24\n" ""
+prototype_case "fn takes(\$f: fn()): () { \$f }; let \$bad: fn(String) = `takes" "" "parameter 1 is incompatible"
+prototype_case "fn takes(\$f: fn()): () { \$f }; let \$dynamic: fn(any) = `takes; \$dynamic \"echo\"" "" "requires a bound function"
+prototype_case "fn f(\$x: any): any { \$x }; let \$f: fn(): any = `f" "" "arity is incompatible"
+prototype_case "fn f(\$x: any): any { \$x }; let \$f: fn(any): any = `f; echo (\$f ())" "()\n" ""
+prototype_case "type F = fn(Integer): Integer; fn id(\$n): any { \$n }; fn make(): F { `id }; let \$factory: fn(): F = `make; let \$f: F = (\$factory); echo (\$f 7)" "7\n" ""
+prototype_case "fn noop(): () { () }; fn takes(\$f: fn()): () { \$f }; takes `noop; echo ok" "ok\n" ""
+prototype_case "fn answer(): Integer { 42 }; fn takes(\$f: fn(): Integer): Integer { \$f }; echo (takes `answer)" "42\n" ""
+prototype_case "fn answer(): Integer { 42 }; fn takes(\$f: fn(): Integer): String { \$f }" "" "Expected String, got Integer"
+prototype_case "fn id(\$n: Integer): Integer { \$n }; let \$f: fn(Integer): Integer = `id; let \$n: Integer = (\$f 4); echo \$n" "4\n" ""
+prototype_case "fn id(\$n: Integer): Integer { \$n }; let \$f: fn(Integer): Integer = `id; let \$n: String = (\$f 4)" "" "Expected String, got Integer"
+prototype_case "fn values(): [Integer] { [1,2] }; let \$f: fn(): [Integer] = `values; for \$n in (\$f) { let \$bad: String = \$n }" "" "Expected String, got Integer"
+prototype_case "let \$items = [1]; fn mutate(): () { \$items = [true]; () }; let \$f: fn() = `mutate; let _ = (\$f); for \$n in \$items { let \$yes: Boolean = \$n; echo \$yes }" "true\n" ""

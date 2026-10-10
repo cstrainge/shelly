@@ -737,9 +737,7 @@ impl Interpreter
                 Code::TryExecute =>
                     {
                         let value = Self::pop(&location, &mut stack)?;
-                        if matches!(value,
-                            Value::String(_, Executable::Function(_) | Executable::Native(_)
-                                | Executable::Method(_)))
+                        if value.is_callable()
                         {
                             self.execute_value(&location, value, Vec::new())?;
                             instruction_pointer += 1;
@@ -790,9 +788,7 @@ impl Interpreter
                         }
                         self.last_result = Some(match value
                             {
-                                value @ Value::String(_,
-                                    Executable::Function(_) | Executable::Native(_)
-                                        | Executable::Method(_)) => value,
+                                value if value.is_callable() => value,
                                 value =>
                                     self.bind_executable(
                                         Value::from_executable_string(value.as_text()))
@@ -803,11 +799,7 @@ impl Interpreter
                     {
                         match self.last_result.take()
                         {
-                            Some(value @ Value::String(_,
-                                                       Executable::Yes
-                                                           | Executable::Native(_)
-                                                           | Executable::Function(_)
-                                                           | Executable::Method(_))) =>
+                            Some(value) if value.is_executable() =>
                                 {
                                     self.execute_value(&location, value, Vec::new())?;
                                 },
@@ -1385,9 +1377,7 @@ impl Interpreter
                             || matches!(instruction.operand, Some(Value::Integer(1)))
                                 && !reference.indexes.is_empty();
                         if    execute
-                           && matches!(value, Value::String(_, Executable::Yes
-                                | Executable::Function(_) | Executable::Native(_)
-                                | Executable::Method(_)))
+                           && value.is_executable()
                         {
                             let previous = self.last_result.take();
                             let result = self.execute_value(&location, value, Vec::new());
@@ -2299,6 +2289,31 @@ impl Interpreter
         &mut self, location: &Location, value: Value, args: Vec<Value>,
     ) -> InterpreterResult<()>
     {
+        if let Value::Named(item) = &value && item.value.is_callable()
+        { return self.execute_value(location, item.value.clone(), args); }
+        if let Value::Callable(callable) = &value
+        {
+            let TypeKind::Function(parameters, result) = &callable.prototype.kind
+                else { unreachable!("Callable values carry a function prototype"); };
+            let error = |message| InterpreterError { location: location.clone(),
+                what: ErrorWhat::InvalidOperand(format!("Function prototype: {}", message)) };
+            if args.len() != parameters.len()
+            {
+                return Err(error(format!("Expected {} arguments, got {}",
+                    parameters.len(), args.len())));
+            }
+            let args = parameters.iter().zip(args).enumerate()
+                .map(|(index, (id, value))| self.scope().types.coerce(*id, value)
+                    .map_err(|message| error(format!("Argument {}: {}", index + 1, message))))
+                .collect::<InterpreterResult<Vec<_>>>()?;
+            self.execute_value(location, callable.target.clone(), args)?;
+            if self.halted { return Ok(()); }
+            let value = self.last_result.take().unwrap_or(Value::None);
+            let value = self.scope().types.coerce(*result, value)
+                .map_err(|message| error(format!("Return value: {}", message)))?;
+            self.last_result = Some(value);
+            return Ok(());
+        }
         if let Value::String(name, Executable::Function(function)) = value
         { return self.execute_function(location, &name, &function, &args); }
         if let Value::String(_, Executable::Native(function)) = value
@@ -2710,7 +2725,7 @@ impl Interpreter
     fn redirect_source(&mut self, location: &Location, value: Value,
                         command_word: bool) -> InterpreterResult<()>
     {
-        if    matches!(&value, Value::String(_, executable) if *executable != Executable::No)
+        if    value.is_executable()
            || (command_word && self.can_execute(&value.as_text()))
         {
             return self.execute_value(location, value, Vec::new());

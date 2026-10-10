@@ -10,7 +10,7 @@ use crate::language::{ ast::*,
                                         TypeId,
                                         TypeKind,
                                         TypeRegistry },
-                               value::Value, scoped_variables::ScopedVariables,
+                               value::{ Value, Executable }, scoped_variables::ScopedVariables,
                                map_key::MapKey },
                        text::location::Location };
 
@@ -618,6 +618,10 @@ fn resolve_type(
 {
     let kind = match annotation
         {
+            AstType::Function(parameters, result) => TypeKind::Function(
+                parameters.iter().map(|item| resolve_type(registry, item, names, location))
+                    .collect::<CompileResult<Vec<_>>>()?,
+                resolve_type(registry, result, names, location)?),
             AstType::Named(name) =>
                 return names.get(name).copied()
                     .ok_or_else(|| error(location, format!("Unknown type '{}'", name))),
@@ -706,6 +710,8 @@ fn constant_value(registry: &TypeRegistry, expression: &AstExpression) -> Option
             registry.convert(*id, &constant_value(registry, value)?).ok(),
         AstExpressionKind::Literal(literal) =>
             {
+                // Names bind to a particular callable only after function compilation.
+                if matches!(literal.value, Value::String(_, Executable::Yes)) { return None; }
                 if    let Value::String(text, _) = &literal.value
                    && matches!(expression.string_flag, Some(AstStringFlag::Interpolated(_)))
                    && text.contains('$')
@@ -849,8 +855,15 @@ fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bind
                 },
             AstStatement::ExpressionStatement(expression) =>
                 {
+                    let result = implicit_callable_result(registry, expression, &bindings);
                     check_binding_expression(registry, expression, &bindings, return_type,
-                                             expected)?;
+                                             if result.is_some() { None } else { expected })?;
+                    if let (Some(expected), Some(actual)) = (expected, result)
+                        && !registry.may_assign(expected, actual)
+                    {
+                        return Err(error(&expression.location, format!("Expected {}, got {}",
+                            registry.get(expected).name, registry.get(actual).name)));
+                    }
                     if expression_may_mutate(expression) || matches!(expression.kind,
                         AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _))
                     { forget_inferred(&mut bindings); }
@@ -1031,7 +1044,11 @@ fn check_binding_expression(
                 }
             },
         AstExpressionKind::Grouped(inner) =>
-            { check_binding_expression(registry, inner, bindings, return_type, expected)?; },
+            {
+                let expected = if implicit_callable_result(registry, inner, bindings).is_some()
+                    { None } else { expected };
+                check_binding_expression(registry, inner, bindings, return_type, expected)?;
+            },
         AstExpressionKind::Execute(call) =>
             check_binding_call(registry, call, bindings, return_type)?,
         AstExpressionKind::Redirect(source, redirects) =>
@@ -1151,7 +1168,17 @@ fn binding_type_inner(
                 Some(registry.intern(TypeKind::Map(keys, values)))
             },
         AstExpressionKind::Range(_, _, _) => registry.builtin_id("Range"),
-        AstExpressionKind::Grouped(inner) => binding_type(registry, inner, bindings),
+        AstExpressionKind::Grouped(inner) => implicit_callable_result(registry, inner, bindings)
+            .or_else(|| binding_type(registry, inner, bindings)),
+        AstExpressionKind::Execute(call) =>
+            {
+                let id = binding_type(registry, &call.executable, bindings)?;
+                match registry.get(registry.underlying_type(id)).kind
+                {
+                    TypeKind::Function(_, result) => Some(result),
+                    _ => None,
+                }
+            },
         AstExpressionKind::Field(object, name, _) =>
             {
                 let id = binding_type(registry, object, bindings)?;
@@ -1178,6 +1205,22 @@ fn binding_type_inner(
                 indexed_type(registry, binding_type(registry, object, bindings)?, index)
             },
         _ => known_type(registry, expression)
+    }
+}
+
+
+// These reference expressions are implicitly called in groups and statement position.
+fn implicit_callable_result(registry: &TypeRegistry, expression: &AstExpression,
+                            bindings: &Bindings) -> Option<TypeId>
+{
+    if !matches!(expression.kind, AstExpressionKind::Variable(_)
+        | AstExpressionKind::Index(_, _) | AstExpressionKind::Field(_, _, _)
+        | AstExpressionKind::ExecutableReference(_)) { return None; }
+    let id = binding_type(registry, expression, bindings)?;
+    match registry.get(registry.underlying_type(id)).kind
+    {
+        TypeKind::Function(_, result) => Some(result),
+        _ => None,
     }
 }
 
@@ -1228,7 +1271,11 @@ fn expression_may_mutate(expression: &AstExpression) -> bool
         AstExpressionKind::Execute(_) | AstExpressionKind::Field(_, _, _)
         | AstExpressionKind::IfExpression(_) | AstExpressionKind::MatchExpression(_)
         | AstExpressionKind::Redirect(_, _) | AstExpressionKind::TryExecute(_) => true,
-        AstExpressionKind::Grouped(value) | AstExpressionKind::Splat(value)
+        AstExpressionKind::Grouped(value) => matches!(value.kind,
+            AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _)
+            | AstExpressionKind::Field(_, _, _) | AstExpressionKind::ExecutableReference(_))
+                || expression_may_mutate(value),
+        AstExpressionKind::Splat(value)
         | AstExpressionKind::TypeConversion(_, value, _)
         | AstExpressionKind::ExecutableReference(value)
         | AstExpressionKind::MathNegate(value) | AstExpressionKind::BooleanNot(value) =>

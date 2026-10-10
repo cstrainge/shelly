@@ -440,6 +440,7 @@ pub struct AstConditionalLoopStatement
 
 pub enum AstType
 {
+    Function(Vec<AstType>, Box<AstType>),
     Named(String),
     Array(Box<AstType>),
     FixedArray(Vec<AstType>),

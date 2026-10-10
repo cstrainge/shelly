@@ -2,7 +2,7 @@
 use std::{ collections::HashMap, rc::Rc, fmt::{ self, Debug, Formatter } };
 
 use crate::{ runtime::process::Terminal,
-             language::{ data::{ map_key::MapKey,
+             language::{ data::{ callable::CallableValue, map_key::MapKey,
                                  range::Range,
                                  methods::BoundMethod,
                                  types::{ EnumValue, StructValue, NamedValue, TypeKind } },
@@ -66,6 +66,7 @@ pub enum Value
     Enum(Rc<EnumValue>),
     Struct(Rc<StructValue>),
     Named(Rc<NamedValue>),
+    Callable(Rc<CallableValue>),
     ExecResult(ExecResult),
     Integer(i64),
     Float(f64, Option<String>),
@@ -89,6 +90,17 @@ impl Value
         }
     }
 
+    pub fn is_callable(&self) -> bool
+    {
+        matches!(self.underlying(), Value::Callable(_) | Value::String(_,
+            Executable::Function(_) | Executable::Native(_) | Executable::Method(_)))
+    }
+
+    pub fn is_executable(&self) -> bool
+    {
+        self.is_callable() || matches!(self, Value::String(_, Executable::Yes))
+    }
+
     pub fn type_name(&self) -> String
     {
         match self
@@ -107,6 +119,7 @@ impl Value
             Value::Enum(item) => return item.definition.name.clone(),
             Value::Struct(item) => return item.definition.name.clone(),
             Value::Named(item) => return item.definition.name.clone(),
+            Value::Callable(item) => return item.prototype.name.clone(),
         }.to_string()
     }
 
@@ -149,6 +162,7 @@ impl Value
         match self
         {
             Value::Named(item) => item.value.as_text(),
+            Value::Callable(item) => item.target.as_text(),
             Value::None => "()".to_string(),
             Value::Terminal(_) => "Terminal".to_string(),
             Value::Enum(value) => value.to_string(),
@@ -225,6 +239,7 @@ impl Value
         match self
         {
             Value::Named(item) => item.value.as_integer(),
+            Value::Callable(_) => 0,
             Value::None | Value::Terminal(_) => 0,
             Value::HashMap(_) | Value::Range(_) | Value::Enum(_) | Value::Struct(_) => 0,
             Value::ExecResult(code) => match code
@@ -246,6 +261,7 @@ impl Value
         match self
         {
             Value::Named(item) => item.value.as_bool(),
+            Value::Callable(_) => true,
             Value::None => false,
             Value::Enum(_) | Value::Struct(_) | Value::Terminal(_) => true,
             Value::Range(range) => !range.is_empty(),
@@ -265,6 +281,7 @@ impl Value
     {
         match (self, other)
         {
+            (Value::Callable(left), Value::Callable(right)) => left == right,
             (Value::Named(left), Value::Named(right)) =>
                 left.definition.id == right.definition.id && left.value.equals(&right.value),
             (Value::None, Value::None) => true,
@@ -302,6 +319,7 @@ impl Value
         match self
         {
             Value::Named(item) => item.value.arithmetic_error(),
+            Value::Callable(_) => Some("Functions cannot be used in arithmetic"),
             Value::Integer(_) | Value::Float(_, _) => None,
             Value::Terminal(_) => Some("Terminals cannot be used in arithmetic"),
             Value::Enum(_) => Some("Enums cannot be used in arithmetic"),

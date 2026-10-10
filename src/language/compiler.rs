@@ -1081,6 +1081,8 @@ fn compile_function_definition(parent_block: &FunctionBlockRef,
                 .iter()
                 .map(|parameter| parameter.name.clone())
                 .collect(),
+            argument_types: function_statement.parameters.iter()
+                .map(|parameter| parameter.type_id).collect(),
             minimum_arguments: function_statement
                 .parameters
                 .iter()

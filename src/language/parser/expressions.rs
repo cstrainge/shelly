@@ -473,6 +473,30 @@ fn parse_type_atom(
     buffer: &mut TokenBuffer<'_, '_>, allow_variadic: bool, variadic: &mut bool,
 ) -> ParseResult<AstType>
 {
+    if try_expect_token(buffer, TokenKind::Function)?.is_some()
+    {
+        expect_token(buffer, TokenKind::ParenOpen)?;
+        let mut parameters = Vec::new();
+        skip_array_newlines(buffer)?;
+        if try_expect_token(buffer, TokenKind::ParenClose)?.is_none()
+        {
+            loop
+            {
+                parameters.push(parse_type(buffer)?);
+                skip_array_newlines(buffer)?;
+                if try_expect_token(buffer, TokenKind::Comma)?.is_none()
+                {
+                    expect_token(buffer, TokenKind::ParenClose)?;
+                    break;
+                }
+                skip_array_newlines(buffer)?;
+                if try_expect_token(buffer, TokenKind::ParenClose)?.is_some() { break; }
+            }
+        }
+        let result = if try_expect_token(buffer, TokenKind::TypeDelimiter)?.is_some()
+            { parse_type(buffer)? } else { AstType::Named("None".into()) };
+        return Ok(AstType::Function(parameters, Box::new(result)));
+    }
     if try_expect_token(buffer, TokenKind::ParenOpen)?.is_some()
     {
         if try_expect_token(buffer, TokenKind::ParenClose)?.is_some()
