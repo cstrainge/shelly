@@ -1,2 +1,115 @@
 
-# The prelude of the Shelly standard library.
+# The prelude of the Shelly standard library. Everything published from here are included in every
+# loaded module.
+
+
+
+# Given a list of numbers sum them all up and return the result.
+pub fn sum($values: Number): Number
+{
+    let $sum = 0
+
+    for $value in $rest
+    {
+        $sum = $sum + $value
+    }
+
+    $sum
+}
+
+
+# Take the number at the parameters and sum them all up returning the answer. The original number
+# is left untouched.
+pub fn Integer::sum($rest: Integer...): Integer
+{
+    let $sum = $self
+
+    for $value in $rest
+    {
+        $sum = $sum + $value
+    }
+
+    $sum
+}
+
+
+# Given a float value add it to the rest of the parameters and return the result leaving the
+# original untouched.
+pub fn Float::sum($rest: Float...): Float
+{
+    let $sum = $self
+
+    for $value in $rest
+    {
+        $sum = $sum + $value
+    }
+
+    $sum
+}
+
+
+# Check to see if an array is empty.
+pub fn Array::empty(): Boolean
+{
+    $self.count == 0
+}
+
+
+# Sum up the values of an array if they're numbers or "sum-able."
+pub fn Array::sum(): Number
+{
+    let $value = 0
+
+    for $next in $self
+    {
+        $value = $value + $next
+    }
+
+    $value
+}
+
+
+# Get the minimum value of an array of numbers or "comparable items." Returns the lessest item or
+# () if the array is empty.
+pub fn Array::min(): Number | ()
+{
+    if $self.empty
+    {
+        return ()
+    }
+
+    let $value = $self[0]
+
+    for $next in $self[1..]
+    {
+        if $next < $value
+        {
+            $value = $next
+        }
+    }
+
+    $value
+}
+
+
+# Get the maximum value of an array of numbers or "comparable items." Returns the greatest item or
+# () if the array is empty.
+pub fn Array::max(): Number | ()
+{
+    if $self.empty
+    {
+        return ()
+    }
+
+    let $value = $self[0]
+
+    for $next in $self[1..]
+    {
+        if $next > $value
+        {
+            $value = $next
+        }
+    }
+
+    $value
+}
