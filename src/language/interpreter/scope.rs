@@ -31,6 +31,7 @@ pub(super) struct Scope
     pub native_functions: HashMap<String, Rc<NativeFunction>>,
     pub exports: HashSet<String>,
     pub prelude_types: HashMap<String, TypeId>,
+    pub prelude_source: Option<String>,
     pub imported_types: HashMap<String, Rc<TypeDefinition>>,
     pub imported_methods: HashMap<String, FunctionRef>,
     base_function_block: FunctionBlockRef,
@@ -90,6 +91,7 @@ impl Scope
                 imported_types: HashMap::new(),
                 imported_methods: HashMap::new(),
                 prelude_types: HashMap::new(),
+                prelude_source: None,
                 base_function_block: Rc::new(RefCell::new(FunctionBlock
                     {
                         scope,
@@ -116,6 +118,7 @@ impl Scope
                 imported_types: self.imported_types.clone(),
                 imported_methods: self.imported_methods.clone(),
                 prelude_types: self.prelude_types.clone(),
+                prelude_source: self.prelude_source.clone(),
                 base_function_block: Rc::new(RefCell::new(
                     self.base_function_block.borrow().clone())),
                 current_function_block: self.current_function_block.clone(),

@@ -6,6 +6,7 @@ mod redirection;
 mod pipeline;
 mod scope;
 mod modules;
+mod bundled_std;
 mod prompt;
 mod visibility;
 

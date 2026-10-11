@@ -3,7 +3,7 @@ use std::{ cell::RefCell,
            collections::{ HashMap, HashSet },
            env::{ current_dir, split_paths },
            fs::{ canonicalize, File },
-           io::{ BufReader, ErrorKind },
+           io::{ BufRead, BufReader, Cursor, ErrorKind },
            mem::{ replace, take },
            path::{ Path, PathBuf },
            rc::Rc };
@@ -15,7 +15,9 @@ use crate::language::{ ast::{ AstExpression, AstExpressionKind, AstImportStateme
                                types::{ TypeDefinition, TypeId }, value::Value,
                                methods::method_key, conversion::is_conversion_method },
                        native::NativeFunction,
-                       interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult,
+                       interpreter::{ bundled_std::source as bundled_source,
+                                      ErrorWhat, Interpreter, InterpreterError,
+                                      InterpreterResult,
                                       scope::{ Alias, Scope } },
                        exclusions::exclude_statements,
                        parser::parse_text,
@@ -29,6 +31,7 @@ use crate::language::{ ast::{ AstExpression, AstExpressionKind, AstImportStateme
 pub(super) struct Prelude
 {
     scope: String,
+    source: String,
     types: HashMap<String, Rc<TypeDefinition>>,
 }
 
@@ -39,6 +42,48 @@ struct ModuleBindings
     types: HashMap<String, TypeId>,
     functions: HashSet<String>,
     methods: HashMap<String, FunctionRef>,
+}
+
+
+enum ModuleSource
+{
+    File(PathBuf),
+    Bundled { name: String, source: &'static str },
+}
+
+
+impl ModuleSource
+{
+    fn library_location(&self) -> String
+    {
+        match self
+        {
+            Self::File(file) => file.parent().unwrap_or_else(|| Path::new("."))
+                .to_string_lossy().into_owned(),
+            Self::Bundled { .. } => "embedded".into(),
+        }
+    }
+
+    fn origin(&self) -> String
+    {
+        match self
+        {
+            Self::File(file) => file.to_string_lossy().into_owned(),
+            Self::Bundled { name, .. } => format!("<bundled:std::{}>", name),
+        }
+    }
+
+    fn reader(&self, location: &Location) -> InterpreterResult<Box<dyn BufRead>>
+    {
+        match self
+        {
+            Self::File(file) => File::open(file)
+                .map(|file| Box::new(BufReader::new(file)) as Box<dyn BufRead>)
+                .map_err(|error| module_error(location,
+                    format!("Cannot open '{}': {}", file.display(), error))),
+            Self::Bundled { source, .. } => Ok(Box::new(Cursor::new(source.as_bytes()))),
+        }
+    }
 }
 
 
@@ -200,25 +245,31 @@ impl Interpreter
                 paths
             }
             else if standard
-            { "/etc/shelly/std:/usr/local/share/shelly/std:/usr/share/shelly/std".into() }
+            { "/etc/shelly/std:/usr/local/share/shelly/std:/usr/share/shelly/std:bundled".into() }
             else { String::new() };
         directories.extend(split_paths(&paths).filter(|path| !path.as_os_str().is_empty())
             .map(|path| PathBuf::from(self.eval_path_from(&path.to_string_lossy()))));
         Ok(directories)
     }
 
-    fn find_module_file(&self, import: &AstImportStatement, directory: &Path)
-        -> InterpreterResult<Option<PathBuf>>
+    fn find_module_source(&self, import: &AstImportStatement, directory: &Path)
+        -> InterpreterResult<Option<ModuleSource>>
     {
         let standard = import.module.strip_prefix("std::");
         let name = standard.unwrap_or(&import.module);
         let directories = self.module_directories(standard.is_some(), directory, &import.location)?;
         for directory in directories
         {
+            if standard.is_some() && directory.as_os_str() == "bundled"
+            {
+                if let Some(source) = bundled_source(name)
+                { return Ok(Some(ModuleSource::Bundled { name: name.into(), source })); }
+                continue;
+            }
             let file = directory.join(format!("{}.shy", name));
             match canonicalize(&file)
             {
-                Ok(path) => return Ok(Some(path)),
+                Ok(path) => return Ok(Some(ModuleSource::File(path))),
                 Err(error) if error.kind() == ErrorKind::NotFound => {},
                 Err(error) => return Err(module_error(&import.location,
                     format!("Cannot resolve '{}': {}", file.display(), error))),
@@ -227,19 +278,21 @@ impl Interpreter
         Ok(None)
     }
 
-    fn module_file(&self, import: &AstImportStatement, directory: &Path)
-        -> InterpreterResult<PathBuf>
+    fn load_import(&mut self, import: &AstImportStatement, directory: &Path)
+        -> InterpreterResult<String>
     {
         if import.module == "std::prelude" && !self.prelude_loading
         {
             // An existing module keeps its own prelude generation after a reload.
             if let Some(key) = self.scope().modules.get("std::prelude")
-            { return Ok(PathBuf::from(key)); }
+            { return Ok(key.clone()); }
             if let Some(prelude) = &self.prelude
-            { return Ok(PathBuf::from(&prelude.scope)); }
+            { return Ok(prelude.scope.clone()); }
         }
-        self.find_module_file(import, directory)?.ok_or_else(|| module_error(&import.location,
-            format!("Module '{}' was not found", import.module)))
+        let source = self.find_module_source(import, directory)?
+            .ok_or_else(|| module_error(&import.location,
+                format!("Module '{}' was not found", import.module)))?;
+        self.load_module(&source, &import.location)
     }
 
     pub(super) fn initialize_prelude(&mut self) -> InterpreterResult<()>
@@ -252,18 +305,21 @@ impl Interpreter
                 location: location.clone(), module: "std::prelude".into(), names: Vec::new(),
                 condition: None, enabled: true,
             };
-        let Some(file) = self.find_module_file(&import, Path::new("."))? else { return Ok(()); };
+        let Some(source) = self.find_module_source(&import, Path::new("."))?
+            else { return Ok(()); };
         // No implicit prelude is installed while bootstrapping the prelude itself
         // and its dependencies. Explicit circular imports still fail normally.
         self.prelude_loading = true;
-        let loaded = self.load_module(&file, &location);
+        let loaded = self.load_module(&source, &location);
         self.prelude_loading = false;
         let key = loaded?;
         if self.halted { return Ok(()); }
+        let source = source.library_location();
+        self.scopes.get_mut(&key).unwrap().prelude_source = Some(source.clone());
         let scope = &self.scopes[&key];
         let types = scope.exports.iter().filter_map(|name|
             scope.types.names.get(name).map(|id| (name.clone(), scope.types.get(*id)))).collect();
-        self.prelude = Some(Prelude { scope: key.clone(), types });
+        self.prelude = Some(Prelude { scope: key.clone(), source, types });
         let loaded: Vec<_> = self.scopes.keys().filter(|name| **name != key).cloned().collect();
         for name in loaded
         {
@@ -292,19 +348,21 @@ impl Interpreter
                 location: location.clone(), module: "std::prelude".into(), names: Vec::new(),
                 condition: None, enabled: true,
             };
-        let file = self.find_module_file(&import, Path::new("."))?
+        let source = self.find_module_source(&import, Path::new("."))?
             .ok_or_else(|| module_error(location, "Module 'std::prelude' was not found"))?;
         self.prelude_generation += 1;
-        let key = format!("<prelude:{}:{}>", self.prelude_generation, file.display());
+        let key = format!("<prelude:{}:{}>", self.prelude_generation, source.origin());
         self.prelude_loading = true;
-        let loaded = self.load_module_as(&file, location, key);
+        let loaded = self.load_module_as(&source, location, key);
         self.prelude_loading = false;
         let key = loaded?;
         if self.halted { return Ok(()); }
+        let source = source.library_location();
+        self.scopes.get_mut(&key).unwrap().prelude_source = Some(source.clone());
         let scope = &self.scopes[&key];
         let types = scope.exports.iter().filter_map(|name|
             scope.types.names.get(name).map(|id| (name.clone(), scope.types.get(*id)))).collect();
-        let previous = self.prelude.replace(Prelude { scope: key, types });
+        let previous = self.prelude.replace(Prelude { scope: key, source, types });
         let checkpoint = self.scope().checkpoint();
         // Only remove bindings still belonging to this scope's previous implicit prelude.
         // A declaration that shadows one of those bindings must not be overwritten.
@@ -343,6 +401,7 @@ impl Interpreter
             }
         }
         let scope = self.scope_mut();
+        scope.prelude_source = Some(prelude.source);
         scope.types.names.extend(prelude.types.iter().map(|(name, item)| (name.clone(), item.id)));
         scope.prelude_types = prelude.types.iter()
             .map(|(name, item)| (name.clone(), item.id)).collect();
@@ -352,27 +411,25 @@ impl Interpreter
         Ok(())
     }
 
-    fn load_module(&mut self, file: &Path, location: &Location) -> InterpreterResult<String>
+    fn load_module(&mut self, source: &ModuleSource, location: &Location)
+        -> InterpreterResult<String>
     {
-        let key = file.to_string_lossy().into_owned();
-        self.load_module_as(file, location, key)
+        self.load_module_as(source, location, source.origin())
     }
 
-    fn load_module_as(&mut self, file: &Path, location: &Location, key: String)
+    fn load_module_as(&mut self, source: &ModuleSource, location: &Location, key: String)
         -> InterpreterResult<String>
     {
         // Diagnostics and circular-import detection use the source path, while
         // functions retain the distinct scope key of their loaded generation.
-        let origin = file.to_string_lossy().into_owned();
+        let origin = source.origin();
         if self.loading_modules.contains(&origin)
-        { return Err(module_error(location, format!("Circular import of '{}'", file.display()))); }
+        { return Err(module_error(location, format!("Circular import of '{}'", origin))); }
         if self.scopes.contains_key(&key) { return Ok(key); }
         self.loading_modules.insert(origin.clone());
         let result = (||
             {
-                let file = File::open(file).map_err(|error|
-                    module_error(location, format!("Cannot open '{}': {}", key, error)))?;
-                let mut reader = BufReader::new(file);
+                let mut reader = source.reader(location)?;
                 let mut buffer = ReadBuffer::new(&origin, &mut reader, Some(4));
                 let mut statements = parse_text(&mut Tokenizer::new(&mut buffer))?;
                 // Conditions see the caller before the new module's scope exists.
@@ -626,8 +683,7 @@ impl Interpreter
                     self.scope_mut().types.module_names
                         .insert(import.module.split("::").next().unwrap().to_string());
                     if !import.enabled { continue; }
-                    let file = self.module_file(&import, directory)?;
-                    let key = self.load_module(&file, &import.location)?;
+                    let key = self.load_import(&import, directory)?;
                     self.install_import(&import, &key)?;
                 }
                 self.refresh_module_names()?;

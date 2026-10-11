@@ -19,9 +19,21 @@ supporting edition 2024.
 ```sh
 git clone https://github.com/cstrainge/shelly.git
 cd shelly
-cargo build --locked
-cargo run --locked
+cargo build
+cargo run
 ```
+
+You can also install the executable with Cargo:
+
+```sh
+cargo install shelly-shell
+```
+
+The executable embeds the `.shy` standard library shipped with that build. Cargo
+installs and copied executables therefore need no separate standard-library files
+or access to the Cargo source cache. `$SHELLY_STD_PATH` can select an external
+library for development or system administration. `$SHELLY_STD_FOUND` reports
+the selected library's directory, `"embedded"`, or `()`; see [Modules](#modules).
 
 Shelly supports interactive use, script files, command-line source, and stdin:
 
@@ -2365,10 +2377,26 @@ std::net::ping "host"
 `std::net` resolves to `net.shy` directly inside a standard-library directory.
 It never searches beside the importing file or through `$SHELLY_MODULE_PATH`.
 `$SHELLY_STD_PATH` is a colon-separated String; a set value replaces all default
-search directories, including when it is empty. When unset, the directories are:
+sources. The special entry `bundled` selects the embedded library at that point
+in the search order. An empty value disables discovery of new
+standard-library modules. When unset, Shelly first searches these directories:
 
 ```text
 /etc/shelly/std:/usr/local/share/shelly/std:/usr/share/shelly/std
+```
+
+If the requested module is absent from all three directories, Shelly loads its
+embedded copy. The bundled library is built directly from the shipped `std/*.shy`
+files and stays with the executable when it is installed, upgraded, or moved.
+Bundled modules use the same parser, module scopes, public exports, and type
+identities as filesystem modules. Their diagnostics identify the source as, for
+example, `<bundled:std::widgets>`.
+
+To select only the embedded library, or retain it as a fallback for development:
+
+```shy
+let export $SHELLY_STD_PATH = "bundled"
+let export $SHELLY_STD_PATH = "/home/me/workdir/shelly/std:bundled"
 ```
 
 Search proceeds left to right; the first matching module wins. An error in that
@@ -2445,13 +2473,27 @@ Changing `$SHELLY_STD_PATH` alone changes subsequent uncached standard-library
 lookups; it does not rerun the prelude or replace cached modules. The selected
 prelude remains cached even if its source file is removed. Explicit
 `import std::prelude` reuses the current scope's cached generation.
-If no prelude exists during initial discovery, execution continues without one
+If an explicit search path contains no prelude, execution continues without one
 and Shelly does not automatically search again. Errors in a prelude found during
 automatic initialization stop startup. The prelude does not implicitly import
 itself; its dependencies bootstrap before its exported types are distributed.
 
-`prelude_reload` searches the current `$SHELLY_STD_PATH`, or the defaults when
-unset, and executes the selected `prelude.shy` again.
+The read-only builtin `$SHELLY_STD_FOUND` reports the containing directory of the
+current module's selected prelude, `"embedded"` for the bundled library, or `()`
+when no prelude is loaded. Filesystem directories are resolved to absolute paths.
+For `"embedded"`, the library version matches the executable's `$version`.
+The value follows successful prelude reloads; failed reloads preserve it, and
+previously loaded modules retain their own selection. `$SHELLY_STD_PATH` keeps its
+configured value and is not rewritten during discovery. Module selection still
+happens per import, so individual modules may come from different sources.
+
+```shy
+echo $SHELLY_STD_FOUND
+# embedded, /path/to/std, or ()
+```
+
+`prelude_reload` searches the current `$SHELLY_STD_PATH`, or the system directories
+followed by the bundled library when unset, and executes the selected prelude again.
 
 A successful reload replaces the implicit prelude types and `std::prelude`
 namespace in the current module scope, and supplies that generation to future

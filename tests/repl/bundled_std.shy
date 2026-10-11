@@ -1,0 +1,49 @@
+# Bundled startup, imports, and reloads retain their state across REPL submissions.
+let $fixture = $args[0]
+mkdir -p "${fixture}/alternate-std" "${fixture}/bad-std"
+printf "%s" 'pub struct Alternate {}' -> "${fixture}/alternate-std/prelude.shy"
+printf "%s" 'let $' -> "${fixture}/bad-std/prelude.shy"
+printf "%s" 'pub fn found(): String | () { $SHELLY_STD_FOUND }' -> "${fixture}/retained.shy"
+printf "%s" 'pub fn found(): String | () { $SHELLY_STD_FOUND }' -> "${fixture}/future.shy"
+let $terminal = open_terminal [`$shelly, "--norc", "-m", "-b"] [
+    "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+        "TERM": "xterm-256color", "LANG": "C.UTF-8", "SHELLY_STD_PATH": "bundled"],
+    "rows": 40, "columns": 140]
+let $initial = drain $terminal
+require (!$initial["eof"]) "shell exited during bundled prelude initialization"
+require (!($initial["output"].contains "Error")) "bundled startup emitted an error"
+for ($source, $kind, $expected) in [
+    ["echo (1.0.sum 2 3 4 5 6)", "output", "21.0"],
+    ["echo \$SHELLY_STD_FOUND; import retained", "output", "embedded"],
+    ["\$SHELLY_STD_FOUND = \"fake\"", "error", "Variable not found for SetVariable"],
+    ["import std::widgets::{ command_time_widget }", "quiet", ""],
+    ["echo ((command_time_widget) == \"\")", "output", "true"],
+    ["let \$saved = `1.0.sum; prelude_reload", "quiet", ""],
+    ["echo (\$saved 2) (1.0.sum 2)", "output", "3.0 3.0"],
+    ["echo [\"bad\"].sum", "error", "<bundled:std::prelude>"],
+    ["echo [3, 1, 2].min", "output", "1"],
+    ["let \$SHELLY_STD_PATH = \"\"; prelude_reload", "error", "was not found"],
+    ["import std::prelude; echo (1.0.sum 2)", "output", "3.0"],
+    ["import std::net", "error", "was not found"],
+    ["let \$SHELLY_STD_PATH = 7", "quiet", ""],
+    ["import std::json", "error", "SHELLY_STD_PATH must be a String"],
+    ["import std::absent when false", "quiet", ""],
+    ["echo [1, 2, 3].sum", "output", "6"],
+    ["\$SHELLY_STD_PATH = \"${fixture}/alternate-std\"; prelude_reload", "quiet", ""],
+    ["import future; echo \$SHELLY_STD_FOUND (retained::found) (future::found)", "output", "${fixture}/alternate-std embedded ${fixture}/alternate-std"],
+    ["\$SHELLY_STD_PATH = \"${fixture}/bad-std\"; prelude_reload", "error", "Parser error"],
+    ["echo \$SHELLY_STD_FOUND", "output", "${fixture}/alternate-std"],
+    ["\$SHELLY_STD_PATH = \"bundled\"; prelude_reload; echo \$SHELLY_STD_FOUND", "output", "embedded"],
+    ["echo (retained::found) (future::found)", "output", "embedded ${fixture}/alternate-std"],
+]
+{
+    let $reply = submit $terminal $source
+    require (!$reply["eof"]) "shell exited during bundled library checks"
+    if !(repl_matches $kind $expected $reply["output"])
+    { echo $source $reply["output"]; fail "bundled REPL mismatch" }
+}
+terminal_write $terminal "\x04"
+let $closed = drain $terminal
+require $closed["eof"] "Ctrl+D failed after bundled library checks"
+let $status = terminal_close $terminal
+require (($status["exit_code"] == 0) && ($status["signal"] == ())) "wrong REPL exit status"

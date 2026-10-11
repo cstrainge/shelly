@@ -394,6 +394,14 @@ impl Interpreter
 
         let special_vars: SpecialVars = HashMap::from([
                 (
+                    "$SHELLY_STD_FOUND",
+                    Rc::new(|interpreter: &Interpreter|
+                        {
+                            Ok(interpreter.scope().prelude_source.as_ref()
+                                .map_or(Value::None, |source| Value::from_string(source.clone())))
+                        }) as ReadFunction
+                ),
+                (
                     "$last_cmd_time",
                     Rc::new(|interpreter: &Interpreter|
                         {

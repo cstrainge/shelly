@@ -1,0 +1,88 @@
+# The copied executable carries its library; no Cargo files or repository are nearby.
+let $fixture = $args[0]
+mkdir -p "${fixture}/portable/bin" "${fixture}/portable/work" "${fixture}/override" "${fixture}/bad"
+cp -- `$shelly "${fixture}/portable/bin/shelly"
+printf "%s" 'pub fn combine(): Number { [1, 2, 3].sum }' -> "${fixture}/portable/work/local.shy"
+
+fn bundled_case($source: String, $settings: [String: String], $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $environment = ["HOME": "${fixture}/portable/work", "PATH": "/usr/bin:/bin",
+                        "LANG": "C.UTF-8", "TERM": "dumb"]
+    for ($name, $value) in $settings { $environment[$name] = $value }
+    let $reply = run_process ["${fixture}/portable/bin/shelly", "-m", "-c", $source] [
+        "cwd": "${fixture}/portable/work", "env": $environment,
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($reply["exit_code"] != $status) || ($reply["error"] != ()) ||
+        ($reply["signal"] != ()) || $reply["timed_out"] || ($out != $stdout) ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "bundled library mismatch" }
+}
+
+# System modules deliberately precede the bundle. Only assert bundled implementations
+# when the corresponding modules are not installed in the system search directories.
+let $system_prelude = false
+let $system_widgets = false
+for $directory in ["/etc/shelly/std", "/usr/local/share/shelly/std", "/usr/share/shelly/std"]
+{
+    if (test -e "${directory}/prelude.shy") { $system_prelude = true }
+    if (test -e "${directory}/widgets.shy") { $system_widgets = true }
+}
+if !$system_prelude
+{
+    bundled_case "echo (1.0.sum 2 3 4 5 6) [3, 1, 2].min [3, 1, 2].max" [:] "21.0 1 3\n" ""
+    bundled_case "import local; echo (local::combine)" [:] "6\n" ""
+    bundled_case "let \$saved = `1.0.sum; prelude_reload; echo (\$saved 2) (1.0.sum 2)" [:] "3.0 3.0\n" ""
+    bundled_case "let \$SHELLY_STD_PATH = \"\"; import std::prelude; echo (1.0.sum 2)" [:] "3.0\n" ""
+    bundled_case "echo [\"bad\"].sum" [:] "" "<bundled:std::prelude>"
+}
+if (!$system_prelude) && (!$system_widgets)
+{
+    bundled_case "import std::widgets::{ command_time_widget }; import std::widgets; echo ((command_time_widget) == \"\") ((std::widgets::command_time_widget) == \"\")" [:] "true true\n" ""
+    bundled_case "import std::widgets::{ widget_workspace }" [:] "" "has no member 'widget_workspace'"
+}
+
+# Explicit bundled selection makes these checks independent of system installations.
+bundled_case "echo \$SHELLY_STD_PATH \$SHELLY_STD_FOUND" ["SHELLY_STD_PATH": "bundled"] "bundled embedded\n" ""
+bundled_case "echo (1.0.sum 2 3 4 5 6); import local; echo (local::combine) \$SHELLY_STD_FOUND" ["SHELLY_STD_PATH": "bundled"] "21.0\n6 embedded\n" ""
+bundled_case "import std::widgets::{ command_time_widget }; echo ((command_time_widget) == \"\")" ["SHELLY_STD_PATH": "bundled"] "true\n" ""
+bundled_case "\$SHELLY_STD_FOUND = \"fake\"" ["SHELLY_STD_PATH": "bundled"] "" "Variable not found for SetVariable"
+bundled_case "echo (\$SHELLY_STD_FOUND == ())" ["SHELLY_STD_PATH": ""] "true\n" ""
+bundled_case "echo (\$SHELLY_STD_FOUND == ())" ["SHELLY_STD_PATH": "${fixture}/missing"] "true\n" ""
+
+# An explicit path completely replaces the system and bundled defaults.
+bundled_case "import std::widgets" ["SHELLY_STD_PATH": ""] "" "was not found"
+bundled_case "import std::widgets" ["SHELLY_STD_PATH": "${fixture}/missing"] "" "was not found"
+bundled_case "echo (1.0.sum 2)" ["SHELLY_STD_PATH": ""] "" "Cannot access a field on Float"
+bundled_case "import std::absent when false; echo ok" ["SHELLY_STD_PATH": ""] "ok\n" ""
+printf "%s" 'pub fn Float::sum($rest: Float...): Float { 42.0 }' -> "${fixture}/override/prelude.shy"
+printf "%s" 'pub fn command_time_widget(): String { "override" }' -> "${fixture}/override/widgets.shy"
+bundled_case "import std::widgets::{ command_time_widget }; echo (1.0.sum 2) (command_time_widget)" ["SHELLY_STD_PATH": "${fixture}/override"] "42.0 override\n" ""
+bundled_case "import std::widgets::{ command_time_widget }; echo (command_time_widget)" ["SHELLY_STD_PATH": "${fixture}/missing:${fixture}/override"] "override\n" ""
+bundled_case "echo \$SHELLY_STD_FOUND" ["SHELLY_STD_PATH": "${fixture}/override"] "${fixture}/override\n" ""
+bundled_case "import std::net; echo \$SHELLY_STD_FOUND (1.0.sum 2)" ["SHELLY_STD_PATH": "${fixture}/override:bundled"] "${fixture}/override 42.0\n" ""
+bundled_case "echo \$SHELLY_STD_FOUND (1.0.sum 2)" ["SHELLY_STD_PATH": "bundled:${fixture}/override"] "embedded 3.0\n" ""
+ln -s "${fixture}/override" "${fixture}/linked-std"
+bundled_case "echo \$SHELLY_STD_FOUND" ["SHELLY_STD_PATH": "${fixture}/linked-std"] "${fixture}/override\n" ""
+bundled_case "import std::net" ["SHELLY_STD_PATH": "${fixture}/override"] "" "was not found"
+printf "%s" 'let $' -> "${fixture}/bad/prelude.shy"
+bundled_case "echo wrong" ["SHELLY_STD_PATH": "${fixture}/bad:${fixture}/override"] "" "Error loading standard prelude:"
+printf "%s" 'let $' -> "${fixture}/bad/widgets.shy"
+printf "%s" "" -> "${fixture}/bad/prelude.shy"
+bundled_case "import std::widgets" ["SHELLY_STD_PATH": "${fixture}/bad:${fixture}/override"] "" "Parser error"
+bundled_case "echo (1.0.sum 2)" ["SHELLY_STD_PATH": "${fixture}/bad"] "" "Cannot access a field on Float"
+bundled_case "echo \$SHELLY_STD_FOUND" ["SHELLY_STD_PATH": "${fixture}/bad"] "${fixture}/bad\n" ""
+
+# The marker is reserved only for std lookups, and ./bundled is a real directory.
+mkdir -p "${fixture}/portable/work/bundled"
+printf "%s" 'pub fn label(): String { "ordinary" }' -> "${fixture}/portable/work/bundled/side.shy"
+printf "%s" 'pub fn command_time_widget(): String { "directory" }' -> "${fixture}/portable/work/bundled/widgets.shy"
+bundled_case "import side; echo (side::label)" ["SHELLY_MODULE_PATH": "bundled", "SHELLY_STD_PATH": "bundled"] "ordinary\n" ""
+bundled_case "import std::widgets::{ command_time_widget }; echo (command_time_widget)" ["SHELLY_STD_PATH": "./bundled"] "directory\n" ""

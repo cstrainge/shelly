@@ -144,6 +144,13 @@ implied defaults in either import order, retained references and rollback.
 `repl/prelude_reload*.shy` checks reload identity, scope isolation, cached dependencies,
 and recovery after failed reloads. The native and REPL `prelude_startup.shy` tests
 check explicit profile reloads and availability in later startup scripts.
+The native and REPL `bundled_std.shy` tests check library access from a copied
+executable, bundled diagnostics and exports, reloads and retained references,
+and explicit paths disabling the bundled fallback. Bundled implementation checks
+cover the `bundled` search entry and `$SHELLY_STD_FOUND` across reloads, failures,
+and retained module scopes. Default fallback checks run when the corresponding
+system modules are absent, since system copies take precedence and may expose
+different interfaces.
 
 Every driver receives a fresh copy of `fixtures/`, a separate HOME and TMPDIR,
 and a replacement environment. Child cases get `fixtures/home` as HOME. Fixtures
