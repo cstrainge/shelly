@@ -21,6 +21,13 @@ pub(super) fn count(receiver: &mut Value, _: &[Value]) -> Result<Value, String>
     Ok(Value::Integer(length))
 }
 
+pub(super) fn reverse(receiver: &mut Value, _: &[Value]) -> Result<Value, String>
+{
+    let mut result = Value::from_array(elements(receiver)?.iter().rev().cloned().collect());
+    if let Some(id) = receiver.collection_type() { result = result.with_collection_type(id); }
+    Ok(result)
+}
+
 pub(super) fn zip(receiver: &mut Value, arguments: &[Value]) -> Result<Value, String>
 {
     let left = elements(receiver)?;
@@ -78,5 +85,7 @@ pub(super) fn sort(receiver: &mut Value, _: &[Value]) -> Result<Value, String>
     }
     let mut sorted = values.to_vec();
     sorted.sort_by(|left, right| compare(left, right).unwrap());
-    Ok(Value::from_array(sorted))
+    let mut result = Value::from_array(sorted);
+    if let Some(id) = receiver.collection_type() { result = result.with_collection_type(id); }
+    Ok(result)
 }

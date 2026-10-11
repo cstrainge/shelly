@@ -3,10 +3,11 @@ use std::{ cmp::Ordering, collections::HashMap, rc::Rc, fmt::{ self, Debug, Form
 
 use crate::{ runtime::process::Terminal,
              language::{ data::{ closure::ClosureValue, callable::CallableValue, map_key::MapKey,
+                                 collection::Collection,
                                  range::Range,
                                  methods::BoundMethod,
                                  types::{ EnumValue, StructValue, NamedValue,
-                                          TypeDefinition, TypeKind } },
+                                          TypeDefinition, TypeKind, TypeId } },
                          native::NativeFunction,
                          bytecode::FunctionRef } };
 
@@ -78,10 +79,10 @@ pub enum Value
     Float(f64, Option<String>),
     Boolean(bool),
     String(String, Executable),
-    Array(Rc<Vec<Value>>),
-    HashMap(Rc<HashMap<MapKey, Value>>),
+    Array(Rc<Collection<Vec<Value>>>),
+    HashMap(Rc<Collection<HashMap<MapKey, Value>>>),
     Range(Range),
-    ArgumentExpansion(Rc<Vec<Value>>)
+    ArgumentExpansion(Rc<Collection<Vec<Value>>>)
 }
 
 
@@ -140,17 +141,38 @@ impl Value
 
     pub fn from_hash_map(values: HashMap<MapKey, Value>) -> Value
     {
-        Value::HashMap(Rc::new(values))
+        Value::HashMap(Rc::new(values.into()))
     }
 
     pub fn from_array(values: Vec<Value>) -> Value
     {
-        Value::Array(Rc::new(values))
+        Value::Array(Rc::new(values.into()))
     }
 
     pub fn from_argument_expansion(values: Vec<Value>) -> Value
     {
-        Value::ArgumentExpansion(Rc::new(values))
+        Value::ArgumentExpansion(Rc::new(values.into()))
+    }
+
+    pub fn collection_type(&self) -> Option<TypeId>
+    {
+        match self
+        {
+            Value::Array(values) => values.type_id,
+            Value::HashMap(values) => values.type_id,
+            _ => None,
+        }
+    }
+
+    pub fn with_collection_type(mut self, id: TypeId) -> Self
+    {
+        match &mut self
+        {
+            Value::Array(values) => Rc::make_mut(values).type_id = Some(id),
+            Value::HashMap(values) => Rc::make_mut(values).type_id = Some(id),
+            _ => {},
+        }
+        self
     }
 
     pub fn from_string(s: String) -> Value

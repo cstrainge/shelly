@@ -7,6 +7,7 @@ pub enum RuntimeError
 {
     InvalidTabWidth,
     FileOpenError(PathBuf, Error),
+    SignalError(Error),
     InterpreterError(InterpreterError)
 }
 
@@ -42,6 +43,11 @@ impl Debug for RuntimeError
             RuntimeError::InterpreterError(err) =>
             {
                 write!(f, "{:?}", err)
+            }
+
+            RuntimeError::SignalError(err) =>
+            {
+                write!(f, "Failed to install interactive signal handling: {}.", err)
             }
         }
     }

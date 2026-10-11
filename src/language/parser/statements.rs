@@ -587,6 +587,23 @@ pub(super) fn parse_if_expression(buffer: &mut TokenBuffer<'_, '_>,
 }
 
 
+fn expect_loop_binding(buffer: &mut TokenBuffer<'_, '_>)
+    -> ParseResult<(Location, Option<String>)>
+{
+    let mut lookahead = Lookahead::new(buffer);
+    if    let Some(token) = try_expect_token(lookahead.buffer, TokenKind::Symbol)?
+       && token.token_value_text() == "_"
+    {
+        lookahead.commit();
+        return Ok((token.location, None));
+    }
+    drop(lookahead);
+    let token = expect_token(buffer, TokenKind::Identifier)?;
+    let name = token.token_value_text();
+    Ok((token.location, Some(name)))
+}
+
+
 fn parse_for_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     let keyword = expect_token(buffer, TokenKind::For)?;
@@ -595,8 +612,8 @@ fn parse_for_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     {
         while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
     }
-    let first = expect_token(buffer, TokenKind::Identifier)?;
-    let mut bindings = vec![first.token_value_text()];
+    let (_, first) = expect_loop_binding(buffer)?;
+    let mut bindings = vec![first];
     loop
     {
         if destructure
@@ -611,14 +628,14 @@ fn parse_for_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
         {
             break;
         }
-        let binding = expect_token(buffer, TokenKind::Identifier)?;
-        let name = binding.token_value_text();
-        if bindings.contains(&name)
+        let (location, name) = expect_loop_binding(buffer)?;
+        if    let Some(name) = &name
+           && bindings.iter().flatten().any(|previous| previous == name)
         {
             return Err(ParserError
                 {
-                    location: Some(binding.location),
-                    kind: ParserErrorKind::DuplicateLoopBinding(name)
+                    location: Some(location),
+                    kind: ParserErrorKind::DuplicateLoopBinding(name.clone())
                 });
         }
         bindings.push(name);

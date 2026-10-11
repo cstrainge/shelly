@@ -486,7 +486,8 @@ pub struct AstMatchExpression
 pub struct AstForStatement
 {
     pub location: Location,
-    pub bindings: Vec<String>,
+    // A discard has no name, but still occupies one position in a destructuring pattern.
+    pub bindings: Vec<Option<String>>,
     pub destructure: bool,
     pub iterable: AstExpression,
     pub body: AstBlockStatement
@@ -504,6 +505,7 @@ pub struct AstConditionalLoopStatement
 pub enum AstType
 {
     Function(Vec<AstType>, Box<AstType>),
+    ReceiverMember(String),
     Named(String),
     Array(Box<AstType>),
     FixedArray(Vec<AstType>),

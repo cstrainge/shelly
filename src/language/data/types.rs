@@ -30,6 +30,8 @@ pub enum TypeKind
 {
     Builtin,
     Pending,
+    // Resolved from a live collection receiver when a method is called.
+    ReceiverMember(&'static str),
     Array(TypeId),
     FixedArray(Vec<TypeId>),
     Map(TypeId, TypeId),
@@ -268,6 +270,7 @@ impl TypeRegistry
 
     pub fn inferred_value_type(&self, value: &Value) -> TypeId
     {
+        if let Some(id) = value.collection_type() { return id; }
         match value
         {
             Value::Array(values) =>
@@ -302,6 +305,32 @@ impl TypeRegistry
             Value::Enum(item) => item.definition.id,
             Value::Struct(item) => item.definition.id,
             value => self.builtin_id(&value.type_name()).unwrap(),
+        }
+    }
+
+    pub fn collection_member_type(&self, receiver: TypeId, name: &str) -> Option<TypeId>
+    {
+        let definition = self.get(self.underlying_type(receiver));
+        match (&definition.kind, name)
+        {
+            (TypeKind::Array(item), "value_type") => Some(*item),
+            (TypeKind::FixedArray(items), "value_type") =>
+                Some(self.common_type(items.iter().copied())),
+            (TypeKind::Map(key, _), "key_type") => Some(*key),
+            (TypeKind::Map(_, item), "value_type") => Some(*item),
+            (TypeKind::Optional(inner), _) => self.collection_member_type(*inner, name),
+            (TypeKind::Union(items), _) =>
+                {
+                    let members: Option<Vec<_>> = items.iter()
+                        .map(|id| self.collection_member_type(*id, name)).collect();
+                    members.map(|items| self.common_type(items))
+                },
+            (TypeKind::Builtin, "value_type")
+                if matches!(definition.name.as_str(), "Array" | "HashMap") =>
+                self.builtin_id("any"),
+            (TypeKind::Builtin, "key_type") if definition.name == "HashMap" =>
+                self.builtin_id("any"),
+            _ => None,
         }
     }
 
@@ -619,6 +648,8 @@ impl TypeRegistry
         if left == right { return true; }
         let a = self.get(left);
         let b = self.get(right);
+        if    matches!(a.kind, TypeKind::ReceiverMember(_))
+           || matches!(b.kind, TypeKind::ReceiverMember(_)) { return true; }
         if let TypeKind::Union(items) = &a.kind
         { return items.iter().any(|item| self.may_overlap(*item, right)); }
         if let TypeKind::Union(items) = &b.kind
@@ -694,6 +725,7 @@ impl TypeRegistry
                 .iter()
                 .find(|definition| match (&definition.kind, &kind)
                 {
+                    (TypeKind::ReceiverMember(a), TypeKind::ReceiverMember(b)) => a == b,
                     (TypeKind::Array(a), TypeKind::Array(b))
                     | (TypeKind::Optional(a), TypeKind::Optional(b)) => a == b,
                     (TypeKind::FixedArray(a), TypeKind::FixedArray(b)) => a == b,
@@ -707,6 +739,7 @@ impl TypeRegistry
         }
         let name = match &kind
             {
+                TypeKind::ReceiverMember(name) => format!("$self.{}", name),
                 TypeKind::Function(args, result) => format!("fn({}): {}", args.iter()
                     .map(|id| self.get(*id).name.clone()).collect::<Vec<_>>().join(", "),
                     self.get(*result).name),
@@ -738,7 +771,13 @@ impl TypeRegistry
             return Ok(Value::Named(Rc::new(NamedValue
                 { definition: self.get(id), value })));
         }
-        if self.validate(id, &value).is_ok() { return Ok(value); }
+        if self.validate(id, &value).is_ok()
+        {
+            if value.collection_type().is_some()
+                && matches!(self.get(id).kind, TypeKind::Array(_) | TypeKind::Map(_, _))
+            { value = value.with_collection_type(id); }
+            return Ok(value);
+        }
         let definition = self.get(id);
         if let TypeKind::Named(inner) = definition.kind
         {
@@ -800,7 +839,7 @@ impl TypeRegistry
                         { return Err("Map keys collide after conversion; convert keys explicitly"
                             .into()); }
                     }
-                    *values = Rc::new(converted);
+                    Rc::make_mut(values).values = converted;
                 },
             (TypeKind::Struct(fields), Value::Struct(item)) if item.definition.id == id =>
                 for (field, value) in fields.iter().zip(&mut Rc::make_mut(item).fields)
@@ -812,12 +851,16 @@ impl TypeRegistry
             _ => {}
         }
         self.validate(id, &value)?;
+        if value.collection_type().is_some()
+            && matches!(definition.kind, TypeKind::Array(_) | TypeKind::Map(_, _))
+        { value = value.with_collection_type(id); }
         Ok(value)
     }
 
     pub fn coerce_value(&self, mut value: Value) -> Result<Value, String>
     {
         if self.validate_value(&value).is_ok() { return Ok(value); }
+        if let Some(id) = value.collection_type() { return self.coerce(id, value); }
         if let Value::Struct(item) = &value
         { value = self.coerce(item.definition.id, value)?; }
         if let Value::Named(item) = &value
@@ -918,7 +961,7 @@ impl TypeRegistry
                     } else { false },
                 TypeKind::Function(_, _) => matches!(value, Value::Callable(item)
                     if item.prototype.id == id),
-                TypeKind::Pending => false
+                TypeKind::Pending | TypeKind::ReceiverMember(_) => false
             };
         if valid
         {
@@ -937,6 +980,7 @@ impl TypeRegistry
     // Validate every struct touched by an update, including structs inside untyped containers.
     pub fn validate_value(&self, value: &Value) -> Result<(), String>
     {
+        if let Some(id) = value.collection_type() { self.validate(id, value)?; }
         match value
         {
             Value::Named(item) =>

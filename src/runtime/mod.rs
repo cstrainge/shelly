@@ -7,3 +7,4 @@ pub mod iterm2;
 mod banner;
 pub mod repl;
 pub mod process;
+pub mod signals;

@@ -1,0 +1,43 @@
+# Discard patterns consume iterator items without binding variables or skipping validation.
+fn discard_case($source: String, $expected: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $expected) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "for discard mismatch" }
+}
+discard_case 'let $n = 0; for _ in 0..3 { $n = $n + 1 }; echo $n' "3\n" ""
+discard_case 'for _ in 0..=1 { echo tick }; for _ in 3..1 { echo wrong }; for _ in [] { echo wrong }' "tick\ntick\n" ""
+discard_case 'for _ in [[1,2], [3,4]] { echo item }; for _ in [1, (), 2] { echo unit-stop }' "item\nitem\nunit-stop\n" ""
+discard_case 'let $_ = "outer"; for _ in [1,2] { echo $_ }; echo $_; for $_ in [3] { echo $_ }; echo $_' "outer\nouter\nouter\n3\nouter\n" ""
+discard_case 'for (_, _, $value) in [[1,2,3],[4,5,6]] { echo $value }; for (_, _) in [[1,2]] { echo both }' "3\n6\nboth\n" ""
+discard_case 'for ($key, _) in ["x": 7] { echo $key }; for (_, $value) in ["x": 7] { echo $value }; for _, _ in ["x": 7] { echo pair }' "x\n7\npair\n" ""
+discard_case 'for _, $v in [[1,2],[3,4]] { echo $v }; for $v, _ in [[5,6]] { echo $v }' "2\n4\n5\n" ""
+discard_case 'for (_) in [[1],[2]] { echo one }; for (_, ) in [[3]] { echo trailing }' "one\none\ntrailing\n" ""
+discard_case 'for (\n_, # ignore\n$value,\n_,\n) in [[1,2,3]] { echo $value }' "2\n" ""
+discard_case 'let $n = 0; for _ in 0..5 { $n = $n + 1; if $n == 2 { continue }; if $n == 4 { break }; echo $n }; echo $n' "1\n3\n4\n" ""
+discard_case 'let $n = 0; for _ in 0..2 { for _ in 0..3 { $n = $n + 1 } }; echo $n; fn first(): Integer { for _ in [1,2] { return 9 }; 0 }; echo (first)' "6\n9\n" ""
+discard_case 'let $_ = 7; let $f = fn(): Integer { let $n = 0; for _ in 0..2 { $n = $n + $_ }; $n }; echo ($f)' "14\n" ""
+discard_case 'let $callbacks: [fn(): Integer] = []; for (_, $v) in [[1,2],[3,4]] { $callbacks = [$callbacks..., fn(): Integer { $v }] }; echo ($callbacks[0]) ($callbacks[1])' "2 4\n" ""
+discard_case 'struct Counter { n: Integer }; fn Counter::next_item(): Integer | () { if $self.n == 0 { return () }; $self.n = $self.n - 1; $self.n }; let $c = Counter(n: 2); for _ in $c { echo custom }; echo $c.n' "custom\ncustom\n2\n" ""
+discard_case 'let $rows: [[Integer, String]] = [[1,"x"]]; for (_, $v) in $rows { let $s: String = $v; echo $s }' "x\n" ""
+discard_case 'let $rows: [[String, Integer]] = [["x",1]]; for (_, $v) in $rows { let $s: String = $v }' "" "Expected String, got Integer"
+discard_case 'for (_, _) in [[1]] { echo wrong }' "" "Array destructuring expected 2"
+discard_case 'for (_) in [1] { echo wrong }' "" "Array destructuring requires an array"
+discard_case 'for _ in 3 { echo wrong }' "" "has no next_item method"
+discard_case 'for ($v, _, $v) in [[1,2,3]] {}' "" "Duplicate loop binding"
+discard_case 'for _x in [1] {}' "" "Expected token: Identifier"
+discard_case 'for (_, label) in [[1,2]] {}' "" "Expected token: Identifier"
+discard_case 'for _ in [1] { $_ = 2 }' "" "not found"

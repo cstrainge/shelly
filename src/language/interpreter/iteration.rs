@@ -2,6 +2,7 @@
 use std::{ rc::Rc, collections::hash_map::IntoIter };
 
 use crate::language::{ data::{ map_key::MapKey, range::RangeIterator, value::Value,
+                               collection::Collection,
                                scoped_variables::ValueReference,
                                methods::{ BoundMethod, MethodDefinition }, types::TypeKind },
                        interpreter::{ Interpreter, InterpreterResult, InterpreterError, ErrorWhat },
@@ -18,7 +19,7 @@ fn iteration_error(location: &Location, message: impl Into<String>) -> Interpret
 // from the front on every step. User overrides always use normal method dispatch.
 enum NativeIteration
 {
-    Array { values: Rc<Vec<Value>>, index: usize },
+    Array { values: Rc<Collection<Vec<Value>>>, index: usize },
     Map(IntoIter<MapKey, Value>),
     Range(RangeIterator),
 }

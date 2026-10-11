@@ -1,0 +1,15 @@
+check_repl ["id": "COLLECTION-CONSTRUCTORS", "name": "Typed constructor state and recovery", "steps": [
+    ["let \$a = [Integer]; echo \$a.count \$a.value_type.name", "output", "0 Integer"],
+    ["fn Array::push(\$v: \$self.value_type) { \$self = [\$v, \$self...] }; \$a.push 7", "quiet", ""],
+    ["\$a.push \"bad\"", "error", "Expected Integer, got String"],
+    ["echo \$a... \$a.value_type.name", "output", "7 Integer"],
+    ["\$a[0] = \"bad\"", "error", "Expected Integer, got String"],
+    ["echo \$a...", "output", "7"],
+    ["let \$h = [String: Float]; \$h[\"x\"] = 1; echo \$h[\"x\"]", "output", "1.0"],
+    ["\$h[1] = 2", "error", "Expected String, got Integer"],
+    ["echo \$h.key_type.name \$h.value_type.name \$h[\"x\"]", "output", "String Float 1.0"],
+    ["let \$b = \$a; \$b.next_item; echo \$b.count \$b.value_type.name \$a...", "output", "0 Integer 7"],
+    ["\$b = [\"bad\"]", "error", "Expected Integer, got String"],
+    ["echo \$b.count \$b.value_type.name", "output", "0 Integer"],
+    ["echo [(Integer)][0].name [Integer, Float].count", "output", "Integer 2"]
+], "exit": 0]

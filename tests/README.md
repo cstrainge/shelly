@@ -73,7 +73,26 @@ default initialization/fallback, and recovery across submissions.
 redirection, live exports, terminal identity/lifecycle, UTF-8 boundaries, deadlines,
 process-group cleanup, and Ctrl+C. `harness/` tests schema/result validation,
 catalog/matrix completeness, miniature suites exercising the actual runner, and Ctrl+C against a frozen suite.
+`repl/interrupt.shy` checks Ctrl+C during commands, redirection, pipelines, supervised
+processes, and scripted loops, preserving captured signal statuses and accepting
+subsequent commands. Noninteractive Ctrl+C termination remains covered by the native
+terminal and frozen-suite checks.
 These tests deliberately run failing children and assert that they fail correctly.
+`native/array_reverse.shy` and `repl/array_reverse.shy` check nonmutating reversal,
+empty and mixed arrays, nested copies, named arrays, callable elements, argument
+expansions, property references, retained method versions, and argument rejection.
+`native/method_result_types.shy` and `repl/method_result_types.shy` check declared
+method results, forward definitions, nullable and numeric unions, widening,
+typed writes, imported extensions, lexical overrides, retained versions, and
+atomic rejection of incompatible return declarations.
+`native/collection_properties.shy` and `repl/collection_properties.shy` check array
+and hash type metadata, explicit and inferred types, empty and mixed collections,
+nested projections, named types, live receivers, reflection, and read-only access.
+`native/receiver_annotations.shy` and `repl/receiver_annotations.shy` check
+receiver-dependent collection method signatures, separate hash key/value checks,
+numeric promotion, unions and named types, variadic arguments, composed annotations,
+compile-time rejection before execution, runtime fallback, imported methods,
+stored references, callable prototypes, and return checks after receiver mutation.
 `native/properties.shy` and `repl/properties.shy` check member snapshots, type
 metadata, scalar and collection values, enum indexes, callback fields, builtin
 and user methods, public module extensions, live receivers, retained method
@@ -105,6 +124,9 @@ and bounded multipart transmission for large images.
 `native/iterator_protocol.shy` and `repl/iterator_protocol.shy` check user and native
 iteration, private state, method versions, destructuring, unit termination, fixed-length
 array annotations, and recovery after iterator errors.
+`native/for_discard.shy` and `repl/for_discard.shy` check `_` loop bindings,
+partial and repeated destructuring discards, unchanged outer bindings, typed
+retained items, closures, native and custom iterators, loop control, and diagnostics.
 The native and REPL `collection_iteration_types.shy` tests check declared and
 inferred element types, typed loop bindings, mixed/empty collections, mutations,
 native overrides, and inference across REPL submissions.
@@ -178,6 +200,13 @@ sources with private state and frozen methods, final array collection, automatic
 input, typed sinks, per-row streaming, frozen conversion factories, JSON and
 CSV/TSV/SSV records, typed headers, byte preservation, backpressure, early exits,
 aggregate status, redirections, diagnostics, and recovery across submissions.
+
+`native/type_name.shy` and `repl/type_name.shy` cover represented type names,
+collection metadata, reflection, String type checking, and read-only recovery.
+
+`native/collection_constructors.shy` and `repl/collection_constructors.shy` cover
+typed empty array/hash expressions, grouped type objects, metadata retention,
+mutation constraints, numeric promotion, pipelines, and recovery after rejected writes.
 
 The suite targets Linux/WSL and macOS.
 It uses `mktemp`, `find`, `cp`, `ln`, `mkdir`, `rm`, `test`, `printf`, `cat`, `cmp`,

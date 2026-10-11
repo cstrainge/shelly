@@ -97,7 +97,7 @@ fn statements(items: &AstTopLevel, parent: &HashSet<String>, free: &mut HashSet<
                 {
                     expression(&item.iterable, &bound, free);
                     let mut nested = bound.clone();
-                    nested.extend(item.bindings.iter().cloned());
+                    nested.extend(item.bindings.iter().flatten().cloned());
                     statements(&item.body.body, &nested, free);
                 },
             AstStatement::ConditionalLoopStatement(item) =>

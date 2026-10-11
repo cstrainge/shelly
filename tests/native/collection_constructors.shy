@@ -1,0 +1,47 @@
+# Bare type entries construct typed empty collections; grouping preserves Type values.
+let $fixture = $args[0]
+fn constructor_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["PATH": "/usr/bin:/bin", "SHELLY_STD_PATH": ""],
+        "stdout_file": "${fixture}/out", "stderr_file": "${fixture}/err",
+        "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    require (($reply["exit_code"] == $status) && ($reply["signal"] == ()) &&
+        ($reply["error"] == ()) && (!$reply["timed_out"]) && ($out == $stdout)) "${source}: ${out} ${err}"
+    if $diagnostic == "" { require ($err == "") $source }
+    else { require ($err.contains $diagnostic) "${source}: ${err}" }
+}
+constructor_case "echo [Integer].count (![Integer]) [Integer].value_type.name [Integer].type.name" "0 true Integer Array\n" ""
+constructor_case "echo [String: Integer].key_type.name [String: Integer].value_type.name [String: Integer].type.name" "String Integer HashMap\n" ""
+constructor_case "let \$p = [Integer].properties; echo (\$p[\"value\"] == []) \$p[\"value_type\"].name \$p[\"type\"].name" "true Integer Array\n" ""
+constructor_case "let \$p = [String: Integer].properties; echo (\$p[\"value\"] == [:]) \$p[\"key_type\"].name \$p[\"value_type\"].name" "true String Integer\n" ""
+constructor_case "echo [(Integer)].count [(Integer)].value_type.name [(Integer)][0].name; let \$h = [(String): (Integer)]; echo \$h.key_type.name \$h.value_type.name \$h[String].name" "1 Type Integer\nType Type Integer\n" ""
+constructor_case "echo [Integer, Float].count [Integer, Float].value_type.name [Integer, Float][0].name" "2 Type Integer\n" ""
+constructor_case "let \$t = Integer; echo [\$t].count [\$t].value_type.name [\$t][0].name" "1 Type Integer\n" ""
+constructor_case "echo [\"Integer\"].count [\"Integer\"].value_type.name [\"String\": \"Integer\"].key_type.name" "1 String String\n" ""
+constructor_case "echo [Integer,].count [String: Integer,].key_type.name [].value_type.name [:].key_type.name" "0 String any any\n" ""
+constructor_case "type Count = Integer; struct Item { n: Integer }; enum Color { Red }; echo [Count].value_type.name [Item].value_type.name [Color].value_type.name" "Count Item Color\n" ""
+constructor_case "fn Array::push(\$v: \$self.value_type) { \$self = [\$v, \$self...] }; let \$a = [Float]; \$a.push 1; echo \$a.value_type.name \$a...; \$a.next_item; echo \$a.value_type.name \$a.count" "Float 1.0\nFloat 0\n" ""
+constructor_case "fn Array::push(\$v: \$self.value_type) { \$self = [\$v, \$self...] }; let \$a = [Integer]; \$a.push \"bad\"" "" "Expected Integer, got String"
+constructor_case "fn Array::push(\$v: \$self.value_type) { \$self = [\$v, \$self...] }; type Count = Integer; let \$a = [Count]; \$a.push 7; echo \$a.value_type.name \$a[0].type.name" "Count Count\n" ""
+constructor_case "let \$h = [String: Float]; \$h[\"x\"] = 1; echo \$h.key_type.name \$h.value_type.name \$h[\"x\"]" "String Float 1.0\n" ""
+constructor_case "let \$h = [String: Integer]; \$h[\"x\"] = \"bad\"" "" "Expected Integer, got String"
+constructor_case "let \$h = [String: Integer]; \$h[1] = 7" "" "Expected String, got Integer"
+constructor_case "let \$a = [Integer]; \$a = [1,2]; let \$b = \$a; \$b[0] = 9; echo \$a... \$b... \$b.value_type.name" "1 2 9 2 Integer\n" ""
+constructor_case "let \$a = [Integer]; \$a = [\"bad\"]" "" "Expected Integer, got String"
+constructor_case "let \$a: any = [Integer]; \$a = [\"bad\"]" "" "Expected Integer, got String"
+constructor_case "echo [Integer].reverse.value_type.name [Integer].sort.value_type.name [Integer][..].value_type.name" "Integer Integer Integer\n" ""
+constructor_case "let \$a = [[Integer]]; let \$h = [\"items\": [Float]]; echo \$a[0].value_type.name \$h[\"items\"].value_type.name" "Integer Float\n" ""
+constructor_case "fn keep(\$a: Array): Array { \$a }; let \$a = (keep [Integer]); echo \$a.value_type.name; fn make(): Array { [Float] }; echo (make).value_type.name" "Integer\nFloat\n" ""
+constructor_case "let \$out = [Integer]; [1,2,3] | (\$ * 2) | \$out; echo \$out... \$out.value_type.name" "2 4 6 Integer\n" ""
+constructor_case "let \$out = [Integer]; [\"bad\"] | \$out" "" "Expected Integer, got String"
+constructor_case "let \$out = [Integer]; [Float] | (\$ + 1) | \$out; echo \$out.count \$out.value_type.name; for _ in [String: Integer] { echo \"bad\" }" "0 Integer\n" ""
+constructor_case "let \$a: [Float] = [Integer]; echo \$a.value_type.name" "Float\n" ""
+constructor_case "echo ([Integer] == []) ([String: Integer] == [:]) [any].value_type.name" "true true any\n" ""
+printf "%s" "pub type Count = Integer; pub struct Item { n: Integer }" -> "${fixture}/constructor_types.shy"
+constructor_case "import constructor_types::{ Count }; let \$a = [Count]; let \$h = [String: constructor_types::Item]; echo \$a.value_type.name \$h.value_type.name \$a.count; echo [(constructor_types::Item)][0].name" "Count Item 0\nItem\n" ""

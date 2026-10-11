@@ -1,0 +1,18 @@
+check_repl ["id": "METHOD-RESULT-TYPES", "name": "Scoped method result signatures", "steps": [
+    ["fn Array::probe(): Integer { 2 }", "quiet", ""],
+    ["fn old(\$a: Array): Integer { \$a.probe }", "quiet", ""],
+    ["fn Array::probe(): Float { 1.5 }", "quiet", ""],
+    ["fn bad(\$a: Array): Integer { \$a.probe }", "error", "Expected Integer, got Float"],
+    ["echo (old []) [].probe", "output", "2 1.5"],
+    ["fn good(\$a: Array): Float { \$a.probe }; echo (good [])", "output", "1.5"],
+    ["fn Array::probe(): Number | () { () }", "quiet", ""],
+    ["fn bad(\$a: Array): Integer { \$a.probe }", "error", "Expected Integer, got optional Number"],
+    ["fn optional(\$a: Array): Number | () { \$a.probe }; echo (optional [])", "output", "()"],
+    ["fn Array::probe(): String { \"new\" }; fn bad(\$a: Array): Integer { \$a.probe }", "error", "Expected Integer, got String"],
+    ["echo [].probe (old []) (good [])", "output", "() 2 1.5"],
+    ["fn Array::count(): Float { 2.5 }", "quiet", ""],
+    ["fn bad(\$a: Array): Integer { \$a.count }", "error", "Expected Integer, got Float"],
+    ["echo [].count", "output", "2.5"],
+    ["fn Array::version(): Integer { 8 }", "quiet", ""],
+    ["fn previous(\$a: Array): Integer { \$a.version }; fn Array::version(): String { \"later\" }; echo (previous []) [].version", "output", "8 later"]
+], "exit": 0]

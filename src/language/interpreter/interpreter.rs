@@ -45,7 +45,7 @@ use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
                                         redirection::{ Redirection, Output, configure } } },
              runtime::{ color::TtyColorMode, process::{ COMMANDS, invoke },
                         terminal::detect_capabilities, sixel::banner as sixel_banner,
-                        iterm2::banner as iterm2_banner } };
+                        iterm2::banner as iterm2_banner, signals::take_interrupt } };
 
 const MAIN_SCOPE: &str = "main";
 
@@ -90,6 +90,7 @@ pub enum ErrorWhat
     RedirectionError(String),
     ExecutableBadReturn(u8),
     ExecutableSignaled,
+    Interrupted,
     InitialScopePopAttempt
 }
 
@@ -133,6 +134,7 @@ impl Display for ErrorWhat
                 },
 
             ErrorWhat::ArgumentMismatch(message) => write!(f, "{}", message),
+            ErrorWhat::Interrupted => write!(f, "Execution interrupted."),
             ErrorWhat::InitialScopePopAttempt => write!(f, "Attempted to pop the initial scope.")
         }
     }
@@ -696,18 +698,20 @@ impl Interpreter
 
     pub fn execute_instructions(&mut self, instructions: &Vec<Instruction>) -> InterpreterResult<()>
     {
-        self.execute_instructions_with_arguments(instructions, &[], None)
+        self.execute_instructions_with_arguments(instructions, &[], None, &[])
     }
 
     fn execute_instructions_with_arguments(&mut self, instructions: &Vec<Instruction>,
                                            arguments: &[Value],
-                                           receiver: Option<&ValueReference>)
+                                           receiver: Option<&ValueReference>,
+                                           parameter_types: &[Option<TypeId>])
                                            -> InterpreterResult<()>
     {
         let initial_scope = self.scope().variables.current_scope();
         let initial_redirections = self.redirections.len();
         let result =
-            self.execute_instructions_scoped(instructions, initial_scope, arguments, receiver);
+            self.execute_instructions_scoped(instructions, initial_scope, arguments, receiver,
+                                             parameter_types);
 
         let cleanup = self.finish_redirections(initial_redirections);
         let result = result.and(cleanup);
@@ -722,7 +726,8 @@ impl Interpreter
                                    instructions: &Vec<Instruction>,
                                    initial_scope: usize,
                                    function_arguments: &[Value],
-                                   receiver: Option<&ValueReference>) -> InterpreterResult<()>
+                                   receiver: Option<&ValueReference>,
+                                   parameter_types: &[Option<TypeId>]) -> InterpreterResult<()>
     {
         let mut stack: VecDeque<Value> = VecDeque::new();
         let mut references: Vec<ValueReference> = Vec::new();
@@ -739,6 +744,12 @@ impl Interpreter
             if let Some(new_location) = instruction.location.clone()
             {
                 location = new_location;
+            }
+
+            if take_interrupt()
+            {
+                return Err(InterpreterError
+                    { location: location.clone(), what: ErrorWhat::Interrupted });
             }
 
             match instruction.code
@@ -1075,12 +1086,16 @@ impl Interpreter
                                         || invalid(format!("Missing argument for parameter '{}'",
                                                            name)))?
                             };
-                        let type_id = match constraint
+                        let type_id = match parameter_types.get(*index as usize)
+                        {
+                            Some(id) => *id,
+                            None => match constraint
                             {
                                 Value::Integer(id) => Some(TypeId(*id as usize)),
                                 Value::None => None,
                                 _ => return Err(invalid("Invalid parameter constraint".to_string()))
-                            };
+                            },
+                        };
                         if let Some(id) = type_id
                         {
                             value = self.scope().types.coerce(id, value).map_err(|message|
@@ -1140,6 +1155,9 @@ impl Interpreter
                                     })
                             };
 
+                        let type_id = type_id.or_else(||
+                            matches!(instruction.code, Code::NewVariable)
+                                .then(|| stack.back().and_then(Value::collection_type)).flatten());
                         let mut value = if matches!(instruction.code, Code::BindIteration)
                             { Self::pop(&location, &mut stack)? }
                             else if variable_name == "$HOME"
@@ -1526,12 +1544,25 @@ impl Interpreter
                                 reference.fields.push(Value::Boolean(true));
                                 Value::Integer(item.variant as i64)
                             }
+                            else if let Value::Type(item) = value.underlying()
+                                && field.as_text() == "name"
+                            {
+                                reference.indexes.push(field.clone());
+                                reference.fields.push(Value::Boolean(true));
+                                Value::from_string(item.name.clone())
+                            }
                             else if let Value::Struct(item) = value.underlying()
                                 && let Ok(index) = Self::struct_field_index(&location, item, field)
                             {
                                 reference.indexes.push(field.clone());
                                 reference.fields.push(Value::Boolean(true));
                                 item.fields[index].clone()
+                            }
+                            else if let Some(result) = self.collection_property(
+                                &location, &reference, &value, &field.as_text())
+                            {
+                                reference = ValueReference::temporary(result.clone());
+                                result
                             }
                             else if let Value::String(name, _) = field
                                 && let Some(method) = self.resolve_method(
@@ -2258,13 +2289,22 @@ impl Interpreter
                 },
             Value::String(path, executable) => Value::String(self.eval_path_to(&path), executable),
             Value::Array(values) =>
-                Value::from_array(Rc::unwrap_or_clone(values).into_iter()
-                    .map(|value| self.eval_value_paths_to(value)).collect()),
+                {
+                    let type_id = values.type_id;
+                    let result = Value::from_array(Rc::unwrap_or_clone(values).into_iter()
+                        .map(|value| self.eval_value_paths_to(value)).collect());
+                    if let Some(id) = type_id { result.with_collection_type(id) } else { result }
+                },
             Value::ArgumentExpansion(values) =>
                 Value::from_argument_expansion(Rc::unwrap_or_clone(values).into_iter()
                     .map(|value| self.eval_value_paths_to(value)).collect()),
-            Value::HashMap(values) => Value::from_hash_map(Rc::unwrap_or_clone(values).into_iter()
-                .map(|(key, value)| (key, self.eval_value_paths_to(value))).collect()),
+            Value::HashMap(values) =>
+                {
+                    let type_id = values.type_id;
+                    let result = Value::from_hash_map(Rc::unwrap_or_clone(values).into_iter()
+                        .map(|(key, value)| (key, self.eval_value_paths_to(value))).collect());
+                    if let Some(id) = type_id { result.with_collection_type(id) } else { result }
+                },
             value => value
         }
     }
@@ -2274,7 +2314,7 @@ impl Interpreter
         Ok(self.eval_value_paths_to(self.read_raw_variable(name, location)?))
     }
 
-    fn read_projection(location: &Location, mut value: Value, indexes: &[Value],
+    pub(crate) fn read_projection(location: &Location, mut value: Value, indexes: &[Value],
                        fields: &[Value]) -> InterpreterResult<Value>
     {
         for (index, field) in indexes.iter().zip(fields)
@@ -2293,6 +2333,8 @@ impl Interpreter
                     {
                         Value::Enum(item) if index.as_text() == "index" =>
                             Value::Integer(item.variant as i64),
+                        Value::Type(item) if index.as_text() == "name" =>
+                            Value::from_string(item.name.clone()),
                         Value::Struct(item) =>
                             item.fields[Self::struct_field_index(location, item, index)?].clone(),
                         _ => return Err(InterpreterError { location: location.clone(),
@@ -2341,11 +2383,18 @@ impl Interpreter
     }
 
     fn write_receiver(&mut self, location: &Location, name: &str,
-                      reference: &ValueReference, value: Value) -> InterpreterResult<()>
+                      reference: &ValueReference, mut value: Value) -> InterpreterResult<()>
     {
         let invalid = |message| InterpreterError { location: location.clone(),
             what: ErrorWhat::InvalidOperand(message) };
         let mut root = reference.root.borrow_mut();
+        if let Some(id) = Self::read_projection(location, root.value.clone(),
+            &reference.indexes, &reference.fields).ok().and_then(|value| value.collection_type())
+        {
+            value = self.scope().types.coerce(id, value)
+                .map_err(|message| invalid(format!("Type error for '{}': {}", name, message)))?
+                .with_collection_type(id);
+        }
         let mut updated = root.value.clone();
         Self::set_element(location, &mut updated, &reference.indexes, &reference.fields, value)?;
         updated = self.scope().types.coerce_value(updated)
@@ -2688,6 +2737,27 @@ impl Interpreter
                 });
         }
 
+        let registry = &self.scope().types;
+        let dependent = function.argument_types.iter().flatten()
+            .chain(function.return_type.iter()).any(|id| registry.has_receiver_type(*id));
+        let (value_type, key_type) = if dependent
+            {
+                let reference = receiver.ok_or_else(|| InterpreterError
+                    {
+                        location: location.clone(),
+                        what: ErrorWhat::ArgumentMismatch(
+                            "Receiver-dependent annotations require a bound method receiver".into()),
+                    })?;
+                let value = self.read_reference(location, reference)?;
+                (registry.receiver_member_type(location, reference, &value, "value_type"),
+                 registry.receiver_member_type(location, reference, &value, "key_type"))
+            }
+            else { (None, None) };
+        let parameter_types: Vec<_> = function.argument_types.iter().map(|id|
+            id.map(|id| registry.specialize_receiver_type(id, value_type, key_type))).collect();
+        let return_type = function.return_type
+            .map(|id| registry.specialize_receiver_type(id, value_type, key_type));
+
         let home = function.functions.borrow().scope.clone();
         if !self.scopes.contains_key(&home)
         {
@@ -2697,13 +2767,14 @@ impl Interpreter
         let caller_scope = replace(&mut self.current_scope, home);
         let caller = self.scope_mut().enter_function(function.functions.clone());
 
-        let call_result = self.execute_instructions_with_arguments(&function.code, args, receiver);
+        let call_result = self.execute_instructions_with_arguments(
+            &function.code, args, receiver, &parameter_types);
 
         self.scope_mut().exit_function(caller);
         self.current_scope = caller_scope;
 
         call_result?;
-        if !self.halted && let Some(id) = function.return_type
+        if !self.halted && let Some(id) = return_type
         {
             let value = self.last_result.take().unwrap_or(Value::None);
             self.last_result = Some(self.scope().types.coerce(id, value).map_err(|message|
@@ -2820,6 +2891,9 @@ impl Interpreter
                 command.status()
             };
 
+        // The foreground child received this signal too. Keep its status available
+        // for explicit capture rather than interrupting the following assignment.
+        take_interrupt();
         let status = status_result
             .map_err(|error| InterpreterError
                 {
@@ -3118,7 +3192,9 @@ impl Interpreter
                 .unwrap_or(Value::None)),
             Value::Array(values) => match index
                 {
-                    Value::Range(range) => Self::array_slice(location, values, range),
+                    Value::Range(range) => Self::array_slice(location, values, range).map(|value|
+                        if let Some(id) = values.type_id { value.with_collection_type(id) }
+                        else { value }),
                     _ => Ok(values[Self::array_index(location, values, index)?].clone()),
                 },
             _ => Err(InterpreterError
@@ -3148,6 +3224,20 @@ impl Interpreter
         }
         if matches!(fields.first(), Some(Value::Boolean(true)))
         {
+            if    matches!(collection, Value::Type(_))
+               && matches!(index, Value::String(name, _) if name == "name")
+            {
+                return Err(InterpreterError { location: location.clone(),
+                    what: ErrorWhat::InvalidOperand("Type name is read-only".into()) });
+            }
+            if    matches!(collection, Value::Array(_) | Value::HashMap(_))
+               && matches!(index, Value::String(name, _) if name == "value_type"
+                    || (name == "key_type" && matches!(collection, Value::HashMap(_))))
+            {
+                return Err(InterpreterError { location: location.clone(),
+                    what: ErrorWhat::InvalidOperand(
+                        "Collection type properties are read-only".into()) });
+            }
             if    matches!(collection, Value::Enum(_))
                && matches!(index, Value::String(name, _) if name == "index")
             {

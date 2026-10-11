@@ -16,6 +16,12 @@ impl Interpreter
         let members = Rc::make_mut(members);
         let id = self.scope().types.value_type(receiver);
         members.insert(MapKey::String("type".into()), Value::Type(self.scope().types.get(id)));
+        for name in ["key_type", "value_type"]
+        {
+            if let Some(value) = self.collection_property(
+                &Default::default(), &method.receiver, receiver, name)
+            { members.insert(MapKey::String(name.into()), value); }
+        }
         let mut names = self.scope().types.method_names(id);
         let mut underlying = receiver;
         while let Value::Named(item) = underlying

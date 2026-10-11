@@ -1,0 +1,10 @@
+check_repl ["id": "ARRAY-REVERSE", "name": "Nonmutating reversal and retained references", "steps": [
+    ["let \$items: [Integer] = [1,2,3]; let \$r = \$items.reverse; echo \$r...", "output", "3 2 1"],
+    ["\$r[0] = 9; echo \$items...", "output", "1 2 3"],
+    ["let \$saved = `\$items.reverse; let \$properties = \$items.properties; \$items[0] = 4", "quiet", ""],
+    ["echo (\$saved)... (\$properties[\"reverse\"])...", "output", "3 2 4 3 2 4"],
+    ["echo [].reverse.count [7].reverse...", "output", "0 7"],
+    ["echo (\$items.reverse 1)", "error", "expected 0 arguments"],
+    ["fn Array::reverse(): Array { [42] }; echo \$items.reverse... (\$saved)...", "output", "42 3 2 4"],
+    ["echo \$items...", "output", "4 2 3"]
+], "exit": 0]

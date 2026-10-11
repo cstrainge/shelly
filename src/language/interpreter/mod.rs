@@ -10,6 +10,7 @@ mod bundled_std;
 mod prompt;
 mod visibility;
 mod properties;
+mod collection_types;
 
 pub use crate::language::interpreter::interpreter::*;
 pub use crate::language::interpreter::scope::Alias;

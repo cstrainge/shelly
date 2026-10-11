@@ -13,6 +13,7 @@ use crate::{ language::{ interpreter::{ Interpreter, Startup, Interactive, RcFil
                          text::{ buffer::{ Buffer, SimpleBuffer }, read_buffer::ReadBuffer } },
              runtime::{ color::TtyColorMode,
                         repl::Repl,
+                        signals::InteractiveInterrupts,
                         result::{ RuntimeResult, RuntimeError } } };
 
 mod language;
@@ -176,6 +177,7 @@ fn run_as_repl(tab_width: usize,
                rc_file: RcFile,
                script_args: Vec<String>) -> RuntimeResult<ExitCode>
 {
+    let _interrupts = InteractiveInterrupts::install().map_err(RuntimeError::SignalError)?;
     let mut repl = Repl::new(color_mode, tab_width, startup, suppress_banner, rc_file, script_args);
 
     repl.run()

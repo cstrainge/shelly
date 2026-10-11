@@ -3,6 +3,139 @@
 # loaded module.
 
 
+# Helper function to return the min of the list of supplied parameters.
+pub fn min($values: Number...): Number | ()
+{
+    $values.min
+}
+
+
+# Helper function to return the max of the supplied parameters.
+pub fn max($values: Number...): Number | ()
+{
+    $values.max
+}
+
+
+fn pretty_print_none_value($expected: Type): String
+{
+    match $expected
+    {
+        Array   => { "[]"    },
+        HashMap => { "[:]"   },
+        String  => { '""'    },
+        Integer => { "0"     },
+        Float   => { "0.0"   },
+        Boolean => { "false" },
+        _       => { "()"    }
+    }
+}
+
+
+fn is_key_type($name: String): Boolean
+{
+    match $name
+    {
+        "value_type" => { true  },
+        "key_type"   => { true  },
+        _            => { false }
+    }
+}
+
+
+# Append a pretty print for all type's properties method.
+pub fn any::print_properties()
+{
+    # Let the caller know what type we're printing properties for, for clarity.
+    echo "Properties for:" $self.type
+    echo
+
+    # Whip through the list of keys and figure out how much padding we're going to need to print
+    # the values all aligned with each other.
+    let $padding: Integer = 0
+
+    for ($key, _) in $self.properties
+    {
+        $padding = max $padding $key.count
+    }
+
+    # Finally print the keys and the values with their assigned padding.
+    for ($key, $value) in $self.properties
+    {
+        if    $key == "value"
+           && !$value
+        {
+            echo ($key.pad $padding) "->" (pretty_print_none_value $self.type)
+        }
+        else if    $value.type == Type
+                && (is_key_type $key)
+        {
+            echo ($key.pad $padding) "->" $value.name
+        }
+        else
+        {
+            echo ($key.pad $padding) "->" $value
+        }
+    }
+}
+
+
+# Just a quick access method to avoid always having to jump into the chars first.
+pub fn String::count(): Integer
+{
+    $self.chars.count
+}
+
+
+# Pad out the end of the string with the given amount of spaces or characters.
+pub fn String::pad($count: Integer, $text: String | ()): String
+{
+    let $padding = if $text == () { " " } else { $text }
+    let $added = ""
+
+    if $self.count < $count
+    {
+        for _ in 0..($count - $self.count)
+        {
+            $added = $added + $padding
+        }
+
+        $self + $added
+    }
+    else
+    {
+        $self
+    }
+}
+
+
+# Strip the given prefix from the string if it's there, otherwise return the string unchanged.
+pub fn String::strip_prefix($prefix: String): String
+{
+    if $self.starts_with $prefix
+    {
+        $self[$prefix.count..]
+    }
+    else
+    {
+        $self
+    }
+}
+
+
+# Strip the given suffix from the string if it's there, otherwise return the string unchanged.
+pub fn String::strip_suffix($suffix: String): String
+{
+    if $self.ends_with $suffix
+    {
+        $self[0..($self.count - $suffix.count)]
+    }
+    else
+    {
+        $self
+    }
+}
+
 
 # Given a list of numbers sum them all up and return the result.
 pub fn sum($args: Number...): Number
@@ -50,7 +183,7 @@ pub fn Array::sum(): Number
 
 # Get the minimum value of an array of numbers or "comparable items." Returns the lessest item or
 # () if the array is empty.
-pub fn Array::min(): Number | ()
+pub fn Array::min(): $self.value_type | ()
 {
     if $self.empty
     {
@@ -73,7 +206,7 @@ pub fn Array::min(): Number | ()
 
 # Get the maximum value of an array of numbers or "comparable items." Returns the greatest item or
 # () if the array is empty.
-pub fn Array::max(): Number | ()
+pub fn Array::max(): $self.value_type | ()
 {
     if $self.empty
     {
@@ -91,4 +224,117 @@ pub fn Array::max(): Number | ()
     }
 
     $value
+}
+
+
+# Let the array be treated as a stack, push a new item to the beginning of the array.
+pub fn Array::push($value: $self.value_type)
+{
+    $self = [$value, $self...]
+}
+
+
+# Push a list of items in the order provided.
+pub fn Array::push_many($values: $self.value_type...)
+{
+    $self = [$values.reverse..., $self...]
+}
+
+
+# Combine this array with another array and return the results as a new array.
+pub fn Array::combine($other: [$self.value_type]): [$self.value_type]
+{
+    [$self..., $other...]
+}
+
+
+# Attempt to pop the first item from the beginning of the stack, return () if the stack is empty.
+pub fn Array::pop(): $self.value_type | ()
+{
+    if $self.empty
+    {
+        return ()
+    }
+
+    let $item = $self[0]
+    $self = $self[1..]
+
+    $item
+}
+
+
+# Keep track of the path stack for pushd and popd.
+let $paths: [String] = []
+
+
+# Display the current state of the push/popd stack.
+fn echo_paths()
+{
+    echo "Stack:" $paths.count
+
+    for $path in $paths
+    {
+        echo ":" $path
+    }
+}
+
+
+# Push the current directory onto the directory stack and then cd to the requested directory. If
+# called with 0 arguments then we swap the current directory with the one on the TOS.  (If there is
+# one.)
+#
+# The stack is only updated if the cd is successful.
+pub fn pushd($path: String | ())
+{
+    let $swap = $path == ()
+
+    if $swap
+    {
+        if $paths.empty
+        {
+            echo "No paths in directory stack."
+            return
+        }
+
+        $path = $paths[0]
+    }
+
+    let $previous = $pwd
+    let $result = cd $path
+
+    if $result
+    {
+        if $swap
+        {
+            let _ = $paths.pop
+        }
+
+        $paths.push $previous
+    }
+
+    echo_paths
+}
+
+
+# Pop the top of the directory stack and change back to that directory. If the stack is empty then
+# an error is reported and nothing is done.
+#
+# The stack is only altered if the cd is successful.
+pub fn popd()
+{
+    if $paths.empty
+    {
+        echo "No paths in directory stack."
+        return
+    }
+
+    let $path = $paths[0]
+    let $result = cd $path
+
+    if $result
+    {
+        let _ = $paths.pop
+    }
+
+    echo_paths
 }

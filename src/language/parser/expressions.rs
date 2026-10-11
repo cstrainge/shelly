@@ -515,6 +515,19 @@ fn parse_type_atom(
     buffer: &mut TokenBuffer<'_, '_>, allow_variadic: bool, variadic: &mut bool,
 ) -> ParseResult<AstType>
 {
+    if let Some(receiver) = try_expect_token(buffer, TokenKind::Identifier)?
+    {
+        let member = expect_token(buffer, TokenKind::Member)?;
+        let name = member.token_value_text();
+        if    receiver.token_value_text() != "$self"
+           || !matches!(name.as_str(), "key_type" | "value_type")
+        {
+            return Err(ParserError { location: Some(receiver.location),
+                kind: ParserErrorKind::InvalidType(
+                    "Expected $self.key_type or $self.value_type".into()) });
+        }
+        return Ok(AstType::ReceiverMember(name));
+    }
     if try_expect_token(buffer, TokenKind::Function)?.is_some()
     {
         expect_token(buffer, TokenKind::ParenOpen)?;

@@ -1,0 +1,60 @@
+# Declared scripted method results must fit every destination alternative.
+let $fixture = $args[0]
+printf "%s" "pub fn Array::probe(): Number | () { () }" -> "${fixture}/signatures.shy"
+printf "%s" "pub import signatures" -> "${fixture}/bridge.shy"
+fn signature_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["PATH": "/usr/bin:/bin", "SHELLY_STD_PATH": ""],
+        "stdout_file": "${fixture}/out", "stderr_file": "${fixture}/err",
+        "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    require (($reply["exit_code"] == $status) && ($reply["signal"] == ()) &&
+        ($reply["error"] == ()) && (!$reply["timed_out"]) && ($out == $stdout)) $source
+    if $diagnostic == "" { require ($err == "") $source }
+    else { require (($err.contains "Compile error: Type error:") &&
+        ($err.contains $diagnostic)) "${source}: ${err}" }
+}
+signature_case "echo BAD; fn min(\$values: Number...): Integer { \$values.min }; fn Array::min(): Number | () { () }" "" "Expected Integer, got optional Number"
+signature_case "fn max(\$values: Number...): Integer { \$values.max }; fn Array::max(): Number | () { () }" "" "Expected Integer, got optional Number"
+signature_case "fn Array::probe(): Number { 1 }; fn wrap(\$a: Array): Integer { \$a.probe }" "" "Expected Integer, got Number"
+signature_case "fn Array::probe(): Integer | () { () }; fn wrap(\$a: Array): Integer { \$a.probe }" "" "Expected Integer, got optional Integer"
+signature_case "fn Array::probe(): Float { 1.0 }; fn wrap(\$a: Array): Integer { return \$a.probe }" "" "Expected Integer, got Float"
+signature_case "fn Array::probe(): String { \"text\" }; fn wrap(\$a: Array): Integer { \$a.probe }" "" "Expected Integer, got String"
+signature_case "fn Array::probe(): Number | () { () }; fn wrap(\$a: Array): Number | () { \$a.probe }; echo (wrap [])" "()\n" ""
+signature_case "fn Array::probe(): Integer { 3 }; fn wrap(\$a: Array): Float { \$a.probe }; echo (wrap [])" "3.0\n" ""
+signature_case "fn Array::probe(): any { 7 }; fn wrap(\$a: Array): Integer { \$a.probe }; echo (wrap [])" "7\n" ""
+signature_case "fn Array::probe(): Number | () { () }; let \$a: [Number] = []; let \$bad: Integer = \$a.probe" "" "Expected Integer, got optional Number"
+signature_case "fn Array::probe(): Float { 1.0 }; let \$a = [1]; let \$bad: Integer = \$a.probe" "" "Expected Integer, got Float"
+signature_case "fn Array::probe(): Float { 1.0 }; let \$a: Array = []; let \$bad: Integer = 0; \$bad = \$a.probe" "" "Expected Integer, got Float"
+signature_case "fn Array::probe(\$n: Integer): Float { Float(\$n) }; fn wrap(\$a: Array): Integer { \$a.probe 1 }" "" "Expected Integer, got Float"
+signature_case "fn Array::probe(\$n: Integer): Float { Float(\$n) }; fn wrap(\$a: Array): Integer { return (\$a.probe 1) }" "" "Expected Integer, got Float"
+signature_case "fn Array::probe(\$n: Integer): Integer { \$n }; fn wrap(\$a: Array): Float { \$a.probe 2 }; echo (wrap [])" "2.0\n" ""
+signature_case "type Items = [Integer]; fn Array::probe(): Float { 1.0 }; fn wrap(\$a: Items): Integer { \$a.probe }" "" "Expected Integer, got Float"
+signature_case "struct Item { probe: Integer }; fn wrap(\$a: Item): Integer { \$a.probe }; echo (wrap Item(probe: 4))" "4\n" ""
+signature_case "fn Number::probe(): Float { 1.0 }; fn Integer::probe(): Integer { 2 }; fn wrap(\$a: Integer): Integer { \$a.probe }; echo (wrap 3)" "2\n" ""
+signature_case "fn any::probe(): Float { 1.0 }; fn Array::probe(): Integer { 2 }; fn wrap(\$a: Array): Integer { \$a.probe }; echo (wrap [])" "2\n" ""
+signature_case "fn Array::probe(): Integer { 1 }; fn old(\$a: Array): Integer { \$a.probe }; fn Array::probe(): String { \"new\" }; echo (old []) [].probe" "1 new\n" ""
+signature_case "fn Array::probe(): Integer { 1 }; fn outer(\$a: Array): Integer { fn Array::probe(): String { \"new\" }; \$a.probe }" "" "Expected Integer, got String"
+signature_case "fn Array::probe(): Integer { 1 }; fn outer(\$a: Array): String { fn Array::probe(): String { \"new\" }; \$a.probe }; fn wrap(\$a: Array): Integer { \$a.probe }; echo (outer []) (wrap [])" "new 1\n" ""
+signature_case "fn Array::probe(): Float { 1.0 }; let \$f = fn(\$a: Array): Integer { \$a.probe }" "" "Expected Integer, got Float"
+signature_case "fn Array::probe(): Number { 1 }; fn wrap(\$a: Array): Integer | Float { \$a.probe }; echo (wrap [])" "1\n" ""
+signature_case "fn wrap(\$n: Number): Integer { \$n }; echo (wrap 7)" "7\n" ""
+signature_case "fn wrap(\$n: Number): Float { \$n }; echo (wrap 7) (wrap 1.5)" "7.0 1.5\n" ""
+signature_case "import signatures; fn wrap(\$a: Array): Integer { \$a.probe }" "" "Expected Integer, got optional Number"
+signature_case "import signatures; fn wrap(\$a: Array): Number | () { \$a.probe }; echo (wrap [])" "()\n" ""
+signature_case "import bridge; fn wrap(\$a: Array): Integer { \$a.probe }" "" "Expected Integer, got optional Number"
+signature_case "fn Array::probe(): fn(): Integer { fn(): Integer { 7 } }; fn wrap(\$a: Array): fn(): Integer { \$a.probe }; let \$f = (wrap []); echo (\$f)" "7\n" ""
+signature_case "fn Array::probe(): fn(): Integer { fn(): Integer { 7 } }; fn wrap(\$a: Array): Integer { \$a.probe }" "" "Expected Integer, got fn(): Integer"
+signature_case "fn Array::count() { \"dynamic\" }; fn wrap(\$a: Array): String { \$a.count }; echo (wrap [])" "dynamic\n" ""
+signature_case "fn Number::probe(): Integer { 1 }; fn Float::probe(): String { \"float\" }; fn wrap(\$n: Number): Integer { \$n.probe }" "" "Expected Integer, got Integer | String"
+signature_case "fn Number::probe(): Integer { 1 }; fn Float::probe(): String { \"float\" }; fn wrap(\$n: Number): Integer | String { \$n.probe }; echo (wrap 1) (wrap 1.0)" "1 float\n" ""
+signature_case "fn Array::probe(): String { \"text\" }; let \$a: Array = []; let \$bad: Integer = \$a.probe" "" "Expected Integer, got String"
+signature_case "fn Array::probe(): Integer { 1 }; { fn Array::probe(): String { \"block\" } }; fn wrap(\$a: Array): Integer { \$a.probe }" "" "Expected Integer, got String"
+signature_case "fn Array::probe(): Integer { 1 }; { fn Array::probe(): String { \"block\" } }; fn wrap(\$a: Array): String { \$a.probe }; echo (wrap [])" "block\n" ""
+signature_case "fn Array::probe(): Integer { 1 }; if false { fn Array::probe(): String { \"branch\" } }; fn wrap(\$a: Array): String { \$a.probe }; echo (wrap [])" "branch\n" ""
+signature_case "fn Array::probe(): Integer { 1 }; fn wrap(\$a: Array): String { if true { fn Array::probe(): String { \"local\" } }; \$a.probe }; echo (wrap [])" "local\n" ""

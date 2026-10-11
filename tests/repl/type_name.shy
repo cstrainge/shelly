@@ -1,0 +1,11 @@
+check_repl ["id": "TYPE-NAME", "name": "Type names and retained type identity", "steps": [
+    ["let \$t: Type = Integer; echo \$t.name", "output", "Integer"],
+    ["\$t.name = \"Other\"", "error", "read-only"],
+    ["echo \$t.name (\$t == Integer)", "output", "Integer true"],
+    ["\$t = Float; echo \$t.name", "output", "Float"],
+    ["fn Type::name(): String { \"Other\" }", "error", "conflicts with a data member"],
+    ["echo \$t.name", "output", "Float"],
+    ["let \$a: [Integer] = []; echo \$a.properties[\"value_type\"].name", "output", "Integer"],
+    ["let \$name: Integer = \$t.name", "error", "Expected Integer, got String"],
+    ["echo (Integer).properties[\"name\"] (Integer).type.name", "output", "Integer Type"]
+], "exit": 0]

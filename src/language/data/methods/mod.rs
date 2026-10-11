@@ -10,7 +10,7 @@ use crate::language::{ bytecode::FunctionRef,
                        data::{ value::Value, scoped_variables::ValueReference,
                                types::{ TypeId, TypeKind, TypeRegistry },
                                methods::{ iteration::next_item, properties::properties,
-                                          array::{ sort, zip, count },
+                                          array::{ sort, reverse, zip, count },
                                           string::{ chars, contains, starts_with, ends_with,
                                                     replace, split, trim, trim_start, trim_end } } } };
 
@@ -75,6 +75,7 @@ pub fn register_methods(registry: &mut TypeRegistry)
         let receiver = registry.builtin_id(receiver).unwrap();
         for (name, argument_count, return_type, body) in [
                 ("sort", 0, array, sort as MethodBody),
+                ("reverse", 0, array, reverse as MethodBody),
                 ("zip", 1, array, zip as MethodBody),
                 ("count", 0, integer, count as MethodBody),
             ]

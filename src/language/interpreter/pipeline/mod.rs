@@ -5,11 +5,13 @@ mod conversion;
 
 use std::{ io::{ Write, stdout }, thread::sleep, time::Duration };
 
-use crate::language::{ bytecode::CompiledPipeline,
-                       data::value::{ ExecResult, Value },
-                       interpreter::{ Interpreter, InterpreterResult },
-                       interpreter::pipeline::{ stream::StageStream, conversion::BoundaryStream },
-                       text::location::Location };
+use crate::{ language::{ bytecode::CompiledPipeline,
+                         data::value::{ ExecResult, Value },
+                         interpreter::{ Interpreter, InterpreterResult, InterpreterError, ErrorWhat,
+                                        pipeline::{ stream::StageStream,
+                                                    conversion::BoundaryStream } },
+                         text::location::Location },
+             runtime::signals::take_interrupt };
 
 
 pub(super) enum Data
@@ -93,7 +95,23 @@ impl Interpreter
                 loop
                 {
                     if self.halted { stream.cancel(self, &mut context)?; break; }
-                    match stream.poll(self, &mut context)?
+                    if take_interrupt()
+                    {
+                        context.record(0, ExecResult::Signaled);
+                        stream.cancel(self, &mut context)?;
+                        break;
+                    }
+                    let step = match stream.poll(self, &mut context)
+                    {
+                        Err(InterpreterError { what: ErrorWhat::Interrupted, .. }) =>
+                            {
+                                context.record(0, ExecResult::Signaled);
+                                stream.cancel(self, &mut context)?;
+                                break;
+                            },
+                        other => other?,
+                    };
+                    match step
                     {
                         Step::Pending => sleep(Duration::from_millis(1)),
                         Step::End => break,

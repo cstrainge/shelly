@@ -1576,8 +1576,8 @@ fn compile_for_statement(instructions: &mut Vec<Instruction>,
         instructions.push(Instruction
             {
                 location: location.clone(),
-                code: Code::BindIteration,
-                operand: Some(Value::from_string(name.clone()))
+                code: if name.is_some() { Code::BindIteration } else { Code::Discard },
+                operand: name.as_ref().map(|name| Value::from_string(name.clone()))
             });
     }
     compile_statements(
@@ -2080,7 +2080,7 @@ pub fn compile_ast(registry: &mut TypeRegistry,
                    target: CompileTarget) -> CompileResult<Vec<Instruction>>
 {
     let mut staged = registry.staged();
-    check_ast(&mut staged, ast, variables)?;
+    check_ast(&mut staged, ast, variables, function_block)?;
     // Each submission gets a private function namespace. Function bodies retain
     // this snapshot as their parent; later submissions publish into a new one.
     let functions = Rc::new(RefCell::new(FunctionBlock

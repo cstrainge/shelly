@@ -61,7 +61,7 @@ pub fn convert_builtin(target: &str, value: &Value) -> Result<Value, String>
                                 values.try_reserve_exact(length)
                                     .map_err(|_| "Range is too large to convert".to_string())?;
                                 values.extend(range.iter().unwrap().map(Value::Integer));
-                                Rc::new(values)
+                                Rc::new(values.into())
                             },
                         _ => return Err(unsupported()),
                     };

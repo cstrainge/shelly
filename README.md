@@ -1,13 +1,16 @@
 # Shelly
 
-A Unix-style shell written in Rust, growing toward a language for working with
+A Unix-style shell written in Rust, with a typed language for working with
 commands, structured data, and network services in the same place.
 
 <p align="center">
   <img src="./Shelly.png" alt="Shelly" width="50%">
 </p>
 
-Shelly is early work. Development of the shell is already being done in the shell:
+The language now has all of its core desired features. Shelly is in a stabilization
+phase before a potential rewrite and cleanup of the prototype's internals.
+
+Development of the shell is already being done in the shell:
 running builds, using development tools, and trying new features from its prompt.
 The examples below describe the current implementation.
 
@@ -546,6 +549,7 @@ expansions (including glob results) provide these methods:
 | Method | Result |
 | --- | --- |
 | `$items.sort` | A new array sorted in ascending order; the receiver is unchanged |
+| `$items.reverse` | A new array in reverse order; the receiver is unchanged |
 | `$items.zip $other` | An array of two-element arrays, stopping at the shorter input |
 | `$items.count` | The number of elements as an `Integer` |
 
@@ -553,6 +557,7 @@ expansions (including glob results) provide these methods:
 let $items = [3, 1, 2]
 let $sorted = $items.sort
 echo $sorted...                         # 1 2 3
+echo $items.reverse...                  # 2 1 3
 echo $items.count                       # 3
 let $pairs = $sorted.zip ["a", "b"]
 echo $pairs[0][0] $pairs[0][1]           # 1 a
@@ -571,6 +576,10 @@ before comparison. Strings sort lexicographically by their text, booleans put
 `false` first, and variants of one enum sort by `.index`. Mixed categories,
 different enum types, nonfinite numbers, and structured elements are rejected.
 Empty arrays are valid. Sorting strings does not execute them.
+
+Reversing works with any element types, including mixed values and nested
+collections. It preserves each element's type and uses the same value semantics
+as ordinary array copies. Use `$items = $items.reverse` to replace the original.
 
 Zip preserves element types and value semantics, including nested collections.
 Its argument must be an array; explicitly expanded arguments still follow normal
@@ -599,10 +608,37 @@ Methods are registered per type in the type registry. Adding a builtin method
 does not require a new parser rule or a separate opcode for each method. Struct
 fields and enum `.index` retain their existing behavior.
 
+Arrays provide a read-only `.value_type` property; hashes provide `.key_type` and
+`.value_type`. These return `Type` values. Explicit element/key/value annotations
+take precedence, including on empty collections. Otherwise types are inferred
+from the current contents; mixed or unknown types become `any`.
+
+A single bare type entry constructs an empty typed collection:
+
+```shy
+let $items = [Integer]             # Empty integer array
+let $scores = [String: Float]      # Empty hash with String keys and Float values
+echo $items.value_type.name        # Integer
+```
+
+These types travel with the collection through storage and copies, and enforce
+the usual annotation rules on writes. To store type objects as values, group
+them: `[(Integer)]` contains the Integer type object, and `[(String): (Integer)]`
+contains a type-object key and value. Multiple entries such as `[Integer, Float]`
+remain ordinary value arrays. Variables and quoted strings remain values too.
+
+```shy
+let $items = [1, 2, 3]
+echo ($items.value_type == Integer)     # true
+let $scores: [String: Float] = [:]
+echo $scores.key_type $scores.value_type # String Float
+```
+
 Every value provides `.properties`, returning a `[String: any]` hash. Structs
 contribute their fields; other values, including arrays and hashes, contribute a
 `"value"` entry containing the value itself. Every result includes `"type"`, and
 enum values also include `"index"`.
+Collection results also include their `"value_type"`, and hashes include `"key_type"`.
 
 Available methods appear as bound function references. Collecting properties
 does not execute them. Field values are snapshots, while method references keep
@@ -621,6 +657,14 @@ let $items = [3, 1, 2]
 let $properties = $items.properties
 echo ($properties["count"])             # 3
 echo ($properties["next_item"])         # 3; $items now contains [1, 2]
+```
+
+The standard prelude provides `.print_properties` to print these properties in
+aligned columns. It works on type objects as well as other values:
+
+```shy
+(Integer).print_properties          # The Integer type object, including its name
+[Integer].print_properties          # An empty integer array
 ```
 
 ## User-defined type methods
@@ -684,6 +728,59 @@ result as ordinary functions. Calls use the same dot syntax as builtin methods.
 members changes the caller's variable immediately; returning or reassigning the
 result is not required. This also works through nested fields and array or map
 indexes, such as `$items[0].add 3`. Receiver indexes are evaluated once.
+
+Collection methods can use the receiver's member types in their signatures:
+
+```shy
+pub fn Array::push($value: $self.value_type)
+{
+    $self = [$value, $self...]
+}
+
+pub fn Array::push_many($values: $self.value_type...)
+{
+    $self = [$values.reverse..., $self...]
+}
+
+pub fn Array::combine($other: [$self.value_type]): [$self.value_type]
+{
+    [$self..., $other...]
+}
+
+pub fn Array::pop(): $self.value_type | ()
+{
+    if $self.count == 0 { return () }
+    let $item = $self[0]
+    $self = $self[1..]
+    $item
+}
+
+pub fn HashMap::put($key: $self.key_type, $value: $self.value_type)
+{
+    $self[$key] = $value
+}
+
+let $numbers: [Float] = []
+$numbers.push 1                         # Promotes the argument to 1.0.
+let $scores: [String: Integer] = [:]
+$scores.put "alice" 7
+```
+
+The compiler specializes these annotations when it knows the receiver's member
+types, rejecting incompatible arguments and uses of method results before
+execution. Runtime checks cover unknown types and stored method references.
+Annotations resolve once at call entry: changing the receiver inside `pop` does
+not change that call's return contract. Each variadic argument is checked, and
+normal annotation rules apply, including numeric promotion, unions, and named
+type wrapping. Mixed or unknown contents resolve to `any`.
+
+`$self.value_type` is available in array and hash method signatures;
+`$self.key_type` is available in hash method signatures. They can appear inside
+array, hash, fixed-array, optional, union, and function prototype annotations.
+For example, a hash method can take `[$self.key_type: $self.value_type]` or return
+`[$self.key_type, $self.value_type]`. These receiver-dependent annotations require
+an instance collection method; ordinary functions, conversion factories, type
+declarations, and variable or struct field annotations cannot use them.
 
 Ordinary value copies and explicit function parameters remain independent.
 Methods on literals, constructor results, or other temporary values mutate only
@@ -1030,6 +1127,11 @@ Methods retain their declared return types; an inherited method returning Intege
 returns an Integer. Define methods with `fn Count::method(...)` to override or
 extend the inherited behavior. Inherited mutating methods update the original
 receiver while enforcing its named type's constraints.
+
+The checker uses scripted method signatures, including forward declarations and
+imported extensions, when checking return values and typed assignments. Every
+possible declared result must fit: a method returning `Number | ()` cannot satisfy
+an `Integer` return annotation, because it can also return a Float or `()`.
 
 Named collections yield their underlying items during indexing and iteration,
 with the declared item types available to the checker. Named hash keys retain
@@ -1749,6 +1851,15 @@ word `if` as a command argument, quote it.
 
 ## Runtime types and type guards
 
+Type objects have a read-only `.name` property returning the represented type's
+name as a String:
+
+```text
+echo (Integer).name                # Integer
+echo [1, 2].value_type.name         # Integer
+echo (Integer).type.name            # Type
+```
+
 Every value has a read-only `.type` property returning a `Type` value. Type names
 are values in expression positions, so they can be compared, stored, returned,
 and used as match patterns:
@@ -1884,6 +1995,18 @@ for $key, $value in $settings { echo $key $value }
 for $key, $value in ["answer": 42] { echo $key $value }
 ```
 
+Use `_` when an item or destructured component is not needed. It creates no
+variable, and multiple discards may appear in the same pattern:
+
+```shy
+for _ in 0..3 { echo tick }
+for (_, $value) in $settings { echo $value }
+for (_, _, $third) in [[1, 2, 3]] { echo $third }
+```
+
+`$_` remains an ordinary named variable. Discards preserve normal iteration,
+destructuring length checks, and loop control behavior.
+
 A parenthesized binding list destructures each yielded array. This works with
 map entries, arrays returned by `.zip`, and custom iterators:
 
@@ -1899,7 +2022,8 @@ for ($x, $y, $z) in [[1, 2, 3], [4, 5, 6]] { echo $x $y $z }
 Each element must be an array with exactly as many elements as the pattern has
 bindings. The check happens before binding any values or entering the loop body;
 a mismatch reports the loop's source location. Patterns are flat lists of one
-or more distinct variables; trailing commas, newlines, and comments are allowed.
+or more variables or `_` discards. Named variables must be distinct; trailing
+commas, newlines, and comments are allowed.
 `for ($value,) in [[1], [2]]` unwraps each one-element array. An empty iterable
 skips the body without attempting to destructure an element.
 

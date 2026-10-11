@@ -20,6 +20,8 @@ pub(super) fn properties(receiver: &mut Value, _: &[Value]) -> Result<Value, Str
         members.insert(MapKey::String("value".into()), receiver.clone());
         if let Value::Enum(item) = receiver.underlying()
         { members.insert(MapKey::String("index".into()), Value::Integer(item.variant as i64)); }
+        if let Value::Type(item) = receiver.underlying()
+        { members.insert(MapKey::String("name".into()), Value::from_string(item.name.clone())); }
     }
     Ok(Value::from_hash_map(members))
 }

@@ -17,14 +17,15 @@ use std::{ cell::RefCell,
 
 use libc::{ fcntl, ioctl, kill, openpty, poll as poll_descriptors, pollfd, setsid, siginfo_t,
             waitid, winsize, EIO, ESRCH, FD_CLOEXEC, F_DUPFD_CLOEXEC, F_GETFL, F_SETFD,
-            F_SETFL, O_NONBLOCK, POLLIN, POLLOUT, P_PID, SIGKILL, SIGTERM, TIOCSCTTY,
+            F_SETFL, O_NONBLOCK, POLLIN, POLLOUT, P_PID, SIGINT, SIGKILL, SIGTERM, TIOCSCTTY,
             WEXITED, WNOHANG, WNOWAIT };
 
 #[cfg(target_os = "macos")]
 use libc::{ proc_bsdshortinfo, proc_listpgrppids, proc_pidinfo, EPERM,
             PROC_PIDT_SHORTBSDINFO, SZOMB };
 
-use crate::language::data::{ value::Value, map_key::MapKey };
+use crate::{ language::data::{ value::Value, map_key::MapKey },
+             runtime::signals::take_interrupt };
 
 fn record(entries: impl IntoIterator<Item = (&'static str, Value)>) -> Value
 {
@@ -284,6 +285,8 @@ fn run(args: &[Value], environment: &[(String, String)], expand: &impl Fn(&str) 
     let started = Instant::now();
     loop
     {
+        // Supervised processes have their own group and do not receive terminal SIGINT.
+        if take_interrupt() { child.signal(SIGINT).map_err(|error| error.to_string())?; }
         if child.exited().map_err(|error| error.to_string())?
         {
             let status = child.stop().map_err(|error| error.to_string())?;
@@ -485,7 +488,7 @@ pub fn invoke(name: &str, args: &[Value], environment: &[(String, String)],
             for (key, value) in [("text", Value::from_string(text)),
                 ("eof", Value::Boolean(state.eof)), ("timed_out", Value::Boolean(!ready))]
             { result.insert(MapKey::String(key.to_string()), value); }
-            Ok(Value::from_hash_map(result))
+            Ok(Value::from_hash_map(result.values))
         },
         _ => Err(format!("Invalid arguments for {}", name)),
     }

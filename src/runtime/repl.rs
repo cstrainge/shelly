@@ -35,7 +35,7 @@ use rustix::process::geteuid;
 
 use crate::{ language::{ interpreter::{ Interpreter, Interactive, RcFile, Startup },
                          text::buffer::SimpleBuffer },
-             runtime::{ color::TtyColorMode, result::RuntimeResult },
+             runtime::{ color::TtyColorMode, result::RuntimeResult, signals::take_interrupt },
              location_here };
 
 struct ShellyPrompt
@@ -609,6 +609,7 @@ impl Repl
 
         while !self.interpreter.halted
         {
+            take_interrupt();
             // Reset after submission, cancellation, or a read error.
             multiline.store(false, Ordering::Relaxed);
             let prompt_text = self.interpreter.evaluate_prompt(location_here!())

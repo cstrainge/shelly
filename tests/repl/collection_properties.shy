@@ -1,0 +1,14 @@
+check_repl ["id": "COLLECTION-PROPERTIES", "name": "Live collection type metadata", "steps": [
+    ["let \$a: [Float] = []; echo \$a.value_type", "output", "Float"],
+    ["\$a = [1]; echo \$a.value_type", "output", "Float"],
+    ["\$a.value_type = Integer", "error", "read-only"],
+    ["echo \$a.value_type \$a...", "output", "Float 1.0"],
+    ["let \$b = [1]; let \$reflect = `\$b.properties", "quiet", ""],
+    ["\$b = [\"s\"]; echo \$b.value_type (\$reflect)[\"value_type\"]", "output", "String String"],
+    ["\$b = [1,\"s\"]; echo \$b.value_type", "output", "any"],
+    ["let \$h: [String: Integer] = [:]; echo \$h.key_type \$h.value_type", "output", "String Integer"],
+    ["\$h.key_type = Integer", "error", "read-only"],
+    ["echo \$h.properties[\"key_type\"] \$h.properties[\"value_type\"]", "output", "String Integer"],
+    ["fn Array::value_type(): Type { String }", "error", "conflicts with a data member"],
+    ["echo \$a.value_type", "output", "Float"]
+], "exit": 0]

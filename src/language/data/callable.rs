@@ -113,14 +113,17 @@ impl TypeRegistry
                     { return Err(mismatch()); }
                     check_result(*returned)
                 },
-            Value::Closure(value) => self.check_function(parameters, result, &value.function, 0),
+            Value::Closure(value) => self.check_function(parameters, result, &value.function, 0, (None, None)),
             Value::String(_, Executable::Function(function)) =>
-                self.check_function(parameters, result, function, 0),
+                self.check_function(parameters, result, function, 0, (None, None)),
             Value::String(_, Executable::Native(_)) => Ok(()),
             Value::String(_, Executable::Method(method)) => match &method.definition
                 {
                     MethodDefinition::User(function) =>
-                        self.check_function(parameters, result, function, 1),
+                        {
+                            let members = self.bound_receiver_types(&method.receiver)?;
+                            self.check_function(parameters, result, function, 1, members)
+                        },
                     MethodDefinition::Builtin(method) =>
                         {
                             if parameters.len() != method.argument_count
@@ -133,7 +136,8 @@ impl TypeRegistry
     }
 
     fn check_function(&self, parameters: &[TypeId], result: TypeId,
-                      function: &Function, skip: usize) -> Result<(), String>
+                      function: &Function, skip: usize,
+                      members: (Option<TypeId>, Option<TypeId>)) -> Result<(), String>
     {
         let count = parameters.len() + skip;
         if    count < function.minimum_arguments
@@ -141,14 +145,15 @@ impl TypeRegistry
         { return Err("Function arity is incompatible with prototype".into()); }
         let fixed = function.arguments.len() - usize::from(function.variadic);
         let any = self.builtin_id("any").unwrap();
+        let specialize = |id| self.specialize_receiver_type(id, members.0, members.1);
         for (index, expected) in parameters.iter().enumerate()
         {
             let index = index + skip;
             let actual = if index < fixed
-                { function.argument_types[index].unwrap_or(any) }
+                { specialize(function.argument_types[index].unwrap_or(any)) }
                 else
                 {
-                    let rest = function.argument_types[fixed].unwrap_or(any);
+                    let rest = specialize(function.argument_types[fixed].unwrap_or(any));
                     match self.get(rest).kind
                     {
                         TypeKind::Array(item) => item,
@@ -159,7 +164,7 @@ impl TypeRegistry
             { return Err(format!("Function parameter {} is incompatible with prototype",
                 index + 1)); }
         }
-        if !self.accepts_signature_type(result, function.return_type.unwrap_or(any))
+        if !self.accepts_signature_type(result, specialize(function.return_type.unwrap_or(any)))
         { return Err("Function return type is incompatible with prototype".into()); }
         Ok(())
     }

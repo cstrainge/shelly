@@ -1,0 +1,76 @@
+# Ctrl+C must stop foreground work without terminating the interactive shell.
+let $fixture = $args[0]
+let $terminal = session $fixture
+require (!(drain $terminal)["eof"]) "shell exited during startup"
+
+fn interrupt($terminal: Terminal, $source: String)
+{
+    terminal_write $terminal "\x1b[200~echo INTERRUPT-READY; ${source}\x1b[201~\r"
+    let $output = ""
+    let $ready = false
+    for $attempt in 0..50
+    {
+        let $reply = terminal_read $terminal 100
+        require (!$reply["eof"]) "shell exited before interruption"
+        $output = $output + $reply["text"]
+        if ((strip_ansi $output).contains "\nINTERRUPT-READY\n") && $reply["timed_out"]
+        {
+            $ready = true
+            break
+        }
+    }
+    require $ready "foreground command did not start"
+    terminal_write $terminal "\x03"
+    let $reply = drain $terminal
+    require (!$reply["eof"]) "Ctrl+C terminated Shelly with its subprocess"
+    $reply["output"]
+}
+
+interrupt $terminal "/bin/sleep 30"
+interrupt $terminal "/bin/sleep 30 -> \"${fixture}/interrupted.out\""
+let $captured = interrupt $terminal "let \$status = /bin/sleep 30; echo \$status"
+require ($captured.contains "ExecResult(Signaled)") "interrupted status was not capturable"
+interrupt $terminal "let \$output: String; /bin/sleep 30 -> \$output"
+let $reply = submit $terminal "echo (\$output == \"\")"
+require (repl_matches "output" "true" $reply["output"]) "capture cleanup failed"
+
+# Executed Shelly scripts retain default SIGINT handling and are reaped by the parent.
+let $child = "echo \$pid -> \"${fixture}/interrupted.pid\"; loop {}"
+let $escaped = (($child.replace "\\" "\\\\").replace "\"" "\\\"").replace "\$" "\\\$"
+let $captured = interrupt $terminal "let \$status = shelly -m -c \"${escaped}\"; echo \$status"
+require ($captured.contains "ExecResult(Signaled)") "executed Shelly script ignored SIGINT"
+let $pid: String
+"${fixture}/interrupted.pid" -> $pid
+let $probe = run_process ["/bin/kill", "-0", $pid.trim] ["stderr_file": "/dev/null"]
+require ($probe["exit_code"] != 0) "interrupted child was not reaped"
+
+interrupt $terminal "/bin/sleep 30 | /bin/cat"
+let $captured = interrupt $terminal "let \$status = /bin/sleep 30 | /bin/cat; echo \$status"
+require ($captured.contains "ExecResult(Signaled)") "pipeline lost interrupted status"
+
+let $run = "let \$status = run_process [\"/bin/sleep\", \"30\"] [:]"
+let $report = "echo CHILD-SIGNAL \$status[\"signal\"]"
+let $captured = interrupt $terminal "${run}; ${report}"
+require ($captured.contains "CHILD-SIGNAL 2\n") "supervised child did not receive SIGINT"
+let $captured = interrupt $terminal "${run} -> \$output; ${report}"
+require ($captured.contains "CHILD-SIGNAL 2\n") "supervised capture did not finish"
+
+let $captured = interrupt $terminal "loop {}"
+require ($captured.contains "Execution interrupted.") "interactive loop was not interruptible"
+let $reply = submit $terminal "fn frozen(\$item: any): any { loop {} }"
+require (!$reply["eof"]) "function definition exited the shell"
+let $captured = interrupt $terminal "let \$status = [1] | frozen; echo \$status"
+require ($captured.contains "ExecResult(Signaled)") "scripted pipeline lost interruption"
+
+# Raw-editor Ctrl+C still cancels input, and a second command can be interrupted too.
+terminal_write $terminal "unfinished command\x03"
+require (!(drain $terminal)["eof"]) "Ctrl+C at the editor exited the shell"
+interrupt $terminal "/bin/sleep 30"
+let $reply = submit $terminal "echo SHELL-SURVIVED"
+require (repl_matches "output" "SHELL-SURVIVED" $reply["output"]) "shell did not recover"
+
+terminal_write $terminal "\x04"
+require ((drain $terminal)["eof"]) "Ctrl+D did not exit"
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "shell lost normal exit status"
+require ($status["signal"] == ()) "shell died from a signal"

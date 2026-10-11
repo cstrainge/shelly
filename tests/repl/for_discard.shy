@@ -1,0 +1,10 @@
+check_repl ["id": "FOR-DISCARD", "name": "Discard loop bindings across submissions", "steps": [
+    ["let \$_ = \"outer\"; let \$n = 0; for _ in 0..3 { \$n = \$n + 1 }; echo \$n \$_", "output", "3 outer"],
+    ["for (_, _, \$v) in [[1,2,3],[4,5,6]] { echo \$v }", "output", "3\n6"],
+    ["for _, \$value in [\"x\": 7] { echo \$value }; echo \$_", "output", "7\nouter"],
+    ["for (_, _) in [[1]] { echo wrong }", "error", "Array destructuring expected 2"],
+    ["for (\$v, _, \$v) in [[1,2,3]] {}", "error", "Duplicate loop binding"],
+    ["for _ in 0..2 { continue }; echo recovered", "output", "recovered"],
+    ["for _ in 0..3 { break }; echo \$_", "output", "outer"],
+    ["for (_) in [[1]] { echo one }", "output", "one"]
+], "exit": 0]

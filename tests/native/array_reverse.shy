@@ -1,0 +1,63 @@
+# Reversal preserves typed values and normal copy-on-write and live receiver semantics.
+let $items: [Integer] = [1, 2, 3]
+let $reversed: [Integer] = $items.reverse
+require ($reversed == [3, 2, 1]) "reverse order"
+require ($items == [1, 2, 3]) "reverse mutated receiver"
+$reversed[0] = 9
+require ($items == [1, 2, 3]) "result mutation changed receiver"
+require ($items.reverse.reverse == $items) "double reverse"
+require ([].reverse == []) "empty reverse"
+require ([7].reverse == [7]) "singleton reverse"
+require ([(), 1].reverse == [1, ()]) "unit elements"
+
+enum Color { Red, Blue }
+struct Item { n: Integer }
+let $mixed = [1, "two", 3.5, true, Color::Blue, Item(n: 6), [7], ["x": 8]]
+let $result = $mixed.reverse
+require ($result[0] == ["x": 8]) "hash element"
+require ($result[1] == [7]) "array element"
+require (($result[2].type == Item) && ($result[2].n == 6)) "struct identity"
+require (($result[3].type == Color) && ($result[3] == Color::Blue)) "enum identity"
+require (($result[4].type == Boolean) && ($result[4] == true)) "Boolean identity"
+require (($result[5].type == Float) && ($result[5] == 3.5)) "Float identity"
+require (($result[6].type == String) && ($result[6] == "two")) "String identity"
+require (($result[7].type == Integer) && ($result[7] == 1)) "Integer identity"
+
+let $nested = [[1, 2], [3, 4]]
+let $result = $nested.reverse
+$result[0][0] = 99
+require ($nested == [[1, 2], [3, 4]]) "nested result mutation changed receiver"
+type Items = [Integer]
+let $named: Items = [4, 5]
+require ($named.reverse == [5, 4]) "named array inheritance"
+require (($named.type == Items) && ($named[0] == 4)) "named receiver identity"
+
+let $saved = `$items.reverse
+let $properties = $items.properties
+$items[0] = 4
+require (($saved) == [3, 2, 4]) "saved method lost live receiver"
+require (($properties["reverse"]) == [3, 2, 4]) "reverse missing from properties"
+require ($items == [4, 2, 3]) "saved reversal mutated receiver"
+
+let $calls = 0
+let $callback = fn(): Integer { $calls = $calls + 1; 7 }
+let $result = [1, $callback].reverse
+require ($calls == 0) "reversal executed element"
+require (($result[0]) == 7) "callback reference was changed"
+require ($calls == 1) "callback execution count"
+
+let $fixture = $args[0]
+printf "%s" x -> "${fixture}/reverse-a"
+printf "%s" y -> "${fixture}/reverse-b"
+let $expanded = (${fixture}/reverse-*).reverse
+require ($expanded.count == 2) "argument expansion reverse count"
+require ($expanded == (${fixture}/reverse-*).sort.reverse) "argument expansion reverse order"
+
+let $reply = run_process [`$shelly, "-m", "-c", "echo ([1, 2].reverse 3)"] [
+    "env": ["PATH": "/usr/bin:/bin", "SHELLY_STD_PATH": ""],
+    "stdout_file": "${fixture}/out", "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+let $error: String
+"${fixture}/err" -> $error
+require (($reply["exit_code"] == 1) && ($reply["signal"] == ()) &&
+    ($reply["error"] == ()) && (!$reply["timed_out"]) &&
+    ($error.contains "expected 0 arguments")) "reverse must reject arguments"
