@@ -30,8 +30,8 @@ On a lexical error, strict tokenization still stops and reports its existing
 diagnostic. Metadata already understood is retained, including an unfinished
 string's decoded prefix and absent closing delimiter. The span of that string
 covers the input consumed before failure, including a malformed escape.
-Incomplete-input recovery and semantic classification remain later work; no
-new parser or interpolation grammar is introduced here.
+The editor analysis described below adds recovery. Semantic classification
+and interpolation-reference classification remain separate work.
 
 The Shelly test suite exercises this API through a hidden inspection bridge in
 the interpreter. That bridge serializes lexical facts only and is not part of
@@ -77,3 +77,46 @@ terminal styling, and suitable for a future REPL or language-server adapter.
 `native/syntax_spans.shy` checks the parser through the hidden `__syntax_spans`
 bridge. It verifies exact source coverage on successful parses, grammar roles,
 streaming parity, strict-error parity, and rollback across failed alternatives.
+
+## Incomplete and invalid input
+
+`analyze_editor` returns an `EditorAnalysis` containing tokens, lexical and
+syntax metadata, diagnostics, statement regions, and an optional source suffix
+that exceeded the size limit. It owns its result and has no interpreter or
+terminal dependency. It never returns a recovered AST to the compiler.
+
+The editor lexer uses the execution tokenizer's rules. At EOF it can return a
+partial literal, variable, or member with an `Incomplete` diagnostic. Bad words
+become editor-only `Invalid` tokens. A broken single-line string ends before
+its physical newline, leaving that newline available to the parser. Invalid
+escapes record their original byte spans and use a replacement character only
+in decoded metadata; the original input and all token spans remain unchanged.
+String indentation and escape mappings use the same machinery as strict input.
+
+Statement recovery uses the existing grammar and token transactions. Required
+syntax failures save their furthest understood prefix before rollback. A failed
+statement rewinds, retains that prefix, and synchronizes at a statement boundary
+or an enclosing closing brace. An EOF failure retains understood block bodies.
+Successful alternatives discard their failure candidates. Malformed constructs
+can still leave some tokens without grammar facts; their lexical information
+remains available for basic styling. Recovery does not resolve names or infer
+whether following text was intended as part of a broken construct.
+
+Diagnostics distinguish incomplete syntax, invalid syntax, and analysis limits.
+Their half-open byte spans can be empty for a missing token at EOF. Statement
+regions retain complete, incomplete, invalid, or limited status and can nest.
+Recovery placeholders exist only inside analysis; execution parsing and its
+existing errors remain strict.
+
+Analysis bounds source parsing to 65,536 bytes at a UTF-8 boundary, grammar
+nesting to 64 levels, and parser reads (including lookahead) to 40,000 steps.
+When a parser limit is reached, lexical analysis still covers the bounded input.
+An oversized suffix is returned as an original source span for plain rendering.
+Permanent stream read errors stop lexical recovery. These limits bound work for
+large pastes and deeply nested editing buffers without inserting source text,
+loading modules, querying the environment, or running any user code.
+
+The editor tests walk every prefix of representative declarations and pipelines,
+compare complete input with strict parsing, verify source reconstruction on
+malformed text, and assert that later commands retain their argument context.
+The syntax and source-span tests continue to validate strict mode separately.

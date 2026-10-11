@@ -1,0 +1,188 @@
+# Recovery is source analysis only. Strict parsing and execution must still reject broken text.
+visible `__editor_source
+visible `__syntax_spans
+visible `__source_spans
+
+fn editor_report($source: String): any
+{
+    let $report = __editor_source $source
+    require ($report == (__editor_source $source)) "editor analysis is not deterministic"
+    let $previous = 0
+    for $fact in $report["facts"]
+    {
+        let $span = $fact["span"]
+        require (($span["start"] >= $previous) && ($span["end"] > $span["start"]) &&
+            ($span["raw"] != ())) "invalid editor grammar span"
+        $previous = $span["end"]
+    }
+    let $spans = []
+    for $token in $report["tokens"] { $spans = [$spans..., $token["span"]] }
+    for $trivia in $report["trivia"] { $spans = [$spans..., $trivia["span"]] }
+    if $report["unparsed"] != () { $spans = [$spans..., $report["unparsed"]] }
+    let $offset = 0
+    let $restored = ""
+    for _ in $spans
+    {
+        let $found = false
+        for $span in $spans
+        {
+            if $span["start"] == $offset
+            {
+                require ($span["end"] > $offset) "empty editor lexeme"
+                $offset = $span["end"]
+                $restored = $restored + $span["raw"]
+                $found = true
+                break
+            }
+        }
+        require $found "editor lexemes overlap or lose input"
+    }
+    require ($restored == $source) "editor analysis changed source bytes"
+    for $issue in $report["diagnostics"]
+    {
+        require (($issue["span"]["end"] >= $issue["span"]["start"]) &&
+            ($issue["span"]["raw"] != ())) "invalid editor diagnostic span"
+    }
+    $report
+}
+
+fn has_fact($report: any, $raw: String, $role: String): Boolean
+{
+    for $fact in $report["facts"]
+    {
+        if ($fact["span"]["raw"] == $raw) && ($fact["role"] == $role) { return true }
+    }
+    false
+}
+
+fn has_issue($report: any, $kind: String): Boolean
+{
+    for $issue in $report["diagnostics"]
+    { if $issue["kind"] == $kind { return true } }
+    false
+}
+
+# Complete text must retain the strict parser's classifications, including successful fallback.
+for $source in ["", "# comment", "echo let", "echo (git diff)", "echo `foo ()",
+    "let \$x: Integer = 7; echo \$x", "pub fn T::f(\$x: Integer): String { echo let; \"yes\" }",
+    "for (\$key, _) in \$hash { echo \$key }", "type F = fn(Integer): String | ()",
+    "let \$x = if true { 1 } else { 2 }", "match \$x { 0 => { 1 }, _ => { 2 } }",
+    "import std::net::{ ping } when \$os == \"linux\"", "echo \"é\\n猫\"", "echo \$x.type",
+    "\$input |:csv consume \$", "producer csv:|:Type consume \$", "alias ll = ls let",
+    "struct T { let: Integer }; T(let: 1)", "1 + 2 * 3", "\$x<-2", "echo [1, 2].count"]
+{
+    let $report = editor_report $source
+    let $strict = __syntax_spans $source false true
+    if ($strict["error"] != ()) || ($report["diagnostics"] != []) ||
+        ($strict["facts"] != $report["facts"])
+    { echo $source $strict $report; fail "complete editor input differs from strict parsing" }
+}
+
+# Unterminated strings are partial literals, not commands made from their contents.
+let $report = editor_report "echo \"é猫"
+require (has_issue $report "Incomplete") "unterminated quote was not incomplete"
+require (has_fact $report "\"é猫" "Literal") "partial Unicode literal lost"
+require (($report["strings"][0]["decoded"] == "é猫") &&
+    ($report["strings"][0]["closing"] == ())) "partial string metadata lost"
+$report = editor_report "echo \"bad\\xZZ\"; echo let"
+require (has_issue $report "Invalid") "bad escape accepted silently"
+require (has_fact $report "let" "Argument") "escape error swallowed later command"
+require ($report["strings"][0]["parts"][1]["source"]["raw"] == "\\x") "escape recovery mapping"
+$report = editor_report "echo \"bad\necho let"
+require (has_issue $report "Invalid") "unescaped string newline accepted"
+require (has_fact $report "let" "Argument") "newline recovery did not resume parsing"
+$report = editor_report "echo \"*\n    α\n\n    β\n    "
+require (has_issue $report "Incomplete") "multiline quote was not incomplete"
+require ($report["strings"][0]["decoded"] == "α\n\nβ\n") "partial multiline trim or blank lines changed"
+
+# Missing operands and terminators at EOF get insertion spans, never made-up source bytes.
+for $source in ["echo 1 +", "let \$x:", "fn f(\$x: Integer", "let \$x = [1, 2",
+    "\$input |", "echo \$value.", "let \${value", "echo \\"]
+{
+    $report = editor_report $source
+    require (has_issue $report "Incomplete") "unfinished syntax was not recognized"
+    require ((__syntax_spans $source false true)["error"] != ()) "strict parsing accepted editor recovery"
+}
+$report = editor_report "echo 1 +"
+require ($report["diagnostics"][0]["span"] == ["start": 8, "end": 8, "raw": ""]) "missing operand range"
+
+# A block's accepted body survives the missing closing brace and nested transaction rollback.
+$report = editor_report "fn f(\$x: Integer) {\n let \$n = 1\n echo let\n"
+require (has_fact $report "f" "FunctionDeclaration") "partial function declaration lost"
+require (has_fact $report "\$x" "ParameterDeclaration") "partial parameter lost"
+require (has_fact $report "\$n" "VariableDeclaration") "partial body declaration lost"
+require (has_fact $report "let" "Argument") "partial body command context lost"
+require (has_issue $report "Incomplete") "missing brace not reported"
+$report = editor_report "fn f() { echo (1 + }\necho let"
+require (has_issue $report "Invalid") "bad grouped operand not reported"
+require (has_fact $report "f" "FunctionDeclaration") "block recovery lost parent declaration"
+require (has_fact $report "let" "Argument") "block recovery swallowed next statement"
+
+for $source in ["let \$x = ; echo let", "echo <- file\necho let", "pub echo bad; echo let",
+    "echo \$bad=name\necho let", "}\necho let", "echo \"\\xD800\"; echo let",
+    "echo \${bad\necho let", "let \$x: [Integer\necho let"]
+{
+    $report = editor_report $source
+    if (!(has_issue $report "Invalid")) || (!(has_fact $report "let" "Argument"))
+    { echo $source $report; fail "recovery lost later valid statement" }
+}
+
+# Walk every edit position in representative constructs, including quotes and Unicode.
+for $source in ["fn f(\$x: [Integer]): String { echo let; \"é猫\" }",
+    "import std::net::{ ping } when \$os == \"linux\"", "\$input csv:|:Response consume \$"]
+{
+    let $prefix = ""
+    for $character in $source.chars
+    {
+        $prefix = $prefix + $character
+        let _ = editor_report $prefix
+    }
+}
+
+# Deep recursion and large pastes are bounded; the suffix stays available as original source.
+let $deep = ""
+for _ in 0..100 { $deep = $deep + "(" }
+$report = __editor_source $deep
+require (has_issue $report "Limit") "deep expression not bounded"
+$deep = "let \$x: "
+for _ in 0..100 { $deep = $deep + "optional " }
+$report = __editor_source $deep
+require (has_issue $report "Limit") "deep type not bounded"
+let $large = ""
+for _ in 0..6600 { $large = $large + "0123456789" }
+$report = __editor_source $large
+require (has_issue $report "Limit") "large input not bounded"
+require (($report["unparsed"]["start"] == 65536) &&
+    ($report["unparsed"]["end"] == 66000)) "large source suffix not preserved"
+
+# The cutoff must never split a Unicode scalar, and flat argument lists have a read budget.
+$large = ""
+for _ in 0..6553 { $large = $large + "xxxxxxxxxx" }
+$large = $large + "xxxxx猫"
+$report = __editor_source $large
+require (($report["unparsed"]["start"] == 65535) &&
+    ($report["unparsed"]["raw"] == "猫")) "source limit split a Unicode scalar"
+$large = "echo "
+for _ in 0..1500 { $large = $large + "let " }
+$report = __editor_source $large
+require (has_issue $report "Limit") "flat grammar work not bounded"
+require ($report["tokens"].count == 1501) "parser limit lost remaining lexical input"
+
+let $sentinel = 7
+$report = editor_report "import nonexistent when \$unknown; \$sentinel = 99; exit 9"
+require (($report["diagnostics"] == []) && ($sentinel == 7)) "editor analysis evaluated source"
+
+let $fixture = $args[0]
+for ($source, $message) in [
+    ["__editor_source \"echo hidden\"", "Executable not found"],
+    ["visible `__editor_source; __editor_source", "expects one String"],
+    ["visible `__editor_source; __editor_source 1", "expects one String"]]
+{
+    let $result = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "timeout_ms": 1000, "stderr_file": "${fixture}/editor.err"]
+    require (($result["exit_code"] == 1) && (!$result["timed_out"]) &&
+        ($result["signal"] == ()) && ($result["error"] == ())) "hidden editor bridge validation"
+    let $error: String
+    "${fixture}/editor.err" -> $error
+    require ($error.contains $message) "wrong editor bridge diagnostic"
+}

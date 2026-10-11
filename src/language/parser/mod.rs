@@ -9,7 +9,9 @@ mod results;
 mod base_utils;
 mod expressions;
 mod statements;
+pub(crate) mod editor;
 pub mod source;
+pub use crate::language::parser::editor::{ analyze_editor, EditorAnalysis };
 
 pub type ParserResult<T> = ParseResult<T>;
 

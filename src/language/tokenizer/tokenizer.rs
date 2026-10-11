@@ -1,9 +1,11 @@
 
 use std::fmt::{ self, Display, Formatter };
 
-use crate::language::{ text::{ buffer::Buffer, location::Location, span::SourceSpan },
-                       tokenizer::source::{ LexicalMetadata, Trivia, TriviaKind,
-                                            StringSource, StringPart, StringPartKind } };
+use crate::language::{ text::{ buffer::Buffer, diagnostic::DiagnosticKind,
+                               location::Location, span::SourceSpan },
+                       tokenizer::{ editor::EditorLexer,
+                                    source::{ LexicalMetadata, Trivia, TriviaKind,
+                                              StringSource, StringPart, StringPartKind } } };
 
 /**
  * Represents all the different types of tokens that can be recognized in the Shelly script
@@ -12,6 +14,8 @@ use crate::language::{ text::{ buffer::Buffer, location::Location, span::SourceS
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TokenKind
 {
+    // An editor-only damaged lexeme. Execution never produces this token.
+    Invalid,
     Member,
 
     /**
@@ -384,7 +388,9 @@ pub struct Token
      */
     pub location: Location,
 
-    /// Exact half-open byte range, including original quotes and escapes for strings.
+    /**
+     * Exact half-open byte range, including original quotes and escapes for strings.
+     */
     pub span: SourceSpan,
 
     /**
@@ -451,6 +457,7 @@ impl Token
                     }
                 },
 
+            TokenKind::Invalid           => String::new(),
             TokenKind::AutoIdentifier    => "$".to_string(),
             TokenKind::Let               => "let".to_string(),
             TokenKind::Export            => "export".to_string(),
@@ -595,7 +602,7 @@ pub struct Tokenizer<'a>
     /**
      * The source code input buffer to read our tokens from.
      */
-    input: &'a mut dyn Buffer,
+    pub(super) input: &'a mut dyn Buffer,
     // Reading a word can consume the following operator.
     pending_operator: Option<Token>,
     // A prefetched negative operand distinguishes `a<-2` from removed `<-` arrows.
@@ -605,6 +612,7 @@ pub struct Tokenizer<'a>
     enum_variant_follows: bool,
     metadata: Option<LexicalMetadata>,
     active_string: Option<usize>,
+    pub(super) editor: Option<EditorLexer>,
 }
 
 
@@ -622,7 +630,7 @@ impl<'a> Tokenizer<'a>
 
     pub fn byte_offset(&self) -> usize { self.input.byte_offset() }
 
-    fn word_span(&self, start: usize) -> SourceSpan
+    pub(super) fn word_span(&self, start: usize) -> SourceSpan
     {
         // Word extraction may have already consumed the following operator or member.
         // Its pending token owns those bytes, not the word being returned now.
@@ -700,7 +708,7 @@ impl<'a> Tokenizer<'a>
     {
         Self { input, pending_operator: None, pending_operand: None, index_follows: false,
             member_follows: false, enum_variant_follows: false,
-            metadata: None, active_string: None }
+            metadata: None, active_string: None, editor: None }
     }
 
     /**
@@ -709,6 +717,12 @@ impl<'a> Tokenizer<'a>
      * `Err(TokenizerError)` if an error is encountered during tokenization.
      */
     pub fn next_token(&mut self) -> Result<Option<Token>, TokenizerError>
+    {
+        if self.editor.is_some() { return self.next_editor_token(); }
+        self.next_strict_token()
+    }
+
+    pub(super) fn next_strict_token(&mut self) -> Result<Option<Token>, TokenizerError>
     {
         let mut result = self.read_token();
         if let Some(index) = self.active_string && let Some(metadata) = &mut self.metadata
@@ -723,6 +737,8 @@ impl<'a> Tokenizer<'a>
                    || matches!(&operand.value, TokenValue::Symbol(word)
                         if matches!(word.as_str(), "-~" | "-+~"))
                 {
+                    self.editor_start_at(token.location.clone(), token.span.start,
+                        TokenKind::Invalid);
                     return Err(TokenizerError
                         {
                             location: token.location.clone(),
@@ -770,6 +786,7 @@ impl<'a> Tokenizer<'a>
 
         if self.member_follows && self.input.peek_next() == Some('.')
         {
+            self.editor_start(TokenKind::Member);
             self.member_follows = false;
             let dot = self.parse_dot();
             if dot.kind != TokenKind::Symbol || dot.token_value_text() != "."
@@ -785,6 +802,8 @@ impl<'a> Tokenizer<'a>
             }
             if name.is_empty() || name.chars().next().is_some_and(|c| c.is_numeric())
             {
+                if !name.is_empty()
+                { self.editor_start_at(dot.location.clone(), dot.span.start, TokenKind::Invalid); }
                 return Err(TokenizerError { location: dot.location,
                     message: "Expected a field name after '.'.".to_string() });
             }
@@ -804,6 +823,7 @@ impl<'a> Tokenizer<'a>
             if self.input.peek_next() != Some('\\') { break; }
             let location = self.input.location().clone();
             let start = self.input.byte_offset();
+            self.editor_start(TokenKind::LineContinue);
             self.input.next();
             if self.input.peek_next() != Some('\n')
             {
@@ -828,6 +848,7 @@ impl<'a> Tokenizer<'a>
         // Unwrap the next character since we know it exists then proceed with matching it. Attempt
         // to return the extracted token to the caller, if any.
         let next = next.unwrap();
+        self.editor_start(if next == '$' { TokenKind::Identifier } else { TokenKind::Invalid });
 
         match next
         {
@@ -969,6 +990,7 @@ impl<'a> Tokenizer<'a>
             self.qualified_variable_tail(&mut identifier)?;
             if    identifier.len() == 1
                || self.pending_operator.is_some()
+               || (self.editor.is_some() && self.input.peek_next() != Some('}'))
                || self.input.next() != Some('}')
             {
                 return Err(TokenizerError
@@ -987,6 +1009,7 @@ impl<'a> Tokenizer<'a>
 
         if identifier.contains('=')
         {
+            self.editor_start_at(location.clone(), start, TokenKind::Invalid);
             return Err(TokenizerError
                 {
                     location,
@@ -1292,8 +1315,10 @@ impl<'a> Tokenizer<'a>
             let mut escaped_dollars = Vec::new();
             let mut closed = false;
 
-            while let Some(next) = self.input.next()
+            loop
             {
+                let before = self.editor.as_ref().map(|_| self.input.location().clone());
+                let Some(next) = self.input.next() else { break; };
                 let char_start = self.input.byte_offset() - next.len_utf8();
                 match next
                 {
@@ -1313,6 +1338,22 @@ impl<'a> Tokenizer<'a>
 
                     '\n' =>
                         {
+                            if self.editor.is_some()
+                            {
+                                self.editor_issue(SourceSpan::new(start, char_start),
+                                    DiagnosticKind::Invalid,
+                                    "Newline encountered in single-line string literal.");
+                                self.end_partial_string(char_start);
+                                self.pending_operator = Some(Token
+                                    {
+                                        location: before.unwrap(),
+                                        span: SourceSpan::new(char_start, self.input.byte_offset()),
+                                        kind: TokenKind::LineBreak,
+                                        value: TokenValue::None,
+                                    });
+                                closed = true;
+                                break;
+                            }
                             return Err(TokenizerError
                                 {
                                     location,
@@ -1323,7 +1364,7 @@ impl<'a> Tokenizer<'a>
 
                     '\\' =>
                         {
-                            let escaped = self.process_string_escape()?;
+                            let escaped = self.process_editor_escape(char_start)?;
                             if escaped == '$' { escaped_dollars.push(literal_string.len()); }
                             let source = SourceSpan::new(char_start, self.input.byte_offset());
                             self.push_string(&mut literal_string, escaped, source,
@@ -1339,6 +1380,13 @@ impl<'a> Tokenizer<'a>
                 }
             }
 
+            if !closed && self.editor.is_some()
+            {
+                self.editor_issue(SourceSpan::new(start, self.input.byte_offset()),
+                    DiagnosticKind::Incomplete, "Unterminated string literal.");
+                self.end_partial_string(self.input.byte_offset());
+                closed = true;
+            }
             if !closed
             {
                 return Err(TokenizerError
@@ -1374,7 +1422,7 @@ impl<'a> Tokenizer<'a>
         // Helper for skipping extra whitespace at the beginning of each line.  If there is no text
         // on a given line it is skipped entirely.
         fn skip_whitespace_until_column<'a>(location: &Location, buffer: &mut dyn Buffer,
-                                            target_column: usize, capture: bool)
+                                            target_column: usize, capture: bool, editor: bool)
                                             -> Result<Vec<SourceSpan>, TokenizerError>
         {
             let mut newlines = Vec::new();
@@ -1388,7 +1436,7 @@ impl<'a> Tokenizer<'a>
                 { newlines.push(SourceSpan::new(start, buffer.byte_offset())); }
             }
 
-            if buffer.peek_next().is_none()
+            if buffer.peek_next().is_none() && !editor
             {
                 return Err(TokenizerError
                     {
@@ -1457,6 +1505,12 @@ impl<'a> Tokenizer<'a>
                     }
                     else
                     {
+                        if self.editor.is_some()
+                        {
+                            let source = SourceSpan::new(char_start, self.input.byte_offset());
+                            self.push_string(&mut text, '*', source, StringPartKind::Text);
+                            break;
+                        }
                         return Err(TokenizerError
                             {
                                 location: location.clone(),
@@ -1468,7 +1522,7 @@ impl<'a> Tokenizer<'a>
                 // Process the escape sequence.
                 '\\' =>
                     {
-                        let escaped = self.process_string_escape()?;
+                        let escaped = self.process_editor_escape(char_start)?;
                         if escaped == '$' { escaped_dollars.push(text.len()); }
                         let source = SourceSpan::new(char_start, self.input.byte_offset());
                         self.push_string(&mut text, escaped, source, StringPartKind::Escape);
@@ -1487,7 +1541,7 @@ impl<'a> Tokenizer<'a>
                     let start_line = self.input.location().line;
 
                     let newlines = skip_whitespace_until_column(&location, self.input,
-                        target_column, self.metadata.is_some())?;
+                        target_column, self.metadata.is_some(), self.editor.is_some())?;
 
                     // If we skipped any empty lines then we need to backfill the newlines.
                     let current_line = self.input.location().line;
@@ -1512,6 +1566,13 @@ impl<'a> Tokenizer<'a>
             }
         }
 
+        if !closed && self.editor.is_some()
+        {
+            self.editor_issue(SourceSpan::new(start, self.input.byte_offset()),
+                DiagnosticKind::Incomplete, "Unterminated string literal.");
+            self.end_partial_string(self.input.byte_offset());
+            closed = true;
+        }
         if !closed
         {
             return Err(TokenizerError
@@ -1528,6 +1589,32 @@ impl<'a> Tokenizer<'a>
                 kind: TokenKind::Literal,
                 value: TokenValue::Literal(TokenLiteral::String(text, flag, escaped_dollars))
             }))
+    }
+
+    /**
+     * Keep the escape decoder strict. Editor recovery records the damaged source
+     * and substitutes a character only in the decoded analysis value.
+     */
+    fn process_editor_escape(&mut self, start: usize) -> Result<char, TokenizerError>
+    {
+        match self.process_string_escape()
+        {
+            Err(error) if self.editor.is_some() =>
+                {
+                    let end = self.input.byte_offset();
+                    let kind = if end <= start + 2 && self.input.peek_next().is_none()
+                        { DiagnosticKind::Incomplete } else { DiagnosticKind::Invalid };
+                    self.editor_issue(SourceSpan::new(start, end), kind, error.message);
+                    Ok('\u{fffd}')
+                },
+            result => result,
+        }
+    }
+
+    fn end_partial_string(&mut self, end: usize)
+    {
+        if let Some(index) = self.active_string.take() && let Some(metadata) = &mut self.metadata
+        { metadata.strings[index].span.end = end; }
     }
 
     /**

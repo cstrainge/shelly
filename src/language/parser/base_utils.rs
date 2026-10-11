@@ -48,6 +48,14 @@ pub type ParserFunction<T> = fn (buffer: &mut TokenBuffer<'_, '_>) -> ParseResul
 
 pub fn expect_token(buffer: &mut TokenBuffer<'_, '_>, kind: TokenKind) -> ParseResult<Token>
 {
+    let result = expect_token_inner(buffer, kind);
+    if result.is_err() { buffer.capture_editor_failure(); }
+    result
+}
+
+
+fn expect_token_inner(buffer: &mut TokenBuffer<'_, '_>, kind: TokenKind) -> ParseResult<Token>
+{
     match buffer.next()?
     {
         None => Err(ParserError
@@ -72,7 +80,7 @@ pub fn try_expect_token(buffer: &mut TokenBuffer<'_, '_>,
 {
     let mut lookahead = Lookahead::new(buffer);
 
-    let token = expect_token(&mut *lookahead.buffer, kind);
+    let token = expect_token_inner(&mut *lookahead.buffer, kind);
 
     if let Ok(token) = token
     {
@@ -159,6 +167,21 @@ pub fn expect_block_list_of<T>(buffer: &mut TokenBuffer<'_, '_>,
                                delimiter: Option<TokenKind>,
                                item_parser: &ParserFunction<T>) -> ParseResult<Vec<T>>
 {
+    if beginning == TokenKind::BlockOpen
+    {
+        return buffer.with_editor_block(|buffer|
+            expect_block_list_inner(buffer, beginning, ending, delimiter, item_parser));
+    }
+    expect_block_list_inner(buffer, beginning, ending, delimiter, item_parser)
+}
+
+
+fn expect_block_list_inner<T>(buffer: &mut TokenBuffer<'_, '_>,
+                              beginning: TokenKind,
+                              ending: TokenKind,
+                              delimiter: Option<TokenKind>,
+                              item_parser: &ParserFunction<T>) -> ParseResult<Vec<T>>
+{
     let mut lookahead = Lookahead::new(buffer);
     expect_token(&mut *lookahead.buffer, beginning)?;
 
@@ -207,11 +230,17 @@ pub fn expect_block_list_of<T>(buffer: &mut TokenBuffer<'_, '_>,
                     items.push(item);
                 },
 
-            None => return Err(ParserError
+            None =>
                 {
-                    location,
-                    kind: ParserErrorKind::ExpectedExpression
-                })
+                    lookahead.buffer.capture_editor_eof();
+                    return Err(ParserError
+                        {
+                            location,
+                            kind: if lookahead.buffer.is_editor()
+                                { ParserErrorKind::UnexpectedEOF(ending) }
+                                else { ParserErrorKind::ExpectedExpression },
+                        });
+                }
         }
     }
 }

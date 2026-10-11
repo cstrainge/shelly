@@ -1,8 +1,9 @@
 
 use std::collections::VecDeque;
 
-use crate::language::{ parser::source::{ SyntaxContext, SyntaxFact, SyntaxJournal,
-                                       SyntaxMetadata, SyntaxRole },
+use crate::language::{ parser::{ editor::EditorParser,
+                                 source::{ SyntaxContext, SyntaxFact, SyntaxJournal,
+                                           SyntaxMetadata, SyntaxRole } },
                        text::span::SourceSpan,
                        tokenizer::tokenizer::{ Token, TokenKind, Tokenizer, TokenizerError } };
 
@@ -12,6 +13,7 @@ struct Transaction
 {
     position: usize,
     syntax_checkpoint: usize,
+    last_read: Option<SourceSpan>,
 }
 
 /**
@@ -53,8 +55,10 @@ pub struct TokenBuffer<'tokenizer, 'input>
      * if needed.
      */
     lookahead_stack: VecDeque<Transaction>,
-    syntax: Option<SyntaxJournal>,
+    pub(crate) syntax: Option<SyntaxJournal>,
     context: SyntaxContext,
+    pub(crate) editor: Option<EditorParser>,
+    pub(crate) last_read: Option<SourceSpan>,
 }
 
 
@@ -80,6 +84,8 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
                 lookahead_stack: VecDeque::with_capacity(LOOKAHEAD_BUFFER_CAPACITY),
                 syntax: None,
                 context: SyntaxContext::Expression,
+                editor: None,
+                last_read: None,
             }
     }
 
@@ -89,6 +95,17 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
         buffer.syntax = Some(SyntaxJournal::default());
         buffer
     }
+
+    pub(crate) fn for_editor(tokenizer: &'tokenizer mut Tokenizer<'input>) -> Self
+    {
+        let mut buffer = Self::with_syntax(tokenizer);
+        buffer.editor = Some(EditorParser::new());
+        buffer
+    }
+
+    pub(crate) fn is_editor(&self) -> bool { self.editor.is_some() }
+
+    pub(crate) fn editor_offset(&self) -> usize { self.tokenizer.byte_offset() }
 
     pub fn syntax_metadata(&self) -> Option<SyntaxMetadata>
     { self.syntax.as_ref().map(SyntaxJournal::snapshot) }
@@ -146,8 +163,10 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
     fn record_token(&mut self, token: &Token)
     {
         if self.syntax.is_none() { return; }
+        if self.editor.as_ref().is_some_and(|editor| editor.recovering) { return; }
         let role = match token.kind
         {
+            TokenKind::Invalid => SyntaxRole::Invalid,
             TokenKind::Symbol => self.word_role(),
             TokenKind::Identifier | TokenKind::AutoIdentifier => SyntaxRole::Variable,
             TokenKind::Member => SyntaxRole::Member,
@@ -186,7 +205,8 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
         if let Some(lookahead) = lookahead
         {
             self.lookahead_stack.push_front(Transaction
-                { position: lookahead, syntax_checkpoint: self.syntax_checkpoint() });
+                { position: lookahead, syntax_checkpoint: self.syntax_checkpoint(),
+                  last_read: self.last_read });
         }
     }
 
@@ -216,6 +236,7 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
     {
         if let Some(frame) = self.lookahead_stack.pop_front()
         {
+            self.last_read = frame.last_read;
             if let Some(journal) = &mut self.syntax
             { journal.entries.truncate(frame.syntax_checkpoint); }
             self.clear_finished_buffer();
@@ -228,6 +249,15 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
      */
     pub fn next(&mut self) -> Result<Option<Token>, TokenizerError>
     {
+        if let Some(editor) = &mut self.editor
+        {
+            if editor.steps == 0
+            {
+                editor.exhausted = true;
+                return Err(self.editor_limit_error());
+            }
+            editor.steps -= 1;
+        }
         let index = self.position();
 
         if index >= self.lookahead_buffer.len()
@@ -235,11 +265,20 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
             match self.tokenizer.next_token()?
              {
                 Some(token) => self.lookahead_buffer.push(token),
-                None => return Ok(None)
+                None =>
+                    {
+                        if self.is_editor()
+                        {
+                            let end = self.tokenizer.byte_offset();
+                            self.last_read = Some(SourceSpan::new(end, end));
+                        }
+                        return Ok(None);
+                    }
              }
          }
 
         let token = self.lookahead_buffer[index].clone();
+        if self.is_editor() { self.last_read = Some(token.span); }
 
         if let Some(cursor) = self.lookahead_stack.front_mut()
          {

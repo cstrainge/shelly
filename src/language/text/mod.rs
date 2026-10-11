@@ -4,6 +4,7 @@
  */
 pub mod location;
 pub mod span;
+pub mod diagnostic;
 
 /**
  * This module holds a simple buffer for reading through source text character by character while

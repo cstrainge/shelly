@@ -4,7 +4,9 @@ use std::collections::BTreeMap;
 use crate::language::text::span::SourceSpan;
 
 
-/// Grammar contexts, independent of colors and symbol resolution.
+/**
+ * Grammar contexts, independent of colors and symbol resolution.
+ */
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SyntaxContext
 {
@@ -19,6 +21,7 @@ pub enum SyntaxContext
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SyntaxRole
 {
+    Invalid,
     Name,
     CommandName,
     Argument,
@@ -56,12 +59,16 @@ pub struct SyntaxFact
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SyntaxMetadata
 {
-    /// One fact per committed token read, in source order. Rolled-back trials are excluded.
+    /**
+     * One fact per committed token read, in source order. Rolled-back trials are excluded.
+     */
     pub facts: Vec<SyntaxFact>,
 }
 
 
-/// Append-only overrides let nested token lookahead undo classifications as well as reads.
+/**
+ * Append-only overrides let nested token lookahead undo classifications as well as reads.
+ */
 #[derive(Default)]
 pub(crate) struct SyntaxJournal
 {

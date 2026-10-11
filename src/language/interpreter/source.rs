@@ -3,7 +3,8 @@ use std::io::{ BufReader, Cursor };
 
 use crate::language::{ data::{ map_key::MapKey, value::Value },
                        interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult },
-                       parser::{ parse_text, parse_with_metadata, source::SyntaxMetadata },
+                       parser::{ analyze_editor, EditorAnalysis, parse_text, parse_with_metadata,
+                                 source::SyntaxMetadata },
                        text::{ buffer::{ Buffer, SimpleBuffer }, location::Location,
                                read_buffer::ReadBuffer, span::SourceSpan },
                        tokenizer::Tokenizer };
@@ -130,6 +131,62 @@ fn inspect_syntax(source: &str, buffer: &mut dyn Buffer, metadata: bool) -> Valu
 
 impl Interpreter
 {
+    pub(super) fn handle_editor_source(&mut self, location: &Location, args: &[Value])
+        -> InterpreterResult<()>
+    {
+        let [Value::String(source, _)] = args else
+        {
+            return Err(InterpreterError { location: location.clone(),
+                what: ErrorWhat::ArgumentMismatch("__editor_source expects one String".into()) });
+        };
+        let analysis: EditorAnalysis = analyze_editor(source);
+        let tokens = analysis.tokens.iter().map(|token| record([
+                ("span", span_value(token.span, source)),
+                ("kind", Value::from_string(format!("{:?}", token.kind))),
+            ])).collect();
+        let facts = analysis.syntax.facts.iter().map(|fact| record([
+                ("span", span_value(fact.span, source)),
+                ("role", Value::from_string(format!("{:?}", fact.role))),
+                ("context", Value::from_string(format!("{:?}", fact.context))),
+            ])).collect();
+        let diagnostics = analysis.diagnostics.iter().map(|issue| record([
+                ("span", span_value(issue.span, source)),
+                ("kind", Value::from_string(format!("{:?}", issue.kind))),
+                ("phase", Value::from_string(format!("{:?}", issue.phase))),
+                ("message", Value::from_string(issue.message.clone())),
+            ])).collect();
+        let regions = analysis.regions.iter().map(|region| record([
+                ("span", span_value(region.span, source)),
+                ("status", region.status.map_or(Value::None,
+                    |status| Value::from_string(format!("{:?}", status)))),
+            ])).collect();
+        let trivia = analysis.lexical.trivia.iter().map(|item| record([
+                ("span", span_value(item.span, source)),
+                ("kind", Value::from_string(format!("{:?}", item.kind))),
+            ])).collect();
+        let strings = analysis.lexical.strings.iter().map(|string| record([
+                ("opening", span_value(string.opening, source)),
+                ("interpolated", Value::Boolean(string.interpolated)),
+                ("span", span_value(string.span, source)),
+                ("decoded", Value::from_string(string.decoded.clone())),
+                ("closing", string.closing.map_or(Value::None, |span| span_value(span, source))),
+                ("parts", Value::from_array(string.parts.iter().map(|part| record([
+                        ("source", span_value(part.source, source)),
+                        ("decoded", span_value(part.decoded, &string.decoded)),
+                        ("kind", Value::from_string(format!("{:?}", part.kind))),
+                    ])).collect())),
+            ])).collect();
+        self.last_result = Some(record([
+                ("tokens", Value::from_array(tokens)), ("facts", Value::from_array(facts)),
+                ("diagnostics", Value::from_array(diagnostics)),
+                ("regions", Value::from_array(regions)), ("trivia", Value::from_array(trivia)),
+                ("strings", Value::from_array(strings)),
+                ("unparsed", analysis.unparsed.map_or(Value::None,
+                    |span| span_value(span, source))),
+            ]));
+        Ok(())
+    }
+
     pub(super) fn handle_syntax_spans(&mut self, location: &Location, args: &[Value])
         -> InterpreterResult<()>
     {

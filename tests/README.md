@@ -29,6 +29,9 @@ The checks compare string and one-byte streaming buffers, reconstruct original
 input from token/trivia spans, and verify string escapes and indentation maps.
 `native/syntax_spans.shy` uses the hidden `__syntax_spans` bridge to check parser
 roles and contexts, nested lookahead rollback, and strict parsing parity.
+`native/editor_analysis.shy` uses the hidden `__editor_source` bridge to check
+partial literals and statements, recovery boundaries, source preservation,
+strict rejection, and analysis limits.
 
 ## Process case records
 

@@ -960,7 +960,11 @@ fn parse_public_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
 
 pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
-    buffer.with_context(SyntaxContext::Expression, parse_statement_inner)
+    buffer.with_context(SyntaxContext::Expression, |buffer|
+        {
+            if buffer.is_editor() { buffer.parse_editor_statement(parse_statement_inner) }
+            else { parse_statement_inner(buffer) }
+        })
 }
 
 

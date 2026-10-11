@@ -397,6 +397,8 @@ impl Interpreter
             NativeVisibility::Hidden, Rc::new(Interpreter::handle_source_spans)));
         native_functions.insert("__syntax_spans", NativeFunction::new("__syntax_spans",
             NativeVisibility::Hidden, Rc::new(Interpreter::handle_syntax_spans)));
+        native_functions.insert("__editor_source", NativeFunction::new("__editor_source",
+            NativeVisibility::Hidden, Rc::new(Interpreter::handle_editor_source)));
 
         let special_vars: SpecialVars = HashMap::from([
                 (

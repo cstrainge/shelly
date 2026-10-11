@@ -149,6 +149,13 @@ fn constructor_follows(
  */
 fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
+    buffer.with_editor_depth(parse_math_primary_inner)
+}
+
+
+fn parse_math_primary_inner(buffer: &mut TokenBuffer<'_, '_>)
+    -> ParseResult<Option<AstExpression>>
+{
     let head = buffer.syntax_checkpoint();
     let mut lookahead = Lookahead::new(buffer);
     let Some(token) = lookahead.buffer.next()? else { return Ok(None); };
@@ -507,6 +514,13 @@ fn parse_type_inner(
     buffer: &mut TokenBuffer<'_, '_>, allow_variadic: bool, variadic: &mut bool,
 ) -> ParseResult<AstType>
 {
+    buffer.with_editor_depth(|buffer| parse_type_inner_impl(buffer, allow_variadic, variadic))
+}
+
+fn parse_type_inner_impl(
+    buffer: &mut TokenBuffer<'_, '_>, allow_variadic: bool, variadic: &mut bool,
+) -> ParseResult<AstType>
+{
     let first = parse_type_atom(buffer, allow_variadic, variadic)?;
     let mut members = vec![first];
     while try_expect_token(buffer, TokenKind::Pipe)?.is_some()
@@ -727,6 +741,7 @@ fn parse_math_binary_tail(buffer: &mut TokenBuffer<'_, '_>,
                             break;
                         }
 
+                        lookahead.buffer.capture_editor_expected();
                         return Err(ParserError
                             {
                                 location: Some(token.location),
