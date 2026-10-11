@@ -1,5 +1,6 @@
 
-use std::{ io::{ Error, ErrorKind, IsTerminal, Write, stdin, stdout },
+use std::{ env,
+           io::{ Error, ErrorKind, IsTerminal, Write, stdin, stdout },
            mem::MaybeUninit,
            str::from_utf8,
            time::{ Duration, Instant } };
@@ -14,6 +15,7 @@ use libc::{ FIONREAD, ICANON, POLLIN, STDIN_FILENO, TCSANOW, VEOL, VEOL2, VEOF,
 pub struct TerminalCapabilities
 {
     pub sixel: bool,
+    pub iterm2: bool,
     pub cell_size: Option<(u16, u16)>,
     pub screen_size: Option<(u16, u16)>,
     pub input: Vec<Event>,
@@ -139,7 +141,8 @@ fn escape_input(bytes: &[u8]) -> Vec<Event>
 }
 
 /// Query Primary DA and cell dimensions only on an idle foreground terminal.
-/// Attribute 4, after the terminal identifier, advertises sixel. Both queries
+/// TERM_PROGRAM identifies native iTerm2 images outside tmux/screen; attribute
+/// 4, after the terminal identifier, advertises sixel. The DA and cell-size queries
 /// share a 150 ms deadline; kernel window dimensions provide a cell-size fallback.
 /// https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
 pub fn detect_capabilities() -> TerminalCapabilities
@@ -171,6 +174,9 @@ pub fn detect_capabilities() -> TerminalCapabilities
     query_mode.c_cc[VEOL] = b'c';
     if unsafe { tcsetattr(STDIN_FILENO, TCSANOW, &query_mode) } != 0 { return result; }
     let _mode = TerminalMode(original);
+    result.iterm2 = supports_iterm2(env::var("TERM_PROGRAM").ok().as_deref(),
+                                   env::var("TERM").ok().as_deref(),
+                                   env::var_os("TMUX").is_some() || env::var_os("STY").is_some());
     let mut output = stdout().lock();
     if output.write_all(b"\x1b[c").and_then(|_| output.flush()).is_err() { return result; }
     drop(output);
@@ -185,7 +191,7 @@ pub fn detect_capabilities() -> TerminalCapabilities
         result.sixel = attributes.is_some_and(|values|
             values.iter().skip(1).any(|value| *value == 4));
     }
-    if !result.sixel || result.cell_size.is_some() { return result; }
+    if !(result.sixel || result.iterm2) || result.cell_size.is_some() { return result; }
 
     query_mode.c_cc[VEOL] = b't';
     if unsafe { tcsetattr(STDIN_FILENO, TCSANOW, &query_mode) } != 0 { return result; }
@@ -203,6 +209,12 @@ pub fn detect_capabilities() -> TerminalCapabilities
         { result.cell_size = valid_cell_size(values[1], values[0]); }
     }
     result
+}
+
+fn supports_iterm2(program: Option<&str>, term: Option<&str>, multiplexed: bool) -> bool
+{
+    program == Some("iTerm.app") && !multiplexed &&
+        !term.is_some_and(|term| term.starts_with("screen") || term.starts_with("tmux"))
 }
 
 fn valid_cell_size(width: u16, height: u16) -> Option<(u16, u16)>
@@ -257,5 +269,29 @@ fn read_reply(deadline: Instant, input: &mut Vec<Event>) -> Option<Vec<u8>>
     {
         input.extend(escape_input(&response));
         None
+    }
+}
+
+#[cfg(test)]
+mod tests
+{
+    use super::supports_iterm2;
+
+    #[test]
+    fn native_images_require_iterm2_identity()
+    {
+        assert!(supports_iterm2(Some("iTerm.app"), Some("xterm-256color"), false));
+        assert!(supports_iterm2(Some("iTerm.app"), None, false));
+        for program in [None, Some(""), Some("Apple_Terminal"), Some("WezTerm"),
+                        Some("iTerm.app-extra")]
+        { assert!(!supports_iterm2(program, Some("xterm-256color"), false)); }
+    }
+
+    #[test]
+    fn native_images_are_not_sent_through_unhandled_multiplexers()
+    {
+        assert!(!supports_iterm2(Some("iTerm.app"), Some("xterm-256color"), true));
+        for term in ["screen", "screen-256color", "tmux", "tmux-256color"]
+        { assert!(!supports_iterm2(Some("iTerm.app"), Some(term), false)); }
     }
 }

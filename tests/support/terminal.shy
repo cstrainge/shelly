@@ -223,17 +223,30 @@ fn banner_case_sized($fixture: String, $response: String, $options: [String], $e
                      $expect_sixel: Boolean, $expect_banner: Boolean, $marker: String,
                      $cell_reply: String, $expect_size: String, $rows: Integer, $columns: Integer)
 {
+    banner_case_graphics $fixture $response $options $expect_probe $expect_sixel false $expect_banner $marker $cell_reply $expect_size $rows $columns [:]
+}
+
+fn banner_case_graphics($fixture: String, $response: String, $options: [String], $expect_probe: Boolean,
+                        $expect_sixel: Boolean, $expect_iterm2: Boolean, $expect_banner: Boolean,
+                        $marker: String, $cell_reply: String, $expect_size: String,
+                        $rows: Integer, $columns: Integer, $environment: HashMap)
+{
+    let $env = ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+        "TERM": "xterm-256color", "COLORTERM": "truecolor", "LANG": "C.UTF-8",
+        "USER": "sixel-user", "HOSTNAME": "sixel-host",
+        "SHELLY_STD_PATH": "${fixture}/missing-std"]
+    for ($key, $value) in $environment { $env[$key] = $value }
     let $terminal = open_terminal [`$shelly, $options...] [
-        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
-            "TERM": "xterm-256color", "COLORTERM": "truecolor", "LANG": "C.UTF-8",
-            "USER": "sixel-user", "HOSTNAME": "sixel-host",
-            "SHELLY_STD_PATH": "${fixture}/missing-std"], "rows": $rows, "columns": $columns]
+        "cwd": $fixture, "env": $env, "rows": $rows, "columns": $columns]
     let $raw = ""
     let $probe = false
     let $editor = false
     let $ready = false
     let $cell_probe = false
-    for $attempt in 0..80
+    let $idle_reads = 0
+    # Graphics can span hundreds of short PTY reads on macOS. Bound idle waiting
+    # separately so a large payload is not mistaken for a stalled startup.
+    for $attempt in 0..1024
     {
         let $reply = terminal_read $terminal 50
         $raw = $raw + $reply["text"]
@@ -265,7 +278,14 @@ fn banner_case_sized($fixture: String, $response: String, $options: [String], $e
         }
         if ($raw.contains "\x1b[c")
         {
-            if $editor { terminal_write $terminal "\x1b[?1;2c" }
+            if $editor
+            {
+                # A DA reply sent behind startup keystrokes is still queued and
+                # already answers the editor's query. Do not inject a duplicate
+                # after the queued command has begun executing in canonical mode.
+                if ($response.starts_with "\x1b") || !($response.contains "\x1b[?")
+                { terminal_write $terminal "\x1b[?1;2c" }
+            }
             else
             {
                 $probe = true
@@ -293,21 +313,39 @@ fn banner_case_sized($fixture: String, $response: String, $options: [String], $e
             let $last = strip_ansi $lines[$lines.count - 1]
             if ($last.ends_with "# ") || ($last.ends_with "$ ")
             { $ready = true; break }
+            $idle_reads = $idle_reads + 1
+            if $idle_reads == 80 { break }
         }
+        else { $idle_reads = 0 }
     }
     require $ready "banner shell did not reach the prompt"
     require ($probe == $expect_probe) "wrong startup probe gating"
     require (($raw.contains "\x1bP0;1;0q") == $expect_sixel) "wrong sixel banner selection"
+    require ((($raw.contains "\x1b]1337;File=inline=1;") || ($raw.contains "\x1b]1337;MultipartFile=inline=1;")) == $expect_iterm2) "wrong iTerm2 banner selection"
     require (($raw.contains "S H E L L Y") == $expect_banner) "wrong banner suppression"
     if $expect_size != ""
     {
         require $cell_probe "missing cell-size query"
-        require ($raw.contains ("\x1bP0;1;0q\"1;1;" + $expect_size)) "wrong fitted pixel size: $expect_size"
+        if $expect_iterm2
+        {
+            let $pixels = $expect_size.split ";"
+            let $width = $pixels[0]
+            let $height = $pixels[1]
+            require ($raw.contains ";width=${width}px;height=${height}px;") "wrong PNG pixel size"
+        }
+        else
+        { require ($raw.contains ("\x1bP0;1;0q\"1;1;" + $expect_size)) "wrong fitted pixel size: $expect_size" }
+    }
+    if $expect_iterm2
+    {
+        require ($raw.contains ("\x07\x1b" + "8")) "inline PNG must end and restore the cursor"
+        require ($raw.contains "sixel-host") "native banner host interpolation"
+        require ($raw.contains "sixel-user") "native banner user interpolation"
     }
     require (!($raw.contains '\${HOSTNAME}')) "banner variables were not interpolated"
     if $marker != ""
     {
-        let $visible = if $expect_sixel { $raw.replace "\r" "" } else { strip_ansi $raw }
+        let $visible = if $expect_sixel || $expect_iterm2 { $raw.replace "\r" "" } else { strip_ansi $raw }
         require ($visible.contains $marker) "lost startup input or banner override: $marker"
     }
     require (!($raw.contains "Error processing text:")) "capability reply leaked into source"

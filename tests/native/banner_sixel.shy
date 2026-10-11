@@ -7,7 +7,7 @@ let $probe = run_process ["python3", "-c", "from PIL import Image"] [
 if ($probe["error"] != ()) || ($probe["exit_code"] != 0)
 {
     echo "SKIP sixel renderer: Python 3 and Pillow are required"
-    return
+    exit 0
 }
 
 fn sixel_command($options: [String], $expected: Integer): String

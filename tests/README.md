@@ -78,6 +78,13 @@ unsupported and malformed attributes, timeouts, fragmented/late replies, startup
 input, init overrides, terminal mode restoration, and monochrome/banner/script gating.
 `repl/banner_sixel_sizing.shy` checks cell-size reports, fitted dimensions, small
 terminal bounds, invalid dimensions, fallback sizing, and input during the cell-size query.
+`repl/banner_iterm2.shy` checks native PNG precedence over sixel, iTerm2 identity,
+unsupported/multiplexed fallbacks, fragmented/late/missing replies, startup input,
+init overrides, interpolation, terminal restoration, and monochrome/banner/script gating.
+`repl/banner_iterm2_sizing.shy` checks the same cell-size fitting and fallback cases
+for native PNG without requiring sixel support. Rust unit tests decode the PNG
+payload to verify transparency, partial alpha, pixel dimensions, shared layout,
+and bounded multipart transmission for large images.
 `native/iterator_protocol.shy` and `repl/iterator_protocol.shy` check user and native
 iteration, private state, method versions, destructuring, unit termination, fixed-length
 array annotations, and recovery after iterator errors.

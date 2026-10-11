@@ -1,0 +1,50 @@
+let $fixture = $args[0]
+
+fn iterm_case($response: String, $options: [String], $expect_probe: Boolean,
+              $expect_iterm2: Boolean, $expect_banner: Boolean, $marker: String)
+{
+    banner_case_graphics $fixture $response $options $expect_probe false $expect_iterm2 $expect_banner $marker "" "" 40 160 ["TERM_PROGRAM": "iTerm.app"]
+}
+
+# Native PNG wins even when the terminal advertises sixel; it also works without it.
+iterm_case "\x1b[?62;4c" ["--norc"] true true true "<unloaded>"
+iterm_case "\x1b[?62;1;2;22c" ["--norc"] true true true ""
+iterm_case "" ["--norc"] true true true ""
+iterm_case "\x1b[?badc" ["--norc"] true true true ""
+iterm_case "fragment:" ["--norc"] true true true ""
+iterm_case "late:" ["--norc"] true true true ""
+iterm_case "echo native-input\r\x1b[?62;4c" ["--norc"] true true true "\nnative-input\n"
+iterm_case "\x03\x1b[?62;4c" ["--norc"] true true true "Ctrl+C pressed."
+iterm_case "\x1b[?62;4c" ["--norc", "-m"] false false true ""
+iterm_case "\x1b[?62;4c" ["--norc", "-b"] false false false ""
+
+printf "%s" 'let $banner = "CUSTOM-NATIVE-BANNER"' -> "${fixture}/native-init.shy"
+iterm_case "\x1b[?62;4c" ["--rcfile", "${fixture}/native-init.shy"] true false false "CUSTOM-NATIVE-BANNER"
+printf "%s" 'fn λ() { echo "native-unicode-input" }' -> "${fixture}/native-unicode.shy"
+iterm_case "λ\r\x1b[?62;4c" ["--rcfile", "${fixture}/native-unicode.shy"] true true true "\nnative-unicode-input\n"
+
+# Unsupported identities and unhandled multiplexer transports keep the sixel fallback.
+for $env in [["TERM_PROGRAM": "Apple_Terminal"], ["TERM_PROGRAM": "iTerm.app-extra"],
+    ["TERM_PROGRAM": "iTerm.app", "TMUX": "/tmp/fake,1,0"],
+    ["TERM_PROGRAM": "iTerm.app", "STY": "fake.screen"],
+    ["TERM_PROGRAM": "iTerm.app", "TERM": "screen-256color"],
+    ["TERM_PROGRAM": "iTerm.app", "TERM": "tmux-256color"]]
+{
+    banner_case_graphics $fixture "\x1b[?62;4c" ["--norc"] true true false true "" "" "" 40 160 $env
+}
+
+# iTerm2 environment variables must not enable graphics or probes in script mode.
+let $terminal = open_terminal [`$shelly, "-c", "echo native-script-only"] [
+    "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+        "TERM": "xterm-256color", "COLORTERM": "truecolor", "TERM_PROGRAM": "iTerm.app"]]
+let $raw = ""
+for $attempt in 0..20
+{
+    let $reply = terminal_read $terminal 50
+    $raw = $raw + $reply["text"]
+    if $reply["eof"] { break }
+}
+let $visible = $raw.replace "\r" ""
+require ($visible == "native-script-only\n") "native script printed a banner or query"
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "native script failed"

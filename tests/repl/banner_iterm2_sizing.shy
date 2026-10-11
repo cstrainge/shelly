@@ -1,0 +1,18 @@
+let $fixture = $args[0]
+
+fn native_sized_case($reply: String, $size: String, $rows: Integer, $columns: Integer, $marker: String)
+{
+    # No sixel attribute: the native path must still query cell dimensions.
+    banner_case_graphics $fixture "\x1b[?62;1;2c" ["--norc"] true false true true $marker $reply $size $rows $columns ["TERM_PROGRAM": "iTerm.app"]
+}
+
+native_sized_case "\x1b[6;20;10t" "350;350" 40 160 ""
+native_sized_case "\x1b[6;10;12t" "180;180" 40 160 ""
+native_sized_case "\x1b[6;20;10t" "160;160" 10 160 ""
+native_sized_case "\x1b[6;20;10t" "200;200" 40 40 ""
+native_sized_case "fragment:" "350;350" 40 160 ""
+for $reply in ["", "\x1b[6;0;10t", "\x1b[6;20;0t", "\x1b[6;20;129t",
+    "\x1b[6;20;999999999999999t", "\x1b[6;;10t", "\x1b[6;bad;10t", "late:"]
+{ native_sized_case $reply "280;280" 40 160 "" }
+native_sized_case "echo png-cell-input\r\x1b[6;20;10t" "280;280" 40 160 "\npng-cell-input\n"
+native_sized_case "\x03\x1b[6;20;10t" "280;280" 40 160 "Ctrl+C pressed."

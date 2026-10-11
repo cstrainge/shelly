@@ -41,7 +41,8 @@ use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
                                         scope::Scope, modules::Prelude,
                                         redirection::{ Redirection, Output, configure } } },
              runtime::{ color::TtyColorMode, process::{ COMMANDS, invoke },
-                        terminal::detect_capabilities, sixel::banner as sixel_banner } };
+                        terminal::detect_capabilities, sixel::banner as sixel_banner,
+                        iterm2::banner as iterm2_banner } };
 
 const MAIN_SCOPE: &str = "main";
 
@@ -466,12 +467,13 @@ impl Interpreter
                           rc_file: RcFile,
                           script_args: Vec<String>)
     {
-        let sixel = if    matches!(interactive, Interactive::Yes)
+        let graphics = if    matches!(interactive, Interactive::Yes)
                       && color_mode != TtyColorMode::TtyMonochrome
             {
                 let capabilities = detect_capabilities();
-                let banner = capabilities.sixel.then(|| sixel_banner(&capabilities)
-                    .unwrap_or_else(|| BANNER_SIXEL.to_string()));
+                let banner = if capabilities.iterm2 { iterm2_banner(&capabilities) } else { None }
+                    .or_else(|| capabilities.sixel.then(|| sixel_banner(&capabilities)
+                        .unwrap_or_else(|| BANNER_SIXEL.to_string())));
                 self.startup_input = capabilities.input;
                 banner
             }
@@ -479,9 +481,9 @@ impl Interpreter
             {
                 None
             };
-        let banner = if let Some(sixel) = sixel
+        let banner = if let Some(graphics) = graphics
             {
-                sixel
+                graphics
             }
             else
             {
