@@ -23,6 +23,7 @@ pub enum Executable
 {
     Yes,
     No,
+    External,
     Function(FunctionRef),
     Native(Rc<NativeFunction>),
     Method(Rc<BoundMethod>)
@@ -36,6 +37,7 @@ impl Debug for Executable
         {
             Self::Yes => write!(f, "Yes"),
             Self::No => write!(f, "No"),
+            Self::External => write!(f, "External"),
             Self::Function(function) => write!(f, "Function({:p})", Rc::as_ptr(function)),
             Self::Native(function) => write!(f, "Native({})", function.name),
             Self::Method(method) => write!(f, "Method({:p})", Rc::as_ptr(method))
@@ -49,7 +51,8 @@ impl PartialEq for Executable
     {
         match (self, other)
         {
-            (Self::Yes, Self::Yes) | (Self::No, Self::No) => true,
+            (Self::Yes, Self::Yes) | (Self::No, Self::No)
+            | (Self::External, Self::External) => true,
             (Self::Function(left), Self::Function(right)) => Rc::ptr_eq(left, right),
             (Self::Native(left), Self::Native(right)) => Rc::ptr_eq(left, right),
             (Self::Method(left), Self::Method(right)) => Rc::ptr_eq(left, right),
@@ -101,7 +104,14 @@ impl Value
 
     pub fn is_executable(&self) -> bool
     {
-        self.is_callable() || matches!(self, Value::String(_, Executable::Yes))
+        self.is_callable()
+            || self.is_external()
+            || matches!(self, Value::String(_, Executable::Yes))
+    }
+
+    pub fn is_external(&self) -> bool
+    {
+        matches!(self.underlying(), Value::String(_, Executable::External))
     }
 
     pub fn type_name(&self) -> String

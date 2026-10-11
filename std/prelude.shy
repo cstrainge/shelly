@@ -5,46 +5,25 @@
 
 
 # Given a list of numbers sum them all up and return the result.
-pub fn sum($values: Number): Number
+pub fn sum($args: Number...): Number
 {
-    let $sum = 0
-
-    for $value in $rest
-    {
-        $sum = $sum + $value
-    }
-
-    $sum
+    $args.sum
 }
 
 
 # Take the number at the parameters and sum them all up returning the answer. The original number
 # is left untouched.
-pub fn Integer::sum($rest: Integer...): Integer
+pub fn Integer::sum($args: Integer...): Integer
 {
-    let $sum = $self
-
-    for $value in $rest
-    {
-        $sum = $sum + $value
-    }
-
-    $sum
+    $self + $args.sum
 }
 
 
 # Given a float value add it to the rest of the parameters and return the result leaving the
 # original untouched.
-pub fn Float::sum($rest: Float...): Float
+pub fn Float::sum($args: Float...): Float
 {
-    let $sum = $self
-
-    for $value in $rest
-    {
-        $sum = $sum + $value
-    }
-
-    $sum
+    $self + $args.sum
 }
 
 

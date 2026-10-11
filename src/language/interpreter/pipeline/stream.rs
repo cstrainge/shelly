@@ -97,14 +97,17 @@ impl<'a> StageStream<'a>
                 || executable.is_executable())
         {
             let name = Interpreter::command_name(&self.stage.location, executable.clone())?;
-            let (name, defaults, home) = interpreter.resolve_alias(&self.stage.location, &name)?;
+            let external_only = executable.is_external();
+            let (name, defaults, home) = if external_only
+                { (name, Vec::new(), interpreter.current_scope.clone()) }
+                else { interpreter.resolve_alias(&self.stage.location, &name)? };
             let mut resolved = defaults.into_iter().map(Value::from_string).collect::<Vec<_>>();
             resolved.extend(arguments);
             arguments = resolved;
             let scope = interpreter.scopes.get(&home).unwrap();
-            if let Some(function) = scope.function(&name)
+            if !external_only && let Some(function) = scope.function(&name)
             { executable = Value::String(name, Executable::Function(function)); }
-            else if let Some(function) = interpreter.module_native_function(&name)
+            else if !external_only && let Some(function) = interpreter.module_native_function(&name)
             { executable = Value::String(name, Executable::Native(function)); }
             else
             {

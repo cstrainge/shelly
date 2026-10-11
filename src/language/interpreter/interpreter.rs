@@ -808,7 +808,7 @@ impl Interpreter
                 Code::TryExecute =>
                     {
                         let value = Self::pop(&location, &mut stack)?;
-                        if value.is_callable()
+                        if value.is_callable() || value.is_external()
                         {
                             self.execute_value(&location, value, Vec::new())?;
                             instruction_pointer += 1;
@@ -883,7 +883,8 @@ impl Interpreter
                         }
                         self.last_result = Some(match value
                             {
-                                value if value.is_callable() => value,
+                                value if value.is_callable() || value.is_external() =>
+                                        value,
                                 value =>
                                     self.bind_executable(
                                         Value::from_executable_string(value.as_text()))
@@ -2427,7 +2428,8 @@ impl Interpreter
         &mut self, location: &Location, value: Value, args: Vec<Value>,
     ) -> InterpreterResult<()>
     {
-        if let Value::Named(item) = &value && item.value.is_callable()
+        if    let Value::Named(item) = &value
+           && (item.value.is_callable() || item.value.is_external())
         { return self.execute_value(location, item.value.clone(), args); }
         if let Value::Closure(closure) = &value
         {
@@ -2479,6 +2481,8 @@ impl Interpreter
         { return (function.body)(self, location, &args); }
         if let Value::String(_, Executable::Method(method)) = value
         { return self.execute_method(location, &method, &args); }
+        if let Value::String(name, Executable::External) = value
+        { return self.execute_external(location, self.eval_path_from(&name), args); }
         self.execute(location, Self::command_name(location, value)?, args)
     }
 
@@ -2777,6 +2781,12 @@ impl Interpreter
             return Ok(());
         }
 
+        self.execute_external(location, executable, args)
+    }
+
+    fn execute_external(&mut self, location: &Location, executable: String, args: Vec<Value>)
+        -> InterpreterResult<()>
+    {
         let env_vars = self.exported_environment(location)?;
 
 

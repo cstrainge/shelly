@@ -1,15 +1,15 @@
-# STDLIB-028: prelude functions stay qualified
+# STDLIB-028: prelude symbols support implicit and qualified access
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
 printf "%s" ("echo \"prelude\"; pub struct Shared { code: Integer }; pub enum State { Ready }; pub fn Shared::twice(): Integer { \$self.code * 2 }; pub let \$hidden = 7; pub fn hidden(\$x) { echo \$x }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
-printf "%s" ("std::prelude::hidden hi".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+printf "%s" ("std::prelude::hidden hi; hidden hi; echo \$hidden".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-028",
-    "name": "prelude functions stay qualified",
+    "name": "prelude symbols support implicit and qualified access",
     "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
     "mode": "code",
     "args": [],
-    "stdout": "prelude\nhi\n",
+    "stdout": "prelude\nhi\nhi\n7\n",
     "status": 0,
     "valid": true,
     "error": "",

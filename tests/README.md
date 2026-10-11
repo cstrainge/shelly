@@ -74,6 +74,15 @@ redirection, live exports, terminal identity/lifecycle, UTF-8 boundaries, deadli
 process-group cleanup, and Ctrl+C. `harness/` tests schema/result validation,
 catalog/matrix completeness, miniature suites exercising the actual runner, and Ctrl+C against a frozen suite.
 These tests deliberately run failing children and assert that they fail correctly.
+`native/outer_command.shy` and `repl/outer_command.shy` check `::name` external
+lookup across function, prelude, alias, and native shadows; grouped calls, literal
+arguments, saved and named-type references, redirections, pipeline data/status, missing binaries,
+malformed syntax, and REPL recovery.
+`native/prelude_symbols.shy` and `repl/prelude_symbols.shy` cover implicit public
+functions, live variables, aliases, native visibility, re-exported namespaces,
+private symbols, ordinary module imports, reload replacement/removal, binding
+conflicts, saved references, and retained module generations. The native and
+bundled-library tests also run the prelude's variadic `sum` through row pipelines.
 `native/banner_sixel.shy` checks the optional Python/Pillow banner renderer's cell
 bounding boxes and pixel dimensions, control bytes, text layout, output files, and invalid inputs.
 It skips when Python or Pillow is unavailable; the harness orchestration remains in Shelly.

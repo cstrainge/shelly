@@ -101,6 +101,28 @@ impl ScopedVariables
         self.scopes.back_mut().expect("A variable scope must exist").insert(name, binding);
     }
 
+    pub fn global_binding(&self, name: &str) -> Option<Rc<RefCell<ScopedValue>>>
+    {
+        self.scopes.front().unwrap().get(name).cloned()
+    }
+
+    pub fn import_global(&mut self, name: String, binding: Rc<RefCell<ScopedValue>>)
+    {
+        self.scopes.front_mut().unwrap().insert(name, binding);
+    }
+
+    pub fn remove_global_binding(&mut self, name: &str, binding: &Rc<RefCell<ScopedValue>>)
+        -> bool
+    {
+        let globals = self.scopes.front_mut().unwrap();
+        if globals.get(name).is_some_and(|existing| Rc::ptr_eq(existing, binding))
+        {
+            globals.remove(name);
+            return true;
+        }
+        false
+    }
+
     pub fn global_bindings(&self) -> Self
     {
         // A closure's fallback is its module, excluding the invoking function's locals.

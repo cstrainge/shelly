@@ -66,6 +66,30 @@ enum ConstructorStart
 }
 
 
+fn try_qualified_scope(buffer: &mut TokenBuffer<'_, '_>, previous: &Token) -> ParseResult<bool>
+{
+    let mut lookahead = Lookahead::new(buffer);
+    let Some(scope) = try_expect_token(lookahead.buffer, TokenKind::Scope)?
+        else { return Ok(false); };
+    let attached = scope.location.line == previous.location.line
+        && scope.location.column
+            == previous.location.column + previous.token_value_text().chars().count();
+    if !attached
+    {
+        let peek = Lookahead::new(&mut *lookahead.buffer);
+        if    let Some(next) = peek.buffer.next()?
+           && next.location.line == scope.location.line
+           && next.location.column == scope.location.column + 2
+        {
+            // A separate ::name begins an argument, rather than qualifying the preceding word.
+            return Ok(false);
+        }
+    }
+    lookahead.commit();
+    Ok(true)
+}
+
+
 fn constructor_follows(
     buffer: &mut TokenBuffer<'_, '_>, name: &Token,
 ) -> ParseResult<Option<ConstructorStart>>
@@ -146,7 +170,7 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                 {
                     let mut name = token.token_value_text();
                     let mut tail = token.clone();
-                    while try_expect_token(&mut *lookahead.buffer, TokenKind::Scope)?.is_some()
+                    while try_qualified_scope(&mut *lookahead.buffer, &tail)?
                     {
                         if !name.split("::").all(valid_type_name)
                         {
@@ -780,6 +804,31 @@ fn parse_variable_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
 }
 
 
+fn parse_outer_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
+{
+    let Some(operator) = try_expect_token(buffer, TokenKind::Scope)? else { return Ok(None); };
+    let name = buffer.next()?.ok_or_else(|| ParserError
+        {
+            location: Some(operator.location.clone()),
+            kind: ParserErrorKind::UnexpectedEOF(TokenKind::Symbol),
+        })?;
+    let text = name.token_value_text();
+    // Keywords and Boolean literals can also name external programs, such as true.
+    if    name.kind != TokenKind::Symbol
+       && !valid_type_name(&text)
+    {
+        return Err(ParserError
+            {
+                location: Some(name.location),
+                kind: ParserErrorKind::ExpectedToken(TokenKind::Symbol, Some(name.kind)),
+            });
+    }
+    let string_flag = if text.contains('$')
+        { AstStringFlag::Interpolated(Vec::new()) } else { AstStringFlag::NonInterpolated };
+    Ok(Some(new_ast_symbol(operator.location, format!("::{}", text), Some(string_flag))))
+}
+
+
 fn parse_symbol_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
     let symbol = expect_token(buffer, TokenKind::Symbol)?;
@@ -960,6 +1009,10 @@ fn parse_scalar_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
 
     // The math rule itself decides when to fall back. Once it reports malformed
     // arithmetic, do not retry it as separate literal/variable/glob arguments.
+    if let Some(expression) = parse_outer_expression(buffer)?
+    {
+        return Ok(Some(expression));
+    }
     if let Some(expression) = parse_math_expression(buffer)?
     {
         return Ok(Some(expression));
@@ -1320,6 +1373,10 @@ fn parse_arguments_before_block(buffer: &mut TokenBuffer<'_, '_>,
 
 pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
+    if let Some(expression) = parse_outer_expression(buffer)?
+    {
+        return Ok(Some(expression));
+    }
     {
         let mut lookahead = Lookahead::new(buffer);
         if    let Some(expression) = parse_math_expression(&mut *lookahead.buffer)?

@@ -1,11 +1,11 @@
-# STDLIB-029: prelude variables are not implicitly selected
+# STDLIB-029: private prelude variables are not implicitly imported
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
-printf "%s" ("echo \"prelude\"; pub struct Shared { code: Integer }; pub enum State { Ready }; pub fn Shared::twice(): Integer { \$self.code * 2 }; pub let \$hidden = 7; pub fn hidden(\$x) { echo \$x }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("echo \"prelude\"; pub struct Shared { code: Integer }; pub enum State { Ready }; pub fn Shared::twice(): Integer { \$self.code * 2 }; let \$hidden = 7; pub fn hidden(\$x) { echo \$x }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
 printf "%s" ("echo \$hidden".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-029",
-    "name": "prelude variables are not implicitly selected",
+    "name": "private prelude variables are not implicitly imported",
     "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
     "mode": "code",
     "args": [],

@@ -11,6 +11,131 @@ Shelly is early work. Development of the shell is already being done in the shel
 running builds, using development tools, and trying new features from its prompt.
 The examples below describe the current implementation.
 
+For example, a typed function can process each row of an array through a pipeline:
+
+```sh
+fn sum($args: Number...): Number
+{
+    $args.sum
+}
+
+let $result = []
+
+[[1, 1], [2, 2], [3, 3], [4, 4], [5, 5]] | sum $... | $result
+
+echo $result...
+```
+
+```text
+2 4 6 8 10
+```
+
+Each inner array becomes one pipeline item. `$...` passes its elements as separate
+arguments to `sum`, and the final `$result` destination collects the returned sums.
+See [Pipelines](#pipelines) for more examples.
+
+## Pipelines
+
+Pipelines associate left to right. Shelly stages pass their returned values with
+their types intact; external programs pass stdout as an ordinary byte stream.
+Bare `$` refers to the current incoming item within a stage. A function with no
+explicit arguments receives that item as its one argument. If arguments are
+specified, include `$` wherever the incoming item belongs:
+
+```shy
+fn increment($n: Integer): Integer { $n + 1 }
+let $answer: Integer
+7 | increment | ($ * 2) | $answer
+
+let $inputs: [Integer] = [1, 2, 3, 4, 5, 6, 7]
+let $answers: [Integer]
+$inputs | increment | ($ * 2) | $answers
+echo $answers... # 4 6 8 10 12 14 16
+
+fn append_header($message: String, $name: String, $value: String): String
+{
+    $message + "\n" + $name + ": " + $value
+}
+"hello" | append_header $ "Content-Type" "application/json"
+producer | consumer
+```
+
+Parentheses group stage expressions and let a pipeline appear inside another
+expression. A stage returning `()` passes that value onward. A final bare named
+variable is an assignment destination and must already exist. Array destinations
+collect final items, checking their element types; scalar destinations receive
+successive items and retain the last. Empty input clears an array destination and
+leaves a scalar destination unchanged. Intermediate tabular stages process one
+row at a time without collecting the complete stream.
+Property-style getters such as `$.count` keep their normal implicit call behavior.
+
+An iterable source yields items through its `next_item` protocol, just as a `for`
+loop does. Arrays yield elements, hashes yield key/value pairs, ranges yield
+integers, and custom iterators use their declared method. Iteration uses a private
+receiver, leaving the source unchanged. Only the source is expanded: an array
+returned by a later stage remains one item. An explicit outgoing format such as
+`$inputs |:json command` encodes the whole source value instead of iterating it.
+
+Conversion annotations belong to the boundary, not to command arguments:
+
+| Boundary | Operation |
+| --- | --- |
+| `|` | Pass the value or byte stream onward. |
+| `|:json` | Encode the outgoing value as JSON. |
+| `json:|` | Decode incoming JSON. |
+| `json:|:ApiResponse` | Decode JSON and convert it into `ApiResponse`. |
+| `csv:|:tsv` | Decode CSV rows, then encode each row as TSV. |
+
+```shy
+let $message = ["message": "hello"]
+$message |:json external_command
+
+struct ApiResponse { message: String }
+let $response = ApiResponse(message: "")
+let $status = external_command json:|:ApiResponse $response
+
+let $rows: [[String]]
+external_command csv:| $rows
+producer tsv:|:ssv consumer
+```
+
+`json`, `csv`, `tsv`, and `ssv` have shared conversion factories. Encoding invokes
+`String::from_<format>(value)`; decoding invokes `<format>::from_string(text)`.
+Scripted conversion factories can supply additional formats or override the
+native implementations, including through imported type extensions. A requested
+target first uses its `from_<source_type>` factory, then shared structural mapping.
+Fields and collection elements use that conversion protocol recursively.
+A name that identifies both an outgoing format and a destination type is an error.
+Unsupported formats and failed conversions report the annotated pipe's location,
+format, source type, and requested target. They never silently use display text.
+
+CSV, TSV, and SSV decode each record into `[String]`. Delimiters inside quoted
+fields, doubled quotes, embedded newlines, Unicode, and CRLF records are supported.
+There is no implicit header when decoding ordinary rows. Decoding into a struct
+uses the first record as field-name headers, then maps each row's fields to the
+struct's declared types. An array-of-struct type annotation also maps one element
+record at a time; the final destination collects the array. Add a Shelly stage to
+add or remove headers as needed.
+Direct `csv::from_string`, `tsv::from_string`, and `ssv::from_string` convert one
+record; pipelines handle multiple records incrementally. Their corresponding
+String factories accept one row or an array of rows.
+
+At an unannotated external boundary, Strings pass directly and other values need
+the existing String conversion protocol. Structured arrays, hashes, and structs
+need an explicit encoding or a matching String conversion factory. Unannotated
+external output entering a Shelly stage becomes a String after EOF; invalid UTF-8
+is an error there. Bytes between external programs are preserved without UTF-8
+conversion. External stages with explicit `$` arguments run once per incoming
+item with closed stdin; other external consumers read one continuous stdin stream.
+
+Execution status stays separate from data. If any external stage participates,
+the pipeline expression returns an aggregate `ExecResult`: the first failing
+stage's status, or success if all stages succeed. Stdout or decoded values travel
+through stages and into destinations independently. Capturing the status, as
+above, allows the existing `ExecResult` handling; an uncaptured failure fails the
+script. Pipelines made entirely of Shelly values and functions return their final
+value. Existing `->`, `~->`, and `~+->` redirections retain their meanings.
+
 ## Build and run
 
 Shelly runs on Linux (including WSL) and macOS. Build with a Rust toolchain
@@ -1975,6 +2100,23 @@ Resolution expands aliases, then checks builtins, functions, and external
 programs, in that order. An alias can add defaults to its own command name;
 indirect alias cycles produce an error.
 
+Prefix a command with `::` to bypass aliases, Shelly functions, and native
+builtins and run an external executable through `$PATH` (or at the specified path):
+
+```shy
+echo (sum 1 2 3)          # The prelude's sum: 6
+::sum input.txt          # The external checksum program
+echo (::sum input.txt)   # Prints the checksum, then its ExecResult status
+"hello" | ::cat          # External cat receives the pipeline text
+let $external_sum = `::sum
+$external_sum input.txt
+```
+
+A missing external executable is an error; lookup never falls back to an
+interpreter definition. Within command arguments, `::sum` stays literal unless
+grouped or explicitly stored as an executable reference. Qualified module names
+such as `std::prelude::sum` retain their usual meaning.
+
 Shelly imports the environment. New variables are private unless declared with
 `let export`; only exported variables reach child processes.
 
@@ -2048,110 +2190,8 @@ command. Redirections also apply to commands called inside Shelly functions and
 to builtin diagnostics. Streams are restored on completion, errors, and returns.
 Each stream may be redirected once per expression. Left-facing redirection
 operators are not supported. Input from files or variables into a process will
-use the `|` pipelines described below. Append redirection is also
+use the [pipelines](#pipelines) described above. Append redirection is also
 not implemented.
-
-### Pipelines
-
-Pipelines associate left to right. Shelly stages pass their returned values with
-their types intact; external programs pass stdout as an ordinary byte stream.
-Bare `$` refers to the current incoming item within a stage. A function with no
-explicit arguments receives that item as its one argument. If arguments are
-specified, include `$` wherever the incoming item belongs:
-
-```shy
-fn increment($n: Integer): Integer { $n + 1 }
-let $answer: Integer
-7 | increment | ($ * 2) | $answer
-
-let $inputs: [Integer] = [1, 2, 3, 4, 5, 6, 7]
-let $answers: [Integer]
-$inputs | increment | ($ * 2) | $answers
-echo $answers... # 4 6 8 10 12 14 16
-
-fn append_header($message: String, $name: String, $value: String): String
-{
-    $message + "\n" + $name + ": " + $value
-}
-"hello" | append_header $ "Content-Type" "application/json"
-producer | consumer
-```
-
-Parentheses group stage expressions and let a pipeline appear inside another
-expression. A stage returning `()` passes that value onward. A final bare named
-variable is an assignment destination and must already exist. Array destinations
-collect final items, checking their element types; scalar destinations receive
-successive items and retain the last. Empty input clears an array destination and
-leaves a scalar destination unchanged. Intermediate tabular stages process one
-row at a time without collecting the complete stream.
-Property-style getters such as `$.count` keep their normal implicit call behavior.
-
-An iterable source yields items through its `next_item` protocol, just as a `for`
-loop does. Arrays yield elements, hashes yield key/value pairs, ranges yield
-integers, and custom iterators use their declared method. Iteration uses a private
-receiver, leaving the source unchanged. Only the source is expanded: an array
-returned by a later stage remains one item. An explicit outgoing format such as
-`$inputs |:json command` encodes the whole source value instead of iterating it.
-
-Conversion annotations belong to the boundary, not to command arguments:
-
-| Boundary | Operation |
-| --- | --- |
-| `|` | Pass the value or byte stream onward. |
-| `|:json` | Encode the outgoing value as JSON. |
-| `json:|` | Decode incoming JSON. |
-| `json:|:ApiResponse` | Decode JSON and convert it into `ApiResponse`. |
-| `csv:|:tsv` | Decode CSV rows, then encode each row as TSV. |
-
-```shy
-let $message = ["message": "hello"]
-$message |:json external_command
-
-struct ApiResponse { message: String }
-let $response = ApiResponse(message: "")
-let $status = external_command json:|:ApiResponse $response
-
-let $rows: [[String]]
-external_command csv:| $rows
-producer tsv:|:ssv consumer
-```
-
-`json`, `csv`, `tsv`, and `ssv` have shared conversion factories. Encoding invokes
-`String::from_<format>(value)`; decoding invokes `<format>::from_string(text)`.
-Scripted conversion factories can supply additional formats or override the
-native implementations, including through imported type extensions. A requested
-target first uses its `from_<source_type>` factory, then shared structural mapping.
-Fields and collection elements use that conversion protocol recursively.
-A name that identifies both an outgoing format and a destination type is an error.
-Unsupported formats and failed conversions report the annotated pipe's location,
-format, source type, and requested target. They never silently use display text.
-
-CSV, TSV, and SSV decode each record into `[String]`. Delimiters inside quoted
-fields, doubled quotes, embedded newlines, Unicode, and CRLF records are supported.
-There is no implicit header when decoding ordinary rows. Decoding into a struct
-uses the first record as field-name headers, then maps each row's fields to the
-struct's declared types. An array-of-struct type annotation also maps one element
-record at a time; the final destination collects the array. Add a Shelly stage to
-add or remove headers as needed.
-Direct `csv::from_string`, `tsv::from_string`, and `ssv::from_string` convert one
-record; pipelines handle multiple records incrementally. Their corresponding
-String factories accept one row or an array of rows.
-
-At an unannotated external boundary, Strings pass directly and other values need
-the existing String conversion protocol. Structured arrays, hashes, and structs
-need an explicit encoding or a matching String conversion factory. Unannotated
-external output entering a Shelly stage becomes a String after EOF; invalid UTF-8
-is an error there. Bytes between external programs are preserved without UTF-8
-conversion. External stages with explicit `$` arguments run once per incoming
-item with closed stdin; other external consumers read one continuous stdin stream.
-
-Execution status stays separate from data. If any external stage participates,
-the pipeline expression returns an aggregate `ExecResult`: the first failing
-stage's status, or success if all stages succeed. Stdout or decoded values travel
-through stages and into destinations independently. Capturing the status, as
-above, allows the existing `ExecResult` handling; an uncaptured failure fails the
-script. Pipelines made entirely of Shelly values and functions return their final
-value. Existing `->`, `~->`, and `~+->` redirections retain their meanings.
 
 ## Supervised processes and terminals
 
@@ -2413,13 +2453,15 @@ Qualified access retains the `std::` prefix, including variables
 (`$std::foo::value`) and types (`std::foo::Type`).
 
 Shelly selects `std::prelude` by searching for `prelude.shy` using the same
-standard-library search path. Its public types are automatically available
-without qualification in the main scope and subsequently loaded modules. These
-imports share the original type handles and preserve type identity. Prelude
-functions and variables remain qualified unless explicitly selected:
+standard-library search path. All its public symbols are automatically available
+without qualification in the main scope and subsequently loaded modules, including
+types, functions, variables, aliases, native symbols, and re-exported modules.
+These imports share the original handles, preserving type identity and live variable
+bindings. Private symbols remain private, and other modules still require explicit
+imports. For example, the prelude's `sum` needs no import:
 
 ```shy
-import std::prelude::{ helper, $setting }
+echo (sum 1 2 3) # 6
 ```
 
 Startup runs in this order:
@@ -2429,12 +2471,12 @@ Startup runs in this order:
 | `/etc/shelly/profile.shy` | Login shells (`-l` or `--login`) | System-wide environment and library selection. |
 | `~/.shelly_profile.shy` | Login shells, after the system profile | User environment and overrides. |
 | Initial prelude load | All modes, unless already loaded by a profile | Select and execute the prelude once. |
-| `~/.shelly_init.shy` or `--rcfile PATH` | Interactive shells, unless `--norc` | User configuration with prelude types available. |
+| `~/.shelly_init.shy` or `--rcfile PATH` | Interactive shells, unless `--norc` | User configuration with public prelude symbols available. |
 | User input or script | After startup | Execute commands with the selected prelude. |
 
 Missing profile files are skipped. Profiles initially have no implicit prelude;
 they can configure its location before it loads. If the system profile explicitly
-loads it, the user profile also has those types available. Non-login shells skip
+loads it, the user profile also has those symbols available. Non-login shells skip
 both profiles and select the library from their inherited environment.
 Noninteractive script, `-c`, and stdin modes still load the prelude, but skip the
 interactive init file. `--norc` skips only that init file, not login profiles or
@@ -2476,7 +2518,7 @@ prelude remains cached even if its source file is removed. Explicit
 If an explicit search path contains no prelude, execution continues without one
 and Shelly does not automatically search again. Errors in a prelude found during
 automatic initialization stop startup. The prelude does not implicitly import
-itself; its dependencies bootstrap before its exported types are distributed.
+itself; its dependencies bootstrap before its public symbols are distributed.
 
 The read-only builtin `$SHELLY_STD_FOUND` reports the containing directory of the
 current module's selected prelude, `"embedded"` for the bundled library, or `()`
@@ -2495,15 +2537,18 @@ echo $SHELLY_STD_FOUND
 `prelude_reload` searches the current `$SHELLY_STD_PATH`, or the system directories
 followed by the bundled library when unset, and executes the selected prelude again.
 
-A successful reload replaces the implicit prelude types and `std::prelude`
+A successful reload replaces the implicit prelude symbols and `std::prelude`
 namespace in the current module scope, and supplies that generation to future
-modules. Previously loaded modules retain their bindings. Existing values,
-function references, and explicitly selected functions or variables keep their
-original identities. Old implicit type names absent from the new prelude are
-removed; conflicting local types cause an error. Reloading the same file still
-creates new nominal types. Dependencies already loaded remain cached.
+modules. Previously loaded modules retain their bindings. Existing values and
+saved function references keep their original identities. Selecting a symbol
+already imported implicitly is idempotent; its binding follows later reloads.
+Old implicit names absent from the new prelude are removed. Local declarations
+are preserved; conflicts with new prelude symbols cause an error. Implicit
+imports are private to the receiving module unless explicitly re-exported with
+`pub`. Reloading the same file still creates new nominal types. Dependencies
+already loaded remain cached.
 
-New type bindings apply to subsequent compilations: the next REPL input, startup
+New type and function bindings apply to subsequent compilations: the next REPL input, startup
 script, or newly loaded module. A script's imports and type references are
 resolved before its body runs, so a reload in that body cannot retroactively
 change them.
@@ -2515,7 +2560,7 @@ Recursive reloads during prelude loading are rejected.
 
 All `when` conditions are evaluated before loading the containing file's explicit
 imports or compiling its body. They see the existing caller environment, including
-prelude types and prior REPL submissions, and cannot use names declared or imported
+public prelude symbols and prior REPL submissions, and cannot use names declared or imported
 in the same file.
 A false condition skips file lookup and initialization entirely. After the
 conditions are evaluated, enabled imports load in source order, then the body

@@ -98,6 +98,8 @@ pub type CompileResult<T> = Result<T, CompileError>;
 fn bind_known_function(block: &FunctionBlockRef, value: Value) -> Value
 {
     let Value::String(name, _) = &value else { return value; };
+    if let Some(name) = name.strip_prefix("::")
+    { return Value::String(name.to_string(), Executable::External); }
     if block.borrow().builtins.contains(name.as_str()) { return value; }
     let mut scope = Some(block.clone());
     while let Some(current) = scope

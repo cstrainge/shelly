@@ -1,0 +1,32 @@
+# Stored external references and the prefix keep working across REPL submissions.
+let $fixture = $args[0]
+for $name in ["sum", "shadow_tool", "cd"]
+{
+    printf "%s\n%s\n" "#!${shelly}" '/usr/bin/printf $args...' -> "${fixture}/bin/${name}"
+    chmod +x "${fixture}/bin/${name}"
+}
+check_repl ["id": "OUTER-COMMAND", "name": "External command prefix", "steps": [
+    ["let export \$PATH = \"<FIXTURE>/bin:/usr/bin:/bin\"; fn sum(\$args: Number...): Number { 99 }", "quiet", ""],
+    ["echo (sum 1 2)", "output", "99"],
+    ["let \$out: String; ::sum \"%s\" external -> \$out; echo \$out", "output", "external"],
+    ["fn sum(\$args: Number...): Number { 77 }; let \$status = ::sum \"%s\" binary -> \$out; echo (sum 1) \$out \$status", "output", "77 binary ExecResult(0)"],
+    ["alias shadow_tool = echo alias; ::shadow_tool \"%s\\n\" external", "output", "external"],
+    ["let \$saved = `::shadow_tool; let \$again = `\$saved", "quiet", ""],
+    ["fn shadow_tool(\$args...): String { \"local\" }; \$saved \"%s\\n\" saved; \$again \"%s\\n\" saved-again", "output", "saved\nsaved-again"],
+    ["echo ::sum ::shadow_tool", "output", "::sum ::shadow_tool"],
+    ["fn cat(\$v: String): String { \"wrong\" }; \"text\" | ::cat | \$out; echo \$out", "output", "text"],
+    ["let \$cat = `::cat; \"saved-text\" | \$cat | \$out; echo \$out", "output", "saved-text"],
+    ["type Command = String; let \$cmd: Command = `::shadow_tool; let \$reescaped = `\$cmd", "quiet", ""],
+    ["\$cmd \"%s\\n\" named; \$reescaped \"%s\\n\" named-again", "output", "named\nnamed-again"],
+    ["let \$named_cat: Command = `::cat; \"named-text\" | \$named_cat | \$out; echo \$out", "output", "named-text"],
+    ["let \$items: String; [1, 2] | ::shadow_tool \"%s\" \$ | \$items; echo \$items", "output", "12"],
+    ["::cd \"%s\\n\" external-cd", "output", "external-cd"],
+    ["echo (::true)", "output", "ExecResult(0)"],
+    ["let \$status = ::false; echo \$status", "output", "ExecResult(1)"],
+    ["::false", "error", "Executable returned error code: 1"],
+    ["(::missing_outer_executable)", "error", "Executable not found"],
+    ["echo (::)", "error", "Parser error"],
+    ["echo (sum 1 2 3); \$saved \"%s\\n\" still-external", "output", "77\nstill-external"],
+    ["let export \$PATH = \"/missing\"; ::sum \"%s\" wrong", "error", "Executable not found: sum"],
+    ["let export \$PATH = \"<FIXTURE>/bin:/usr/bin:/bin\"; echo (sum 1)", "output", "77"]
+], "exit": 0]

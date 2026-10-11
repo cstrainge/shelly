@@ -1,0 +1,64 @@
+# ::name always selects an external executable, including in pipelines and references.
+let $fixture = $args[0]
+mkdir -p "${fixture}/bin" "${fixture}/std"
+for $name in ["sum", "shadow_tool", "cd", "fn"]
+{
+    printf "%s\n%s\n" "#!${shelly}" '/usr/bin/printf $args...' -> "${fixture}/bin/${name}"
+    chmod +x "${fixture}/bin/${name}"
+}
+printf "%s" 'pub fn sum($args: Number...): Number { 99 }; pub fn shadow_tool($args...): String { "function" }' -> "${fixture}/std/prelude.shy"
+printf "%s" 'pub fn tool(): String { "module" }' -> "${fixture}/library.shy"
+
+fn outer_case($source: String, $expected: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "${fixture}/bin:/usr/bin:/bin",
+            "SHELLY_STD_PATH": "${fixture}/std", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    require (($reply["error"] == ()) && ($reply["signal"] == ()) &&
+        (!$reply["timed_out"])) "outer command child failed"
+    if ($out != $expected) || (($diagnostic == "") &&
+        (($reply["exit_code"] != 0) || ($err != ""))) ||
+        (($diagnostic != "") && (($reply["exit_code"] == 0) || (!($err.contains $diagnostic))))
+    { echo $source $reply $out $err; fail "outer command mismatch" }
+}
+outer_case 'echo (sum 1 2); ::sum "%s\\n" external' "99\nexternal\n" ""
+outer_case 'fn shadow_tool($args...) { "local" }; ::shadow_tool "%s\\n" external' "external\n" ""
+outer_case 'alias shadow_tool = echo alias; ::shadow_tool "%s\\n" external' "external\n" ""
+outer_case 'alias shadow_tool = shadow_tool extra; ::shadow_tool "%s\\n" external' "external\n" ""
+outer_case 'alias shadow_tool = other; alias other = shadow_tool; ::shadow_tool "%s\\n" external' "external\n" ""
+outer_case '::echo external; ::cd "%s\\n" external-cd; ::fn "%s\\n" keyword' "external\nexternal-cd\nkeyword\n" ""
+outer_case 'let $status = ::true; echo $status; let $failed = ::false; echo $failed' "ExecResult(0)\nExecResult(1)\n" ""
+outer_case 'let $out: String; let $status = ::sum "%s" captured -> $out; echo $out $status' "captured ExecResult(0)\n" ""
+outer_case 'let $out: String; (::sum "%s" grouped) -> $out; echo $out' "grouped\n" ""
+outer_case '::sum "%s" file -> result.txt; let $out: String; result.txt -> $out; echo $out' "file\n" ""
+outer_case 'echo (::true)' "ExecResult(0)\n" ""
+outer_case 'let $cmd = `::shadow_tool; fn shadow_tool($args...) { "new" }; $cmd "%s\\n" saved' "saved\n" ""
+outer_case 'let $cmd = `::shadow_tool; let $again = `$cmd; $again "%s\\n" saved' "saved\n" ""
+outer_case 'let $commands = [`::shadow_tool]; $commands[0] "%s\\n" indexed' "indexed\n" ""
+outer_case 'type Command = String; let $cmd: Command = `::shadow_tool; fn shadow_tool($args...) { "wrong" }; $cmd "%s\\n" named; let $again = `$cmd; $again "%s\\n" named-again' "named\nnamed-again\n" ""
+outer_case 'type Command = String; let $cmd: Command = `::true; echo ($cmd)' "ExecResult(0)\n" ""
+outer_case 'type Command = String; let $cmd: Command = `::cat; fn cat($v: String): String { "wrong" }; let $out: String; "named-text" | $cmd | $out; echo $out' "named-text\n" ""
+outer_case 'echo ::sum; fn identity($v: String): String { $v }; echo (identity ::sum)' "::sum\n::sum\n" ""
+outer_case 'import library; echo (library::tool) (library :: tool)' "module module\n" ""
+outer_case 'let $out: String; ::printf "%s" text | ::cat | $out; echo $out' "text\n" ""
+outer_case 'let $out: String; "text" | ::cat | $out; echo $out' "text\n" ""
+outer_case 'let $cmd = `::cat; let $out: String; "text" | $cmd | $out; echo $out' "text\n" ""
+outer_case 'let $out: String; [1, 2] | ::shadow_tool "%s" $ | $out; echo $out' "12\n" ""
+outer_case 'let $out: [Integer]; ::printf "a,b\\nc,d\\n" csv:| $.count | $out; echo $out...' "2 2\n" ""
+outer_case 'let $out: String; fn printf($args...) { "wrong" }; alias cat = echo wrong; ::printf "%s" text | ::cat | $out; echo $out' "text\n" ""
+outer_case 'let $out: String; let $status = ::false | ::cat | $out; echo $status ($out == "")' "ExecResult(1) true\n" ""
+outer_case 'let export $PATH = "/missing"; ::sum "%s" wrong' "" "Executable not found: sum"
+outer_case '(::missing_outer_executable)' "" "Executable not found: missing_outer_executable"
+outer_case '::missing_outer_executable | ::cat' "" "Executable not found: missing_outer_executable"
+outer_case 'let $out: String; ::missing_outer_executable -> $out' "" "Executable not found: missing_outer_executable"
+outer_case '::false' "" "Executable returned error code: 1"
+outer_case '::' "" "Parser error"
+outer_case 'echo (::)' "" "Parser error"
+outer_case 'echo (::42)' "" "Parser error"

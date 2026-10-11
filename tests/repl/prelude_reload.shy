@@ -19,7 +19,7 @@ check_repl ["id": "PRELUDE-RELOAD", "name": "PRELUDE-RELOAD", "steps": [
     ["printf \"%s\" \"pub import dep::{ Stable }; echo loaded-two; pub let \\\$label = \\\"two\\\"; pub struct Shared { code: Integer }; pub struct Added {}; pub enum State { Ready }; pub fn Shared::label(): String { \\\$label }; pub fn read(): String { \\\$label }\" -> \"<FIXTURE>/one/prelude.shy\"", "quiet", ""],
     ["prelude_reload", "output", "loaded-two"],
     ["let \$new = Shared(code: 3); echo \$saved.label \$new.label (\$saved == \$new) (\$state == State::Ready)", "output", "one two false false"],
-    ["echo (read) \$label (std::prelude::read) (\$bound) (\$function) (\$stable == Stable())", "output", "one one two one one true"],
+    ["echo (read) \$label (std::prelude::read) (\$bound) (\$function) (\$stable == Stable())", "output", "two two two one one true"],
     ["let \$old: std::helper::Shared = std::helper::build; echo \$old.label (std::helper::label)", "output", "one one"],
     ["let \$wrong: Shared = std::helper::build", "error", "Type error"],
     ["import local; let \$fresh: Shared = local::build; echo \$fresh.label (local::label)", "output", "two two"],

@@ -72,11 +72,12 @@ extension_case "import ext_hidden_override; echo (ext_hidden_override::wrapped)"
 extension_case "import ext_hidden_override; echo \"x\".tag" "" "field"
 extension_case "import ext_public_override; echo \"x\".tag" "wrapped\n" ""
 printf "%s" "pub import std::ext_tools::{ helper }" -> "${fixture}/std/prelude.shy"
-extension_case "echo \"x\".std_tag" "std:x\n" ""
+extension_case "echo \"x\".std_tag (helper)" "std:x std-helper\n" ""
 extension_case "import ext_prelude_user; echo (ext_prelude_user::render)" "std:x\n" ""
 
 # Explicit imported factories supersede typedef defaults in either import order.
 
+printf "%s" "" -> "${fixture}/std/prelude.shy"
 printf "%s" "pub import ext_base::{ Count }; pub fn Count::from_integer(\$v: Integer): Count { \$v + 100 }; pub fn helper(): String { \"integer\" }" -> "${fixture}/ext_integer.shy"
 printf "%s" "pub import ext_base::{ Count }; pub fn Count::from_integer(\$v: Integer): Count { \$v + 200 }" -> "${fixture}/ext_integer_other.shy"
 printf "%s" "pub import ext_integer::{ Count, helper }" -> "${fixture}/ext_integer_bridge.shy"

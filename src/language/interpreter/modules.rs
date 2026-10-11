@@ -12,7 +12,7 @@ use crate::language::{ ast::{ AstExpression, AstExpressionKind, AstImportStateme
                               AstStatement, AstTopLevel },
                        bytecode::{ FunctionRef, Instruction },
                        data::{ scoped_variables::{ ScopedValue, ValueReference, ValueVisibility },
-                               types::{ TypeDefinition, TypeId }, value::Value,
+                               types::TypeId, value::Value,
                                methods::method_key, conversion::is_conversion_method },
                        native::NativeFunction,
                        interpreter::{ bundled_std::source as bundled_source,
@@ -32,7 +32,6 @@ pub(super) struct Prelude
 {
     scope: String,
     source: String,
-    types: HashMap<String, Rc<TypeDefinition>>,
 }
 
 
@@ -316,10 +315,7 @@ impl Interpreter
         if self.halted { return Ok(()); }
         let source = source.library_location();
         self.scopes.get_mut(&key).unwrap().prelude_source = Some(source.clone());
-        let scope = &self.scopes[&key];
-        let types = scope.exports.iter().filter_map(|name|
-            scope.types.names.get(name).map(|id| (name.clone(), scope.types.get(*id)))).collect();
-        self.prelude = Some(Prelude { scope: key.clone(), source, types });
+        self.prelude = Some(Prelude { scope: key.clone(), source });
         let loaded: Vec<_> = self.scopes.keys().filter(|name| **name != key).cloned().collect();
         for name in loaded
         {
@@ -359,22 +355,13 @@ impl Interpreter
         if self.halted { return Ok(()); }
         let source = source.library_location();
         self.scopes.get_mut(&key).unwrap().prelude_source = Some(source.clone());
-        let scope = &self.scopes[&key];
-        let types = scope.exports.iter().filter_map(|name|
-            scope.types.names.get(name).map(|id| (name.clone(), scope.types.get(*id)))).collect();
-        let previous = self.prelude.replace(Prelude { scope: key, source, types });
+        let previous = self.prelude.replace(Prelude { scope: key, source });
         let checkpoint = self.scope().checkpoint();
         // Only remove bindings still belonging to this scope's previous implicit prelude.
         // A declaration that shadows one of those bindings must not be overwritten.
-        for (name, id) in take(&mut self.scope_mut().prelude_types)
+        for (name, binding) in take(&mut self.scope_mut().prelude_bindings)
         {
-            let scope = self.scope_mut();
-            if scope.types.names.get(&name) == Some(&id)
-            {
-                scope.types.names.remove(&name);
-                scope.imported_types.remove(&name);
-                scope.exports.remove(&name);
-            }
+            self.scope_mut().remove_prelude_binding(&name, binding);
         }
         if let Err(error) = self.install_prelude(location)
             .and_then(|()| self.refresh_module_names())
@@ -392,22 +379,34 @@ impl Interpreter
         if self.prelude_loading { return Ok(()); }
         let Some(prelude) = self.prelude.clone() else { return Ok(()); };
         if self.current_scope == prelude.scope { return Ok(()); }
-        for (name, definition) in &prelude.types
+        let mut names: Vec<_> = self.scopes[&prelude.scope].exports.iter()
+            .filter(|name| !name.starts_with("\0method:")).cloned().collect();
+        names.sort();
+        for name in &names
         {
-            if self.scope().types.names.get(name).is_some_and(|id| *id != definition.id)
+            if    let Some(id) = self.scopes[&prelude.scope].types.names.get(name)
+               && self.scope().types.names.get(name).is_some_and(|existing| existing != id)
             {
                 return Err(module_error(location,
                     format!("Prelude type '{}' conflicts with an existing type", name)));
             }
         }
-        let scope = self.scope_mut();
-        scope.prelude_source = Some(prelude.source);
-        scope.types.names.extend(prelude.types.iter().map(|(name, item)| (name.clone(), item.id)));
-        scope.prelude_types = prelude.types.iter()
-            .map(|(name, item)| (name.clone(), item.id)).collect();
-        scope.imported_types.extend(prelude.types);
-        scope.modules.insert("std::prelude".into(), prelude.scope);
-        scope.types.module_names.insert("std".into());
+        let new_names: Vec<_> = names.iter()
+            .filter(|name| self.scope().prelude_binding(name).is_none()).cloned().collect();
+        self.scope_mut().modules.insert("std::prelude".into(), prelude.scope.clone());
+        let import = AstImportStatement
+            {
+                public: false, location: location.clone(), module: "std::prelude".into(),
+                names, condition: None, enabled: true,
+            };
+        self.install_import_bindings(&import, &prelude.scope, true)?;
+        for name in new_names
+        {
+            let binding = self.scope().prelude_binding(&name).unwrap();
+            self.scope_mut().prelude_bindings.insert(name, binding);
+        }
+        self.scope_mut().prelude_source = Some(prelude.source);
+        self.scope_mut().types.module_names.insert("std".into());
         Ok(())
     }
 
@@ -473,6 +472,12 @@ impl Interpreter
 
     fn install_import(&mut self, import: &AstImportStatement, key: &str) -> InterpreterResult<()>
     {
+        self.install_import_bindings(import, key, false)
+    }
+
+    fn install_import_bindings(&mut self, import: &AstImportStatement, key: &str,
+                               global_variables: bool) -> InterpreterResult<()>
+    {
         if self.scope().modules.get(&import.module).is_some_and(|existing| existing != key)
         {
             return Err(module_error(&import.location,
@@ -490,13 +495,17 @@ impl Interpreter
             {
                 let binding = module.variables.binding(name).ok_or_else(|| module_error(
                     &import.location, format!("Module variable '{}' is unavailable", name)))?;
-                if    let Some(existing) = self.scope().variables.binding(name)
+                let existing = if global_variables { self.scope().variables.global_binding(name) }
+                    else { self.scope().variables.binding(name) };
+                if    let Some(existing) = existing
                    && !Rc::ptr_eq(&existing, &binding)
                 {
                     return Err(module_error(&import.location,
                         format!("Variable '{}' is already bound", name)));
                 }
-                self.scope_mut().variables.import(name.clone(), binding);
+                if global_variables
+                { self.scope_mut().variables.import_global(name.clone(), binding); }
+                else { self.scope_mut().variables.import(name.clone(), binding); }
             }
             else if let Some(id) = module.types.names.get(name)
             {

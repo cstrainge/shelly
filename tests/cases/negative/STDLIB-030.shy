@@ -1,11 +1,11 @@
-# STDLIB-030: prelude function is not implicitly selected
+# STDLIB-030: private prelude function is not implicitly imported
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
-printf "%s" ("pub fn unique_std_hidden(\$x) { echo wrong }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("fn unique_std_hidden(\$x) { echo wrong }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
 printf "%s" ("unique_std_hidden 1".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-030",
-    "name": "prelude function is not implicitly selected",
+    "name": "private prelude function is not implicitly imported",
     "source": "env \"SHELLY_STD_PATH=<FIXTURE>/std\" \"SHELLY_MODULE_PATH=<FIXTURE>/lib\" \$shelly -m \"<FIXTURE>/entry.shy\"",
     "mode": "code",
     "args": [],

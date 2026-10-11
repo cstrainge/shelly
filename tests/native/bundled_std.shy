@@ -81,6 +81,7 @@ bundled_case "echo (1.0.sum 2)" ["SHELLY_STD_PATH": "${fixture}/bad"] "" "Cannot
 bundled_case "echo \$SHELLY_STD_FOUND" ["SHELLY_STD_PATH": "${fixture}/bad"] "${fixture}/bad\n" ""
 
 # The marker is reserved only for std lookups, and ./bundled is a real directory.
+bundled_case "echo (sum 1 2 3); let \$result = []; [[1, 1], [2, 2], [3, 3]] | sum \$... | \$result; echo \$result..." ["SHELLY_STD_PATH": "bundled"] "6\n2 4 6\n" ""
 mkdir -p "${fixture}/portable/work/bundled"
 printf "%s" 'pub fn label(): String { "ordinary" }' -> "${fixture}/portable/work/bundled/side.shy"
 printf "%s" 'pub fn command_time_widget(): String { "directory" }' -> "${fixture}/portable/work/bundled/widgets.shy"

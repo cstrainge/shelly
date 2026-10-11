@@ -1,0 +1,68 @@
+# Every public prelude symbol is implicit; imports still share original bindings.
+let $fixture = $args[0]
+let $suite = $args[1]
+mkdir -p "${fixture}/std" "${fixture}/empty"
+printf "%s" 'pub fn selected(): String { "selected" }; pub let $selected_value = 8; fn private_selected() { "private" }' -> "${fixture}/std/dep.shy"
+printf "%s" 'pub fn greet(): String { "namespace" }' -> "${fixture}/std/nested.shy"
+printf "%s" '*
+pub struct Marker {}
+pub let $counter: Integer = 3
+let $secret = 99
+pub fn read(): Integer { $counter }
+pub fn bump(): Integer { $counter = $counter + 1; $counter }
+fn private_read(): Integer { $secret }
+pub alias prelude_say = read
+pub visible `cd
+pub import dep::{ selected, $selected_value }
+pub import nested
+*' -> "${fixture}/std/prelude.shy"
+printf "%s" 'pub fn use_prelude(): String { "${counter}:${selected_value}:" + (selected) + ":" + (nested::greet) }; pub fn increase(): Integer { bump }; pub fn marker(): Marker { Marker() }' -> "${fixture}/consumer.shy"
+printf "%s" 'pub import std::prelude::{ read, $counter, Marker, prelude_say }; pub fn use_prelude(): Integer { read }' -> "${fixture}/bridge.shy"
+printf "%s" 'pub fn own(): String { "ordinary" }; pub let $own_value = 5; fn private_own() { "private" }' -> "${fixture}/ordinary.shy"
+printf "%s" '' -> "${fixture}/empty/prelude.shy"
+
+fn prelude_case($source: String, $expected: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "${fixture}/std", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    require (($reply["error"] == ()) && ($reply["signal"] == ()) &&
+        (!$reply["timed_out"])) "prelude child failed"
+    if ($out != $expected) || (($diagnostic == "") &&
+        (($reply["exit_code"] != 0) || ($err != ""))) ||
+        (($diagnostic != "") && (($reply["exit_code"] == 0) || (!($err.contains $diagnostic))))
+    { echo $source $reply $out $err; fail "implicit prelude mismatch" }
+}
+prelude_case 'echo (read) $counter (prelude_say) (selected) $selected_value (nested::greet) Marker()' "3 3 3 selected 8 namespace Marker()\n" ""
+prelude_case 'import std::prelude::{ read, $counter, selected, prelude_say }; echo (read) $counter (selected) (prelude_say)' "3 3 selected 3\n" ""
+prelude_case 'import consumer; echo (consumer::use_prelude) (consumer::marker)' "3:8:selected:namespace Marker()\n" ""
+prelude_case 'import consumer; $counter = 10; echo (consumer::increase) $counter $std::prelude::counter' "11 11 11\n" ""
+prelude_case 'import bridge; echo (bridge::read) $bridge::counter (bridge::prelude_say) bridge::Marker()' "3 3 3 Marker()\n" ""
+prelude_case 'import bridge; $bridge::counter = 12; echo $counter (read)' "12 12\n" ""
+prelude_case 'fn read(): Integer { 42 }; echo (read) (std::prelude::read)' "42 3\n" ""
+prelude_case 'let $counter = 42; echo $counter $std::prelude::counter' "42 3\n" ""
+prelude_case 'alias prelude_say = echo local; prelude_say' "local\n" ""
+prelude_case 'import ordinary; echo (ordinary::own) $ordinary::own_value' "ordinary 5\n" ""
+prelude_case 'import ordinary::{ own, $own_value }; echo (own) $own_value' "ordinary 5\n" ""
+prelude_case 'import ordinary; own' "" "Executable not found"
+prelude_case 'echo $secret' "" "not found"
+prelude_case 'private_read' "" "Executable not found"
+prelude_case 'import consumer; consumer::read' "" "unavailable"
+prelude_case 'import consumer; echo $consumer::counter' "" "not found"
+prelude_case 'import consumer; consumer::nested::greet' "" "unavailable"
+prelude_case 'import ordinary::{ private_own }' "" "has no member"
+prelude_case 'fn read(): Integer { 42 }; prelude_reload' "" "already bound"
+prelude_case 'let $counter = 42; prelude_reload' "" "already bound"
+prelude_case 'alias prelude_say = echo local; prelude_reload' "" "already bound"
+# An existing globally visible native remains available when a reload stops publishing it.
+prelude_case 'let $SHELLY_STD_PATH = "empty"; prelude_reload; cd "."; echo native-ok' "native-ok\n" ""
+# Exercise the shipped sum without a local definition, for filesystem and embedded libraries.
+cp "${suite}/std/prelude.shy" "${fixture}/std/prelude.shy"
+prelude_case 'echo (sum) (sum 1 2 3) (sum 1 2.5); let $result = []; [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5]] | sum $... | $result; echo $result...' "0 6 3.5\n2 4 6 8 10\n" ""

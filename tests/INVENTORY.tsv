@@ -4296,9 +4296,9 @@ STDLIB-024	negative	standard cycles diagnosed	tests/cases/negative/STDLIB-024.sh
 STDLIB-025	positive	prelude types available in main	tests/cases/positive/STDLIB-025.shy
 STDLIB-026	positive	prelude types shared by all modules	tests/cases/positive/STDLIB-026.shy
 STDLIB-027	positive	explicit prelude uses initialization cache	tests/cases/positive/STDLIB-027.shy
-STDLIB-028	positive	prelude functions stay qualified	tests/cases/positive/STDLIB-028.shy
-STDLIB-029	negative	prelude variables are not implicitly selected	tests/cases/negative/STDLIB-029.shy
-STDLIB-030	negative	prelude function is not implicitly selected	tests/cases/negative/STDLIB-030.shy
+STDLIB-028	positive	prelude symbols support implicit and qualified access	tests/cases/positive/STDLIB-028.shy
+STDLIB-029	negative	private prelude variables are not implicitly imported	tests/cases/negative/STDLIB-029.shy
+STDLIB-030	negative	private prelude function is not implicitly imported	tests/cases/negative/STDLIB-030.shy
 STDLIB-031	positive	missing prelude allowed	tests/cases/positive/STDLIB-031.shy
 STDLIB-032	positive	prelude lookup ignores ordinary module path	tests/cases/positive/STDLIB-032.shy
 STDLIB-033	positive	prelude first directory wins	tests/cases/positive/STDLIB-033.shy

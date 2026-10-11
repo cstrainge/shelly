@@ -20,6 +20,18 @@ pub struct Alias
 }
 
 
+#[derive(Clone)]
+pub(super) enum PreludeBinding
+{
+    Type(TypeId),
+    Variable(Rc<RefCell<ScopedValue>>),
+    Function(FunctionRef),
+    Native(Rc<NativeFunction>),
+    Alias(Rc<Alias>),
+    Module(String),
+}
+
+
 // Persistent script state. Variables follow the caller's runtime scopes; types and
 // functions keep the lexical identities and snapshots established during compilation.
 pub(super) struct Scope
@@ -30,7 +42,7 @@ pub(super) struct Scope
     pub modules: HashMap<String, String>,
     pub native_functions: HashMap<String, Rc<NativeFunction>>,
     pub exports: HashSet<String>,
-    pub prelude_types: HashMap<String, TypeId>,
+    pub prelude_bindings: HashMap<String, PreludeBinding>,
     pub prelude_source: Option<String>,
     pub imported_types: HashMap<String, Rc<TypeDefinition>>,
     pub imported_methods: HashMap<String, FunctionRef>,
@@ -90,7 +102,7 @@ impl Scope
                 exports: HashSet::new(),
                 imported_types: HashMap::new(),
                 imported_methods: HashMap::new(),
-                prelude_types: HashMap::new(),
+                prelude_bindings: HashMap::new(),
                 prelude_source: None,
                 base_function_block: Rc::new(RefCell::new(FunctionBlock
                     {
@@ -117,7 +129,7 @@ impl Scope
                 exports: self.exports.clone(),
                 imported_types: self.imported_types.clone(),
                 imported_methods: self.imported_methods.clone(),
-                prelude_types: self.prelude_types.clone(),
+                prelude_bindings: self.prelude_bindings.clone(),
                 prelude_source: self.prelude_source.clone(),
                 base_function_block: Rc::new(RefCell::new(
                     self.base_function_block.borrow().clone())),
@@ -135,6 +147,63 @@ impl Scope
     pub fn import_function(&mut self, name: String, function: FunctionRef)
     {
         self.base_function_block.borrow_mut().functions.insert(name, function);
+    }
+
+    pub fn prelude_binding(&self, name: &str) -> Option<PreludeBinding>
+    {
+        if name.starts_with('$')
+        { return self.variables.global_binding(name).map(PreludeBinding::Variable); }
+        if let Some(id) = self.types.names.get(name)
+        { return Some(PreludeBinding::Type(*id)); }
+        if let Some(function) = self.native_functions.get(name)
+        { return Some(PreludeBinding::Native(function.clone())); }
+        if let Some(function) = self.base_function(name)
+        { return Some(PreludeBinding::Function(function)); }
+        if let Some(alias) = self.aliases.get(name)
+        { return Some(PreludeBinding::Alias(alias.clone())); }
+        self.modules.get(name).cloned().map(PreludeBinding::Module)
+    }
+
+    pub fn remove_prelude_binding(&mut self, name: &str, binding: PreludeBinding)
+    {
+        let removed = match binding
+            {
+                PreludeBinding::Type(id) if self.types.names.get(name) == Some(&id) =>
+                    {
+                        self.types.names.remove(name);
+                        self.imported_types.remove(name);
+                        true
+                    },
+                PreludeBinding::Variable(binding) =>
+                    self.variables.remove_global_binding(name, &binding),
+                PreludeBinding::Function(function) =>
+                    {
+                        let mut block = self.base_function_block.borrow_mut();
+                        if block.functions.get(name).is_some_and(|item| Rc::ptr_eq(item, &function))
+                        { block.functions.remove(name); true } else { false }
+                    },
+                PreludeBinding::Native(function) =>
+                    {
+                        if    self.native_functions.get(name)
+                            .is_some_and(|item| Rc::ptr_eq(item, &function))
+                        {
+                            self.native_functions.remove(name);
+                            Rc::make_mut(&mut self.base_function_block.borrow_mut().builtins)
+                                .remove(function.name);
+                            true
+                        }
+                        else { false }
+                    },
+                PreludeBinding::Alias(alias) =>
+                    {
+                        if self.aliases.get(name).is_some_and(|item| Rc::ptr_eq(item, &alias))
+                        { self.aliases.remove(name); true } else { false }
+                    },
+                PreludeBinding::Module(key) if self.modules.get(name) == Some(&key) =>
+                    { self.modules.remove(name); true },
+                _ => false,
+            };
+        if removed { self.exports.remove(name); }
     }
 
     pub fn refresh_methods(&mut self, methods: HashMap<String, FunctionRef>)

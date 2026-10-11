@@ -1,0 +1,45 @@
+# Public prelude bindings follow reloads; modules and saved references retain their generation.
+let $fixture = $args[0]
+mkdir -p "${fixture}/one" "${fixture}/two" "${fixture}/conflict"
+printf "%s" 'pub fn greet(): String { "namespace" }' -> "${fixture}/one/nested.shy"
+printf "%s" '*
+pub let $label: String = "one"
+pub let $removed_value = 7
+pub fn read(): String { $label }
+pub fn removed_fn(): Integer { $removed_value }
+pub alias prelude_say = read
+pub import nested
+pub visible `cd
+*' -> "${fixture}/one/prelude.shy"
+printf "%s" '*
+pub let $label: String = "two"
+pub fn read(): String { $label }
+pub fn added_fn(): String { "added" }
+pub alias prelude_say = read
+*' -> "${fixture}/two/prelude.shy"
+printf "%s" 'pub let $label = "bad"; pub fn read(): String { "bad" }; pub fn local_only(): String { "conflict" }' -> "${fixture}/conflict/prelude.shy"
+printf "%s" 'pub fn text(): String { read }; pub fn label(): String { $label }; pub fn namespace(): String { nested::greet }' -> "${fixture}/before.shy"
+printf "%s" 'pub fn text(): String { read }; pub fn label(): String { $label }' -> "${fixture}/after.shy"
+check_repl ["id": "PRELUDE-SYMBOLS", "name": "PRELUDE-SYMBOLS", "steps": [
+    ["let \$SHELLY_STD_PATH = \"<FIXTURE>/one\"; prelude_reload", "quiet", ""],
+    ["echo (read) \$label (prelude_say) (nested::greet)", "output", "one one one namespace"],
+    ["import before; import std::prelude::{ read, \$label, prelude_say }; let \$saved = `read; let \$old_label = fn (): String { \$label }", "quiet", ""],
+    ["\$label = \"edited\"; echo (before::text) (read) \$std::prelude::label", "output", "edited edited edited"],
+    ["let \$SHELLY_STD_PATH = \"<FIXTURE>/two\"; prelude_reload", "quiet", ""],
+    ["echo (read) \$label (prelude_say) (added_fn) (\$saved) (\$old_label)", "output", "two two two added edited edited"],
+    ["echo (before::text) (before::label) (before::namespace)", "output", "edited edited namespace"],
+    ["echo \$removed_value", "error", "not found"],
+    ["removed_fn", "error", "Executable not found"],
+    ["nested::greet", "error", "unavailable"],
+    ["import after; echo (after::text) (after::label)", "output", "two two"],
+    ["\$label = \"new-edit\"; echo (after::text) (before::text)", "output", "new-edit edited"],
+    ["fn refresh() { let \$label = \"local\"; prelude_reload; echo \$label }; refresh", "output", "local"],
+    ["echo \$label (read) (after::text)", "output", "two two new-edit"],
+    ["fn local_only(): String { \"local\" }; let \$SHELLY_STD_PATH = \"<FIXTURE>/conflict\"; prelude_reload", "error", "already bound"],
+    ["echo \$label (read) (prelude_say) (local_only) (added_fn)", "output", "two two two local added"],
+    ["echo \$SHELLY_STD_FOUND", "output", "<FIXTURE>/two"],
+    ["let \$SHELLY_STD_PATH = \"<FIXTURE>/one\"; prelude_reload", "quiet", ""],
+    ["echo (read) \$label (prelude_say) (removed_fn) (nested::greet) (local_only)", "output", "one one one 7 namespace local"],
+    ["added_fn", "error", "Executable not found"],
+    ["cd \".\"; echo native-ok", "output", "native-ok"]
+], "exit": 0]
