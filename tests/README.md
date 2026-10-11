@@ -77,6 +77,10 @@ catalog/matrix completeness, miniature suites exercising the actual runner, and 
 processes, and scripted loops, preserving captured signal statuses and accepting
 subsequent commands. Noninteractive Ctrl+C termination remains covered by the native
 terminal and frozen-suite checks.
+`repl/history*.shy` checks restart and multiline restoration, exact source preservation,
+early persistence, interruption and explicit exit, shared sessions and navigation,
+typed startup settings, limits, private file permissions, disabled persistence,
+malformed/invalid UTF-8 stores, and recovery when storage fails during a session.
 These tests deliberately run failing children and assert that they fail correctly.
 `native/array_reverse.shy` and `repl/array_reverse.shy` check nonmutating reversal,
 empty and mixed arrays, nested copies, named arrays, callable elements, argument

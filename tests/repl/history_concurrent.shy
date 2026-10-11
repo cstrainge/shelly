@@ -1,0 +1,75 @@
+# Two live shells merge their submissions and closing one cannot erase the other.
+let $fixture = $args[0]
+let $path = "${fixture}/.shelly_history.jsonl"
+let $first = session $fixture
+let _ = drain $first
+let $second = session $fixture
+let _ = drain $second
+for $index in 0..8
+{
+    terminal_write $first "\x1b[200~echo FIRST-${index}\x1b[201~\r"
+    terminal_write $second "\x1b[200~echo SECOND-${index}\x1b[201~\r"
+    require (!(drain $first)["eof"]) "first concurrent shell exited"
+    require (!(drain $second)["eof"]) "second concurrent shell exited"
+}
+terminal_write $first "\x04"
+let _ = drain $first
+let _ = terminal_close $first
+let $text: String
+$path -> $text
+let $commands = []
+let $ids = []
+for $line in $text.split "\n"
+{
+    if $line == "" { continue }
+    let $record = json::from_string $line
+    $commands = [$commands..., $record["command"]]
+    $ids = [$ids..., $record["id"]]
+}
+require ($commands.count == 16) "concurrent sessions lost or duplicated commands"
+for $index in 0..8
+{
+    let $first_found = false
+    let $second_found = false
+    for $command in $commands
+    {
+        if $command == "echo FIRST-${index}" { $first_found = true }
+        if $command == "echo SECOND-${index}" { $second_found = true }
+    }
+    require ($first_found && $second_found) "a concurrent submission disappeared"
+}
+let $previous = ""
+for $id in $ids.sort
+{
+    require ($previous != $id) "history entry IDs collided between sessions"
+    $previous = $id
+}
+
+# A new prompt merges foreign entries into the surviving editor's navigation.
+let _ = submit $second "echo FINAL-SECOND"
+let $third = session $fixture
+let _ = drain $third
+let _ = submit $third "echo FOREIGN-THIRD"
+let _ = submit $second "echo LOCAL-SECOND"
+terminal_write $second "\x1b[A\x1b[A\r"
+let $reply = drain $second
+require (repl_matches "output" "FOREIGN-THIRD" $reply["output"]) "foreign session history did not become navigable at the next prompt"
+for $terminal in [$second, $third]
+{ terminal_write $terminal "\x1b[200~echo SAME-COMMAND\x1b[201~\r" }
+let _ = drain $second
+let _ = drain $third
+for $terminal in [$second, $third]
+{
+    terminal_write $terminal "\x04"
+    let _ = drain $terminal
+    require ((terminal_close $terminal)["exit_code"] == 0) "concurrent session exit status"
+}
+$path -> $text
+require ($text.contains "FIRST-0") "later session flush erased older history"
+let $duplicates = 0
+for $line in $text.split "\n"
+{
+    if $line != "" && (json::from_string $line)["command"] == "echo SAME-COMMAND"
+    { $duplicates = $duplicates + 1 }
+}
+require ($duplicates == 1) "concurrent identical submissions were retained twice"

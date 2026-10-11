@@ -1,0 +1,79 @@
+# Corrupt and unavailable stores never prevent an interactive shell from running.
+let $fixture = $args[0]
+let $path = "${fixture}/.shelly_history.jsonl"
+for $bad in ['{broken json', '{"id": "missing-command"}',
+             '{"id": 7, "command": "echo wrong-id-type"}',
+             '{"id": "x", "command": 7}',
+             "{\"id\":\"x\",\"command\":\"echo duplicate\"}\n{\"id\":\"x\",\"command\":\"echo duplicate\"}"]
+{
+    printf "%s" $bad -> "${path}"
+    let $terminal = session $fixture
+    let $initial = drain $terminal
+    require (!$initial["eof"]) "corrupt history terminated Shelly"
+    require ($initial["output"].contains "History unavailable;") "corrupt history was silent"
+    let $reply = submit $terminal "echo MEMORY-RECOVERY"
+    require (repl_matches "output" "MEMORY-RECOVERY" $reply["output"]) "fallback command failed"
+    require (!($reply["output"].contains "History unavailable;")) "history warning repeated"
+    terminal_write $terminal "\x1b[A\r"
+    require (repl_matches "output" "MEMORY-RECOVERY" (drain $terminal)["output"]) "corrupt storage broke in-memory recall"
+    terminal_write $terminal "\x04"
+    let _ = drain $terminal
+    let _ = terminal_close $terminal
+    let $after: String
+    $path -> $after
+    require ($after == $bad) "damaged history was overwritten"
+}
+
+# Invalid UTF-8 must remain byte-for-byte intact too.
+cp "${fixture}/data/invalid-utf8" $path
+let $terminal = session $fixture
+let $initial = drain $terminal
+require ($initial["output"].contains "History unavailable;") "invalid UTF-8 was accepted"
+let _ = submit $terminal "echo UTF8-RECOVERY"
+terminal_write $terminal "\x04"
+let _ = drain $terminal
+let _ = terminal_close $terminal
+require (Boolean(cmp -s $path "${fixture}/data/invalid-utf8")) "invalid UTF-8 store changed"
+
+# A directory in place of the file also falls back without replacing it.
+rm $path
+mkdir $path
+let $terminal = session $fixture
+require ((drain $terminal)["output"].contains "History unavailable;") "directory was accepted"
+let $reply = submit $terminal "echo DIRECTORY-RECOVERY"
+require (repl_matches "output" "DIRECTORY-RECOVERY" $reply["output"]) "directory fallback failed"
+terminal_write $terminal "\x04"
+let _ = drain $terminal
+let _ = terminal_close $terminal
+require (Boolean(test -d $path)) "history replaced a directory"
+rm -r $path
+
+# Removing the damaged store restores normal persistence in a fresh session.
+let $terminal = session $fixture
+let $initial = drain $terminal
+require (!($initial["output"].contains "History unavailable;")) "fresh session did not recover"
+let _ = submit $terminal "echo STORAGE-RECOVERY"
+terminal_write $terminal "\x04"
+let _ = drain $terminal
+let _ = terminal_close $terminal
+let $saved: String
+$path -> $saved
+require ($saved.contains "STORAGE-RECOVERY") "recovered history was not written"
+
+# If storage breaks while the shell is running, preserve both memory and the changed file.
+let $terminal = session $fixture
+let _ = drain $terminal
+let _ = submit $terminal "echo BEFORE-STORAGE-FAILURE"
+printf "%s" "external corruption" -> "${path}"
+let $reply = submit $terminal "echo AFTER-STORAGE-FAILURE"
+require ($reply["output"].contains "History unavailable;") "live storage failure was silent"
+require (repl_matches "output" "AFTER-STORAGE-FAILURE" $reply["output"]) "live fallback failed"
+terminal_write $terminal "\x1b[A\x1b[A\r"
+let $reply = drain $terminal
+require (repl_matches "output" "BEFORE-STORAGE-FAILURE" $reply["output"]) "fallback lost memory"
+require (!($reply["output"].contains "History unavailable;")) "live history warning repeated"
+terminal_write $terminal "\x04"
+let _ = drain $terminal
+let _ = terminal_close $terminal
+$path -> $saved
+require ($saved == "external corruption") "live failure overwrote the damaged file"

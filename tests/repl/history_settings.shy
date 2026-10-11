@@ -1,0 +1,98 @@
+# Startup controls select the session's path and limit before history is loaded.
+fn configured_history($fixture: String, $source: String): Terminal
+{
+    let $rc = "${fixture}/history-rc.shy"
+    printf "%s" $source -> "${rc}"
+    open_terminal [`$shelly, "-m", "-b", "--rcfile", $rc] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "TERM": "xterm-256color", "LANG": "C.UTF-8"], "rows": 40, "columns": 140,
+    ]
+}
+
+let $fixture = $args[0]
+let $path = "${fixture}/configured history.jsonl"
+let $setup = "\$history_path = \"${path}\"; \$history_limit = 3; echo STARTUP-ONLY"
+let $terminal = configured_history $fixture $setup
+let $initial = drain $terminal
+require ($initial["output"].contains "STARTUP-ONLY") "configured RC did not execute"
+let $reply = submit $terminal "echo \$history_limit (\$history_path.type == String)"
+require (repl_matches "output" "3 true" $reply["output"]) "typed history settings missing"
+let $reply = submit $terminal "\$history_path = 7"
+require (repl_matches "error" "Type error" $reply["output"]) "history path accepted an Integer"
+let $reply = submit $terminal "\$history_limit = 2.0"
+require (repl_matches "error" "Type error" $reply["output"]) "history limit accepted a Float"
+for $index in 0..5 { let _ = submit $terminal "echo RETAIN-${index}" }
+terminal_write $terminal "\x04"
+let _ = drain $terminal
+let _ = terminal_close $terminal
+let $text: String
+$path -> $text
+let $commands = []
+for $line in $text.split "\n"
+{
+    if $line != "" { $commands = [$commands..., (json::from_string $line)["command"]] }
+}
+require ($commands == ["echo RETAIN-2", "echo RETAIN-3", "echo RETAIN-4"]) "history limit did not trim oldest entries"
+require (!(test -e "${fixture}/.shelly_history.jsonl")) "history ignored the configured path"
+
+# A smaller startup limit trims restored history, and Up sees the newest surviving entry.
+let $setup = "\$history_path = \"${path}\"; \$history_limit = 1"
+let $terminal = configured_history $fixture $setup
+let _ = drain $terminal
+terminal_write $terminal "\x1b[A\r"
+require (repl_matches "output" "RETAIN-4" (drain $terminal)["output"]) "startup trimming lost recall"
+terminal_write $terminal "\x04"
+let _ = drain $terminal
+let _ = terminal_close $terminal
+$path -> $text
+require (($text.trim_end.split "\n").count == 1) "startup limit did not trim the stored file"
+
+# Disabling persistence retains ordinary navigation in memory and creates no files.
+let $terminal = configured_history $fixture "\$history_path = ()"
+let _ = drain $terminal
+let _ = submit $terminal "echo MEMORY-ONLY"
+terminal_write $terminal "\x1b[A\r"
+require (repl_matches "output" "MEMORY-ONLY" (drain $terminal)["output"]) "disabled persistence also disabled in-memory history"
+terminal_write $terminal "\x04"
+let _ = drain $terminal
+let _ = terminal_close $terminal
+require (!(test -e "${fixture}/.shelly_history.jsonl")) "disabled history created a file"
+require (!(test -e "${fixture}/.shelly_history.jsonl.lock")) "disabled history created a lock"
+
+# Noninteractive execution never initializes history, even with a valid default path.
+let $options = ["env": ["HOME": $fixture, "PATH": "/usr/bin:/bin", "SHELLY_STD_PATH": ""],
+                "stdout_file": "/dev/null", "timeout_ms": 1000]
+let $result = run_process [`$shelly, "-m", "-c", "echo NONINTERACTIVE"] $options
+require ($result["exit_code"] == 0) "noninteractive history probe failed"
+printf "%s" "echo SCRIPT-HISTORY" -> "${fixture}/history-script.shy"
+let $result = run_process [`$shelly, "-m", "${fixture}/history-script.shy"] $options
+require ($result["exit_code"] == 0) "script history probe failed"
+require (!(test -e "${fixture}/.shelly_history.jsonl")) "noninteractive execution created history"
+
+# A zero limit records nothing; a relative path stays fixed when the shell changes cwd.
+let $setup = "\$history_path = \"relative-history.jsonl\"; \$history_limit = 0"
+let $terminal = configured_history $fixture $setup
+let _ = drain $terminal
+let _ = submit $terminal "cd /; echo ZERO-LIMIT"
+terminal_write $terminal "\x04"
+let _ = drain $terminal
+let _ = terminal_close $terminal
+"${fixture}/relative-history.jsonl" -> $text
+require ($text == "") "zero limit retained commands"
+
+# Invalid settings fall back once; an unavailable parent must not block shell startup.
+printf "%s" "blocked" -> "${fixture}/not-a-directory"
+for $setup in ["\$history_limit = -1", "\$history_path = \"\"",
+               "\$history_path = \"${fixture}/not-a-directory/history.jsonl\""]
+{
+    let $terminal = configured_history $fixture $setup
+    let $initial = drain $terminal
+    require ($initial["output"].contains "History unavailable;") "invalid setting was silent"
+    require (!$initial["eof"]) "invalid history settings terminated the shell"
+    let $reply = submit $terminal "echo CONFIG-RECOVERY"
+    require (repl_matches "output" "CONFIG-RECOVERY" $reply["output"]) "config fallback failed"
+    require (!($reply["output"].contains "History unavailable;")) "config warning repeated"
+    terminal_write $terminal "\x04"
+    let _ = drain $terminal
+    let _ = terminal_close $terminal
+}

@@ -2263,6 +2263,33 @@ impl Interpreter
             })
     }
 
+    pub fn history_settings(&self) -> InterpreterResult<(Option<PathBuf>, usize)>
+    {
+        let location = Location::new("$history_path", 1, 1);
+        let invalid = |message: &str| InterpreterError
+            { location: location.clone(), what: ErrorWhat::InvalidOperand(message.into()) };
+        let path = match self.read_raw_variable("$history_path", &location)?
+        {
+            Value::None => None,
+            Value::String(path, _) if !path.is_empty() =>
+                {
+                    let path = PathBuf::from(self.eval_path_from(&path));
+                    Some(if path.is_absolute() { path } else
+                        { current_dir().map_err(|error| invalid(&error.to_string()))?.join(path) })
+                },
+            _ => return Err(invalid("History path must be a nonempty String or ()")),
+        };
+        let location = Location::new("$history_limit", 1, 1);
+        let limit = match self.read_raw_variable("$history_limit", &location)?
+        {
+            Value::Integer(limit) if limit >= 0 => usize::try_from(limit).ok(),
+            _ => None,
+        }.filter(|limit| *limit != usize::MAX).ok_or_else(|| InterpreterError
+            { location, what: ErrorWhat::InvalidOperand(
+                "History limit must be a nonnegative, representable Integer".into()) })?;
+        Ok((path, limit))
+    }
+
     /**
      * Preserve value types while shortening path strings, including array entries.
      */

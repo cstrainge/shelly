@@ -189,6 +189,31 @@ Leave with `exit` or Ctrl+D. Tab completes a unique name or common prefix; a
 second Tab opens the completion menu. Arrow keys navigate an open menu.
 Ctrl+Enter and Shift+Enter require a terminal that reports those key combinations.
 
+Interactive command history is restored from `~/.shelly_history.jsonl`. Up/Down
+browse saved commands, including complete multiline submissions. History stores
+source text; loading it never executes the commands. Submitted commands are saved
+before execution, including failed or interrupted commands. Blank input, cancelled
+buffers, startup scripts, and consecutive identical commands are excluded.
+
+Configure history in a profile or `~/.shelly_init.shy`:
+
+```shy
+$history_path = "~/.shelly_history.jsonl"  # String | (); () disables persistence.
+$history_limit = 10000                    # Integer; maximum retained submissions.
+```
+
+Shelly reads these settings after startup and keeps the selected path and limit for
+that REPL session. Relative paths resolve against the startup directory. A zero
+limit retains no entries; negative limits are invalid. Setting `$history_path = ()`
+keeps history in memory without creating a history file. Script and `-c` execution
+do not load or save interactive history.
+
+Concurrent sessions merge their submissions between prompts. History and lock
+files are created with `0600` permissions; updates atomically replace the history
+file. JSON Lines preserves quotes, escapes, Unicode, and embedded newlines. If
+storage is unavailable or damaged, Shelly reports the problem once and continues
+with in-memory history for that session, preserving a damaged file.
+
 Interactive startup loads `~/.shelly_init.shy`. `--rcfile PATH` selects another init
 file; `--norc` skips it. `-l` enables login startup, which loads
 `/etc/shelly/profile.shy`, then `~/.shelly_profile.shy`, before interactive init.

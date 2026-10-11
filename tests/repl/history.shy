@@ -1,0 +1,107 @@
+# History preserves submitted source and restores multiline entries without executing them.
+fn history_commands($path: String): Array
+{
+    let $text: String
+    $path -> $text
+    let $commands = []
+    for $line in $text.split "\n"
+    {
+        if $line != "" { $commands = [$commands..., (json::from_string $line)["command"]] }
+    }
+    $commands
+}
+
+fn close_history_session($terminal: Terminal)
+{
+    terminal_write $terminal "\x04"
+    require ((drain $terminal)["eof"]) "history session did not close"
+    let $status = terminal_close $terminal
+    require ($status["exit_code"] == 0) "history session exit status"
+}
+
+let $fixture = $args[0]
+let $path = "${fixture}/.shelly_history.jsonl"
+let $terminal = session $fixture
+let _ = drain $terminal
+let _ = submit $terminal "echo HISTORY-ONE"
+let _ = submit $terminal "echo HISTORY-ONE"
+let _ = submit $terminal "   "
+terminal_write $terminal "discarded input\x03"
+let _ = drain $terminal
+let _ = submit $terminal "1 / 0"
+let $odd = "echo \"<\\n> café \\\"quoted\\\"\""
+let _ = submit $terminal $odd
+let $multi = "echo HISTORY-MULTILINE\nlet \$remembered = 42"
+let _ = submit $terminal $multi
+require ((history_commands $path) == ["echo HISTORY-ONE", "1 / 0", $odd, $multi]) "history changed source, retained blanks, or lost a submitted command"
+close_history_session $terminal
+
+let $terminal = session $fixture
+let $initial = drain $terminal
+require (!($initial["output"].contains "HISTORY-MULTILINE")) "loading history executed source"
+terminal_write $terminal "\x1b[A\r"
+let $reply = drain $terminal
+require (repl_matches "output" "HISTORY-MULTILINE" $reply["output"]) "Up did not restore the complete multiline command"
+let $reply = submit $terminal "echo \$remembered"
+require (repl_matches "output" "42" $reply["output"]) "multiline history lost its second line"
+close_history_session $terminal
+
+# History files and their stable lock are private on both Linux and macOS.
+for $file in [$path, "${path}.lock"]
+{
+    let $mode: String
+    /bin/ls -ld $file -> $mode
+    require ($mode.starts_with "-rw-------") "history file permissions are not 0600"
+}
+
+# Failed and interrupted work is on disk before execution completes.
+let $terminal = session $fixture
+let _ = drain $terminal
+let $frozen = "echo HISTORY-RUNNING; loop {}"
+terminal_write $terminal "\x1b[200~${frozen}\x1b[201~\r"
+let $raw = ""
+let $ready = false
+for $attempt in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    $raw = $raw + $reply["text"]
+    if ((strip_ansi $raw).contains "\nHISTORY-RUNNING\n")
+    { $ready = true; break }
+}
+if !$ready { echo $raw }
+require $ready "history interruption probe did not start"
+let $commands = history_commands $path
+require ($commands[$commands.count - 1] == $frozen) "running command was not saved promptly"
+terminal_write $terminal "\x03"
+require (!(drain $terminal)["eof"]) "interruption exited interactive Shelly"
+close_history_session $terminal
+
+# Even abrupt process death leaves the running submission on disk.
+let $terminal = session $fixture
+let _ = drain $terminal
+let $abrupt = "echo \$pid -> \"${fixture}/history.pid\"; loop {}"
+terminal_write $terminal "\x1b[200~${abrupt}\x1b[201~\r"
+let $ready = false
+for $attempt in 0..50
+{
+    if (test -s "${fixture}/history.pid") { $ready = true; break }
+    let $reply = terminal_read $terminal 100
+    require (!$reply["eof"]) "abrupt history probe exited before starting"
+}
+require $ready "abrupt history probe did not start"
+let $pid: String
+"${fixture}/history.pid" -> $pid
+let $result = run_process ["/bin/kill", "-9", $pid.trim] [:]
+require ($result["exit_code"] == 0) "could not stop abrupt history probe"
+require ((drain $terminal)["eof"]) "killed history probe did not exit"
+require ((terminal_close $terminal)["signal"] == 9) "abrupt history probe lost signal status"
+let $commands = history_commands $path
+require ($commands[$commands.count - 1] == $abrupt) "abrupt exit lost a submitted command"
+
+# Explicit exit is recorded before it halts the interpreter.
+let $terminal = session $fixture
+let _ = drain $terminal
+require ((submit $terminal "exit")["eof"]) "exit did not close shell"
+let _ = terminal_close $terminal
+let $commands = history_commands $path
+require ($commands[$commands.count - 1] == "exit") "exit command was not persisted"

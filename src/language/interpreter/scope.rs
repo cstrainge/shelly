@@ -63,6 +63,20 @@ impl Scope
             .filter(|name| name.contains("::")).cloned());
         let builtins = native_functions.values().map(|item| item.name).collect();
         let mut variables = ScopedVariables::new_from_environment();
+        let history_path = types.intern(TypeKind::Optional(types.native_types["String"].id));
+        for (name, value, type_id) in [
+                ("$history_path", Value::from_string("~/.shelly_history.jsonl".into()), history_path),
+                ("$history_limit", Value::Integer(10000), types.native_types["Integer"].id),
+            ]
+        {
+            let _ = variables.create(name.into(), ScopedValue
+                {
+                    value,
+                    type_id: Some(type_id),
+                    exported: ValueVisibility::Private,
+                    reference: None,
+                });
+        }
         let widget_array = types.intern(TypeKind::Array(types.native_types["WidgetFn"].id));
         let _ = variables.create("$widgets".to_string(), ScopedValue
             {

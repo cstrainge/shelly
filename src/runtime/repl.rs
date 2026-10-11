@@ -35,7 +35,8 @@ use rustix::process::geteuid;
 
 use crate::{ language::{ interpreter::{ Interpreter, Interactive, RcFile, Startup },
                          text::buffer::SimpleBuffer },
-             runtime::{ color::TtyColorMode, result::RuntimeResult, signals::take_interrupt },
+             runtime::{ color::TtyColorMode, result::RuntimeResult, signals::take_interrupt,
+                        history::{ self, ReplHistory, DEFAULT_LIMIT } },
              location_here };
 
 struct ShellyPrompt
@@ -595,7 +596,15 @@ impl Repl
             }
         }
 
+        let mut history_warned = false;
+        let (history_path, history_limit) = self.interpreter.history_settings()
+            .unwrap_or_else(|error|
+                {
+                    history::report_error(error, &mut history_warned);
+                    (None, DEFAULT_LIMIT)
+                });
         let mut editor = Reedline::create()
+            .with_history(Box::new(ReplHistory::new(history_path, history_limit)))
             .with_ansi_colors(self.color_mode != TtyColorMode::TtyMonochrome)
             .use_kitty_keyboard_enhancement(true)
             .with_quick_completions(true)
@@ -610,6 +619,7 @@ impl Repl
         while !self.interpreter.halted
         {
             take_interrupt();
+            history::sync(&mut editor, &mut history_warned);
             // Reset after submission, cancellation, or a read error.
             multiline.store(false, Ordering::Relaxed);
             let prompt_text = self.interpreter.evaluate_prompt(location_here!())
@@ -668,6 +678,9 @@ impl Repl
                 Ok(Signal::Success(text)) =>
                     {
                         if text.trim().is_empty() { continue; }
+                        // Persist submitted text before execution, including failing or
+                        // interrupted commands. Startup scripts never enter this history.
+                        history::sync(&mut editor, &mut history_warned);
                         let mut buffer = SimpleBuffer::new("<repl>", &text, Some(self.tab_width));
                         let started = Instant::now();
                         let result = self.interpreter.execute_from_buffer(&mut buffer);
@@ -708,6 +721,7 @@ impl Repl
             }
         }
 
+        history::sync(&mut editor, &mut history_warned);
         Ok(ExitCode::from(self.interpreter.exit_code))
     }
 
