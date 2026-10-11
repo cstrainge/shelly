@@ -41,7 +41,7 @@ use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
                                         scope::Scope, modules::Prelude,
                                         redirection::{ Redirection, Output, configure } } },
              runtime::{ color::TtyColorMode, process::{ COMMANDS, invoke },
-                        terminal::detect_capabilities } };
+                        terminal::detect_capabilities, sixel::banner as sixel_banner } };
 
 const MAIN_SCOPE: &str = "main";
 
@@ -470,16 +470,18 @@ impl Interpreter
                       && color_mode != TtyColorMode::TtyMonochrome
             {
                 let capabilities = detect_capabilities();
+                let banner = capabilities.sixel.then(|| sixel_banner(&capabilities)
+                    .unwrap_or_else(|| BANNER_SIXEL.to_string()));
                 self.startup_input = capabilities.input;
-                capabilities.sixel
+                banner
             }
             else
             {
-                false
+                None
             };
-        let banner = if sixel
+        let banner = if let Some(sixel) = sixel
             {
-                BANNER_SIXEL
+                sixel
             }
             else
             {
@@ -488,7 +490,7 @@ impl Interpreter
                     TtyColorMode::TtyTrueColor => BANNER_TRUECOLOR,
                     TtyColorMode::Tty256 => BANNER_256,
                     TtyColorMode::TtyBasic | TtyColorMode::TtyMonochrome => BANNER_MONO
-                }
+                }.to_string()
             };
 
         let is_interactive = matches!(
@@ -514,7 +516,7 @@ impl Interpreter
 
         if is_interactive
         {
-            self.set_variable("$banner", Value::from_string(banner.to_string()));
+            self.set_variable("$banner", Value::from_string(banner.clone()));
             self.set_variable("$interactive", Value::Boolean(true));
         }
         else

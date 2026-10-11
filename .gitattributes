@@ -1,0 +1,2 @@
+# Sixel is a control-byte stream: preserve CRLF and avoid textual diffs.
+banner_sixel.txt binary

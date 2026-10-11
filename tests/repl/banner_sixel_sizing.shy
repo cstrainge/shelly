@@ -1,0 +1,15 @@
+let $fixture = $args[0]
+
+# Cell reports are height first; resize pixels, not just the raster header.
+sized_case $fixture "\x1b[6;20;10t" "350;350" 40 160 ""
+sized_case $fixture "\x1b[6;10;12t" "180;180" 40 160 ""
+sized_case $fixture "\x1b[6;20;10t" "160;160" 10 160 ""
+sized_case $fixture "\x1b[6;20;10t" "200;200" 40 40 ""
+sized_case $fixture "fragment:" "350;350" 40 160 ""
+for $reply in ["", "\x1b[6;0;10t", "\x1b[6;20;0t", "\x1b[6;20;129t",
+    "\x1b[6;20;999999999999999t", "\x1b[6;;10t", "\x1b[6;bad;10t", "late:"]
+{
+    sized_case $fixture $reply "280;280" 40 160 ""
+}
+sized_case $fixture "echo cell-input\r\x1b[6;20;10t" "280;280" 40 160 "\ncell-input\n"
+sized_case $fixture "\x03\x1b[6;20;10t" "280;280" 40 160 "Ctrl+C pressed."

@@ -22,20 +22,25 @@ def positive_int(value):
     return number
 
 
-def prepare_image(path, columns, cell_width, colors):
+def prepare_image(path, columns, cell_width, colors, rows=None, cell_height=16):
     """Resize without changing aspect ratio and quantize to a sixel palette.
 
-    Fully transparent pixels remain unpainted. Partial alpha is composited onto
-    black, as in img2ascii.py; sixel has no per-pixel alpha channel.
+    Sixel has binary transparency: alpha below 128 remains unpainted. Keep the
+    original RGB color for painted pixels rather than adding a black matte.
     """
     with Image.open(path) as source:
         image = source.convert("RGBA")
-    width = columns * cell_width
-    height = max(1, round(width * image.height / image.width))
+    available_width = columns * cell_width
+    scale = available_width / image.width
+    if rows is not None:
+        scale = min(scale, rows * cell_height / image.height)
+    width = min(available_width, max(1, round(image.width * scale)))
+    height = max(1, round(image.height * scale))
+    if rows is not None:
+        height = min(rows * cell_height, height)
     image = image.resize((width, height), Image.Resampling.LANCZOS)
     alpha = image.getchannel("A")
-    background = Image.new("RGBA", image.size, (0, 0, 0, 255))
-    rgb = Image.alpha_composite(background, image).convert("RGB")
+    rgb = image.convert("RGB")
     indexed = rgb.quantize(colors=colors, method=Image.Quantize.MEDIANCUT,
                            dither=Image.Dither.NONE)
     return indexed, alpha
@@ -78,7 +83,7 @@ def encode_sixel(image, alpha):
         for y in range(top, min(top + 6, height)):
             bit = 1 << (y - top)
             for x in range(width):
-                if opacity[x, y] == 0:
+                if opacity[x, y] < 128:
                     continue
                 color = pixels[x, y]
                 if color not in planes:
@@ -138,6 +143,8 @@ def main():
     parser.add_argument("image", help="path to the input image")
     parser.add_argument("-w", "--width", type=positive_int, default=80,
                         help="image width in terminal columns (default: 80)")
+    parser.add_argument("--height", type=positive_int,
+                        help="maximum image height in terminal rows")
     parser.add_argument("--cell-width", type=positive_int, default=8,
                         help="pixels per terminal column (default: 8)")
     parser.add_argument("--cell-height", type=positive_int, default=16,
@@ -156,11 +163,12 @@ def main():
     if args.gap < 0:
         parser.error("gap must not be negative")
     try:
-        image, alpha = prepare_image(args.image, args.width, args.cell_width, args.colors)
+        image, alpha = prepare_image(args.image, args.width, args.cell_width, args.colors,
+                                     args.height, args.cell_height)
         text = read_text(args.text) if args.text else []
         sixel = encode_sixel(image, alpha)
         output = compose(sixel, math.ceil(image.height / args.cell_height), text,
-                         args.width, args.gap, args.valign)
+                         math.ceil(image.width / args.cell_width), args.gap, args.valign)
         # Write actual control bytes; preserve CR/LF on all platforms.
         if args.output:
             Path(args.output).write_bytes(output.encode("utf-8"))

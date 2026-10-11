@@ -4,7 +4,7 @@ use std::{ io::{ Error, ErrorKind, IsTerminal, Write, stdin, stdout },
            str::from_utf8,
            time::{ Duration, Instant } };
 
-use crossterm::event::{ Event, KeyCode, KeyEvent, KeyModifiers };
+use crossterm::{ event::{ Event, KeyCode, KeyEvent, KeyModifiers }, terminal::window_size };
 
 use libc::{ FIONREAD, ICANON, POLLIN, STDIN_FILENO, TCSANOW, VEOL, VEOL2, VEOF,
             VERASE, VKILL, _POSIX_VDISABLE, cfmakeraw, getpgrp, ioctl,
@@ -14,6 +14,8 @@ use libc::{ FIONREAD, ICANON, POLLIN, STDIN_FILENO, TCSANOW, VEOL, VEOL2, VEOF,
 pub struct TerminalCapabilities
 {
     pub sixel: bool,
+    pub cell_size: Option<(u16, u16)>,
+    pub screen_size: Option<(u16, u16)>,
     pub input: Vec<Event>,
 }
 
@@ -136,14 +138,21 @@ fn escape_input(bytes: &[u8]) -> Vec<Event>
     Vec::new()
 }
 
-/// Query Primary DA only on an idle foreground terminal. Attribute 4, after the
-/// terminal identifier, advertises sixel. An absent or malformed response is false.
+/// Query Primary DA and cell dimensions only on an idle foreground terminal.
+/// Attribute 4, after the terminal identifier, advertises sixel. Both queries
+/// share a 150 ms deadline; kernel window dimensions provide a cell-size fallback.
 /// https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
 pub fn detect_capabilities() -> TerminalCapabilities
 {
     let mut result = TerminalCapabilities::default();
     if !stdin().is_terminal() || !stdout().is_terminal() { return result; }
     if unsafe { tcgetpgrp(STDIN_FILENO) } != unsafe { getpgrp() } { return result; }
+    if    let Ok(size) = window_size()
+       && size.columns > 0 && size.rows > 0
+    {
+        result.screen_size = Some((size.columns, size.rows));
+        result.cell_size = valid_cell_size(size.width / size.columns, size.height / size.rows);
+    }
 
     let mut pending = 0;
     if unsafe { ioctl(STDIN_FILENO, FIONREAD as _, &mut pending) } != 0 || pending != 0
@@ -153,7 +162,7 @@ pub fn detect_capabilities() -> TerminalCapabilities
     let original = unsafe { original.assume_init() };
     let mut query_mode = original;
     unsafe { cfmakeraw(&mut query_mode); }
-    // Keep incomplete replies in the terminal's input queue until their final 'c'.
+    // Keep incomplete replies queued until their final byte ('c', then 't').
     // After a timeout Reedline can still parse a late reply from its beginning.
     // Disable canonical editing so user keystrokes remain unchanged.
     query_mode.c_lflag |= ICANON;
@@ -167,11 +176,49 @@ pub fn detect_capabilities() -> TerminalCapabilities
     drop(output);
 
     let deadline = Instant::now() + Duration::from_millis(150);
-    let Some(first) = read_byte(deadline) else { return result; };
+    let Some(response) = read_reply(deadline, &mut result.input) else { return result; };
+    if response.starts_with(b"\x1b[?") && response.last() == Some(&b'c')
+    {
+        let attributes = from_utf8(&response[3..response.len() - 1]).ok()
+            .and_then(|text| text.split(';').map(str::parse::<u16>)
+                .collect::<Result<Vec<_>, _>>().ok());
+        result.sixel = attributes.is_some_and(|values|
+            values.iter().skip(1).any(|value| *value == 4));
+    }
+    if !result.sixel || result.cell_size.is_some() { return result; }
+
+    query_mode.c_cc[VEOL] = b't';
+    if unsafe { tcsetattr(STDIN_FILENO, TCSANOW, &query_mode) } != 0 { return result; }
+    let mut output = stdout().lock();
+    if output.write_all(b"\x1b[16t").and_then(|_| output.flush()).is_err() { return result; }
+    drop(output);
+    if    let Some(response) = read_reply(deadline, &mut result.input)
+       && response.starts_with(b"\x1b[6;")
+       && response.last() == Some(&b't')
+    {
+        let dimensions = from_utf8(&response[4..response.len() - 1]).ok()
+            .and_then(|text| text.split(';').map(str::parse::<u16>)
+                .collect::<Result<Vec<_>, _>>().ok());
+        if let Some(values) = dimensions.filter(|values| values.len() == 2)
+        { result.cell_size = valid_cell_size(values[1], values[0]); }
+    }
+    result
+}
+
+fn valid_cell_size(width: u16, height: u16) -> Option<(u16, u16)>
+{
+    if (1..=128).contains(&width) && (1..=128).contains(&height)
+    { Some((width, height)) }
+    else { None }
+}
+
+fn read_reply(deadline: Instant, input: &mut Vec<Event>) -> Option<Vec<u8>>
+{
+    let first = read_byte(deadline)?;
     if first != 27
     {
-        result.input = character_input(first, deadline);
-        return result;
+        input.extend(character_input(first, deadline));
+        return None;
     }
     let mut response = vec![first];
     while response.len() < 4096
@@ -181,6 +228,10 @@ pub fn detect_capabilities() -> TerminalCapabilities
         if response.starts_with(b"\x1b[?")
         {
             if byte == b'c' { break; }
+        }
+        else if response.starts_with(b"\x1b[6;")
+        {
+            if byte == b't' { break; }
         }
         else if response.len() >= 3 && (0x40..=0x7e).contains(&byte) { break; }
         if response.len() == 2 && byte != b'[' && byte != b'O'
@@ -200,20 +251,11 @@ pub fn detect_capabilities() -> TerminalCapabilities
             break;
         }
     }
-    if response.starts_with(b"\x1b[?")
-    {
-        if response.last() == Some(&b'c')
-        {
-            let attributes = from_utf8(&response[3..response.len() - 1]).ok()
-                .and_then(|text| text.split(';').map(str::parse::<u16>)
-                    .collect::<Result<Vec<_>, _>>().ok());
-            result.sixel = attributes.is_some_and(|values|
-                values.iter().skip(1).any(|value| *value == 4));
-        }
-    }
+    if response.starts_with(b"\x1b[?") || response.starts_with(b"\x1b[6;")
+    { Some(response) }
     else
     {
-        result.input = escape_input(&response);
+        input.extend(escape_input(&response));
+        None
     }
-    result
 }

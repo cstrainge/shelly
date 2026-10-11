@@ -201,3 +201,122 @@ fn check_multiline_colors($cases: Array)
         require ($status["exit_code"] == 0) "color session failed"
     }
 }
+
+# Inspect raw PTY bytes: rendering and the startup probe are independent of color detection.
+fn banner_case($fixture: String, $response: String, $options: [String], $expect_probe: Boolean,
+               $expect_sixel: Boolean, $expect_banner: Boolean, $marker: String)
+{
+    banner_case_sized $fixture $response [
+        $options...
+    ] $expect_probe $expect_sixel $expect_banner $marker "" "" 40 160
+}
+
+fn sized_case($fixture: String, $cell_reply: String, $expect_size: String, $rows: Integer,
+              $columns: Integer, $marker: String)
+{
+    banner_case_sized $fixture "\x1b[?62;4c" [
+        "--norc"
+    ] true true true $marker $cell_reply $expect_size $rows $columns
+}
+
+fn banner_case_sized($fixture: String, $response: String, $options: [String], $expect_probe: Boolean,
+                     $expect_sixel: Boolean, $expect_banner: Boolean, $marker: String,
+                     $cell_reply: String, $expect_size: String, $rows: Integer, $columns: Integer)
+{
+    let $terminal = open_terminal [`$shelly, $options...] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "TERM": "xterm-256color", "COLORTERM": "truecolor", "LANG": "C.UTF-8",
+            "USER": "sixel-user", "HOSTNAME": "sixel-host",
+            "SHELLY_STD_PATH": "${fixture}/missing-std"], "rows": $rows, "columns": $columns]
+    let $raw = ""
+    let $probe = false
+    let $editor = false
+    let $ready = false
+    let $cell_probe = false
+    for $attempt in 0..80
+    {
+        let $reply = terminal_read $terminal 50
+        $raw = $raw + $reply["text"]
+        require (!$reply["eof"]) "banner shell exited during startup"
+        if ($raw.contains "\x1b[6n")
+        {
+            terminal_write $terminal "\x1b[1;1R"
+            $raw = $raw.replace "\x1b[6n" ""
+        }
+        if ($raw.contains "\x1b[?u") { $editor = true }
+        if ($raw.contains "\x1b[16t")
+        {
+            $cell_probe = true
+            if ($cell_reply.starts_with "fragment:")
+            {
+                terminal_write $terminal "\x1b[6;20;"
+                terminal_read $terminal 20
+                terminal_write $terminal "10t"
+            }
+            else if ($cell_reply.starts_with "late:")
+            {
+                terminal_write $terminal "\x1b[6;20;"
+                let $waiting = terminal_read $terminal 250
+                $raw = $raw + $waiting["text"]
+                terminal_write $terminal "10t"
+            }
+            else if $cell_reply != "" { terminal_write $terminal $cell_reply }
+            $raw = $raw.replace "\x1b[16t" ""
+        }
+        if ($raw.contains "\x1b[c")
+        {
+            if $editor { terminal_write $terminal "\x1b[?1;2c" }
+            else
+            {
+                $probe = true
+                if ($response.starts_with "fragment:")
+                {
+                    terminal_write $terminal "\x1b[?62;"
+                    terminal_read $terminal 20
+                    terminal_write $terminal "4c"
+                }
+                else if ($response.starts_with "late:")
+                {
+                    # Timeout with a partial reply queued; Reedline must receive its prefix too.
+                    terminal_write $terminal "\x1b[?62;"
+                    let $waiting = terminal_read $terminal 250
+                    $raw = $raw + $waiting["text"]
+                    terminal_write $terminal "4c"
+                }
+                else if $response != "" { terminal_write $terminal $response }
+            }
+            $raw = $raw.replace "\x1b[c" ""
+        }
+        if $reply["timed_out"]
+        {
+            let $lines = $raw.split "\n"
+            let $last = strip_ansi $lines[$lines.count - 1]
+            if ($last.ends_with "# ") || ($last.ends_with "$ ")
+            { $ready = true; break }
+        }
+    }
+    require $ready "banner shell did not reach the prompt"
+    require ($probe == $expect_probe) "wrong startup probe gating"
+    require (($raw.contains "\x1bP0;1;0q") == $expect_sixel) "wrong sixel banner selection"
+    require (($raw.contains "S H E L L Y") == $expect_banner) "wrong banner suppression"
+    if $expect_size != ""
+    {
+        require $cell_probe "missing cell-size query"
+        require ($raw.contains ("\x1bP0;1;0q\"1;1;" + $expect_size)) "wrong fitted pixel size: $expect_size"
+    }
+    require (!($raw.contains '\${HOSTNAME}')) "banner variables were not interpolated"
+    if $marker != ""
+    {
+        let $visible = if $expect_sixel { $raw.replace "\r" "" } else { strip_ansi $raw }
+        require ($visible.contains $marker) "lost startup input or banner override: $marker"
+    }
+    require (!($raw.contains "Error processing text:")) "capability reply leaked into source"
+    # A real command and Ctrl+D prove that the terminal mode was restored.
+    let $command = submit $terminal "echo mode-restored"
+    require ($command["output"].contains "\nmode-restored\n") "terminal mode not restored"
+    terminal_write $terminal "\x04"
+    let $closed = drain $terminal
+    require $closed["eof"] "Ctrl+D failed after the capability query"
+    let $status = terminal_close $terminal
+    require ($status["exit_code"] == 0) "banner shell exit status"
+}
