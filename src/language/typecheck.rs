@@ -429,9 +429,15 @@ fn split_spaced_call(expression: &mut AstExpression, names: &Names) -> Option<As
 
 fn spaced_call_receiver(expression: &mut AstExpression) -> Option<&mut AstExpression>
 {
+    // NLL-safe: the SpacedEmptyCall case returns `expression` itself, so it is
+    // checked before the match borrows `expression.kind` (stable Rust rejects
+    // the borrow held live across the return; Polonius accepted it).
+    if matches!(expression.kind, AstExpressionKind::SpacedEmptyCall(_))
+    {
+        return Some(expression);
+    }
     match &mut expression.kind
     {
-        AstExpressionKind::SpacedEmptyCall(_) => Some(expression),
         AstExpressionKind::Field(value, _, _) | AstExpressionKind::Index(value, _)
         | AstExpressionKind::Splat(value) | AstExpressionKind::MathExpression(_, value, _)
         | AstExpressionKind::BooleanExpression(_, value, _)
