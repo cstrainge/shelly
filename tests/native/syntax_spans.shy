@@ -1,0 +1,140 @@
+# Parser facts come from the execution grammar, with no compilation or evaluation.
+visible `__syntax_spans
+visible `__source_spans
+
+fn syntax_report($source: String): any
+{
+    let $report = __syntax_spans $source false true
+    require ($report == (__syntax_spans $source true true)) "streaming parser facts differ"
+    let $strict = __syntax_spans $source false false
+    require (($report["error"] == $strict["error"]) &&
+        ($report["statements"] == $strict["statements"])) "metadata changed strict parsing"
+    require ($strict["facts"] == []) "parser facts are not opt-in"
+    let $previous = 0
+    for $fact in $report["facts"]
+    {
+        let $span = $fact["span"]
+        require (($span["start"] >= $previous) && ($span["end"] > $span["start"]) &&
+            ($span["raw"] != ())) "facts overlap or contain invalid source ranges"
+        $previous = $span["end"]
+    }
+    if $report["error"] == ()
+    {
+        let $lexical = __source_spans $source false true
+        require ($lexical["error"] == ()) "parser accepted a lexical failure"
+        require ($lexical["tokens"].count == $report["facts"].count) "lost accepted token facts"
+        for $index in 0..$report["facts"].count
+        {
+            require ($lexical["tokens"][$index]["span"] == $report["facts"][$index]["span"]) "speculative facts escaped rollback"
+        }
+    }
+    $report
+}
+
+fn roles($source: String, $expected: [String])
+{
+    let $report = syntax_report $source
+    if $report["error"] != () { echo $source $report; fail "valid syntax rejected" }
+    let $actual = []
+    for $fact in $report["facts"] { $actual = [$actual..., $fact["role"]] }
+    if $actual != $expected { echo $source $actual $expected; fail "wrong grammar roles" }
+}
+
+roles "echo let" ["CommandName", "Argument"]
+roles "let \$let = 1; echo let \$let" ["Keyword", "VariableDeclaration", "Operator", "Literal",
+    "Delimiter", "CommandName", "Argument", "Variable"]
+roles "echo = + - / % import enum struct pub alias fn return for in while until" [
+    "CommandName", "Argument", "Argument", "Argument", "Argument", "Argument", "Argument",
+    "Argument", "Argument", "Argument", "Argument", "Argument", "Argument", "Argument",
+    "Argument", "Argument", "Argument"]
+roles "echo (git diff)" ["CommandName", "Delimiter", "CommandName", "Argument", "Delimiter"]
+roles "echo *" ["CommandName", "Argument"]
+roles "echo `foo ()" ["CommandName", "Operator", "CommandName", "Delimiter", "Delimiter"]
+roles "echo 1 + 2" ["CommandName", "Literal", "Operator", "Literal"]
+roles "let \$cb: fn(Integer): String | ()" ["Keyword", "VariableDeclaration", "Operator",
+    "Keyword", "Delimiter", "TypeName", "Delimiter", "Operator", "TypeName", "Operator",
+    "Delimiter", "Delimiter"]
+roles "pub fn Array::push(\$value: \$self.value_type) { \$self = [\$value, \$self...] }" [
+    "Keyword", "Keyword", "TypeName", "Operator", "FunctionDeclaration", "Delimiter",
+    "ParameterDeclaration", "Operator", "Variable", "Member", "Delimiter", "Delimiter",
+    "Variable", "Operator", "Delimiter", "Variable", "Delimiter", "Variable", "Operator",
+    "Delimiter", "Delimiter"]
+roles "struct Box { let: Integer, optional: String }; Box(let: 1, optional: \"hi\")" [
+    "Keyword", "TypeDeclaration", "Delimiter", "FieldName", "Operator", "TypeName", "Delimiter",
+    "FieldName", "Operator", "TypeName", "Delimiter", "Delimiter", "TypeName", "Delimiter",
+    "FieldName", "Operator", "Literal", "Delimiter", "FieldName", "Operator", "Literal", "Delimiter"]
+roles "enum State { Ready, Done }; type Count = Integer" ["Keyword", "TypeDeclaration", "Delimiter",
+    "EnumVariantDeclaration", "Delimiter", "EnumVariantDeclaration", "Delimiter", "Delimiter",
+    "Keyword", "TypeDeclaration", "Operator", "TypeName"]
+roles "alias ll = ls let" ["Keyword", "AliasDeclaration", "Operator", "CommandName", "Argument"]
+roles "for (\$key, _) in \$map { echo \$key }" ["Keyword", "Delimiter", "VariableDeclaration",
+    "Delimiter", "Discard", "Delimiter", "Keyword", "Variable", "Delimiter", "CommandName",
+    "Variable", "Delimiter"]
+roles "let _ = 3; match 3 { _ => { 1 } }" ["Keyword", "Discard", "Operator", "Literal", "Delimiter",
+    "Keyword", "Literal", "Delimiter", "Discard", "Operator", "Delimiter", "Literal", "Delimiter",
+    "Delimiter"]
+roles "[when true] { pub fn foo() {} }" ["Delimiter", "Keyword", "Literal", "Delimiter", "Delimiter",
+    "Keyword", "Keyword", "FunctionDeclaration", "Delimiter", "Delimiter", "Delimiter", "Delimiter",
+    "Delimiter"]
+roles "import std::net::{ ping, \$config } when \$os == \"linux\"" ["Keyword", "ModuleName", "Operator",
+    "ModuleName", "Operator", "Delimiter", "ImportName", "Delimiter", "ImportName", "Delimiter",
+    "Keyword", "Variable", "Operator", "Literal"]
+roles "\$input |:csv consume \$" ["Variable", "Operator", "Operator", "PipeAnnotation",
+    "CommandName", "Variable"]
+roles "producer csv:|:Thing consume \$" ["CommandName", "FormatName", "Operator", "Operator", "Operator",
+    "PipeAnnotation", "CommandName", "Variable"]
+roles "echo ::true let" ["CommandName", "Operator", "CommandName", "Argument"]
+roles "pub visible `native" ["Keyword", "CommandName", "Operator", "CommandName"]
+
+let $alias_report = syntax_report "alias ll = ls let; echo let"
+require ($alias_report["facts"][4]["context"] == "Argument") "stored alias argument context"
+require ($alias_report["facts"][6]["context"] == "Command") "alias context leaked into next command"
+
+let $report = syntax_report "\té猫 let \"猫\"; let \$x: Integer = 2"
+require ($report["facts"][0]["span"] == ["start": 1, "end": 6, "raw": "é猫"]) "Unicode command span"
+require ($report["facts"][1]["context"] == "Argument") "argument context lost"
+require ($report["facts"][7]["context"] == "Type") "annotation context lost"
+
+# Newlines, nested transactions, constructors and boundary probes must never duplicate facts.
+for $source in ["", "# comment", "echo \"\${not_defined}\"", "echo `foo ()", "::true",
+    "echo [1, 2, 3].count", "echo fn (\$x: Integer): String { \"hi\" }",
+    "let \$x = if true { 1 } else { 2 }", "let \$x: [String: Integer]",
+    "\$x[1..].type", "(let)", "let \$x = std::Kind(3)", "std::foo let",
+    "echo hi -> \$out", "echo ~ +", "1\n + 2", "[1, 2] | increment | (\$ * 2) | \$results",
+    "echo let \\\n  fn", "pub import foo::{ Bar, baz }", "struct T { field: optional String }"]
+{
+    $report = syntax_report $source
+    if $report["error"] != () { echo $source $report; fail "grammar sample failed" }
+}
+
+# Failed alternatives must erase their annotations. Only committed prefixes survive errors.
+for $source in ["fn foo(\$a: Integer", "let \$x:", "import foo::{ }", "echo \"unterminated",
+    "struct T { bad: }", "echo (1 +)", "1..=", "echo <- file", "echo \$bad..=",
+    "[when true] 1", "fn f(\$x, \$x) {}", "pub echo hi", "let \$a = 1; fn broken("]
+{
+    $report = syntax_report $source
+    require ($report["error"] != ()) "invalid or unfinished input accepted"
+}
+$report = syntax_report "let \$a = 1; fn broken("
+require ($report["facts"][1]["role"] == "VariableDeclaration") "accepted prefix lost after failure"
+
+# Parsing never imports, evaluates conditions/getters, invokes commands, or updates live bindings.
+let $sentinel = 7
+$report = syntax_report "import nonexistent when \$unknown; \$sentinel = 99; exit 9"
+require (($report["error"] == ()) && ($sentinel == 7)) "syntax analysis evaluated code"
+
+
+let $fixture = $args[0]
+for ($source, $message) in [
+    ["__syntax_spans \"echo hidden\" false true", "Executable not found"],
+    ["visible `__syntax_spans; __syntax_spans", "expects a String and two Booleans"],
+    ["visible `__syntax_spans; __syntax_spans 1 false true", "expects a String and two Booleans"]]
+{
+    let $result = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "timeout_ms": 1000, "stderr_file": "${fixture}/syntax.err"]
+    require (($result["exit_code"] == 1) && (!$result["timed_out"]) &&
+        ($result["signal"] == ()) && ($result["error"] == ())) "hidden parser bridge validation"
+    let $error: String
+    "${fixture}/syntax.err" -> $error
+    require ($error.contains $message) "wrong parser bridge diagnostic"
+}

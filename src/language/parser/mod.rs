@@ -1,13 +1,15 @@
 
 use crate::language::{ ast::AstTopLevel,
                        tokenizer::{ TokenBuffer, Tokenizer },
-                       parser::{ statements::parse_statement, results::ParseResult } };
+                       parser::{ statements::parse_statement, results::ParseResult,
+                                 source::SyntaxMetadata } };
 pub use crate::language::parser::results::ParserError;
 
 mod results;
 mod base_utils;
 mod expressions;
 mod statements;
+pub mod source;
 
 pub type ParserResult<T> = ParseResult<T>;
 
@@ -20,9 +22,26 @@ pub type ParserResult<T> = ParseResult<T>;
 pub fn parse_text<'a>(tokenizer: &mut Tokenizer<'a>) -> ParserResult<AstTopLevel>
 {
     let mut token_buffer = TokenBuffer::new(tokenizer);
+    parse_buffer(&mut token_buffer)
+}
+
+
+/// Run exactly the execution grammar, collecting committed syntax facts without compilation.
+/// On failure, metadata from accepted prefixes remains available to tooling.
+pub fn parse_with_metadata(tokenizer: &mut Tokenizer<'_>)
+    -> (ParserResult<AstTopLevel>, SyntaxMetadata)
+{
+    let mut token_buffer = TokenBuffer::with_syntax(tokenizer);
+    let result = parse_buffer(&mut token_buffer);
+    (result, token_buffer.syntax_metadata().unwrap_or_default())
+}
+
+
+fn parse_buffer(token_buffer: &mut TokenBuffer<'_, '_>) -> ParserResult<AstTopLevel>
+{
     let mut ast_top_level = AstTopLevel::new();
 
-    while let Some(statement) = parse_statement(&mut token_buffer)?
+    while let Some(statement) = parse_statement(token_buffer)?
     {
         ast_top_level.push(statement);
     }

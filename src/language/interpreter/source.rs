@@ -3,6 +3,7 @@ use std::io::{ BufReader, Cursor };
 
 use crate::language::{ data::{ map_key::MapKey, value::Value },
                        interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult },
+                       parser::{ parse_text, parse_with_metadata, source::SyntaxMetadata },
                        text::{ buffer::{ Buffer, SimpleBuffer }, location::Location,
                                read_buffer::ReadBuffer, span::SourceSpan },
                        tokenizer::Tokenizer };
@@ -104,16 +105,52 @@ fn inspect(source: &str, buffer: &mut dyn Buffer, metadata: bool) -> Value
 }
 
 
+fn inspect_syntax(source: &str, buffer: &mut dyn Buffer, metadata: bool) -> Value
+{
+    let mut tokenizer = Tokenizer::new(buffer);
+    let (result, syntax) = if metadata { parse_with_metadata(&mut tokenizer) }
+        else { (parse_text(&mut tokenizer), SyntaxMetadata::default()) };
+    let (statements, error) = match result
+    {
+        Ok(ast) => (Value::Integer(ast.len() as i64), Value::None),
+        Err(error) => (Value::None, Value::from_string(error.to_string())),
+    };
+    let facts = syntax.facts.into_iter().map(|fact| record([
+            ("span", span_value(fact.span, source)),
+            ("role", Value::from_string(format!("{:?}", fact.role))),
+            ("context", Value::from_string(format!("{:?}", fact.context))),
+        ])).collect();
+    record([
+            ("facts", Value::from_array(facts)),
+            ("statements", statements),
+            ("error", error),
+        ])
+}
+
+
 impl Interpreter
 {
+    pub(super) fn handle_syntax_spans(&mut self, location: &Location, args: &[Value])
+        -> InterpreterResult<()>
+    {
+        self.handle_source_inspection(location, args, "__syntax_spans", inspect_syntax)
+    }
+
     pub(super) fn handle_source_spans(&mut self, location: &Location, args: &[Value])
+        -> InterpreterResult<()>
+    {
+        self.handle_source_inspection(location, args, "__source_spans", inspect)
+    }
+
+    fn handle_source_inspection(&mut self, location: &Location, args: &[Value], name: &str,
+                                inspect: fn(&str, &mut dyn Buffer, bool) -> Value)
         -> InterpreterResult<()>
     {
         let [Value::String(source, _), Value::Boolean(stream), Value::Boolean(metadata)] = args else
         {
             return Err(InterpreterError { location: location.clone(),
                 what: ErrorWhat::ArgumentMismatch(
-                    "__source_spans expects a String and two Booleans".into()) });
+                    format!("{} expects a String and two Booleans", name)) });
         };
         let result = if *stream
             {

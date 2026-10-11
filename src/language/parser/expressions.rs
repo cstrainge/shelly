@@ -9,7 +9,8 @@ use crate::language::{ ast::*,
                                     TokenValue,
                                     StringFlag,
                                     Token },
-                       parser::{ base_utils::{ expect_token,
+                       parser::{ source::{ SyntaxContext, SyntaxRole },
+                                 base_utils::{ expect_token,
                                                match_one_of,
                                                Lookahead,
                                                try_expect_token,
@@ -148,6 +149,7 @@ fn constructor_follows(
  */
 fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
+    let head = buffer.syntax_checkpoint();
     let mut lookahead = Lookahead::new(buffer);
     let Some(token) = lookahead.buffer.next()? else { return Ok(None); };
 
@@ -187,6 +189,7 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                     }
                     if let Some(start) = constructor_follows(&mut *lookahead.buffer, &tail)?
                     {
+                        lookahead.buffer.annotate_names_since(head, SyntaxRole::TypeName);
                         if !name.split("::").all(valid_type_name)
                         {
                             return Err(ParserError
@@ -478,20 +481,23 @@ pub(super) fn expect_field_label(buffer: &mut TokenBuffer<'_, '_>) -> ParseResul
         return Err(ParserError { location: Some(token.location),
             kind: ParserErrorKind::InvalidType("Expected a field name.".to_string()) });
     }
+    buffer.annotate(token.span, SyntaxRole::FieldName);
     Ok(token)
 }
 
 
 pub(super) fn parse_type(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<AstType>
 {
-    parse_type_inner(buffer, false, &mut false)
+    buffer.with_context(SyntaxContext::Type, |buffer|
+        parse_type_inner(buffer, false, &mut false))
 }
 
 
 pub(super) fn parse_parameter_type(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<(AstType, bool)>
 {
     let mut variadic = false;
-    let annotation = parse_type_inner(buffer, true, &mut variadic)?;
+    let annotation = buffer.with_context(SyntaxContext::Type, |buffer|
+        parse_type_inner(buffer, true, &mut variadic))?;
     if !variadic && try_expect_token(buffer, TokenKind::Splat)?.is_some() { variadic = true; }
     Ok((annotation, variadic))
 }
@@ -604,7 +610,10 @@ fn parse_type_atom(
             kind: ParserErrorKind::InvalidType("Expected a type name.".to_string()) });
     }
     if name == "optional"
-    { return Ok(AstType::Optional(Box::new(parse_type_inner(buffer, allow_variadic, variadic)?))); }
+    {
+        buffer.annotate(token.span, SyntaxRole::Keyword);
+        return Ok(AstType::Optional(Box::new(parse_type_inner(buffer, allow_variadic, variadic)?)));
+    }
     while try_expect_token(buffer, TokenKind::Scope)?.is_some()
     {
         name.push_str("::");
@@ -825,6 +834,7 @@ fn parse_outer_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
             location: Some(operator.location.clone()),
             kind: ParserErrorKind::UnexpectedEOF(TokenKind::Symbol),
         })?;
+    buffer.annotate(name.span, SyntaxRole::CommandName);
     let text = name.token_value_text();
     // Keywords and Boolean literals can also name external programs, such as true.
     if    name.kind != TokenKind::Symbol
@@ -917,11 +927,13 @@ fn parse_lonely_glob_expression(
 
     if let Some(glob_operator) = glob_operator
     {
+        buffer.annotate_word(glob_operator.span);
         let location = glob_operator.location.clone();
         return Ok(Some(new_ast_symbol(location, "*".to_string(), None)));
     }
 
     let star = expect_token(buffer, TokenKind::Asterisk)?;
+    buffer.annotate_word(star.span);
 
     Ok(Some(new_ast_symbol(star.location.clone(), "*".to_string(), None)))
 }
@@ -962,6 +974,7 @@ fn parse_operator_to_symbol(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
     // Attempt to match one of the allowed operators
     if let Some(operator) = try_expect_one_of_tokens(buffer, &allowed_operators)?
     {
+        buffer.annotate_word(operator.span);
         let location = operator.location.clone();
 
         return Ok(Some(new_ast_symbol(location, operator.token_value_text(), None)));
@@ -988,6 +1001,7 @@ fn parse_scalar_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
                     Some(ConstructorStart::SpacedEmpty)
                 )
             {
+                peek.buffer.annotate(name.span, SyntaxRole::CommandName);
                 peek.commit();
                 return Ok(Some(new_ast_literal(escape.location,
                     Value::from_executable_string(name.token_value_text()), None)));
@@ -1173,6 +1187,15 @@ pub fn parse_condition_expression(buffer: &mut TokenBuffer<'_,
 
 
 fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
+                            stop_at_block: bool, stop_at_colon: bool)
+    -> ParseResult<Option<AstExpression>>
+{
+    buffer.with_context(SyntaxContext::Expression, |buffer|
+        parse_value_before_block_inner(buffer, stop_at_block, stop_at_colon))
+}
+
+
+fn parse_value_before_block_inner(buffer: &mut TokenBuffer<'_, '_>,
                             stop_at_block: bool,
                             stop_at_colon: bool) -> ParseResult<Option<AstExpression>>
 {
@@ -1207,16 +1230,21 @@ pub(super) fn parse_pipe_boundary(buffer: &mut TokenBuffer<'_, '_>)
         { return Ok(None); }
         let Some(pipe) = try_expect_token(lookahead.buffer, TokenKind::Pipe)?
             else { return Ok(None); };
+        lookahead.buffer.annotate(token.span, SyntaxRole::FormatName);
         (Some(token.token_value_text()), pipe)
     }
     else { return Ok(None); };
     let annotation = if try_expect_token(lookahead.buffer, TokenKind::TypeDelimiter)?.is_some()
     {
-        let mut name = expect_type_name(lookahead.buffer)?.token_value_text();
+        let token = expect_type_name(lookahead.buffer)?;
+        lookahead.buffer.annotate(token.span, SyntaxRole::PipeAnnotation);
+        let mut name = token.token_value_text();
         while try_expect_token(lookahead.buffer, TokenKind::Scope)?.is_some()
         {
             name.push_str("::");
-            name.push_str(&expect_type_name(lookahead.buffer)?.token_value_text());
+            let token = expect_type_name(lookahead.buffer)?;
+            lookahead.buffer.annotate(token.span, SyntaxRole::PipeAnnotation);
+            name.push_str(&token.token_value_text());
         }
         Some(name)
     }
@@ -1230,7 +1258,11 @@ fn parse_stage_before_block(buffer: &mut TokenBuffer<'_, '_>,
                             stop_at_block: bool,
                             stop_at_colon: bool) -> ParseResult<Option<AstExpression>>
 {
+    let head = buffer.syntax_checkpoint();
     let Some(mut expression) = parse_expression(buffer)? else { return Ok(None); };
+    if matches!(expression.kind, AstExpressionKind::Symbol(_) | AstExpressionKind::EnumVariant(_, _)
+        | AstExpressionKind::SpacedEmptyCall(_))
+    { buffer.annotate_names_since(head, SyntaxRole::CommandName); }
 
     if matches!(&expression.kind, AstExpressionKind::Symbol(_) | AstExpressionKind::Variable(_)
         | AstExpressionKind::EnumVariant(_, _)
@@ -1333,6 +1365,15 @@ pub fn parse_command_arguments(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<
 
 
 fn parse_arguments_before_block(buffer: &mut TokenBuffer<'_, '_>,
+                                stop_at_block: bool, stop_at_colon: bool)
+    -> ParseResult<Vec<AstExpression>>
+{
+    buffer.with_context(SyntaxContext::Argument, |buffer|
+        parse_arguments_before_block_inner(buffer, stop_at_block, stop_at_colon))
+}
+
+
+fn parse_arguments_before_block_inner(buffer: &mut TokenBuffer<'_, '_>,
                                 stop_at_block: bool,
                                 stop_at_colon: bool) -> ParseResult<Vec<AstExpression>>
 {
@@ -1385,6 +1426,13 @@ fn parse_arguments_before_block(buffer: &mut TokenBuffer<'_, '_>,
 
 
 pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
+{
+    buffer.with_context(SyntaxContext::Command, parse_exec_expression_inner)
+}
+
+
+fn parse_exec_expression_inner(buffer: &mut TokenBuffer<'_, '_>)
+    -> ParseResult<Option<AstExpression>>
 {
     if let Some(expression) = parse_outer_expression(buffer)?
     {

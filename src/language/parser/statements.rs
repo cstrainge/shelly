@@ -5,7 +5,8 @@ use crate::language::{ ast::*,
                        text::location::Location,
                        data::{ value::Value, conversion::is_conversion_method },
                        tokenizer::{ TokenBuffer, TokenKind, TokenValue, TokenLiteral },
-                       parser::{ base_utils::{ Lookahead,
+                       parser::{ source::{ SyntaxContext, SyntaxRole },
+                                 base_utils::{ Lookahead,
                                                expect_token,
                                                try_expect_token,
                                                expect_block_list_of },
@@ -80,7 +81,11 @@ fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     expect_token(buffer, TokenKind::Let)?;
     let mut lookahead = Lookahead::new(buffer);
     let discard = lookahead.buffer.next()?.is_some_and(|token|
-        token.kind == TokenKind::Symbol && token.token_value_text() == "_");
+        {
+            let discard = token.kind == TokenKind::Symbol && token.token_value_text() == "_";
+            if discard { lookahead.buffer.annotate(token.span, SyntaxRole::Discard); }
+            discard
+        });
     if discard { lookahead.commit(); }
     drop(lookahead);
     if discard
@@ -97,6 +102,7 @@ fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     let export_flag = if try_expect_token(buffer, TokenKind::Export)?.is_some()
         { AstExportFlag::Exported } else { AstExportFlag::NonExported };
     let identifier = expect_token(buffer, TokenKind::Identifier)?;
+    buffer.annotate(identifier.span, SyntaxRole::VariableDeclaration);
     if identifier.token_value_text().contains("::")
     {
         return Err(ParserError
@@ -173,17 +179,20 @@ fn parse_alias_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
     expect_token(buffer, TokenKind::Alias)?;
 
     let alias = expect_token(buffer, TokenKind::Symbol)?;
+    buffer.annotate(alias.span, SyntaxRole::AliasDeclaration);
 
     expect_token(buffer, TokenKind::Assign)?;
 
     let target = expect_token(buffer, TokenKind::Symbol)?;
+    buffer.annotate(target.span, SyntaxRole::CommandName);
 
     let mut arguments = Vec::new();
 
     loop
     {
         let mut lookahead = Lookahead::new(buffer);
-        let Some(token) = lookahead.buffer.next()? else { break; };
+        let Some(token) = lookahead.buffer.with_context(SyntaxContext::Argument,
+            |buffer| buffer.next())? else { break; };
         if token.kind == TokenKind::BlockClose { break; }
         lookahead.commit();
         drop(lookahead);
@@ -199,6 +208,12 @@ fn parse_alias_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
                 },
 
             _ => {}
+        }
+
+        if token.kind != TokenKind::Literal
+        {
+            buffer.with_context(SyntaxContext::Argument, |buffer|
+                buffer.annotate(token.span, SyntaxRole::Argument));
         }
 
         // Alias arguments are stored values, not expressions to evaluate here.
@@ -337,16 +352,20 @@ fn parse_function_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
 {
     expect_token(buffer, TokenKind::Function)?;
     let name = expect_token(buffer, TokenKind::Symbol)?;
+    buffer.annotate(name.span, SyntaxRole::FunctionDeclaration);
     let (receiver, name) = if try_expect_token(buffer, TokenKind::Scope)?.is_some()
         {
+            buffer.annotate(name.span, SyntaxRole::TypeName);
             let mut receiver = name.token_value_text();
             let mut member = expect_field_label(buffer)?;
             while try_expect_token(buffer, TokenKind::Scope)?.is_some()
             {
+                buffer.annotate(member.span, SyntaxRole::TypeName);
                 receiver.push_str("::");
                 receiver.push_str(&member.token_value_text());
                 member = expect_field_label(buffer)?;
             }
+            buffer.annotate(member.span, SyntaxRole::FunctionDeclaration);
             (Some(receiver), member)
         }
         else { (None, name) };
@@ -376,6 +395,7 @@ fn parse_function_body(buffer: &mut TokenBuffer<'_, '_>, location: Location,
             break;
         }
         let parameter = expect_token(buffer, TokenKind::Identifier)?;
+        buffer.annotate(parameter.span, SyntaxRole::ParameterDeclaration);
         let parameter_name = parameter.token_value_text();
         let mut variadic = try_expect_token(buffer, TokenKind::Splat)?.is_some();
         if !names.insert(parameter_name.clone())
@@ -492,7 +512,12 @@ pub(super) fn parse_match_expression(buffer: &mut TokenBuffer<'_, '_>,
             {
                 let mut peek = Lookahead::new(buffer);
                 let bare_wildcard = peek.buffer.next()?.is_some_and(|token|
-                    token.kind == TokenKind::Symbol && token.token_value_text() == "_");
+                    {
+                        let wildcard = token.kind == TokenKind::Symbol
+                            && token.token_value_text() == "_";
+                        if wildcard { peek.buffer.annotate(token.span, SyntaxRole::Discard); }
+                        wildcard
+                    });
                 if bare_wildcard
                 {
                     wildcard = true;
@@ -594,11 +619,13 @@ fn expect_loop_binding(buffer: &mut TokenBuffer<'_, '_>)
     if    let Some(token) = try_expect_token(lookahead.buffer, TokenKind::Symbol)?
        && token.token_value_text() == "_"
     {
+        lookahead.buffer.annotate(token.span, SyntaxRole::Discard);
         lookahead.commit();
         return Ok((token.location, None));
     }
     drop(lookahead);
     let token = expect_token(buffer, TokenKind::Identifier)?;
+    buffer.annotate(token.span, SyntaxRole::VariableDeclaration);
     let name = token.token_value_text();
     Ok((token.location, Some(name)))
 }
@@ -664,6 +691,7 @@ fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
 {
     expect_token(buffer, TokenKind::Struct)?;
     let name = expect_type_name(buffer)?;
+    buffer.annotate(name.span, SyntaxRole::TypeDeclaration);
     while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
     expect_token(buffer, TokenKind::BlockOpen)?;
     let mut fields = Vec::new();
@@ -680,8 +708,13 @@ fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
             optional =
                 {
                     let mut peek = Lookahead::new(buffer);
-                    if peek.buffer.next()?.is_some_and(|token| token.kind == TokenKind::Symbol
-                        && token.token_value_text() == "optional")
+                    if peek.buffer.next()?.is_some_and(|token|
+                        {
+                            let optional = token.kind == TokenKind::Symbol
+                                && token.token_value_text() == "optional";
+                            if optional { peek.buffer.annotate(token.span, SyntaxRole::Keyword); }
+                            optional
+                        })
                     { peek.commit(); true } else { false }
                 };
             let has_type =
@@ -715,6 +748,7 @@ fn parse_type_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
 {
     expect_token(buffer, TokenKind::Type)?;
     let name = expect_type_name(buffer)?;
+    buffer.annotate(name.span, SyntaxRole::TypeDeclaration);
     expect_token(buffer, TokenKind::Assign)?;
     let annotation = parse_type(buffer)?;
     expect_statement_end(buffer)?;
@@ -727,6 +761,7 @@ fn parse_enum_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
 {
     let keyword = expect_token(buffer, TokenKind::Enum)?;
     let name = expect_type_name(buffer)?;
+    buffer.annotate(name.span, SyntaxRole::TypeDeclaration);
     while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
     expect_token(buffer, TokenKind::BlockOpen)?;
     let mut variants = Vec::new();
@@ -735,6 +770,7 @@ fn parse_enum_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
         while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
         if try_expect_token(buffer, TokenKind::BlockClose)?.is_some() { break; }
         let variant = expect_type_name(buffer)?;
+        buffer.annotate(variant.span, SyntaxRole::EnumVariantDeclaration);
         variants.push((variant.token_value_text(), variant.location));
         while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
         if try_expect_token(buffer, TokenKind::Comma)?.is_some() { continue; }
@@ -761,12 +797,16 @@ fn parse_enum_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
 fn parse_import_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     let keyword = expect_token(buffer, TokenKind::Import)?;
-    let mut module = expect_type_name(buffer)?.token_value_text();
+    let token = expect_type_name(buffer)?;
+    buffer.annotate(token.span, SyntaxRole::ModuleName);
+    let mut module = token.token_value_text();
     if module == "std"
     {
         expect_token(buffer, TokenKind::Scope)?;
         module.push_str("::");
-        module.push_str(&expect_type_name(buffer)?.token_value_text());
+        let token = expect_type_name(buffer)?;
+        buffer.annotate(token.span, SyntaxRole::ModuleName);
+        module.push_str(&token.token_value_text());
     }
     let mut names = Vec::new();
     if try_expect_token(buffer, TokenKind::Scope)?.is_some()
@@ -778,6 +818,7 @@ fn parse_import_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
             if try_expect_token(buffer, TokenKind::BlockClose)?.is_some() { break; }
             let name = if let Some(token) = try_expect_token(buffer, TokenKind::Identifier)?
                 { token } else { expect_type_name(buffer)? };
+            buffer.annotate(name.span, SyntaxRole::ImportName);
             let text = name.token_value_text();
             if names.contains(&text)
             {
@@ -797,7 +838,11 @@ fn parse_import_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
     }
     let mut lookahead = Lookahead::new(buffer);
     let conditional = lookahead.buffer.next()?.is_some_and(|token|
-        token.kind == TokenKind::Symbol && token.token_value_text() == "when");
+        {
+            let conditional = token.kind == TokenKind::Symbol && token.token_value_text() == "when";
+            if conditional { lookahead.buffer.annotate(token.span, SyntaxRole::Keyword); }
+            conditional
+        });
     if conditional { lookahead.commit(); }
     drop(lookahead);
     let condition = if conditional
@@ -822,6 +867,7 @@ fn parse_exclusion(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstSt
     let Some(keyword) = lookahead.buffer.next()? else { return Ok(None); };
     if keyword.kind != TokenKind::Symbol || keyword.token_value_text() != "when"
     { return Ok(None); }
+    lookahead.buffer.annotate(keyword.span, SyntaxRole::Keyword);
     // Once [when is recognized, preserve errors instead of retrying it as an array.
     lookahead.commit();
     drop(lookahead);
@@ -871,7 +917,8 @@ fn parse_public_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
         };
     if matches!(&kind, Some((TokenKind::Symbol, name)) if name == "visible")
     {
-        expect_token(buffer, TokenKind::Symbol)?;
+        let visible = expect_token(buffer, TokenKind::Symbol)?;
+        buffer.annotate(visible.span, SyntaxRole::CommandName);
         let arguments = parse_command_arguments(buffer)?;
         expect_statement_end(buffer)?;
         if arguments.len() != 1
@@ -912,6 +959,12 @@ fn parse_public_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
 
 
 pub fn parse_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
+{
+    buffer.with_context(SyntaxContext::Expression, parse_statement_inner)
+}
+
+
+fn parse_statement_inner(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     // EOF is normal between statements. Rewind a real token so the statement rules see it, and
     // leave EOF within required syntax to those rules.

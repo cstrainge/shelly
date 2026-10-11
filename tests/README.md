@@ -27,6 +27,8 @@ optional lexical metadata. Its hidden `__source_spans` inspection bridge must
 be enabled explicitly with `visible`; it tokenizes text without evaluating it.
 The checks compare string and one-byte streaming buffers, reconstruct original
 input from token/trivia spans, and verify string escapes and indentation maps.
+`native/syntax_spans.shy` uses the hidden `__syntax_spans` bridge to check parser
+roles and contexts, nested lookahead rollback, and strict parsing parity.
 
 ## Process case records
 

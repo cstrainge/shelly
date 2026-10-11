@@ -1,7 +1,18 @@
 
 use std::collections::VecDeque;
 
-use crate::language::tokenizer::tokenizer::{ Token, Tokenizer, TokenizerError };
+use crate::language::{ parser::source::{ SyntaxContext, SyntaxFact, SyntaxJournal,
+                                       SyntaxMetadata, SyntaxRole },
+                       text::span::SourceSpan,
+                       tokenizer::tokenizer::{ Token, TokenKind, Tokenizer, TokenizerError } };
+
+
+#[derive(Clone, Copy)]
+struct Transaction
+{
+    position: usize,
+    syntax_checkpoint: usize,
+}
 
 /**
  * Simple buffer that provides lookahead functionality for a parser. The tokenizer just focuses on
@@ -41,7 +52,9 @@ pub struct TokenBuffer<'tokenizer, 'input>
      * saved position in the lookahead buffer, allowing the parser to rollback to previous states
      * if needed.
      */
-    lookahead_stack: VecDeque<usize>
+    lookahead_stack: VecDeque<Transaction>,
+    syntax: Option<SyntaxJournal>,
+    context: SyntaxContext,
 }
 
 
@@ -64,8 +77,94 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
                 tokenizer,
                 lookahead_buffer: Vec::with_capacity(LOOKAHEAD_BUFFER_CAPACITY),
                 position: 0,
-                lookahead_stack: VecDeque::with_capacity(LOOKAHEAD_BUFFER_CAPACITY)
+                lookahead_stack: VecDeque::with_capacity(LOOKAHEAD_BUFFER_CAPACITY),
+                syntax: None,
+                context: SyntaxContext::Expression,
             }
+    }
+
+    pub fn with_syntax(tokenizer: &'tokenizer mut Tokenizer<'input>) -> Self
+    {
+        let mut buffer = Self::new(tokenizer);
+        buffer.syntax = Some(SyntaxJournal::default());
+        buffer
+    }
+
+    pub fn syntax_metadata(&self) -> Option<SyntaxMetadata>
+    { self.syntax.as_ref().map(SyntaxJournal::snapshot) }
+
+    pub(crate) fn syntax_checkpoint(&self) -> usize
+    { self.syntax.as_ref().map_or(0, |journal| journal.entries.len()) }
+
+    pub(crate) fn with_context<T>(&mut self, context: SyntaxContext,
+                                 parse: impl FnOnce(&mut Self) -> T) -> T
+    {
+        let previous = self.context;
+        self.context = context;
+        let result = parse(self);
+        self.context = previous;
+        result
+    }
+
+    pub(crate) fn annotate(&mut self, span: SourceSpan, role: SyntaxRole)
+    {
+        if let Some(journal) = &mut self.syntax
+        { journal.entries.push(SyntaxFact { span, role, context: self.context }); }
+    }
+
+    pub(crate) fn annotate_word(&mut self, span: SourceSpan)
+    {
+        self.annotate(span, self.word_role());
+    }
+
+    fn word_role(&self) -> SyntaxRole
+    {
+        match self.context
+        {
+            SyntaxContext::Argument => SyntaxRole::Argument,
+            SyntaxContext::Command => SyntaxRole::CommandName,
+            SyntaxContext::Type => SyntaxRole::TypeName,
+            SyntaxContext::Expression => SyntaxRole::Name,
+        }
+    }
+
+    pub(crate) fn annotate_names_since(&mut self, checkpoint: usize, role: SyntaxRole)
+    {
+        if let Some(journal) = &mut self.syntax
+        {
+            let end = journal.entries.len();
+            for index in checkpoint..end
+            {
+                let fact = journal.entries[index];
+                if matches!(fact.role, SyntaxRole::Name | SyntaxRole::CommandName
+                    | SyntaxRole::Argument | SyntaxRole::TypeName)
+                { journal.entries.push(SyntaxFact { role, ..fact }); }
+            }
+        }
+    }
+
+    fn record_token(&mut self, token: &Token)
+    {
+        if self.syntax.is_none() { return; }
+        let role = match token.kind
+        {
+            TokenKind::Symbol => self.word_role(),
+            TokenKind::Identifier | TokenKind::AutoIdentifier => SyntaxRole::Variable,
+            TokenKind::Member => SyntaxRole::Member,
+            TokenKind::Literal => SyntaxRole::Literal,
+            TokenKind::Let | TokenKind::Export | TokenKind::Public | TokenKind::Alias
+            | TokenKind::Sub | TokenKind::If | TokenKind::Else | TokenKind::While
+            | TokenKind::Until | TokenKind::For | TokenKind::In | TokenKind::Break
+            | TokenKind::Continue | TokenKind::Loop | TokenKind::Match | TokenKind::Return
+            | TokenKind::Function | TokenKind::Struct | TokenKind::Enum | TokenKind::Type
+            | TokenKind::Import => SyntaxRole::Keyword,
+            TokenKind::Comma | TokenKind::BlockOpen | TokenKind::BlockClose | TokenKind::EmptyBlock
+            | TokenKind::SquareOpen | TokenKind::SquareClose | TokenKind::IndexOpen
+            | TokenKind::ParenOpen | TokenKind::ParenClose | TokenKind::StatementBreak
+            | TokenKind::LineBreak | TokenKind::LineContinue => SyntaxRole::Delimiter,
+            _ => SyntaxRole::Operator,
+        };
+        self.annotate(token.span, role);
     }
 
     /**
@@ -77,7 +176,7 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
         // as the current lookahead position. Otherwise, use the current position.
         let lookahead = if self.is_peeking()
             {
-                self.lookahead_stack.front().copied()
+                self.lookahead_stack.front().map(|frame| frame.position)
             }
             else
             {
@@ -86,7 +185,8 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
 
         if let Some(lookahead) = lookahead
         {
-            self.lookahead_stack.push_front(lookahead);
+            self.lookahead_stack.push_front(Transaction
+                { position: lookahead, syntax_checkpoint: self.syntax_checkpoint() });
         }
     }
 
@@ -99,11 +199,11 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
         {
             if self.is_peeking()
             {
-                self.lookahead_stack[0] = lookahead;
+                self.lookahead_stack[0].position = lookahead.position;
             }
             else
             {
-                self.position = lookahead;
+                self.position = lookahead.position;
                 self.clear_finished_buffer();
             }
         }
@@ -114,8 +214,10 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
      */
     pub fn rollback_lookahead(&mut self)
     {
-        if self.lookahead_stack.pop_front().is_some()
+        if let Some(frame) = self.lookahead_stack.pop_front()
         {
+            if let Some(journal) = &mut self.syntax
+            { journal.entries.truncate(frame.syntax_checkpoint); }
             self.clear_finished_buffer();
         }
     }
@@ -126,7 +228,7 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
      */
     pub fn next(&mut self) -> Result<Option<Token>, TokenizerError>
     {
-        let index = self.lookahead_stack.front().copied().unwrap_or(self.position);
+        let index = self.position();
 
         if index >= self.lookahead_buffer.len()
          {
@@ -141,7 +243,7 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
 
         if let Some(cursor) = self.lookahead_stack.front_mut()
          {
-            *cursor += 1;
+            cursor.position += 1;
          }
         else
         {
@@ -149,6 +251,7 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
             self.clear_finished_buffer();
         }
 
+        self.record_token(&token);
         Ok(Some(token))
     }
 
@@ -159,7 +262,7 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
      */
     pub(crate) fn position(&self) -> usize
     {
-        self.lookahead_stack.front().copied().unwrap_or(self.position)
+        self.lookahead_stack.front().map_or(self.position, |frame| frame.position)
     }
 
     /**
