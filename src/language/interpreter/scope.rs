@@ -1,6 +1,7 @@
 
 use std::{ cell::RefCell, collections::{ HashMap, HashSet }, rc::Rc };
 
+use crate::runtime::color::TtyColorMode;
 use crate::language::{ ast::AstTopLevel,
                        native::{ NativeFunction, NativeVisibility },
                        bytecode::{ FunctionBlock, FunctionBlockRef, FunctionRef, Instruction },
@@ -40,7 +41,7 @@ pub(super) struct Scope
 impl Scope
 {
     pub fn new(natives: impl IntoIterator<Item = Rc<NativeFunction>>,
-               scope: String, types: TypeRegistry) -> Self
+               scope: String, types: TypeRegistry, color_mode: TtyColorMode) -> Self
     {
         let native_functions: HashMap<_, _> = natives.into_iter()
             .filter(|item| item.visibility != NativeVisibility::Hidden)
@@ -52,6 +53,27 @@ impl Scope
             {
                 value: Value::from_array(Vec::new()),
                 type_id: Some(widget_array),
+                exported: ValueVisibility::Private,
+                reference: None,
+            });
+        let widget_color = match color_mode
+            {
+                TtyColorMode::Tty256 => "\x1b[38;5;80m",
+                TtyColorMode::TtyBasic => "\x1b[36m",
+                _ => "\x1b[38;2;49;216;224m",
+            };
+        let _ = variables.create("$widget_color".to_string(), ScopedValue
+            {
+                value: Value::from_string(widget_color.to_string()),
+                type_id: Some(types.native_types["String"].id),
+                exported: ValueVisibility::Private,
+                reference: None,
+            });
+        let prompt_type = types.native_types["Prompt"].id;
+        let _ = variables.create("$prompt".to_string(), ScopedValue
+            {
+                value: types.default_value(prompt_type).expect("Prompt has a native default"),
+                type_id: Some(prompt_type),
                 exported: ValueVisibility::Private,
                 reference: None,
             });

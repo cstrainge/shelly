@@ -1,0 +1,88 @@
+# Inspect raw prompt bytes so ANSI stripping cannot hide incorrect widget colors.
+fn widget_raw_drain($terminal: Terminal): String
+{
+    let $raw = ""
+    for $attempt in 0..50
+    {
+        let $reply = terminal_read $terminal 100
+        $raw = $raw + $reply["text"]
+        if ($raw.contains "\x1b[6n")
+        {
+            terminal_write $terminal "\x1b[1;1R"
+            $raw = $raw.replace "\x1b[6n" ""
+        }
+        if ($raw.contains "\x1b[c")
+        {
+            terminal_write $terminal "\x1b[?1;2c"
+            $raw = $raw.replace "\x1b[c" ""
+        }
+        let $output = strip_ansi $raw
+        if $reply["eof"] || ($reply["timed_out"] &&
+            (($output.ends_with "\n$ ") || ($output.ends_with "\n# ")))
+        { return $raw.replace "\r" "" }
+    }
+    fail "widget color session did not settle"
+}
+
+fn widget_raw_submit($terminal: Terminal, $source: String): String
+{
+    terminal_write $terminal "\x1b[200~${source}\x1b[201~\r"
+    widget_raw_drain $terminal
+}
+
+for ($term, $color_term, $mono, $no_color, $grey, $cyan) in [
+    ["xterm", "truecolor", false, false, "\x1b[38;2;100;100;100m", "\x1b[38;2;49;216;224m"],
+    ["xterm-256color", "", false, false, "\x1b[38;5;241m", "\x1b[38;5;80m"],
+    ["xterm", "", false, false, "\x1b[90m", "\x1b[36m"],
+    ["xterm-256color", "truecolor", true, false, "", ""],
+    ["xterm-256color", "truecolor", false, true, "", ""],
+    ["dumb", "", false, false, "", ""],
+]
+{
+    let $environment = ["HOME": $args[0], "PATH": "/usr/bin:/bin", "TERM": $term,
+                        "LANG": "C.UTF-8"]
+    if $color_term != "" { $environment["COLORTERM"] = $color_term }
+    if $no_color { $environment["NO_COLOR"] = "1" }
+    let $options = if $mono { ["--norc", "-m", "-b"] } else { ["--norc", "-b"] }
+    let $terminal = open_terminal [`$shelly, $options...] [
+        "cwd": $args[0], "env": $environment, "rows": 40, "columns": 140,
+    ]
+    let _ = widget_raw_drain $terminal
+    let _ = widget_raw_submit $terminal '$widgets = [fn (): String { "first" }, fn (): String { "" }, fn (): String { "λ" }]'
+    let $reset = if $grey == "" { "" } else { "\x1b[39m" }
+    let $expected = "${grey}[${cyan}first${grey}]${reset}${grey}[${cyan}λ${grey}]${reset} tail\n"
+    for $source in [
+        '$prompt = \'${rendered_widgets} tail\\n\'',
+        '$prompt = fn (): String { "${rendered_widgets} tail\\n" }',
+    ]
+    {
+        let $raw = widget_raw_submit $terminal $source
+        require ($raw.contains $expected) "wrong widget colors or foreground reset"
+        require (!(($raw.contains "Error processing text:"))) "widget prompt failed"
+        require ((strip_ansi $raw).contains "\n[first][λ] tail\n") "widget text changed"
+    }
+    for ($source, $color) in [
+        ['$widget_color = "\\x1b[33m"', "\x1b[33m"],
+        ['$widget_color = "\\x1b[38;2;255;205;110m"', "\x1b[38;2;255;205;110m"],
+        ['$widget_color = ""', "\x1b[39m"],
+    ]
+    {
+        let $contents = if $grey == "" { "" } else { $color }
+        let $expected = "${grey}[${contents}first${grey}]${reset}${grey}[${contents}λ${grey}]${reset} tail\n"
+        let $raw = widget_raw_submit $terminal $source
+        require ($raw.contains $expected) "widget color override ignored or leaked into brackets"
+        require (!($raw.contains "Error processing text:")) "widget color assignment failed"
+    }
+    let $raw = widget_raw_submit $terminal '$widget_color = 7'
+    require ((strip_ansi $raw).contains "Expected String") "non-string widget color accepted"
+    let $contents = if $grey == "" { "" } else { $reset }
+    let $expected = "${grey}[${contents}first${grey}]${reset}${grey}[${contents}λ${grey}]${reset} tail\n"
+    require ($raw.contains $expected) "rejected assignment changed widget rendering"
+    let _ = widget_raw_submit $terminal '$widgets = [fn (): String { "" }]'
+    let $raw = widget_raw_submit $terminal '$prompt = fn (): String { "empty=${rendered_widgets} tail\\n" }'
+    require ($raw.contains "empty= tail\n") "empty widget retained brackets or color escapes"
+    terminal_write $terminal "\x04"
+    let _ = widget_raw_drain $terminal
+    let $status = terminal_close $terminal
+    require ($status["exit_code"] == 0) "widget color session failed"
+}

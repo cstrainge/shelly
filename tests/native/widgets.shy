@@ -20,6 +20,8 @@ fn widget_case($source: String, $stdout: String, $diagnostic: String)
 }
 
 widget_case 'echo $widgets.count; let $copy: [WidgetFn] = $widgets; echo $copy.count' "0\n0\n" ""
+widget_case 'echo ($widget_color.type == String) ($widget_color == "\x1b[38;2;49;216;224m"); $widget_color = "yellow"; echo $widget_color' "true true\nyellow\n" ""
+widget_case '$widget_color = 7' "" "Expected String"
 widget_case 'fn label(): String { "named" }; $widgets = [`label, fn (): String { "closure" }]; for $widget in $widgets { echo ($widget) ($widget.type == WidgetFn) }' "named true\nclosure true\n" ""
 widget_case 'let $text = "before"; $widgets = [fn (): String { $text }]; $text = "after"; echo ($widgets[0])' "after\n" ""
 widget_case '$widgets = [fn (): String { "first" }]; $widgets = [$widgets..., fn (): String { "second" }]; $widgets[0] = fn (): String { "changed" }; for $widget in $widgets { echo ($widget) }; $widgets = []; echo $widgets.count' "changed\nsecond\n0\n" ""

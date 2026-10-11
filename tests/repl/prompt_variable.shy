@@ -1,0 +1,97 @@
+# Prompt is a native named union of a String and a zero-argument String factory.
+check_repl ["id": "PROMPT-VARIABLE", "exit": 0, "steps": [
+    ['echo ($prompt.type == Prompt)', "output", "true"],
+    ['fn prompt() { echo "legacy-must-not-run" }', "output", "<shelly> [~]"],
+    ['$prompt = \'static λ\\n\'', "output", "static λ"],
+    ['echo ($prompt.type == Prompt)', "output", "true"],
+    ['let $label = "before"; $prompt = \'label=${label} cwd=${pwd}\\n\'', "output", "label=before cwd=~"],
+    ['$label = "after"', "output", "label=after cwd=~"],
+    ['$prompt = \'git diff\\n\'', "output", "git diff"],
+    ['let $text = \'${undefined}\'; $prompt = \'literal=${text}\\n\'', "output", 'literal=${undefined}'],
+    ['$prompt = \'${missing}\\n\'', "output", "<shelly> [~]"],
+    ['let $missing = "recovered"', "output", "recovered"],
+    ['$prompt = \'${}\\n\'', "output", "<shelly> [~]"],
+    ['$prompt = ""', "quiet", ""],
+    ['$prompt = 7', "error", "Expected"],
+    ['$prompt = ()', "error", "Expected"],
+    ['$prompt = []', "error", "Expected"],
+    ['fn custom(): String { "original\\n" }; $prompt = `custom', "output", "original"],
+    ['fn custom(): String { "replacement\\n" }', "output", "original"],
+    ['$prompt = `custom', "output", "replacement"],
+    ['$prompt = fn (): String { "captured=${label}\\n" }', "output", "captured=after"],
+    ['$label = "live"', "output", "captured=live"],
+    ['echo ($prompt.type == Prompt)', "output", "true"],
+    ['let $prompt: Prompt = fn (): String { "typed=${label}\\n" }', "output", "typed=live"],
+    ['type PromptFn = fn(): String; let $callback: PromptFn = fn (): String { "named=${label}\\n" }; $prompt = $callback', "output", "named=live"],
+    ['$prompt = fn (): String { 1 / 0; "unreachable" }', "output", "<shelly> [~]"],
+    ['$prompt = \'after failure\\n\'', "output", "after failure"],
+    ['let $prompt: Prompt', "output", "<shelly> [~]"],
+]]
+
+# Closures and templates see widget context only while rendering, with live captures.
+check_repl ["id": "PROMPT-WIDGET-CONTEXT", "exit": 0, "steps": [
+    ['let $calls = 0; $widgets = [fn (): String { $calls = $calls + 1; "λ" }]; $prompt = \'widgets=${rendered_widgets} time=${last_cmd_time}\\n\'', "output", "widgets=[λ] time=0:00"],
+    ['echo $calls', "output", "1"],
+    ['echo $rendered_widgets', "error", "not found"],
+    ['let $rendered_widgets = "outside"; $prompt = fn (): String { "closure=${rendered_widgets}\\n" }', "output", "closure=[λ]"],
+    ['echo $rendered_widgets', "output", "outside"],
+    ['$prompt = fn (): String { 1 / 0; "unreachable" }', "output", "<shelly> [~]"],
+    ['echo $rendered_widgets', "output", "outside"],
+    ['$prompt = \'template=${rendered_widgets}\\n\'', "output", "template=[λ]"],
+    ['$widgets = [fn (): String { 1 / 0; "unreachable" }]', "output", "<shelly> [~]"],
+    ['$widgets = []', "output", "template="],
+    ['$prompt = ""; echo "empty-string-marker"', "output", "empty-string-marker"],
+    ['echo $rendered_widgets', "output", "outside"],
+]]
+
+# Imports retain their home scope and temporary context; a module has its own Prompt binding.
+let $fixture = $args[0]
+printf "%s" 'let $label = "module"; pub fn custom(): String { "${label}=${rendered_widgets}\\n" }; pub let $callback: Prompt = fn (): String { "closure-${label}=${rendered_widgets}\\n" }' -> "${fixture}/prompt_module.shy"
+check_repl ["id": "PROMPT-MODULE", "exit": 0, "steps": [
+    ['import prompt_module::{ custom, $callback }; let $label = "caller"; $widgets = [fn (): String { "widget" }]; $prompt = `custom', "output", "module=[widget]"],
+    ['$prompt = $callback', "output", "closure-module=[widget]"],
+    ['echo $prompt_module::rendered_widgets', "error", "not found"],
+    ['echo $rendered_widgets', "error", "not found"],
+]]
+check_repl ["id": "PROMPT-EXIT", "exit": 7, "steps": [
+    ['$prompt = fn (): String { exit 7; "unreachable" }', "quiet", ""],
+]]
+
+# Only the return contributes prompt text. It is neither recursively interpolated nor printed.
+let $terminal = session $fixture
+let _ = drain $terminal
+let $source = '$prompt = fn (): String { echo "discarded-stdout"; \'returned=${undefined}\\n\' }'
+let $reply = submit $terminal $source
+require ($reply["output"].contains '\nreturned=${undefined}\n') "returned prompt was interpolated"
+require (!($reply["output"].contains "\ndiscarded-stdout\n")) "prompt stdout leaked"
+for $source in ['$prompt = ""', '$prompt = fn (): String { "" }']
+{
+    let $reply = submit $terminal $source
+    let $parts = $reply["output"].split $source
+    require (!($parts[$parts.count - 1].contains "\n<shelly>")) "empty prompt used default"
+}
+let $reply = submit $terminal '$prompt = fn ($required: String): String { $required }'
+require (repl_matches "error" "Expected Prompt" $reply["output"]) "invalid arity accepted"
+let $reply = submit $terminal 'fn invalid(): Integer { 7 }; $prompt = `invalid'
+require (repl_matches "error" "return type is incompatible" $reply["output"]) "invalid return accepted"
+let $reply = submit $terminal '$prompt = fn (): any { 7 }'
+require ($reply["output"].contains "\n<shelly> [~]\n") "dynamic return failure did not use default"
+let $reply = submit $terminal '$prompt = \'recovered\\n\''
+require (repl_matches "output" "recovered" $reply["output"]) "return failure prevented recovery"
+terminal_write $terminal "\x04"
+let _ = drain $terminal
+require ((terminal_close $terminal)["exit_code"] == 0) "return prompt session shutdown"
+
+# Init files can configure a template without a named prompt function.
+printf "%s" '$prompt = \'startup=${pwd} ${rendered_widgets}\\n\'; $widgets = [fn (): String { "ready" }]' -> "${fixture}/.shelly_init.shy"
+let $terminal = open_terminal [`$shelly, "-m", "-b"] [
+    "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "${fixture}/bin:/usr/bin:/bin",
+        "TERM": "xterm-256color", "LANG": "C.UTF-8"], "rows": 40, "columns": 140,
+]
+let $reply = drain $terminal
+require ($reply["output"].contains "startup=~ [ready]\n") "init template was not rendered"
+let $reply = submit $terminal 'echo $rendered_widgets'
+require (repl_matches "error" "not found" $reply["output"]) "startup prompt leaked widgets"
+terminal_write $terminal "\x04"
+let _ = drain $terminal
+require ((terminal_close $terminal)["exit_code"] == 0) "startup template session shutdown"

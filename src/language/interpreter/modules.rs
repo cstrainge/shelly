@@ -376,7 +376,7 @@ impl Interpreter
                 // Conditions see the caller before the new module's scope exists.
                 let imports = self.import_conditions(&mut statements)?;
                 let mut scope = Scope::new(self.native_functions.values().cloned(), key.clone(),
-                    self.scope().types.module_registry());
+                    self.scope().types.module_registry(), self.color_mode);
                 // Inherit shell settings as values, not aliases into the caller's bindings.
                 for (name, mut binding) in self.scope().variables.get_all_flattened()
                 {

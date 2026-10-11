@@ -13,7 +13,7 @@ chmod +x "${fixture}/node-one/node" "${fixture}/node-two/node"
 let $terminal = session $fixture
 let _ = drain $terminal
 let $reply = submit $terminal "let export \$SHELLY_STD_PATH = \"${fixture}/std\"; let export \$PATH = \"${fixture}/node-one:${fixture}/bin:/usr/bin:/bin\"; cd \"${fixture}/project/nested\""
-let $source = 'import std::widgets::{ venv_widget, node_widget }; $widgets = [`venv_widget, `node_widget]; fn prompt() { echo $rendered_widgets }'
+let $source = 'import std::widgets::{ venv_widget, node_widget }; $widgets = [`venv_widget, `node_widget]; fn prompt(): String { "${rendered_widgets}\\n" }; let $prompt = `prompt'
 let $reply = submit $terminal $source
 if !(repl_matches "output" "[venv: inactive][node: 20.11.1]" $reply["output"])
 { echo $reply["output"]; fail "initial workspace widgets" }
@@ -32,7 +32,7 @@ require (repl_matches "output" "" $reply["output"]) "widgets remain visible outs
 let $reply = submit $terminal '$widgets = [fn (): String { 1 / 0; "unreachable" }]'
 let $reply = submit $terminal 'let export $VIRTUAL_ENV = "/envs/after-error"; printenv VIRTUAL_ENV'
 require (repl_matches "output" "/envs/after-error" $reply["output"]) "failed widget leaked saved environment"
-let $reply = submit $terminal '$widgets = []; fn prompt() { echo "recovered" }'
+let $reply = submit $terminal '$widgets = []; fn prompt(): String { "recovered\\n" }; let $prompt = `prompt'
 require (repl_matches "output" "recovered" $reply["output"]) "widget failure prevented recovery"
 terminal_write $terminal "\x04"
 let $closed = drain $terminal

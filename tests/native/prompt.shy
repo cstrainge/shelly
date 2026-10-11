@@ -1,0 +1,36 @@
+# Prompt uses a named String/function union, enforcing stored and call-time contracts.
+fn prompt_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "${fixture}/std", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $stdout) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "prompt type mismatch" }
+}
+
+prompt_case 'echo ($prompt.type == Prompt); let $fresh: Prompt; echo ($fresh.type == Prompt)' "true\ntrue\n" ""
+prompt_case '$prompt = "template"; echo ($prompt.type == Prompt); $prompt = fn (): String { "returned" }; echo ($prompt.type == Prompt) ($prompt)' "true\ntrue returned\n" ""
+prompt_case 'let $label = "before"; $prompt = fn (): String { $label }; $label = "live"; echo ($prompt)' "live\n" ""
+prompt_case 'fn label(): String { "original" }; $prompt = `label; fn label(): String { "replacement" }; echo ($prompt); $prompt = `label; echo ($prompt)' "original\nreplacement\n" ""
+prompt_case 'type Callback = fn(): String; let $callback: Callback = fn (): String { "named" }; $prompt = $callback; echo ($prompt)' "named\n" ""
+prompt_case 'fn keep($callback: Prompt): Prompt { `$callback }; let $copy: Prompt = keep fn (): String { "parameter" }; echo ($copy)' "parameter\n" ""
+prompt_case '$prompt = 7' "" "Expected"
+prompt_case '$prompt = ()' "" "Expected"
+prompt_case '$prompt = []' "" "Expected"
+prompt_case '$prompt = fn ($n: Integer): String { String($n) }' "" "Expected Prompt"
+prompt_case '$prompt = fn (): Integer { 7 }' "" "Expected Prompt"
+prompt_case 'fn invalid(): Integer { 7 }; $prompt = `invalid' "" "return type is incompatible"
+prompt_case '$prompt = fn (): any { 7 }; $prompt' "" "Return value: Expected String"
+prompt_case '$prompt = `cd; $prompt' "" "Return value: Expected String"
+prompt_case 'let $copy: Prompt = fn (): String { "typed" }; echo ($copy.type == Prompt) ($copy)' "true typed\n" ""

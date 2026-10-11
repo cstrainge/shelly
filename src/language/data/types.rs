@@ -6,6 +6,7 @@ use std::{ cell::RefCell, collections::{ HashMap, HashSet },
            hash::{ Hash, Hasher } };
 
 use crate::language::{ text::location::Location,
+                       interpreter::Interpreter,
                        native::{ NativeType, NativeVisibility },
                        data::{ callable::CallableValue,
                                conversion::{ convert_builtin, is_conversion_method },
@@ -486,6 +487,9 @@ impl TypeRegistry
         let widget_function = registry.intern(TypeKind::Function(Vec::new(), string));
         registry.register_native("WidgetFn".to_string(), TypeKind::Named(widget_function),
                                  NativeVisibility::Visible);
+        let prompt = registry.union_type(vec![widget_function, string]);
+        registry.register_native("Prompt".to_string(), TypeKind::Named(prompt),
+                                 NativeVisibility::Visible);
         register_methods(&mut registry);
         registry
     }
@@ -555,6 +559,8 @@ impl TypeRegistry
 {
     pub fn default_value(&self, id: TypeId) -> Result<Value, String>
     {
+        if self.native_types.get("Prompt").is_some_and(|item| item.id == id)
+        { return self.coerce(id, Interpreter::default_prompt_value()); }
         let definition = self.get(id);
         match &definition.kind
         {
@@ -620,6 +626,16 @@ impl TypeRegistry
     // Assignment compatibility is directional: an Integer may widen to Float.
     pub fn may_assign(&self, expected: TypeId, actual: TypeId) -> bool
     {
+        if self.native_types.get("Prompt").is_some_and(|item| item.id == expected)
+        {
+            let underlying = self.underlying_type(actual);
+            if matches!(self.get(underlying).kind, TypeKind::Function(_, _))
+            {
+                let string = self.builtin_id("String").unwrap();
+                let function = self.intern(TypeKind::Function(Vec::new(), string));
+                return self.accepts_signature_type(function, underlying);
+            }
+        }
         let target = self.get(expected);
         let source = self.get(actual);
         if let TypeKind::Function(_, _) = target.kind
@@ -692,6 +708,16 @@ impl TypeRegistry
     // Callers stage the value so failed conversions cannot mutate existing bindings.
     pub fn coerce(&self, id: TypeId, mut value: Value) -> Result<Value, String>
     {
+        // Function references use String storage, but Prompt must enforce their prototype.
+        if    self.native_types.get("Prompt").is_some_and(|item| item.id == id)
+           && value.is_callable()
+        {
+            let string = self.builtin_id("String").unwrap();
+            let function = self.intern(TypeKind::Function(Vec::new(), string));
+            let value = self.coerce(function, value.underlying().clone())?;
+            return Ok(Value::Named(Rc::new(NamedValue
+                { definition: self.get(id), value })));
+        }
         if self.validate(id, &value).is_ok() { return Ok(value); }
         let definition = self.get(id);
         if let TypeKind::Named(inner) = definition.kind

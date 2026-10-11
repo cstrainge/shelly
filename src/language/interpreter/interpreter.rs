@@ -1,5 +1,6 @@
 
-use std::{ collections::{ HashMap, HashSet, VecDeque },
+use std::{ cell::RefCell,
+           collections::{ HashMap, HashSet, VecDeque },
            env::{ consts::OS,
                   current_dir,
                   current_exe,
@@ -78,7 +79,6 @@ pub enum ErrorWhat
     ModuleError(String),
     IterationError(String),
     LoopControlError(String),
-    CommandNotFound(String, Location),
     ArgumentMismatch(String),
     FileGlobError(String),
     StackUnderflow,
@@ -108,8 +108,6 @@ impl Display for ErrorWhat
             ErrorWhat::RangeError(message) => write!(f, "Range error: {}.", message),
             ErrorWhat::IterationError(message) => write!(f, "Iteration error: {}.", message),
             ErrorWhat::LoopControlError(message) => write!(f, "Loop control error: {}.", message),
-            ErrorWhat::CommandNotFound(command, location) =>
-                write!(f, "Command not found: {} at {}.", command, location),
             ErrorWhat::FileGlobError(message) => write!(f, "File glob error: {}.", message),
             ErrorWhat::StackUnderflow => write!(f, "Stack underflow"),
             ErrorWhat::NoResult => write!(
@@ -233,9 +231,11 @@ pub struct Interpreter
     special_vars: SpecialVars,
     pub(super) native_functions: NativeFunctions,
     pub(super) widget_environment: Option<Vec<(String, String)>>,
+    pub(super) prompt_widgets: Option<Rc<RefCell<ScopedValue>>>,
     captured_stdout: Option<Vec<u8>>,
     redirections: Vec<Redirection>,
     last_cmd_time: Duration,
+    pub(super) color_mode: TtyColorMode,
     startup_input: Vec<Event>,
     pub last_result: Option<Value>,
     pub exit_code: u8,
@@ -427,7 +427,7 @@ impl Interpreter
             {
                 scopes: HashMap::from([
                         (MAIN_SCOPE.to_string(), Scope::new(native_functions.values().cloned(),
-                            MAIN_SCOPE.to_string(), TypeRegistry::new()))
+                            MAIN_SCOPE.to_string(), TypeRegistry::new(), color_mode))
                     ]),
                 current_scope: MAIN_SCOPE.to_string(),
                 loading_modules: HashSet::new(),
@@ -438,9 +438,11 @@ impl Interpreter
                 special_vars,
                 native_functions,
                 widget_environment: None,
+                prompt_widgets: None,
                 captured_stdout: None,
                 redirections: Vec::new(),
                 last_cmd_time: Duration::ZERO,
+                color_mode,
                 startup_input: Vec::new(),
                 last_result: None,
                 exit_code: 0,
@@ -651,45 +653,6 @@ impl Interpreter
                                previous).expect("Capture buffer must be installed.");
 
         (result, captured)
-    }
-
-    pub fn has_command(&self, command: &str) -> bool
-    {
-        if self.scope().base_function(command).is_some()
-        {
-            return true;
-        }
-
-        self.module_native_function(command).is_some()
-    }
-
-    pub fn execute_command(&mut self,
-                           location: Location,
-                           command: &str,
-                           args: Vec<String>) -> InterpreterResult<()>
-    {
-        let function = self.scope().base_function(command);
-
-        if let Some(function) = function
-        {
-            self.execute_function(&location, command, &function,
-                &args.iter().cloned().map(Value::from_string).collect::<Vec<_>>())?;
-        }
-        else if let Some(built_in) = self.module_native_function(command)
-        {
-            (built_in.body)(self, &location,
-                &args.iter().cloned().map(Value::from_string).collect::<Vec<_>>())?;
-        }
-        else
-        {
-            return Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::CommandNotFound(command.to_string(), location)
-                });
-        }
-
-        Ok(())
     }
 
     pub fn execute_from_buffer(&mut self, buffer: &mut dyn Buffer) -> InterpreterResult<()>
@@ -2412,6 +2375,12 @@ impl Interpreter
             };
             let mut variables = scope.variables.global_bindings();
             variables.overlay(&closure.captures);
+            // Prompt context is temporary and takes precedence over closure captures.
+            if let Some(binding) = &self.prompt_widgets
+            {
+                variables.push_scope();
+                variables.import("$rendered_widgets".into(), binding.clone());
+            }
             let previous = replace(&mut scope.variables, variables);
             let result = self.execute_function(location, "<anonymous>", &closure.function, &args);
             self.scopes.get_mut(&home).unwrap().variables = previous;
@@ -3192,7 +3161,8 @@ impl Interpreter
         Ok(())
     }
 
-    fn interpolate_string(&self, location: &Location, text: &str) -> InterpreterResult<String>
+    pub(super) fn interpolate_string(&self, location: &Location, text: &str)
+        -> InterpreterResult<String>
     {
         self.interpolate_string_at(location, text, &[], true, false)
     }

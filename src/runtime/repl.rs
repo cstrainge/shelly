@@ -5,7 +5,7 @@ use std::{ borrow::Cow,
            process::ExitCode,
            path::{ Path, PathBuf },
            fs::read_dir,
-           env::{ current_dir, home_dir, split_paths },
+           env::{ home_dir, split_paths },
            time::{ Duration, Instant } };
 
 use reedline::{ Color,
@@ -521,22 +521,6 @@ impl EditMode for ShellyEditMode
 }
 
 
-fn default_prompt(interpreter: &Interpreter, color_mode: TtyColorMode) -> String
-{
-    let cwd = interpreter.evaluate_variable("$pwd").unwrap_or_else(|_|
-        current_dir().unwrap_or_else(|_| ".".into()).display().to_string());
-
-    if color_mode == TtyColorMode::TtyMonochrome
-    { return format!("\n<shelly> [{}]\n", cwd); }
-
-    let formatted = format!("\n{} [{}]\n",
-                            Color::Yellow.bold().paint("<shelly>"),
-                            Color::Cyan.paint(cwd));
-
-    formatted
-}
-
-
 pub struct Repl
 {
     tab_width: usize,
@@ -629,7 +613,7 @@ impl Repl
             multiline.store(false, Ordering::Relaxed);
             let prompt_text = self.interpreter.evaluate_prompt(location_here!())
                 .ok().flatten()
-                .unwrap_or_else(|| default_prompt(&self.interpreter, self.color_mode));
+                .unwrap_or_else(|| self.interpreter.default_prompt());
             if self.interpreter.halted { break; }
 
             prompt.prompt_text = prompt_text;

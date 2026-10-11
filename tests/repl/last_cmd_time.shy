@@ -4,7 +4,7 @@ let $terminal = session $fixture
 let _ = drain $terminal
 let $reply = submit $terminal 'echo $last_cmd_time ($last_cmd_time.type == String)'
 require (repl_matches "output" "0:00 true" $reply["output"]) "initial command time"
-let $reply = submit $terminal '$widgets = [fn (): String { $last_cmd_time }]; fn prompt() { echo "time=${last_cmd_time} ${rendered_widgets}" }'
+let $reply = submit $terminal '$widgets = [fn (): String { $last_cmd_time }]; fn prompt(): String { "time=${last_cmd_time} ${rendered_widgets}\\n" }; let $prompt = `prompt'
 require (repl_matches "output" "time=0:00 [0:00]" $reply["output"]) "quick command timing"
 let $reply = submit $terminal 'sleep 1'
 require (repl_matches "output" "time=0:01 [0:01]" $reply["output"]) "elapsed command timing"
@@ -25,7 +25,7 @@ let $reply = submit $terminal 'sleep 1; 1 / 0'
 require (repl_matches "error" "by zero" $reply["output"]) "timing probe did not fail"
 require ($reply["output"].contains "\ntime=0:01 [0:01]\n") "failed command timing"
 
-let $reply = submit $terminal 'fn prompt() { sleep 1; echo "time=${last_cmd_time} ${rendered_widgets}" }'
+let $reply = submit $terminal 'fn prompt(): String { sleep 1; "time=${last_cmd_time} ${rendered_widgets}\\n" }; let $prompt = `prompt'
 require (repl_matches "output" "time=0:00 [0:00]" $reply["output"]) "prompt execution changed timing"
 let $reply = submit $terminal '$widgets = [fn (): String { sleep 1; $last_cmd_time }]'
 require (repl_matches "output" "time=0:00 [0:00]" $reply["output"]) "widget execution changed timing"
@@ -33,12 +33,12 @@ let $reply = submit $terminal 'sleep 1'
 require (repl_matches "output" "time=0:01 [0:01]" $reply["output"]) "rendering included in timing"
 
 printf "%s" 'pub fn elapsed_widget(): String { $last_cmd_time }' -> "${fixture}/elapsed.shy"
-let $reply = submit $terminal 'fn prompt() { echo "time=${last_cmd_time} ${rendered_widgets}" }; import elapsed::{ elapsed_widget }; $widgets = [`elapsed_widget]'
+let $reply = submit $terminal 'fn prompt(): String { "time=${last_cmd_time} ${rendered_widgets}\\n" }; import elapsed::{ elapsed_widget }; let $prompt = `prompt; $widgets = [`elapsed_widget]'
 require (repl_matches "output" "time=0:00 [0:00]" $reply["output"]) "imported widget cannot read timing"
 let $reply = submit $terminal 'sleep 1'
 require (repl_matches "output" "time=0:01 [0:01]" $reply["output"]) "imported widget timing stale"
 
-let $reply = submit $terminal 'fn prompt() {}'
+let $reply = submit $terminal 'fn prompt(): String { "" }; let $prompt = `prompt'
 let $reply = submit $terminal 'sleep 1'
 let $reply = submit $terminal ''
 let $reply = submit $terminal 'echo $last_cmd_time'

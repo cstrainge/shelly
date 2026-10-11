@@ -5,14 +5,14 @@ mkdir -p $nested "${fixture}/workdir/shelly-neighbor" "${fixture}/déjà vu"
 let $terminal = session $fixture
 let $initial = drain $terminal
 let $reply = submit $terminal "cd \"${nested}\""
-let $reply = submit $terminal 'fn prompt() { echo "\\n<shelly>"; echo "\\x1b[0m: \\x1b[0;32m${pwd}\\x1b[0m" }'
+let $reply = submit $terminal 'fn prompt(): String { "\\n<shelly>\\n\\x1b[0m: \\x1b[0;32m${pwd}\\x1b[0m\\n" }; let $prompt = `prompt'
 require ($reply["output"].contains "\n: ~/workdir/shelly\n") "colored prompt shortens home"
 let $reply = submit $terminal 'echo ($pwd == "~/workdir/shelly")'
 require ($reply["output"].contains "\ntrue\n") "variable path values"
 require ($reply["output"].contains "\n: ~/workdir/shelly\n") "prompt stays shortened"
-let $reply = submit $terminal 'fn prompt() { cd "$pwd"; echo ": ${pwd}" }'
+let $reply = submit $terminal 'fn prompt(): String { cd "$pwd"; ": ${pwd}\\n" }; let $prompt = `prompt'
 require ($reply["output"].contains "\n: ~/workdir/shelly\n") "cd expands shortened path"
-let $reply = submit $terminal 'fn prompt() { echo ": ${pwd}" }'
+let $reply = submit $terminal 'fn prompt(): String { ": ${pwd}\\n" }; let $prompt = `prompt'
 let $reply = submit $terminal "cd \"${fixture}\""
 require ($reply["output"].contains "\n: ~\n") "exact home"
 let $reply = submit $terminal "cd \"${nested}\""
@@ -28,15 +28,15 @@ require ($reply["output"].contains "\n: ~/workdir/shelly\n") "trailing slash HOM
 let $reply = submit $terminal 'let $HOME = "/"'
 require ($reply["output"].contains "\n: ~${nested}\n") "root HOME separator"
 let $reply = submit $terminal "let \$HOME = \"${fixture}\""
-let $reply = submit $terminal 'fn prompt() { echo "[${pwd}]" }'
+let $reply = submit $terminal 'fn prompt(): String { "[${pwd}]\\n" }; let $prompt = `prompt'
 require ($reply["output"].contains "\n[~/workdir/shelly]\n") "bracketed prompt"
 let $reply = submit $terminal "cd \"${fixture}/déjà vu\""
 require ($reply["output"].contains "\n[~/déjà vu]\n") "Unicode and spaces"
-let $reply = submit $terminal 'fn prompt() { 1 / 0 }'
+let $reply = submit $terminal 'fn prompt(): String { 1 / 0; "unreachable" }; let $prompt = `prompt'
 require ($reply["output"].contains "[~/déjà vu]") "prompt failure fallback"
-# Native process stdout must participate in prompt capture too.
-let $reply = submit $terminal 'fn prompt() { run_process ["/usr/bin/printf", "native-prompt\\n"] [:] }'
-require ($reply["output"].contains "\nnative-prompt\n") "native process prompt capture"
+# Native process output can be explicitly captured and returned as prompt text.
+let $reply = submit $terminal 'fn prompt(): String { let $text: String; run_process ["/usr/bin/printf", "native-prompt\\n"] [:] -> $text; $text }; let $prompt = `prompt'
+require ($reply["output"].contains "\nnative-prompt\n") "native process returned prompt"
 terminal_write $terminal "\x04"
 let $closed = drain $terminal
 let $status = terminal_close $terminal

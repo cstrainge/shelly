@@ -58,15 +58,42 @@ unless a profile has already loaded it with `prelude_reload`. See
 `--norc` does not disable login profiles. Script, `-c`, and stdin modes skip
 interactive init. `-b` suppresses the banner; `-m` requests monochrome output.
 
-Define `fn prompt() { ... }` in the init file to customize the prompt. Shelly uses
-its printed stdout as the prompt text and falls back to the default prompt if
-the call fails.
+The built-in `$prompt` variable has type `Prompt`, a distinct type accepting either
+a `String` or a zero-argument function returning `String`. It initially calls the
+default prompt function. Set it in the init file to customize the prompt. A string
+is interpolated on every prompt; use single quotes to defer interpolation:
+
+```text
+$prompt = '\n<shelly>\n: ${pwd}\n'
+```
+
+A function value is called without arguments, and its returned string becomes the
+prompt text directly, without another interpolation pass. Printed stdout is discarded.
+For example:
+
+```text
+$prompt = fn (): String { "\n<shelly> ${rendered_widgets}\n: ${pwd}\n" }
+```
+
+You can also assign a named function reference with ``$prompt = `my_prompt``.
+Assignments reject incompatible values and function signatures; functions returning
+`any` are checked when called. An empty string, including a function returning `""`,
+gives an empty prompt. Evaluation errors use the default prompt. Redeclaring
+`let $prompt: Prompt` restores the default function.
 
 Before each prompt, Shelly calls the functions in `$widgets` in order. Each returned
 nonempty string is enclosed in brackets, and the results are joined without a separator.
 An empty string contributes no text or brackets; whitespace is preserved.
+Colored widgets use dark grey brackets and the banner's cyan field-label color;
+monochrome mode keeps them uncolored.
+The built-in `$widget_color: String` holds the ANSI foreground escape sequence for
+widget text, initially the cyan appropriate to the terminal's color mode. Override it
+in your init file or at the prompt, for example `$widget_color = "\x1b[33m"` for yellow
+or `$widget_color = "\x1b[38;2;255;205;110m"` for a custom RGB color. An empty string
+uses the terminal's default text color. The brackets stay grey, and monochrome mode
+ignores this setting.
 The temporary `String` variable `$rendered_widgets` holds that text only while
-`prompt` runs; an empty widget array produces `""`. Widget stdout is discarded.
+`$prompt` is evaluated; an empty widget array produces `""`. Widget stdout is discarded.
 Widget or prompt errors use the default prompt, and later cycles can recover.
 
 `$last_cmd_time` is a `String` containing the elapsed time of the last submitted
@@ -75,7 +102,7 @@ seconds: `mins:seconds`, `hours:mins:seconds` from one hour, and
 `days:hours:mins:seconds` from one day (for example `"2:05"`, `"1:02:05"`, and
 `"1:03:02:05"`). Typing, widgets, and prompt evaluation are excluded. Every new
 prompt gets fresh timing: empty or whitespace-only input and editor cancellation
-reset it to `"0:00"`, even when the prompt function prints nothing.
+reset it to `"0:00"`, even when the prompt is empty.
 Prompts and widgets can both read it:
 
 ```text
@@ -128,11 +155,7 @@ import std::widgets::{ clock_widget, git_widget }
 
 $widgets = [$widgets..., `clock_widget, `git_widget]
 
-fn prompt()
-{
-    echo "\n<shelly> ${rendered_widgets}"
-    echo ": ${pwd}"
-}
+$prompt = '\n<shelly> ${rendered_widgets}\n: ${pwd}\n'
 ```
 
 The backticks store function references for later execution, and `$widgets...`
@@ -145,19 +168,16 @@ display order. A prompt might look like this:
 $
 ```
 
-Place `${rendered_widgets}` anywhere in the text printed by `prompt` to position
-the widget group. For example, this puts it after the working directory instead:
+Place `${rendered_widgets}` anywhere in the prompt text to position the widget
+group. For example, this puts it after the working directory instead:
 
 ```text
-fn prompt()
-{
-    echo "\n<shelly>"
-    echo ": ${pwd} ${rendered_widgets}"
-}
+$prompt = '\n<shelly>\n: ${pwd} ${rendered_widgets}\n'
 ```
 
-You can also use `echo $rendered_widgets` to give widgets their own line. The Git
-widget returns `""` outside a Git repository, so it contributes no brackets there.
+You can also use `$prompt = fn (): String { "${rendered_widgets}\n" }` to give widgets
+their own line. The Git widget returns `""` outside a Git repository, so it
+contributes no brackets there.
 
 ## Statements, values, and arithmetic
 
