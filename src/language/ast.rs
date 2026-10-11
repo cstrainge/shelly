@@ -1,4 +1,6 @@
 
+use std::cell::Cell;
+
 use crate::language::{ text::location::Location, data::{ value::Value, types::TypeId } };
 
 #[derive(Debug)]
@@ -74,7 +76,8 @@ pub enum AstExpressionKind
     BooleanExpression(AstBooleanOperator, Box<AstExpression>, Box<AstExpression>),
     BooleanNot(Box<AstExpression>),
     MathNegate(Box<AstExpression>),
-    TypeConversion(String, Box<AstExpression>, Option<TypeId>),
+    // The binding checker records explicit collection constraints for conversion lookup.
+    TypeConversion(String, Box<AstExpression>, Option<TypeId>, Cell<Option<TypeId>>),
     IfExpression(Box<AstIfExpression>),
     MatchExpression(Box<AstMatchExpression>),
     AnonymousFunction(Box<AstFunctionStatement>)
@@ -185,7 +188,7 @@ impl AstExpression
             | AstExpressionKind::BooleanExpression(_, _, _)
             | AstExpressionKind::BooleanNot(_)
             | AstExpressionKind::MathNegate(_)
-            | AstExpressionKind::TypeConversion(_, _, _)
+            | AstExpressionKind::TypeConversion(_, _, _, _)
             | AstExpressionKind::IfExpression(_)
             | AstExpressionKind::MatchExpression(_) =>
                 Err(AstError::ExpressionNotString(self.location.clone()))
@@ -456,6 +459,8 @@ pub struct AstStructDeclaration
 
 pub struct AstTypeDeclaration
 {
+    // Resolved default factory; explicit declarations with its name take precedence.
+    pub conversion: Option<Box<AstFunctionStatement>>,
     pub public: bool,
     pub name: String,
     pub annotation: AstType,

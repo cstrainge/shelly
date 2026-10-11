@@ -1,0 +1,95 @@
+# Public type extensions follow module imports and public re-exports.
+fn extension_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "${fixture}/std", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $stdout) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "module extension mismatch" }
+}
+let $fixture = $args[0]
+mkdir -p "${fixture}/std"
+printf "%s" "pub type Count = Integer" -> "${fixture}/ext_base.shy"
+printf "%s" "pub import ext_base::{ Count }\nlet \$calls = 0\npub fn String::tag(): String { \$calls = \$calls + 1; \"tag:\" + \$self }\nfn String::private_tag(): String { \"private:\" + \$self }\npub fn Count::double(): Count { \$self + \$self }\npub fn Count::bump(): Count { \$self = Count(Integer(\$self) + 1); \$self }\npub fn Count::from_string(\$v: String): Count { Integer(\$v) + 1 }\npub fn helper(): String { \"helper\" }\npub fn internal(): String { \"x\".private_tag }\npub fn calls(): Integer { \$calls }\n" -> "${fixture}/ext_api.shy"
+printf "%s" "pub import ext_api::{ Count, helper }" -> "${fixture}/ext_bridge.shy"
+printf "%s" "pub import ext_bridge::{ Count, helper }" -> "${fixture}/ext_top.shy"
+printf "%s" "pub import ext_api::{ helper }" -> "${fixture}/ext_helper_bridge.shy"
+printf "%s" "pub import ext_api" -> "${fixture}/ext_namespace.shy"
+printf "%s" "import ext_api::{ Count }; pub fn wrapped(): String { \"x\".tag }" -> "${fixture}/ext_private.shy"
+printf "%s" "pub fn String::tag(): String { \"other\" }" -> "${fixture}/ext_other.shy"
+printf "%s" "pub import ext_api::{ helper }; pub import ext_other" -> "${fixture}/ext_conflict.shy"
+printf "%s" "pub import ext_api::{ Count, helper }; pub fn bad(): Missing { () }" -> "${fixture}/ext_broken.shy"
+printf "%s" "pub fn tag(): String { \"x\".tag }" -> "${fixture}/ext_plain.shy"
+printf "%s" "pub fn Array::next_item(): Boolean | () { if \$self.count == 0 { return () }; \$self = []; true }; pub fn helper(): String { \"iterator\" }" -> "${fixture}/ext_iterator.shy"
+printf "%s" "pub import ext_iterator::{ helper }" -> "${fixture}/ext_iterator_bridge.shy"
+printf "%s" "pub fn String::std_tag(): String { \"std:\" + \$self }; pub fn helper(): String { \"std-helper\" }" -> "${fixture}/std/ext_tools.shy"
+printf "%s" "pub import std::ext_tools::{ helper }" -> "${fixture}/ext_std_bridge.shy"
+
+extension_case "import ext_api; echo \"x\".tag (ext_api::internal) (ext_api::helper)" "tag:x private:x helper\n" ""
+extension_case "import ext_api::{ helper }; echo \"x\".tag (helper)" "tag:x helper\n" ""
+extension_case "import ext_api::{ Count }; let \$v: Count = 3; echo \$v.double Count(\"7\") (Count::from_integer 8)" "6 8 8\n" ""
+extension_case "import ext_bridge; echo \"x\".tag (ext_bridge::helper) ext_bridge::Count(\"7\")" "tag:x helper 8\n" ""
+extension_case "import ext_bridge; let \$v = ext_bridge::Count(3); let \$saved = `\$v.bump; echo (\$saved) \$v (\$saved) \$v" "4 4 5 5\n" ""
+extension_case "import ext_bridge; echo (ext_bridge::Count::from_string \"7\") (ext_bridge::Count::from_integer 7)" "8 7\n" ""
+extension_case "import ext_top::{ Count, helper }; echo \"x\".tag (helper) Count(\"7\") Count(3).double" "tag:x helper 8 6\n" ""
+extension_case "import ext_helper_bridge::{ helper }; echo \"x\".tag (helper)" "tag:x helper\n" ""
+extension_case "import ext_namespace; echo \"x\".tag ext_namespace::ext_api::Count(\"7\")" "tag:x 8\n" ""
+extension_case "import ext_api; import ext_bridge; import ext_top; echo \"x\".tag ext_top::Count(\"7\")" "tag:x 8\n" ""
+extension_case "import ext_api; import ext_api; echo \"x\".tag (ext_api::calls)" "tag:x 1\n" ""
+extension_case "import ext_api; fn String::tag(): String { \"local\" }; echo \"x\".tag (ext_api::calls)" "local 0\n" ""
+extension_case "fn String::tag(): String { \"local\" }; import ext_api; echo \"x\".tag" "local\n" ""
+extension_case "import ext_private; echo (ext_private::wrapped)" "tag:x\n" ""
+extension_case "import ext_private; echo \"x\".tag" "" "field"
+extension_case "import ext_api when false; echo \"x\".tag" "" "field"
+extension_case "import ext_bridge when false; echo \"x\".tag" "" "field"
+extension_case "import ext_api; echo \"x\".private_tag" "" "field"
+extension_case "import ext_bridge; echo \"x\".private_tag" "" "field"
+extension_case "import ext_bridge; ext_bridge::ext_api::helper" "" "unavailable"
+extension_case "import ext_bridge; ext_bridge::calls" "" "unavailable"
+extension_case "import ext_helper_bridge; let \$v: ext_helper_bridge::Count = 3" "" "Unknown type"
+extension_case "import ext_api; import ext_other" "" "already bound"
+extension_case "import ext_conflict" "" "already bound"
+extension_case "import ext_api; import ext_plain; echo (ext_plain::tag)" "" "field"
+extension_case "import ext_iterator::{ helper }; for \$v in [1] { let \$b: Boolean = \$v; echo \$b }; echo (helper)" "true\niterator\n" ""
+extension_case "import ext_iterator_bridge; for \$v in [1] { let \$b: Boolean = \$v; echo \$b }" "true\n" ""
+extension_case "import ext_std_bridge; echo \"x\".std_tag (ext_std_bridge::helper)" "std:x std-helper\n" ""
+
+printf "%s" "pub import ext_api::{ helper }; fn String::tag(): String { \"local\" }; pub fn wrapped(): String { \"x\".tag }" -> "${fixture}/ext_hidden_override.shy"
+printf "%s" "pub import ext_api::{ helper }; pub fn String::tag(): String { \"wrapped\" }" -> "${fixture}/ext_public_override.shy"
+printf "%s" "pub fn render(): String { \"x\".std_tag }" -> "${fixture}/ext_prelude_user.shy"
+extension_case "import ext_hidden_override; echo (ext_hidden_override::wrapped)" "local\n" ""
+extension_case "import ext_hidden_override; echo \"x\".tag" "" "field"
+extension_case "import ext_public_override; echo \"x\".tag" "wrapped\n" ""
+printf "%s" "pub import std::ext_tools::{ helper }" -> "${fixture}/std/prelude.shy"
+extension_case "echo \"x\".std_tag" "std:x\n" ""
+extension_case "import ext_prelude_user; echo (ext_prelude_user::render)" "std:x\n" ""
+
+# Explicit imported factories supersede typedef defaults in either import order.
+
+printf "%s" "pub import ext_base::{ Count }; pub fn Count::from_integer(\$v: Integer): Count { \$v + 100 }; pub fn helper(): String { \"integer\" }" -> "${fixture}/ext_integer.shy"
+printf "%s" "pub import ext_base::{ Count }; pub fn Count::from_integer(\$v: Integer): Count { \$v + 200 }" -> "${fixture}/ext_integer_other.shy"
+printf "%s" "pub import ext_integer::{ Count, helper }" -> "${fixture}/ext_integer_bridge.shy"
+printf "%s" "pub enum State { A, B }; pub type Mode = State" -> "${fixture}/ext_state_base.shy"
+printf "%s" "pub import ext_state_base::{ State, Mode }; pub fn Mode::from_state(\$v: State): Mode { State::B }" -> "${fixture}/ext_state.shy"
+extension_case "import ext_base::{ Count }; import ext_integer; echo Count(7) (Count::from_integer 7)" "107 107\n" ""
+extension_case "import ext_integer; import ext_base::{ Count }; echo Count(7) (Count::from_integer 7)" "107 107\n" ""
+extension_case "import ext_integer_bridge; import ext_base; echo ext_integer_bridge::Count(7) ext_base::Count(7)" "107 107\n" ""
+extension_case "import ext_base; import ext_integer_bridge; echo ext_integer_bridge::Count(7) ext_base::Count(7)" "107 107\n" ""
+extension_case "import ext_integer::{ helper }; import ext_base::{ Count }; echo Count(7) (helper)" "107 integer\n" ""
+extension_case "import ext_base::{ Count }; fn Count::from_integer(\$v: Integer): Count { \$v + 10 }; import ext_integer; echo Count(7)" "17\n" ""
+extension_case "import ext_integer; import ext_base::{ Count }; fn Count::from_integer(\$v: Integer): Count { \$v + 10 }; echo Count(7)" "17\n" ""
+extension_case "import ext_integer; import ext_integer_other" "" "already bound"
+extension_case "import ext_integer_other; import ext_integer" "" "already bound"
+extension_case "import ext_state_base::{ State, Mode }; import ext_state; echo Mode(State::A).index" "1\n" ""
+extension_case "import ext_state; import ext_state_base::{ State, Mode }; echo Mode(State::A).index" "1\n" ""

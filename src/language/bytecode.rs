@@ -96,7 +96,7 @@ pub enum Code
     MatchFail,
     // Convert last_result in place; these instructions do not touch the value stack.
     ToBoolean,
-    // Convert last_result using the resolved target TypeId operand.
+    // Operand: [resolved target TypeId, visible factory versions, source constraint/signature].
     ConvertType,
     BooleanNot,
     MathNegate,
@@ -122,6 +122,10 @@ pub struct Instruction
 pub struct Function
 {
     pub functions: FunctionBlockRef,
+    // Type owning an extension, including receiver-free conversion factories.
+    pub receiver_type: Option<TypeId>,
+    // A typedef default yields to a scripted factory when module interfaces overlap.
+    pub implied_conversion: bool,
 
     pub arguments: Vec<String>,
     pub argument_types: Vec<Option<TypeId>>,

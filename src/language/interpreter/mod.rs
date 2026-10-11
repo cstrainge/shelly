@@ -1,5 +1,6 @@
 
 mod interpreter;
+mod conversions;
 mod iteration;
 mod redirection;
 mod scope;

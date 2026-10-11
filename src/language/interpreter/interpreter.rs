@@ -31,6 +31,7 @@ use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
                                  map_key::MapKey,
                                  methods::{ BoundMethod, MethodDefinition, method_key },
                                  range::Range,
+                                 conversion::is_conversion_method,
                                  scoped_variables::{ ScopedValue, ScopedVariables, ValueReference,
                                                      ValueVisibility },
                                  types::{ StructValue, TypeId, TypeKind, TypeRegistry } },
@@ -1951,7 +1952,7 @@ impl Interpreter
 
                 Code::ConvertType =>
                     {
-                        let Some(Value::Integer(id)) = instruction.operand else
+                        let Some(Value::Array(operands)) = &instruction.operand else
                         {
                             return Err(InterpreterError
                                 {
@@ -1960,16 +1961,11 @@ impl Interpreter
                                         "Missing conversion target".to_string()),
                                 });
                         };
+                        let Value::Integer(id) = operands[0] else { unreachable!(); };
                         let value = self.last_result.take().ok_or_else(|| InterpreterError
                             { location: location.clone(), what: ErrorWhat::NoResult })?;
-                        self.last_result = Some(self.scope().types
-                            .convert(TypeId(id as usize), &value)
-                            .map_err(|message| InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        format!("Type conversion error: {}", message)),
-                                })?);
+                        self.convert_value(&location, TypeId(id as usize), value,
+                                           &operands[1], &operands[2])?;
                     },
 
                 Code::ToBoolean | Code::BooleanNot =>
@@ -2508,6 +2504,14 @@ impl Interpreter
     pub(super) fn execute_method(&mut self, location: &Location, method: &BoundMethod,
                       arguments: &[Value]) -> InterpreterResult<()>
     {
+        if    let MethodDefinition::User(function) = &method.definition
+           && is_conversion_method(&method.name)
+           && function.receiver_type.is_some()
+        {
+            return Err(InterpreterError { location: location.clone(),
+                what: ErrorWhat::InvalidOperand(
+                    "Conversion methods have no receiver; use Target(value)".into()) });
+        }
         let mut receiver =
             self.eval_value_paths_to(self.read_reference(location, &method.receiver)?);
         let (minimum, maximum) = match &method.definition
@@ -2600,7 +2604,7 @@ impl Interpreter
         split_paths(&path).any(|directory| is_executable(&directory.join(executable)))
     }
 
-    fn execute_function(&mut self,
+    pub(super) fn execute_function(&mut self,
                         location: &Location,
                         name: &str,
                         function: &FunctionRef,

@@ -7,7 +7,8 @@ use std::{ cell::RefCell, collections::{ HashMap, HashSet },
 
 use crate::language::{ text::location::Location,
                        native::{ NativeType, NativeVisibility },
-                       data::{ callable::CallableValue, conversion::convert_builtin,
+                       data::{ callable::CallableValue,
+                               conversion::{ convert_builtin, is_conversion_method },
                                methods::{ BuiltinMethod, register_methods },
                                value::{ Value, ExecResult }, map_key::MapKey, range::Range } };
 
@@ -171,6 +172,7 @@ pub struct TypeRegistry
     pub module_names: HashSet<String>,
     methods: HashMap<TypeId, HashMap<&'static str, Rc<BuiltinMethod>>>,
     extensions: HashSet<(TypeId, String)>,
+    implied_conversions: HashSet<(TypeId, String)>,
     pub names: HashMap<String, TypeId>
 }
 
@@ -307,12 +309,82 @@ impl TypeRegistry
     {
         self.extensions.extend(source.extensions.iter()
             .filter(|(id, name)| *id == receiver && public(*id, name)).cloned());
+        self.implied_conversions.extend(source.implied_conversions.iter()
+            .filter(|(id, name)| *id == receiver && public(*id, name)).cloned());
     }
 
     pub fn has_extension(&self, receiver: TypeId, name: &str) -> bool
     {
         self.method_types(receiver).into_iter()
-            .any(|id| self.extensions.contains(&(id, name.to_string())))
+            .any(|id| self.extensions.contains(&(id, name.to_string()))
+                || self.implied_conversions.contains(&(id, name.to_string())))
+    }
+
+    pub fn has_conversion(&self, target: TypeId, source: TypeId) -> bool
+    {
+        self.has_conversion_method(target, &self.conversion_method_name(source))
+    }
+
+    pub fn conversion_method_name(&self, source: TypeId) -> String
+    {
+        format!("from_{}", self.conversion_source_name(source))
+    }
+
+    pub fn collection_source_type(&self, declared: TypeId, value: &Value) -> Option<TypeId>
+    {
+        match (&self.get(declared).kind, value)
+        {
+            (TypeKind::Array(_) | TypeKind::FixedArray(_), Value::Array(_))
+            | (TypeKind::Map(_, _), Value::HashMap(_)) => Some(declared),
+            (TypeKind::Optional(inner), _) => self.collection_source_type(*inner, value),
+            (TypeKind::Union(members), _) =>
+                {
+                    let mut matching = members.iter().filter_map(|id|
+                        self.collection_source_type(*id, value)
+                            .filter(|id| self.validate(*id, value).is_ok()));
+                    let source = matching.next()?;
+                    matching.next().is_none().then_some(source)
+                },
+            _ => None,
+        }
+    }
+
+    fn conversion_source_name(&self, source: TypeId) -> String
+    {
+        let definition = self.get(source);
+        match &definition.kind
+        {
+            TypeKind::Array(element) =>
+                format!("array_{}", self.conversion_source_name(*element)),
+            TypeKind::FixedArray(elements) => format!("array_{}",
+                self.conversion_source_name(self.common_type(elements.iter().copied()))),
+            TypeKind::Map(key, value) => format!("hash_{}_{}",
+                self.conversion_source_name(*key), self.conversion_source_name(*value)),
+            _ => definition.name.to_lowercase(),
+        }
+    }
+
+    pub fn declare_implied_conversion(&mut self, target: TypeId, source: TypeId) -> String
+    {
+        let name = self.conversion_method_name(source);
+        self.implied_conversions.insert((target, name.clone()));
+        name
+    }
+
+    pub fn has_callable_conversion(&self, target: TypeId, name: &str) -> bool
+    {
+        self.has_conversion_method(target, name)
+            || self.implied_conversions.contains(&(target, name.to_string()))
+    }
+
+    pub fn has_conversion_method(&self, target: TypeId, name: &str) -> bool
+    {
+        is_conversion_method(name) && self.extensions.contains(&(target, name.to_string()))
+    }
+
+    pub fn has_conversion_methods(&self, target: TypeId) -> bool
+    {
+        self.extensions.iter().any(|(id, name)| *id == target && is_conversion_method(name))
     }
 
     pub fn register_method(&mut self, receiver: TypeId, method: BuiltinMethod)
@@ -404,6 +476,7 @@ impl TypeRegistry
             qualified_functions: HashSet::new(), module_names: HashSet::new(),
             methods: HashMap::new(),
             extensions: HashSet::new(),
+            implied_conversions: HashSet::new(),
             names: HashMap::new() };
         for name in Self::BUILTIN_NAMES
         {
@@ -424,6 +497,7 @@ impl TypeRegistry
             .filter(|(_, item)| item.visibility != NativeVisibility::Hidden)
             .map(|(name, item)| (name.clone(), item.id)).collect();
         registry.extensions.clear();
+        registry.implied_conversions.clear();
         registry.qualified_functions.clear();
         registry.module_names.clear();
         registry

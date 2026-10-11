@@ -13,7 +13,7 @@ use crate::language::{ ast::{ AstExpression, AstExpressionKind, AstImportStateme
                        bytecode::{ FunctionRef, Instruction },
                        data::{ scoped_variables::{ ScopedValue, ValueReference, ValueVisibility },
                                types::{ TypeDefinition, TypeId }, value::Value,
-                               methods::method_key },
+                               methods::method_key, conversion::is_conversion_method },
                        native::NativeFunction,
                        interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult,
                                       scope::{ Alias, Scope } },
@@ -493,6 +493,14 @@ impl Interpreter
             }
             if import.public { self.scope_mut().exports.insert(name.clone()); }
         }
+        if import.public
+        {
+            // Extensions are part of a module's public interface even when only
+            // selected names are re-exported. Keep their original function handles.
+            let methods: Vec<_> = self.scopes[key].exports.iter()
+                .filter(|name| name.starts_with("\0method:")).cloned().collect();
+            self.scope_mut().exports.extend(methods);
+        }
         self.scope_mut().modules.insert(import.module.clone(), key.to_string());
         if import.public && import.names.is_empty()
         { self.scope_mut().exports.insert(import.module.clone()); }
@@ -517,18 +525,24 @@ impl Interpreter
                     {
                         if let Some(function) = module.base_function(name)
                         {
-                            if bindings.methods.get(name)
-                                .is_some_and(|item| !Rc::ptr_eq(item, &function))
+                            if    let Some(previous) = bindings.methods.get(name)
+                               && !Rc::ptr_eq(previous, &function)
                             {
-                                let receiver = module.types
-                                    .get(function.argument_types[0].unwrap());
-                                let member = name.rsplit(':').next().unwrap();
-                                let location = function.code.iter()
-                                    .find_map(|instruction| instruction.location.as_ref())
-                                    .cloned().unwrap_or_default();
-                                return Err(module_error(&location, format!(
-                                    "Public method '{}::{}' is already bound",
-                                    receiver.name, member)));
+                                // Scripted factories override typedef defaults regardless
+                                // of import order. Distinct scripted methods still conflict.
+                                if function.implied_conversion { continue; }
+                                if !previous.implied_conversion
+                                {
+                                    let receiver = module.types
+                                        .get(function.receiver_type.unwrap());
+                                    let member = name.rsplit(':').next().unwrap();
+                                    let location = function.code.iter()
+                                        .find_map(|instruction| instruction.location.as_ref())
+                                        .cloned().unwrap_or_default();
+                                    return Err(module_error(&location, format!(
+                                        "Public method '{}::{}' is already bound",
+                                        receiver.name, member)));
+                                }
                             }
                             bindings.methods.insert(name.clone(), function);
                         }
@@ -549,6 +563,24 @@ impl Interpreter
         let mut bindings = ModuleBindings::default();
         let mut visiting = HashSet::from([self.current_scope.clone()]);
         collect(&self.scopes, self.scope(), "", &mut bindings, &mut visiting, true)?;
+        // A re-exported type retains its original public conversion interface,
+        // even when the defining module's namespace is private in the intermediary.
+        // Install factories before compilation so calls capture their versions.
+        for id in bindings.types.values()
+        {
+            let Some(source) = self.type_scopes.get(id).and_then(|home| self.scopes.get(home))
+                else { continue; };
+            for key in &source.exports
+            {
+                if    key.starts_with("\0method:")
+                   && is_conversion_method(key.rsplit(':').next().unwrap())
+                   && let Some(function) = source.base_function(key)
+                   && function.receiver_type == Some(*id)
+                {
+                    bindings.methods.entry(key.clone()).or_insert(function);
+                }
+            }
+        }
         let ModuleBindings { types: names, functions, methods } = bindings;
         let extensions: Vec<_> = names.values().filter_map(|id|
             {
@@ -566,10 +598,12 @@ impl Interpreter
         types.qualified_functions = functions;
         for (key, function) in &methods
         {
-            if let Some(Some(receiver)) = function.argument_types.first()
+            if let Some(receiver) = function.receiver_type
             {
                 let name = key.rsplit(':').next().unwrap();
-                types.declare_extension(*receiver, name);
+                if function.implied_conversion
+                { types.declare_implied_conversion(receiver, function.argument_types[0].unwrap()); }
+                else { types.declare_extension(receiver, name); }
             }
         }
         self.scope_mut().refresh_methods(methods);
@@ -597,6 +631,18 @@ impl Interpreter
                 let code = self.scope_mut().compile(statements)?;
                 for index in first_type..self.scope().types.definition_count()
                 { self.type_scopes.insert(TypeId(index), self.current_scope.clone()); }
+                // A public typedef publishes its default factory. Explicit factories
+                // below determine their own visibility, independent of declaration order.
+                for statement in statements.iter()
+                {
+                    if    let AstStatement::TypeDeclaration(declaration) = statement
+                       && let Some(factory) = &declaration.conversion
+                    {
+                        let key = method_key(factory.receiver_type.unwrap(), &factory.name);
+                        if declaration.public { self.scope_mut().exports.insert(key); }
+                        else { self.scope_mut().exports.remove(&key); }
+                    }
+                }
                 for statement in statements
                 {
                     // pub visible publishes the referenced name, not the builtin's name.

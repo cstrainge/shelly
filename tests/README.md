@@ -94,6 +94,12 @@ native overrides, and inference across REPL submissions.
 The native and REPL `named_types.shy` tests cover distinct type identities,
 wrapping and explicit conversions, union coercion, inherited operations, typed
 iteration, module/prelude imports, redeclarations, and atomic failed writes.
+The native and REPL `conversion_protocol.shy` tests cover implied typedef factories,
+explicit overrides, retained references and module exports, plus target-side factories,
+exact source identities, typed array/hash naming, empty declared collections,
+lowercase naming, signature and return contracts,
+fallback rules, module privacy and re-exports, prelude access, frozen function
+versions, and recovery after conversion errors.
 The native and REPL `function_types.shy` tests cover function prototypes, `any`,
 call-time contracts, higher-order functions, live methods, imports, versioned
 references, signature mismatches, and failed-call recovery.
@@ -123,6 +129,11 @@ private bindings, re-exports, callable identity, diagnostics, and REPL recovery.
 The native and REPL `module_privacy.shy` tests check private-by-default declarations,
 `pub` interfaces, methods and iterators, aliases, private imports and public re-exports,
 prelude isolation, `pub visible`, invalid modifiers, and failed-submission recovery.
+The native and REPL `module_extensions.shy` tests check extension activation for
+ordinary and selective imports, public re-export chains, conversion factories,
+live receiver methods, iterators, standard-library imports, local overrides,
+private isolation, duplicate/conflicting imports, explicit factories overriding
+implied defaults in either import order, retained references and rollback.
 `repl/prelude_reload*.shy` checks reload identity, scope isolation, cached dependencies,
 and recovery after failed reloads. The native and REPL `prelude_startup.shy` tests
 check explicit profile reloads and availability in later startup scripts.

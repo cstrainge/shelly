@@ -3,6 +3,11 @@ use std::rc::Rc;
 
 use crate::language::data::value::{ ExecResult, Value };
 
+pub fn is_conversion_method(name: &str) -> bool
+{
+    name.starts_with("from_")
+}
+
 // Explicit conversions are separate from the permissive arithmetic helpers on Value.
 // TypeRegistry owns target resolution; this module implements the builtin conversions.
 pub fn convert_builtin(target: &str, value: &Value) -> Result<Value, String>

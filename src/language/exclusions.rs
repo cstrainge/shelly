@@ -149,7 +149,7 @@ fn exclude_expression<E>(expression: &mut AstExpression,
             | AstExpressionKind::Grouped(value) | AstExpressionKind::ExecutableReference(value)
             | AstExpressionKind::TryExecute(value) | AstExpressionKind::MathNegate(value)
             | AstExpressionKind::BooleanNot(value)
-            | AstExpressionKind::TypeConversion(_, value, _) =>
+            | AstExpressionKind::TypeConversion(_, value, _, _) =>
             exclude_expression(value, evaluate)?,
         AstExpressionKind::Redirect(value, redirects) =>
             {

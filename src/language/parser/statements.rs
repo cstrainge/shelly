@@ -3,7 +3,7 @@ use std::collections::HashSet;
 
 use crate::language::{ ast::*,
                        text::location::Location,
-                       data::value::Value,
+                       data::{ value::Value, conversion::is_conversion_method },
                        tokenizer::{ TokenBuffer, TokenKind, TokenValue, TokenLiteral },
                        parser::{ base_utils::{ Lookahead,
                                                expect_token,
@@ -425,7 +425,8 @@ fn parse_function_body(buffer: &mut TokenBuffer<'_, '_>, location: Location,
             location: location.clone(), name, receiver, receiver_type: None,
             condition: None, parameters, return_annotation, return_type: None, body: code,
         };
-    if let Some(receiver) = &function.receiver
+    if    let Some(receiver) = &function.receiver
+       && !is_conversion_method(&function.name)
     {
         function.parameters.insert(0, AstParameter
             {
@@ -693,7 +694,7 @@ fn parse_type_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<
     expect_statement_end(buffer)?;
     Ok(Some(AstStatement::TypeDeclaration(Box::new(AstTypeDeclaration
         { public: false, location: name.location.clone(), name: name.token_value_text(),
-          annotation }))))
+          annotation, conversion: None }))))
 }
 
 fn parse_enum_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>

@@ -11,6 +11,8 @@ use crate::language::{ ast::*,
                                         TypeKind,
                                         TypeRegistry },
                                value::{ Value, Executable }, scoped_variables::ScopedVariables,
+                               conversion::is_conversion_method,
+                               methods::method_key,
                                map_key::MapKey },
                        text::location::Location };
 
@@ -149,6 +151,39 @@ fn check_scope(
     {
         let location = registry.get(local_ids[0]).location.clone().unwrap();
         return Err(error(&location, message));
+    }
+
+    // Defaults use ordinary parameter/return coercion, never another scripted conversion.
+    for statement in ast.iter_mut()
+    {
+        let AstStatement::TypeDeclaration(declaration) = statement else { continue; };
+        let target = names[&declaration.name];
+        let TypeKind::Named(source) = registry.get(target).kind else { unreachable!(); };
+        let name = registry.declare_implied_conversion(target, source);
+        let location = declaration.location.clone();
+        declaration.conversion = Some(Box::new(AstFunctionStatement
+            {
+                public: declaration.public,
+                condition: None,
+                location: location.clone(),
+                name,
+                receiver: Some(declaration.name.clone()),
+                receiver_type: Some(target),
+                parameters: vec![
+                        AstParameter
+                            {
+                                location: location.clone(), name: "value".into(),
+                                annotation: None, optional: false, variadic: false,
+                                type_id: Some(source),
+                            },
+                    ],
+                return_annotation: None,
+                return_type: Some(target),
+                body: vec![
+                        AstStatement::ExpressionStatement(new_ast_variable(
+                            location, "value".into())),
+                    ],
+            }));
     }
 
     // Resolve extension targets before checking uses, including forward declarations.
@@ -317,6 +352,23 @@ fn check_function(registry: &mut TypeRegistry, function: &mut AstFunctionStateme
             &function.location,
         )?);
     }
+    if function.receiver.is_some() && is_conversion_method(&function.name)
+    {
+        if function.name != function.name.to_lowercase() || function.name == "from_"
+        { return Err(error(&function.location,
+            "Conversion method names must be lowercase: from_<source_type>".into())); }
+        if    function.parameters.len() != 1
+           || function.parameters[0].optional
+           || function.parameters[0].variadic
+        { return Err(error(&function.location,
+            "Conversion methods must accept exactly one required source argument".into())); }
+        let target = function.receiver_type.unwrap();
+        if    function.return_type != Some(target)
+           && function.return_type != registry.builtin_id("any")
+        { return Err(error(&function.location, format!(
+            "Conversion method '{}::{}' must declare return type {} or any",
+            registry.get(target).name, function.name, registry.get(target).name))); }
+    }
     if function.receiver.is_some() && function.name == "next_item"
     {
         if function.parameters.len() != 1
@@ -444,7 +496,7 @@ fn check_expression(
     {
         AstExpressionKind::AnonymousFunction(function) =>
             check_function(registry, function, names)?,
-        AstExpressionKind::TypeConversion(name, value, type_id) =>
+        AstExpressionKind::TypeConversion(name, value, type_id, _) =>
             {
                 let id = *names.get(name).ok_or_else(|| error(&expression.location,
                     format!("Unknown type '{}'", name)))?;
@@ -460,7 +512,8 @@ fn check_expression(
                 check_expression(registry, value, names)?;
                 if    matches!(registry.get(id).kind, TypeKind::Struct(_) | TypeKind::Enum(_))
                    && constant_value(registry, value)
-                        .is_some_and(|value| !matches!(value, Value::Named(_)))
+                        .is_some_and(|value| !matches!(value, Value::Named(_))
+                            && !registry.has_conversion(id, registry.inferred_value_type(&value)))
                 {
                     let message = if TypeRegistry::is_builtin_name(name)
                         { format!("The shadowed type '{}' does not support positional conversion",
@@ -570,6 +623,13 @@ fn check_expression(
         AstExpressionKind::EnumVariant(name, variant) =>
             {
                 let qualified = format!("{}::{}", name, variant);
+                if    let Some(id) = names.get(name)
+                   && registry.has_callable_conversion(*id, variant)
+                {
+                    expression.kind = AstExpressionKind::Symbol(AstSymbol
+                        { name: method_key(*id, variant) });
+                    return Ok(());
+                }
                 if    !names.contains_key(name)
                    && (registry.qualified_functions.contains(&qualified)
                     || registry.module_names.contains(name.split("::").next().unwrap()))
@@ -725,7 +785,7 @@ fn known_type(registry: &TypeRegistry, expression: &AstExpression) -> Option<Typ
         AstExpressionKind::Symbol(symbol) if symbol.is_glob() =>
             registry.builtin_id("ArgumentExpansion"),
         AstExpressionKind::StructConstructor(item) => item.type_id,
-        AstExpressionKind::TypeConversion(_, _, type_id) => *type_id,
+        AstExpressionKind::TypeConversion(_, _, type_id, _) => *type_id,
         AstExpressionKind::Literal(AstLiteral
         {
             value: Value::Struct(item),
@@ -775,9 +835,14 @@ fn constant_value(registry: &TypeRegistry, expression: &AstExpression) -> Option
                 let Value::Enum(item) = constant_value(registry, object)? else { return None; };
                 Some(Value::Integer(item.variant as i64))
             },
-        AstExpressionKind::TypeConversion(name, value, Some(id))
+        AstExpressionKind::TypeConversion(name, value, Some(id), _)
             if !matches!(name.as_str(), "Array" | "ArgumentExpansion") =>
-            registry.convert(*id, &constant_value(registry, value)?).ok(),
+            {
+                let value = constant_value(registry, value)?;
+                if registry.has_conversion(*id, registry.inferred_value_type(&value))
+                { return None; }
+                registry.convert(*id, &value).ok()
+            },
         AstExpressionKind::Literal(literal) =>
             {
                 // Names bind to a particular callable only after function compilation.
@@ -1230,6 +1295,11 @@ fn check_binding_expression(
     return_type: Option<TypeId>, expected: Option<TypeId>,
 ) -> CompileResult<()>
 {
+    if let AstExpressionKind::TypeConversion(_, value, _, source_type) = &expression.kind
+    {
+        // The source is evaluated before the factory can mutate caller bindings.
+        source_type.set(declared_conversion_source(registry, value, bindings));
+    }
     if let AstExpressionKind::Field(value, name, _) = &expression.kind
         && name != "type" && refined_receiver(value, bindings)
         && let Some(id) = binding_type(registry, value, bindings)
@@ -1427,13 +1497,64 @@ fn check_binding_expression(
             },
         AstExpressionKind::Splat(value)
         | AstExpressionKind::MathNegate(value) | AstExpressionKind::BooleanNot(value)
-        | AstExpressionKind::TypeConversion(_, value, _)
         | AstExpressionKind::ExecutableReference(value)
         | AstExpressionKind::TryExecute(value) =>
             { check_binding_expression(registry, value, bindings, return_type, None)?; },
+        AstExpressionKind::TypeConversion(_, value, _, _) =>
+            {
+                check_binding_expression(registry, value, bindings, return_type, None)?;
+            },
         _ => {}
     }
     Ok(())
+}
+
+
+// Only declared constraints override runtime inference. Inferred facts can be
+// stale after mutation, and an unknown element may have a concrete runtime type.
+fn declared_conversion_source(registry: &TypeRegistry, expression: &AstExpression,
+                              bindings: &Bindings) -> Option<TypeId>
+{
+    match &expression.kind
+    {
+        AstExpressionKind::Variable(item) => bindings.get(&item.name)?.constraint,
+        AstExpressionKind::Grouped(inner) | AstExpressionKind::TryExecute(inner) =>
+            {
+                let id = declared_conversion_source(registry, inner, bindings)?;
+                match registry.get(registry.underlying_type(id)).kind
+                {
+                    TypeKind::Function(_, result) => Some(result),
+                    _ => Some(id),
+                }
+            },
+        AstExpressionKind::Execute(call) =>
+            {
+                let id = declared_conversion_source(registry, &call.executable, bindings)?;
+                match registry.get(registry.underlying_type(id)).kind
+                {
+                    TypeKind::Function(_, result) => Some(result),
+                    _ => None,
+                }
+            },
+        AstExpressionKind::Field(object, name, _) =>
+            {
+                let id = binding_type(registry, object, bindings)?;
+                let definition = registry.get(registry.underlying_type(id));
+                let TypeKind::Struct(fields) = &definition.kind else { return None; };
+                fields.iter().find(|field| field.name == *name).map(|field| field.type_id)
+            },
+        AstExpressionKind::Index(object, index) =>
+            {
+                let id = declared_conversion_source(registry, object, bindings)?;
+                let index = match constant_value(registry, index)
+                {
+                    Some(Value::Integer(index)) => usize::try_from(index).ok(),
+                    _ => None,
+                };
+                indexed_type(registry, id, index)
+            },
+        _ => None,
+    }
 }
 
 
@@ -1633,10 +1754,11 @@ fn expression_may_mutate(registry: &TypeRegistry, expression: &AstExpression,
                     || mutates(value)
             },
         AstExpressionKind::Splat(value)
-        | AstExpressionKind::TypeConversion(_, value, _)
         | AstExpressionKind::ExecutableReference(value)
         | AstExpressionKind::MathNegate(value) | AstExpressionKind::BooleanNot(value) =>
             mutates(value),
+        AstExpressionKind::TypeConversion(_, value, target, _) =>
+            target.is_some_and(|id| registry.has_conversion_methods(id)) || mutates(value),
         AstExpressionKind::Array(values) => values.iter().any(mutates),
         AstExpressionKind::HashMap(entries) => entries.iter().any(|(key, value)|
             mutates(key) || mutates(value)),

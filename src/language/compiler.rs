@@ -5,7 +5,7 @@ use crate::language::{ ast::*,
                        bytecode::{ Code, Instruction, Function, FunctionBlock,
                                    FunctionBlockRef, FunctionRef },
                        data::{ closure::free_variables, value::{ Value, Executable },
-                               types::TypeRegistry,
+                               types::{ TypeId, TypeRegistry },
                                methods::method_key, map_key::MapKey,
                                scoped_variables::ScopedVariables },
                        text::location::Location,
@@ -141,28 +141,51 @@ fn function_binding(function: &AstFunctionStatement) -> String
 // mask outer versions and resolve through the frozen function scope at execution time.
 fn method_snapshot(block: &FunctionBlockRef, name: &str) -> Value
 {
-    let mut methods = HashMap::new();
     let suffix = format!(":{}", name);
+    method_snapshot_matching(block, |key| key.starts_with("\0method:") && key.ends_with(&suffix))
+}
+
+fn method_snapshot_matching(block: &FunctionBlockRef, matches: impl Fn(&str) -> bool) -> Value
+{
+    let mut methods = HashMap::new();
     let mut scope = Some(block.clone());
     while let Some(current) = scope
     {
         let current = current.borrow();
         for (key, function) in &current.functions
         {
-            if key.starts_with("\0method:") && key.ends_with(&suffix)
+            if matches(key)
             {
                 methods.entry(MapKey::String(key.clone())).or_insert_with(||
-                    Value::String(name.to_string(), Executable::Function(function.clone())));
+                    Value::String(key.rsplit(':').next().unwrap().to_string(),
+                                  Executable::Function(function.clone())));
             }
         }
         for key in current.declared_functions.iter().chain(current.function_name.iter())
         {
-            if key.starts_with("\0method:") && key.ends_with(&suffix)
+            if matches(key)
             { methods.entry(MapKey::String(key.clone())).or_insert(Value::None); }
         }
         scope = current.parent.clone();
     }
     Value::from_hash_map(methods)
+}
+
+fn conversion_source_hint(block: &FunctionBlockRef, expression: &AstExpression,
+                          declared: Option<TypeId>) -> Value
+{
+    if let Some(id) = declared { return Value::Integer(id.0 as i64); }
+    match &expression.kind
+    {
+        AstExpressionKind::Grouped(inner) | AstExpressionKind::TryExecute(inner) =>
+            conversion_source_hint(block, inner, None),
+        AstExpressionKind::Symbol(item) =>
+            bind_known_function(block, Value::from_executable_string(item.name.clone())),
+        AstExpressionKind::Variable(item) => Value::from_string(item.name.clone()),
+        AstExpressionKind::Execute(call) =>
+            conversion_source_hint(block, &call.executable, None),
+        _ => Value::None,
+    }
 }
 
 // Preserve addressable receivers while evaluating each index and intermediate method once.
@@ -220,7 +243,7 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
     {
         AstExpressionKind::AnonymousFunction(function) =>
             {
-                let template = compile_function(function_block, function, None)?;
+                let template = compile_function(function_block, function, None, false)?;
                 let names = free_variables(function).into_iter().map(Value::from_string).collect();
                 instructions.push(Instruction
                     {
@@ -596,7 +619,7 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                         });
             },
 
-        AstExpressionKind::TypeConversion(_, inner, type_id) =>
+        AstExpressionKind::TypeConversion(_, inner, type_id, source_type) =>
             {
                 let id = type_id.ok_or_else(|| CompileError
                     {
@@ -608,7 +631,12 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                     {
                         location: Some(expression.location.clone()),
                         code: Code::ConvertType,
-                        operand: Some(Value::Integer(id.0 as i64)),
+                        operand: Some(Value::from_array(vec![
+                                Value::Integer(id.0 as i64),
+                                method_snapshot_matching(function_block,
+                                    |key| key.starts_with(&method_key(id, "from_"))),
+                                conversion_source_hint(function_block, inner, source_type.get()),
+                            ])),
                     });
                 return Ok(());
             },
@@ -1056,16 +1084,18 @@ fn compile_execute_statement(instructions: &mut Vec<Instruction>,
 
 
 fn compile_function_definition(parent_block: &FunctionBlockRef,
-                               function_statement: &AstFunctionStatement) -> CompileResult<()>
+                               function_statement: &AstFunctionStatement,
+                               implied_conversion: bool) -> CompileResult<()>
 {
     let binding = function_binding(function_statement);
-    let function = compile_function(parent_block, function_statement, Some(binding.clone()))?;
+    let function = compile_function(parent_block, function_statement, Some(binding.clone()),
+        implied_conversion)?;
     parent_block.borrow_mut().functions.insert(binding, function);
     Ok(())
 }
 
 fn compile_function(parent_block: &FunctionBlockRef, function_statement: &AstFunctionStatement,
-                    binding: Option<String>) -> CompileResult<FunctionRef>
+                    binding: Option<String>, implied_conversion: bool) -> CompileResult<FunctionRef>
 {
     // Keep versions already visible at this definition. The submission scope
     // remains a fallback for forward declarations and is frozen at publication.
@@ -1109,6 +1139,8 @@ fn compile_function(parent_block: &FunctionBlockRef, function_statement: &AstFun
     let new_function = Rc::new(Function
         {
             functions: function_block,
+            receiver_type: function_statement.receiver_type,
+            implied_conversion,
             arguments: function_statement
                 .parameters
                 .iter()
@@ -1691,6 +1723,16 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
     function_block.borrow_mut().declared_functions.extend(ast.iter().filter_map(|statement|
         if let AstStatement::FunctionDefinition(item) = statement { Some(function_binding(item)) }
         else { None }));
+    // Install defaults first, so they are callable throughout the scope. A scripted
+    // factory shadows its default even if the script declares it before the typedef.
+    for statement in ast.iter()
+    {
+        if    let AstStatement::TypeDeclaration(declaration) = statement
+           && let Some(factory) = &declaration.conversion
+           && !function_block.borrow().declared_functions.contains(&function_binding(factory))
+        { compile_function_definition(function_block, factory, true)?; }
+    }
+
     let last_statement = ast.iter()
         .rposition(|statement| !matches!(statement, AstStatement::NullStatement));
 
@@ -1778,7 +1820,7 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
 
             AstStatement::FunctionDefinition(function_statement) =>
                 {
-                    compile_function_definition(&function_block, function_statement)?;
+                    compile_function_definition(&function_block, function_statement, false)?;
                     add_check = false;
                 }
 

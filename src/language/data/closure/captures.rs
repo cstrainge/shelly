@@ -165,7 +165,7 @@ fn expression(item: &AstExpression, bound: &HashSet<String>, free: &mut HashSet<
         AstExpressionKind::Field(item, _, _) | AstExpressionKind::Splat(item)
         | AstExpressionKind::Grouped(item) | AstExpressionKind::ExecutableReference(item)
         | AstExpressionKind::TryExecute(item) | AstExpressionKind::MathNegate(item)
-        | AstExpressionKind::BooleanNot(item) | AstExpressionKind::TypeConversion(_, item, _) =>
+        | AstExpressionKind::BooleanNot(item) | AstExpressionKind::TypeConversion(_, item, _, _) =>
             expression(item, bound, free),
         AstExpressionKind::Redirect(item, redirects) =>
             {

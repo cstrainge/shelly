@@ -1,4 +1,6 @@
 
+use std::cell::Cell;
+
 use crate::language::{ ast::*,
                        data::{ value::Value, types::TypeRegistry },
                        tokenizer::{ TokenBuffer,
@@ -184,7 +186,7 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                                 {
                                     location: token.location,
                                     kind: AstExpressionKind::TypeConversion(
-                                        name, Box::new(value), None),
+                                        name, Box::new(value), None, Cell::new(None)),
                                     string_flag: None,
                                 };
                             let expression = parse_postfix(&mut *lookahead.buffer, expression)?;
@@ -726,7 +728,7 @@ fn parse_math_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
             | AstExpressionKind::MathExpression(_, _, _)
             | AstExpressionKind::BooleanNot(_)
             | AstExpressionKind::MathNegate(_)
-            | AstExpressionKind::TypeConversion(_, _, _)
+            | AstExpressionKind::TypeConversion(_, _, _, _)
             | AstExpressionKind::IfExpression(_)
             | AstExpressionKind::MatchExpression(_)
             | AstExpressionKind::Array(_)
@@ -1260,7 +1262,7 @@ pub fn parse_exec_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Op
                     | AstExpressionKind::EnumVariant(_, _)
                     | AstExpressionKind::AnonymousFunction(_)
                     | AstExpressionKind::StructConstructor(_)
-                    | AstExpressionKind::TypeConversion(_, _, _)
+                    | AstExpressionKind::TypeConversion(_, _, _, _)
                     | AstExpressionKind::SpacedEmptyCall(_)
             )
         {

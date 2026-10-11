@@ -940,8 +940,78 @@ named type construction requires an attached `(`, as in `Count(7)`; a newline be
 separate statement. Use `None(())`, for example, rather than an empty `None()`.
 Type names take precedence over function names in this syntax. A struct or enum
 declaration with a builtin name shadows that conversion. Resolved conversion
-targets remain fixed in previously compiled functions. User-defined conversions
-are not implemented yet.
+targets and conversion-method versions remain fixed in previously compiled functions.
+
+Explicit `Target(value)` conversions first look for a factory on the target type
+named `from_<source_type>`, using the source type's name in lowercase. For example:
+
+```javascript
+type Count = Integer
+fn Count::from_string($value: String): Count
+{
+    Integer($value)
+}
+
+echo Count("7")  # 7, with type Count
+```
+
+Each `type` declaration provides a default factory from its immediate underlying
+type. For example, `type Count = Integer` provides
+`Count::from_integer($value: Integer): Count`, which wraps the value without
+changing it. It can be called directly or stored as a function reference:
+
+```javascript
+type Count = Integer
+let $make_count = `Count::from_integer
+echo ($make_count 7)  # 7, with type Count
+
+fn Count::from_integer($value: Integer): Count { $value + 1 }
+echo Count(7) (Count::from_integer 7)  # 8 8
+```
+
+A scripted factory with the same name overrides the default. Existing function
+references and compiled functions retain the factory version they captured.
+Nested typedefs use the immediate original type: `type Outer = Count` provides
+`Outer::from_count`. Collection typedefs use the collection names described below,
+such as `from_array_integer`. A `pub type` exports its default factory; an explicit
+override follows its own `pub` visibility. Annotations still wrap values through
+normal coercion, independently of factory overrides.
+
+Factories have one required source argument and no `$self`. They declare the
+target type as their return type, or `any` with the result checked against the
+target at runtime. A named source retains its identity for lookup: a `Count`
+value selects `from_count`, while an `Integer` selects `from_integer`. Ranges
+select `from_range`.
+
+Collection factory names include their contained types:
+
+```javascript
+fn Count::from_array_integer($values: [Integer]): Count { $values.count }
+fn Count::from_hash_string_integer($values: [String: Integer]): Count
+{
+    $values["count"]
+}
+
+echo Count([1, 2])           # selects from_array_integer
+echo Count(["count": 7])     # selects from_hash_string_integer
+```
+
+Declared collection constraints determine the name, including for empty typed
+collections. Otherwise Shelly infers types from the contents; mixed or unknown
+types use `any`, so an untyped empty array selects `from_array_any`, and an
+untyped empty hash selects `from_hash_any_any`. Key and value types are inferred
+separately. Names are lowercase, including named element types. Nested collections
+use the same spelling recursively, such as `from_array_array_integer` and
+`from_hash_string_array_integer`. A distinct named collection type keeps its own
+name: `type Numbers = [Integer]` selects `from_numbers`.
+
+A matching factory runs before existing conversion rules, even when the source
+already has the target type. If none exists, the existing rules apply. A factory
+error propagates without trying a fallback. Annotations and assignments continue
+using their normal coercion rules; they do not invoke conversion factories.
+Factories can also be called as `Count::from_string "7"` or stored as function
+references. Use `pub fn Count::from_string(...)` to make a factory available to
+importers; private factories remain in their defining module.
 
 ## Boolean expressions
 
@@ -2006,6 +2076,12 @@ local binding. Reimporting the same object is allowed; importing a different
 object over an existing name is an error. Public aliases retain their defining
 module when resolving their targets.
 
+Importing a module activates its public type extensions in the current module,
+including ordinary methods, iterators, and conversion factories. This also applies
+to selective imports: `import helpers::{ run }` activates the public extensions
+from `helpers` without bringing other names into the local scope. Private extensions
+remain available only in their defining module.
+
 Imports are private too. Re-export selected names with `pub import`, or publish
 an entire module namespace with an unselected `pub import`:
 
@@ -2014,6 +2090,14 @@ import implementation::{ helper }       # Local access only.
 pub import counter::{ next, Count }     # Export next and Count, not counter's namespace.
 pub import net                         # Export the net namespace.
 ```
+
+A `pub import` also re-exports the source module's public type extensions, even
+when selecting particular names. Extensions therefore remain active through chains
+of public imports. A private import keeps those extensions local to its module.
+Reimporting the same extension is allowed. An imported scripted conversion factory
+takes precedence over a typedef's implied factory, regardless of import order.
+Different imported scripted implementations of the same type method conflict.
+Local method definitions take precedence over imported extensions.
 
 An importing script can then use `bridge::next`, `bridge::Count`, and
 `bridge::net::ping`. It cannot access `bridge::implementation::helper` or
