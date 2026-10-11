@@ -334,6 +334,8 @@ fn parse_math_primary(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<As
                         }
                 },
 
+            TokenKind::AutoIdentifier => new_ast_variable(token.location, "$".into()),
+
             TokenKind::Identifier =>
                 {
                     let TokenValue::Identifier(name) = token.value else { return Ok(None); };
@@ -748,6 +750,8 @@ fn parse_math_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
 
 fn parse_variable_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
+    if let Some(token) = try_expect_token(buffer, TokenKind::AutoIdentifier)?
+    { return Ok(Some(parse_postfix(buffer, new_ast_variable(token.location, "$".into()))?)); }
     let identifier = expect_token(buffer, TokenKind::Identifier)?;
 
     let identifier_value = match identifier.value
@@ -1049,7 +1053,8 @@ fn parse_range_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
                 TokenKind::LineBreak | TokenKind::StatementBreak | TokenKind::BlockOpen
                 | TokenKind::BlockClose | TokenKind::ParenClose | TokenKind::SquareClose
                 | TokenKind::Comma | TokenKind::TypeDelimiter | TokenKind::Equal
-                | TokenKind::NotEqual | TokenKind::And | TokenKind::Or | TokenKind::MatchArrow))
+                | TokenKind::NotEqual | TokenKind::And | TokenKind::Or | TokenKind::MatchArrow
+                | TokenKind::Pipe))
         };
     let end = if at_end { None } else { parse_scalar_expression(buffer)? };
     if    (inclusive && end.is_none())
@@ -1097,6 +1102,60 @@ pub fn parse_condition_expression(buffer: &mut TokenBuffer<'_,
 
 
 fn parse_value_before_block(buffer: &mut TokenBuffer<'_, '_>,
+                            stop_at_block: bool,
+                            stop_at_colon: bool) -> ParseResult<Option<AstExpression>>
+{
+    let Some(first) = parse_stage_before_block(buffer, stop_at_block, stop_at_colon)?
+        else { return Ok(None); };
+    let location = first.location.clone();
+    let mut stages = vec![first];
+    let mut boundaries = Vec::new();
+    while let Some(boundary) = parse_pipe_boundary(buffer)?
+    {
+        let stage = parse_stage_before_block(buffer, stop_at_block, stop_at_colon)?
+            .ok_or_else(|| ParserError { location: Some(boundary.location.clone()),
+                kind: ParserErrorKind::ExpectedExpression })?;
+        boundaries.push(boundary);
+        stages.push(stage);
+    }
+    if boundaries.is_empty() { return Ok(stages.pop()); }
+    Ok(Some(AstExpression { location, string_flag: None,
+        kind: AstExpressionKind::Pipeline(Box::new(AstPipeline { stages, boundaries })) }))
+}
+
+
+pub(super) fn parse_pipe_boundary(buffer: &mut TokenBuffer<'_, '_>)
+    -> ParseResult<Option<AstPipeBoundary>>
+{
+    let mut lookahead = Lookahead::new(buffer);
+    let Some(token) = lookahead.buffer.next()? else { return Ok(None); };
+    let (decode, pipe) = if token.kind == TokenKind::Pipe { (None, token) }
+    else if token.kind == TokenKind::Symbol
+    {
+        if try_expect_token(lookahead.buffer, TokenKind::TypeDelimiter)?.is_none()
+        { return Ok(None); }
+        let Some(pipe) = try_expect_token(lookahead.buffer, TokenKind::Pipe)?
+            else { return Ok(None); };
+        (Some(token.token_value_text()), pipe)
+    }
+    else { return Ok(None); };
+    let annotation = if try_expect_token(lookahead.buffer, TokenKind::TypeDelimiter)?.is_some()
+    {
+        let mut name = expect_type_name(lookahead.buffer)?.token_value_text();
+        while try_expect_token(lookahead.buffer, TokenKind::Scope)?.is_some()
+        {
+            name.push_str("::");
+            name.push_str(&expect_type_name(lookahead.buffer)?.token_value_text());
+        }
+        Some(name)
+    }
+    else { None };
+    lookahead.commit();
+    Ok(Some(AstPipeBoundary { location: pipe.location, decode, annotation, type_id: None }))
+}
+
+
+fn parse_stage_before_block(buffer: &mut TokenBuffer<'_, '_>,
                             stop_at_block: bool,
                             stop_at_colon: bool) -> ParseResult<Option<AstExpression>>
 {
@@ -1210,6 +1269,10 @@ fn parse_arguments_before_block(buffer: &mut TokenBuffer<'_, '_>,
 
     loop
     {
+        {
+            let probe = Lookahead::new(buffer);
+            if parse_pipe_boundary(probe.buffer)?.is_some() { break; }
+        }
         let next =
             {
                 let mut lookahead = Lookahead::new(buffer);

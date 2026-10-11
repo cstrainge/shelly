@@ -1974,8 +1974,110 @@ command. Redirections also apply to commands called inside Shelly functions and
 to builtin diagnostics. Streams are restored on completion, errors, and returns.
 Each stream may be redirected once per expression. Left-facing redirection
 operators are not supported. Input from files or variables into a process will
-use `|` pipelines, which are not implemented yet. Append redirection is also
+use the `|` pipelines described below. Append redirection is also
 not implemented.
+
+### Pipelines
+
+Pipelines associate left to right. Shelly stages pass their returned values with
+their types intact; external programs pass stdout as an ordinary byte stream.
+Bare `$` refers to the current incoming item within a stage. A function with no
+explicit arguments receives that item as its one argument. If arguments are
+specified, include `$` wherever the incoming item belongs:
+
+```shy
+fn increment($n: Integer): Integer { $n + 1 }
+let $answer: Integer
+7 | increment | ($ * 2) | $answer
+
+let $inputs: [Integer] = [1, 2, 3, 4, 5, 6, 7]
+let $answers: [Integer]
+$inputs | increment | ($ * 2) | $answers
+echo $answers... # 4 6 8 10 12 14 16
+
+fn append_header($message: String, $name: String, $value: String): String
+{
+    $message + "\n" + $name + ": " + $value
+}
+"hello" | append_header $ "Content-Type" "application/json"
+producer | consumer
+```
+
+Parentheses group stage expressions and let a pipeline appear inside another
+expression. A stage returning `()` passes that value onward. A final bare named
+variable is an assignment destination and must already exist. Array destinations
+collect final items, checking their element types; scalar destinations receive
+successive items and retain the last. Empty input clears an array destination and
+leaves a scalar destination unchanged. Intermediate tabular stages process one
+row at a time without collecting the complete stream.
+Property-style getters such as `$.count` keep their normal implicit call behavior.
+
+An iterable source yields items through its `next_item` protocol, just as a `for`
+loop does. Arrays yield elements, hashes yield key/value pairs, ranges yield
+integers, and custom iterators use their declared method. Iteration uses a private
+receiver, leaving the source unchanged. Only the source is expanded: an array
+returned by a later stage remains one item. An explicit outgoing format such as
+`$inputs |:json command` encodes the whole source value instead of iterating it.
+
+Conversion annotations belong to the boundary, not to command arguments:
+
+| Boundary | Operation |
+| --- | --- |
+| `|` | Pass the value or byte stream onward. |
+| `|:json` | Encode the outgoing value as JSON. |
+| `json:|` | Decode incoming JSON. |
+| `json:|:ApiResponse` | Decode JSON and convert it into `ApiResponse`. |
+| `csv:|:tsv` | Decode CSV rows, then encode each row as TSV. |
+
+```shy
+let $message = ["message": "hello"]
+$message |:json external_command
+
+struct ApiResponse { message: String }
+let $response = ApiResponse(message: "")
+let $status = external_command json:|:ApiResponse $response
+
+let $rows: [[String]]
+external_command csv:| $rows
+producer tsv:|:ssv consumer
+```
+
+`json`, `csv`, `tsv`, and `ssv` have shared conversion factories. Encoding invokes
+`String::from_<format>(value)`; decoding invokes `<format>::from_string(text)`.
+Scripted conversion factories can supply additional formats or override the
+native implementations, including through imported type extensions. A requested
+target first uses its `from_<source_type>` factory, then shared structural mapping.
+Fields and collection elements use that conversion protocol recursively.
+A name that identifies both an outgoing format and a destination type is an error.
+Unsupported formats and failed conversions report the annotated pipe's location,
+format, source type, and requested target. They never silently use display text.
+
+CSV, TSV, and SSV decode each record into `[String]`. Delimiters inside quoted
+fields, doubled quotes, embedded newlines, Unicode, and CRLF records are supported.
+There is no implicit header when decoding ordinary rows. Decoding into a struct
+uses the first record as field-name headers, then maps each row's fields to the
+struct's declared types. An array-of-struct type annotation also maps one element
+record at a time; the final destination collects the array. Add a Shelly stage to
+add or remove headers as needed.
+Direct `csv::from_string`, `tsv::from_string`, and `ssv::from_string` convert one
+record; pipelines handle multiple records incrementally. Their corresponding
+String factories accept one row or an array of rows.
+
+At an unannotated external boundary, Strings pass directly and other values need
+the existing String conversion protocol. Structured arrays, hashes, and structs
+need an explicit encoding or a matching String conversion factory. Unannotated
+external output entering a Shelly stage becomes a String after EOF; invalid UTF-8
+is an error there. Bytes between external programs are preserved without UTF-8
+conversion. External stages with explicit `$` arguments run once per incoming
+item with closed stdin; other external consumers read one continuous stdin stream.
+
+Execution status stays separate from data. If any external stage participates,
+the pipeline expression returns an aggregate `ExecResult`: the first failing
+stage's status, or success if all stages succeed. Stdout or decoded values travel
+through stages and into destinations independently. Capturing the status, as
+above, allows the existing `ExecResult` handling; an uncaptured failure fails the
+script. Pipelines made entirely of Shelly values and functions return their final
+value. Existing `->`, `~->`, and `~+->` redirections retain their meanings.
 
 ## Supervised processes and terminals
 
@@ -2359,7 +2461,7 @@ function bodies. Prior REPL bindings and functions are available.
 - Variables use dynamic caller scope; function definitions are hoisted within each input.
 - Command results are statuses, not captured stdout. Shell errors in noninteractive
   execution return a general failure status; only explicit `exit N` selects a specific status.
-- Pipelines, append redirection, ordering comparisons (`<`, `>`, `<=`, `>=`), array slicing,
+- Append redirection, ordering comparisons (`<`, `>`, `<=`, `>=`), array slicing,
   and array append syntax are not implemented.
 - Iterating or expanding a range requires both bounds. `break` cannot carry a value
   or target a named loop. Standalone blocks are statements, not general expressions.
@@ -2448,4 +2550,4 @@ This does not replace `target/release/shelly`.
 
 The aim is to keep the immediacy of a shell while giving larger scripts a clear
 path to structure. Future work includes broader type inference and contracts,
-network and JSON support, and pipelines for text and structured data.
+network APIs and richer format conversion for structured pipelines.

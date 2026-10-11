@@ -94,6 +94,8 @@ impl Interpreter
 
     pub(super) fn module_native_function(&self, name: &str) -> Option<Rc<NativeFunction>>
     {
+        if let Some(function) = self.scope().native_functions.get(name)
+        { return Some(function.clone()); }
         if !name.contains("::") { return self.scope().native_functions.get(name).cloned(); }
         let (scope, name) = self.module_member(name)?;
         scope.native_functions.get(name).cloned()
@@ -587,6 +589,8 @@ impl Interpreter
                 let source = self.scopes.get(self.type_scopes.get(id)?)?;
                 Some((*id, source.types.clone(), source.exports.clone()))
             }).collect();
+        let native_factories: Vec<_> = self.scope().native_functions.keys()
+            .filter(|name| name.contains("::")).cloned().collect();
         let types = &mut self.scope_mut().types;
         for (id, source, exports) in extensions
         {
@@ -596,6 +600,7 @@ impl Interpreter
         types.names.retain(|name, _| !name.contains("::"));
         types.names.extend(names);
         types.qualified_functions = functions;
+        types.qualified_functions.extend(native_factories);
         for (key, function) in &methods
         {
             if let Some(receiver) = function.receiver_type

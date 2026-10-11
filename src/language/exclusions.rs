@@ -99,6 +99,10 @@ fn exclude_expression<E>(expression: &mut AstExpression,
 {
     match &mut expression.kind
     {
+        AstExpressionKind::Pipeline(pipeline) =>
+            {
+                for stage in &mut pipeline.stages { exclude_expression(stage, evaluate)?; }
+            },
         AstExpressionKind::AnonymousFunction(function) =>
             exclude_statements(&mut function.body, evaluate)?,
         AstExpressionKind::IfExpression(item) =>

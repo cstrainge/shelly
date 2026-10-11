@@ -1,7 +1,7 @@
-# C140: Pipelines
+# C140: Pipeline requires a following stage
 check ["id": "C140",
-    "name": "Pipelines",
-    "source": "echo \"a\" | /bin/cat",
+    "name": "Pipeline requires a following stage",
+    "source": "echo \"a\" |",
     "mode": "code",
     "args": [],
     "stdout": "",

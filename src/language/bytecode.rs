@@ -7,6 +7,9 @@ pub enum Code
 {
     Push,
     Execute,
+    // Evaluate a pipeline invocation without launching it; leave [callable, arguments].
+    PreparePipelineCall,
+    Pipeline(Rc<CompiledPipeline>),
     // Consume a symbol reference and publish it in the current module (`pub visible`).
     PublishSymbol,
     // Operand: [stream (1 stdout, 2 stderr, 3 both), variable, pending targets].
@@ -116,6 +119,47 @@ pub struct Instruction
     pub location: Option<Location>,
     pub code: Code,
     pub operand: Option<Value>
+}
+
+
+pub struct PipelineBoundary
+{
+    pub location: Location,
+    pub decode: Option<String>,
+    pub annotation: Option<String>,
+    pub type_id: Option<TypeId>,
+    pub conversions: Value,
+}
+
+
+pub struct PipelineRedirection
+{
+    pub location: Location,
+    pub stream: i64,
+    pub variable: bool,
+    pub code: Vec<Instruction>,
+}
+
+
+pub struct PipelineStage
+{
+    pub location: Location,
+    pub code: Vec<Instruction>,
+    pub call: bool,
+    pub command_word: bool,
+    pub explicit_arguments: bool,
+    pub input_used: bool,
+    pub property: bool,
+    pub destination: Option<String>,
+    pub redirects: Vec<PipelineRedirection>,
+    pub conversions: Value,
+}
+
+
+pub struct CompiledPipeline
+{
+    pub stages: Vec<PipelineStage>,
+    pub boundaries: Vec<PipelineBoundary>,
 }
 
 

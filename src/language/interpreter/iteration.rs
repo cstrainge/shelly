@@ -73,10 +73,17 @@ impl Iteration
     pub fn new(interpreter: &Interpreter, location: &Location, value: Value, snapshot: &Value)
         -> InterpreterResult<Self>
     {
+        let name = value.type_name();
+        Self::try_new(interpreter, location, value, snapshot)?.ok_or_else(||
+            iteration_error(location, format!("Type '{}' has no next_item method", name)))
+    }
+
+    pub fn try_new(interpreter: &Interpreter, location: &Location, value: Value, snapshot: &Value)
+        -> InterpreterResult<Option<Self>>
+    {
         let reference = ValueReference::temporary(value.clone());
-        let method = interpreter.resolve_method(&value, reference, "next_item", snapshot)
-            .ok_or_else(|| iteration_error(location,
-                format!("Type '{}' has no next_item method", value.type_name())))?;
+        let Some(method) = interpreter.resolve_method(&value, reference, "next_item", snapshot)
+            else { return Ok(None); };
         let (return_type, native) = match &method.definition
             {
                 MethodDefinition::Builtin(definition) =>
@@ -94,7 +101,7 @@ impl Iteration
         { return Err(iteration_error(location, "next_item must declare a return type T | ()")); }
         let native = if native
             { Some(NativeIteration::new(value.underlying().clone(), location)?) } else { None };
-        Ok(Self { method, native, ended: false })
+        Ok(Some(Self { method, native, ended: false }))
     }
 
     pub fn next(&mut self, interpreter: &mut Interpreter, location: &Location)

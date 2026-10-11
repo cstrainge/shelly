@@ -3,7 +3,8 @@ use std::{ cell::RefCell, collections::HashMap, fmt::{ self, Display, Formatter 
 
 use crate::language::{ ast::*,
                        bytecode::{ Code, Instruction, Function, FunctionBlock,
-                                   FunctionBlockRef, FunctionRef },
+                                   FunctionBlockRef, FunctionRef, CompiledPipeline,
+                                   PipelineStage, PipelineBoundary, PipelineRedirection },
                        data::{ closure::free_variables, value::{ Value, Executable },
                                types::{ TypeId, TypeRegistry },
                                methods::method_key, map_key::MapKey,
@@ -241,6 +242,15 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
 {
     match &expression.kind
     {
+        AstExpressionKind::Pipeline(pipeline) =>
+            {
+                instructions.push(Instruction
+                    {
+                        location: Some(expression.location.clone()), operand: None,
+                        code: Code::Pipeline(Rc::new(compile_pipeline(function_block, pipeline)?)),
+                    });
+                return Ok(());
+            },
         AstExpressionKind::AnonymousFunction(function) =>
             {
                 let template = compile_function(function_block, function, None, false)?;
@@ -806,6 +816,122 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
 }
 
 
+fn compile_pipeline(block: &FunctionBlockRef, pipeline: &AstPipeline)
+    -> CompileResult<CompiledPipeline>
+{
+    let mut stages = Vec::new();
+    for (index, expression) in pipeline.stages.iter().enumerate()
+    {
+        let mut inner = expression;
+        let mut redirects = Vec::new();
+        loop
+        {
+            match &inner.kind
+            {
+                AstExpressionKind::Grouped(value) => inner = value,
+                AstExpressionKind::Redirect(value, targets) =>
+                    {
+                        for target in targets
+                        {
+                            let mut code = Vec::new();
+                            let variable = matches!(target.target.kind,
+                                AstExpressionKind::Variable(_));
+                            if variable
+                            {
+                                code.push(Instruction { location: Some(target.location.clone()),
+                                    code: Code::Push,
+                                    operand: Some(Value::from_string(
+                                        target.target.resolve_as_text()
+                                            .map_err(ParserError::from)?)) });
+                                code.push(Instruction { location: None, code: Code::PopResult,
+                                    operand: None });
+                            }
+                            else { compile_expression(&mut code, block, &target.target)?; }
+                            optimize_instructions(&mut code);
+                            link_instructions(&mut code)?;
+                            redirects.push(PipelineRedirection
+                                {
+                                    location: target.location.clone(), variable, code,
+                                    stream: match target.stream
+                                        { RedirectStream::Output => 1, RedirectStream::Error => 2,
+                                          RedirectStream::Both => 3 },
+                                });
+                        }
+                        inner = value;
+                    },
+                _ => break,
+            }
+        }
+        let destination = if index + 1 == pipeline.stages.len()
+            && let AstExpressionKind::Variable(variable) = &inner.kind
+            && variable.name != "$"
+            && matches!(expression.kind, AstExpressionKind::Variable(_))
+            { Some(variable.name.clone()) } else { None };
+        let mut code = Vec::new();
+        let mut call = false;
+        let mut explicit_arguments = false;
+        let mut command_word = false;
+        if destination.is_none()
+        {
+            match &inner.kind
+            {
+                AstExpressionKind::Execute(item) =>
+                    {
+                        compile_execute_statement(&mut code, block, item)?;
+                        code.last_mut().unwrap().code = Code::PreparePipelineCall;
+                        call = true;
+                        explicit_arguments = !item.arguments.is_empty();
+                        command_word = matches!(item.executable.kind, AstExpressionKind::Symbol(_));
+                    },
+                AstExpressionKind::TryExecute(value) =>
+                    {
+                        compile_expression_mode(&mut code, block, value,
+                            ExpressionMode::BindMethod)?;
+                        call = true;
+                        command_word = matches!(value.kind, AstExpressionKind::Symbol(_));
+                    },
+                AstExpressionKind::Variable(_) | AstExpressionKind::Symbol(_)
+                | AstExpressionKind::Field(_, _, _) | AstExpressionKind::Index(_, _) =>
+                    {
+                        let property = matches!(inner.kind, AstExpressionKind::Field(_, _, _))
+                            && inner.uses_pipeline_input();
+                        compile_expression_mode(&mut code, block, inner,
+                            if property { ExpressionMode::Value }
+                            else { ExpressionMode::BindMethod })?;
+                        call = !property && !matches!(&inner.kind,
+                            AstExpressionKind::Variable(variable) if variable.name == "$");
+                        command_word = matches!(inner.kind, AstExpressionKind::Symbol(_));
+                    },
+                AstExpressionKind::AnonymousFunction(_)
+                | AstExpressionKind::ExecutableReference(_) =>
+                    {
+                        compile_expression(&mut code, block, inner)?;
+                        call = index > 0;
+                    },
+                _ => compile_expression(&mut code, block, inner)?,
+            }
+            optimize_instructions(&mut code);
+            link_instructions(&mut code)?;
+        }
+        stages.push(PipelineStage
+            {
+                location: expression.location.clone(), code, call, command_word,
+                explicit_arguments, input_used: expression.uses_pipeline_input(),
+                property: matches!(inner.kind, AstExpressionKind::Field(_, _, _)),
+                destination, redirects,
+                conversions: method_snapshot_matching(block, |key| key.starts_with("\0method:")),
+            });
+    }
+    let boundaries = pipeline.boundaries.iter().map(|boundary| PipelineBoundary
+        {
+            location: boundary.location.clone(), decode: boundary.decode.clone(),
+            annotation: boundary.annotation.clone(), type_id: boundary.type_id,
+            conversions: method_snapshot_matching(block, |key| key.starts_with("\0method:")),
+        }).collect();
+    Ok(CompiledPipeline { stages, boundaries })
+}
+
+
 fn compile_return_statement(instructions: &mut Vec<Instruction>,
                             function_block: &FunctionBlockRef,
                             return_statement: &AstReturnStatement) -> CompileResult<()>
@@ -1216,7 +1342,8 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     // On successful continuation, both instructions consume the result.
                     Code::PushResult | Code::CheckResult | Code::EndIteration => true,
 
-                    Code::PopResult | Code::Execute | Code::PublishSymbol | Code::TryExecute
+                    Code::PopResult | Code::Execute | Code::PreparePipelineCall | Code::Pipeline(_)
+                    | Code::PublishSymbol | Code::TryExecute
                     | Code::RedirectSource
                     | Code::ExecuteIfExecutable | Code::MakeExecutable | Code::MakeClosure
                     | Code::ToBoolean | Code::ConvertType | Code::BooleanNot | Code::MathNegate

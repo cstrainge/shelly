@@ -17,7 +17,7 @@ pub(super) enum Output
 
 impl Output
 {
-    fn stdio(&self) -> io::Result<Stdio>
+    pub(super) fn stdio(&self) -> io::Result<Stdio>
     {
         match self
         {

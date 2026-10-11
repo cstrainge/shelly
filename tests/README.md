@@ -153,6 +153,12 @@ watchdog. PTY reads use bounded waits. Temporary directories are removed after
 normal success or failure. Forced termination can leave directories behind;
 subsequent runs create independent directories and do not delete abandoned ones.
 
+`native/pipelines.shy` and `repl/pipelines.shy` check structured stages, iterator
+sources with private state and frozen methods, final array collection, automatic
+input, typed sinks, per-row streaming, frozen conversion factories, JSON and
+CSV/TSV/SSV records, typed headers, byte preservation, backpressure, early exits,
+aggregate status, redirections, diagnostics, and recovery across submissions.
+
 The suite targets Linux/WSL and macOS.
 It uses `mktemp`, `find`, `cp`, `ln`, `mkdir`, `rm`, `test`, `printf`, `cat`, `cmp`,
 `sleep`, `printenv`, and `kill`. Individual language cases also exercise ordinary

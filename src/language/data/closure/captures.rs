@@ -123,6 +123,13 @@ fn expression(item: &AstExpression, bound: &HashSet<String>, free: &mut HashSet<
 {
     match &item.kind
     {
+        AstExpressionKind::Pipeline(pipeline) =>
+            {
+                expression(&pipeline.stages[0], bound, free);
+                let mut nested = bound.clone();
+                nested.insert("$".into());
+                for item in &pipeline.stages[1..] { expression(item, &nested, free); }
+            },
         AstExpressionKind::Variable(item) | AstExpressionKind::VariableSplat(item) =>
             name(&item.name, bound, free),
         AstExpressionKind::Literal(item_value) =>

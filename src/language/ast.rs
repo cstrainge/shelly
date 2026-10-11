@@ -71,6 +71,7 @@ pub enum AstExpressionKind
     ExecutableReference(Box<AstExpression>),
     Execute(Box<AstExecuteStatement>),
     Redirect(Box<AstExpression>, Vec<AstRedirection>),
+    Pipeline(Box<AstPipeline>),
     TryExecute(Box<AstExpression>),
     MathExpression(AstMathOperator, Box<AstExpression>, Box<AstExpression>),
     BooleanExpression(AstBooleanOperator, Box<AstExpression>, Box<AstExpression>),
@@ -160,6 +161,44 @@ pub fn new_ast_literal(location: Location,
 
 impl AstExpression
 {
+    pub fn uses_pipeline_input(&self) -> bool
+    {
+        match &self.kind
+        {
+            AstExpressionKind::Variable(item) | AstExpressionKind::VariableSplat(item) =>
+                item.name == "$",
+            AstExpressionKind::Execute(call) => call.executable.uses_pipeline_input()
+                || call.arguments.iter().any(Self::uses_pipeline_input),
+            AstExpressionKind::Array(items) => items.iter().any(Self::uses_pipeline_input),
+            AstExpressionKind::HashMap(items) => items.iter().any(|(key, value)|
+                key.uses_pipeline_input() || value.uses_pipeline_input()),
+            AstExpressionKind::StructConstructor(item) => item.fields.iter()
+                .any(|(_, _, value)| value.uses_pipeline_input()),
+            AstExpressionKind::Index(a, b) | AstExpressionKind::MathExpression(_, a, b)
+            | AstExpressionKind::BooleanExpression(_, a, b) =>
+                a.uses_pipeline_input() || b.uses_pipeline_input(),
+            AstExpressionKind::Field(inner, _, _) | AstExpressionKind::Splat(inner)
+            | AstExpressionKind::Grouped(inner) | AstExpressionKind::ExecutableReference(inner)
+            | AstExpressionKind::TryExecute(inner) | AstExpressionKind::MathNegate(inner)
+            | AstExpressionKind::BooleanNot(inner)
+            | AstExpressionKind::TypeConversion(_, inner, _, _) => inner.uses_pipeline_input(),
+            AstExpressionKind::Range(start, end, _) => start.iter().chain(end.iter())
+                .any(|value| value.uses_pipeline_input()),
+            AstExpressionKind::Redirect(inner, redirects) => inner.uses_pipeline_input()
+                || redirects.iter().any(|item| item.target.uses_pipeline_input()),
+            AstExpressionKind::IfExpression(item) => item.branches.iter().any(|branch|
+                branch.condition.uses_pipeline_input() || branch.body.uses_pipeline_input())
+                || item.else_body.as_ref().is_some_and(AstBlockStatement::uses_pipeline_input),
+            AstExpressionKind::MatchExpression(item) => item.value.uses_pipeline_input()
+                || item.arms.iter().any(|arm|
+                    arm.pattern.as_ref().is_some_and(Self::uses_pipeline_input)
+                        || arm.body.uses_pipeline_input()),
+            // A nested pipeline supplies its own input after its source expression.
+            AstExpressionKind::Pipeline(item) => item.stages[0].uses_pipeline_input(),
+            _ => false,
+        }
+    }
+
     pub fn resolve_as_text(&self) -> Result<String, AstError>
     {
         match &self.kind
@@ -183,6 +222,7 @@ impl AstExpression
             | AstExpressionKind::ExecutableReference(_)
             | AstExpressionKind::Execute(_)
             | AstExpressionKind::Redirect(_, _)
+            | AstExpressionKind::Pipeline(_)
             | AstExpressionKind::TryExecute(_)
             | AstExpressionKind::MathExpression(_, _, _)
             | AstExpressionKind::BooleanExpression(_, _, _)
@@ -243,6 +283,23 @@ pub struct AstRedirection
     pub location: Location,
     pub stream: RedirectStream,
     pub target: AstExpression
+}
+
+
+pub struct AstPipeBoundary
+{
+    pub location: Location,
+    pub decode: Option<String>,
+    // Resolved against registered formats and visible type names at the boundary.
+    pub annotation: Option<String>,
+    pub type_id: Option<TypeId>,
+}
+
+
+pub struct AstPipeline
+{
+    pub stages: Vec<AstExpression>,
+    pub boundaries: Vec<AstPipeBoundary>,
 }
 
 
@@ -378,6 +435,16 @@ pub struct AstBlockStatement
     pub condition: Option<AstExpression>,
     pub location: Location,
     pub body: AstTopLevel
+}
+
+
+impl AstBlockStatement
+{
+    fn uses_pipeline_input(&self) -> bool
+    {
+        self.condition.as_ref().is_some_and(AstExpression::uses_pipeline_input)
+            || self.body.iter().any(AstStatement::uses_pipeline_input)
+    }
 }
 
 
@@ -531,6 +598,29 @@ pub type AstTopLevel = Vec<AstStatement>;
 
 impl AstStatement
 {
+    fn uses_pipeline_input(&self) -> bool
+    {
+        match self
+        {
+            Self::LetStatement(item) => item.expression.uses_pipeline_input(),
+            Self::SetStatement(item) => item.expression.uses_pipeline_input()
+                || item.indexes.iter().any(|access| match access
+                    { AstAccess::Index(value) => value.uses_pipeline_input(), _ => false }),
+            Self::DiscardStatement(value) | Self::ExpressionStatement(value) =>
+                value.uses_pipeline_input(),
+            Self::ExecuteStatement(item) => item.executable.uses_pipeline_input()
+                || item.arguments.iter().any(AstExpression::uses_pipeline_input),
+            Self::ReturnStatement(item) => item.expression.as_ref()
+                .is_some_and(AstExpression::uses_pipeline_input),
+            Self::BlockStatement(item) | Self::LoopStatement(item) => item.uses_pipeline_input(),
+            Self::ForStatement(item) => item.iterable.uses_pipeline_input()
+                || item.body.uses_pipeline_input(),
+            Self::ConditionalLoopStatement(item) => item.condition.uses_pipeline_input()
+                || item.body.uses_pipeline_input(),
+            _ => false,
+        }
+    }
+
     pub fn module_declaration(&self) -> Option<(&str, &Location, bool)>
     {
         Some(match self

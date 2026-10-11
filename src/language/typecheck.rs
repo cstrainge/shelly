@@ -494,6 +494,15 @@ fn check_expression(
     }
     match &mut expression.kind
     {
+        AstExpressionKind::Pipeline(pipeline) =>
+            {
+                for boundary in &mut pipeline.boundaries
+                {
+                    boundary.type_id = boundary.annotation.as_ref()
+                        .and_then(|name| names.get(name)).copied();
+                }
+                for stage in &mut pipeline.stages { check_expression(registry, stage, names)?; }
+            },
         AstExpressionKind::AnonymousFunction(function) =>
             check_function(registry, function, names)?,
         AstExpressionKind::TypeConversion(name, value, type_id, _) =>
@@ -630,9 +639,9 @@ fn check_expression(
                         { name: method_key(*id, variant) });
                     return Ok(());
                 }
-                if    !names.contains_key(name)
-                   && (registry.qualified_functions.contains(&qualified)
-                    || registry.module_names.contains(name.split("::").next().unwrap()))
+                if    registry.qualified_functions.contains(&qualified)
+                   || (!names.contains_key(name)
+                   && registry.module_names.contains(name.split("::").next().unwrap()))
                 {
                     expression.kind = AstExpressionKind::Symbol(AstSymbol { name: qualified });
                     return Ok(());
@@ -1342,6 +1351,46 @@ fn check_binding_expression(
     }
     match &expression.kind
     {
+        AstExpressionKind::Pipeline(pipeline) =>
+            {
+                let mut current = bindings.clone();
+                for (index, stage) in pipeline.stages.iter().enumerate()
+                {
+                    if index > 0
+                    {
+                        let boundary = &pipeline.boundaries[index - 1];
+                        let mut input = boundary.type_id;
+                        if index == 1 && boundary.decode.is_none() && boundary.annotation.is_none()
+                        {
+                            let source = &pipeline.stages[0];
+                            input = iterator_item_type(registry, source, bindings)
+                                .or_else(|| binding_type(registry, source, bindings)
+                                    .filter(|id| !registry.has_extension(*id, "next_item")));
+                        }
+                        if    boundary.decode.as_deref().is_some_and(|format|
+                                matches!(format, "csv" | "tsv" | "ssv"))
+                           && let Some(id) = input
+                           && let TypeKind::Array(item) = registry
+                                .get(registry.underlying_type(id)).kind
+                           && matches!(registry.get(registry.underlying_type(item)).kind,
+                                TypeKind::Struct(_))
+                        { input = Some(item); }
+                        current.insert("$".into(), Binding::declared(input));
+                    }
+                    if index + 1 == pipeline.stages.len()
+                        && let AstExpressionKind::Variable(variable) = &stage.kind
+                        && variable.name != "$"
+                    {
+                        if !current.contains_key(&variable.name)
+                        {
+                            return Err(error(&stage.location, format!(
+                                "Variable '{}' not found; declare it with let", variable.name)));
+                        }
+                    }
+                    check_binding_expression(registry, stage, &current, return_type, None)?;
+                    forget_inferred(&mut current);
+                }
+            },
         AstExpressionKind::AnonymousFunction(function) =>
             {
                 let mut captured = bindings.clone();
@@ -1741,7 +1790,7 @@ fn expression_may_mutate(registry: &TypeRegistry, expression: &AstExpression,
                 }
                 true
             },
-        AstExpressionKind::Execute(_)
+        AstExpressionKind::Execute(_) | AstExpressionKind::Pipeline(_)
         | AstExpressionKind::IfExpression(_) | AstExpressionKind::MatchExpression(_)
         | AstExpressionKind::Redirect(_, _) | AstExpressionKind::TryExecute(_) => true,
         AstExpressionKind::Grouped(value) =>

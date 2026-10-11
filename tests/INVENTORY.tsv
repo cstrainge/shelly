@@ -138,7 +138,7 @@ C136	positive	cd relative directory	tests/cases/positive/C136.shy
 C137	positive	cd variable storing absolute home path	tests/cases/positive/C137.shy
 C138	positive	Read home file through variable prefix	tests/cases/positive/C138.shy
 C139	positive	PATH mutation observed	tests/cases/positive/C139.shy
-C140	negative	Pipelines	tests/cases/negative/C140.shy
+C140	negative	Pipeline requires a following stage	tests/cases/negative/C140.shy
 C141	positive	Array literal	tests/cases/positive/C141.shy
 C142	positive	Array indexing	tests/cases/positive/C142.shy
 C143	negative	Type annotation	tests/cases/negative/C143.shy

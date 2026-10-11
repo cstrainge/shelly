@@ -228,6 +228,15 @@ fn parse_alias_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
 
 fn parse_value_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
+    {
+        let mut probe = Lookahead::new(buffer);
+        if let Some(expression) = parse_value_expression(probe.buffer)?
+            && matches!(expression.kind, AstExpressionKind::Pipeline(_))
+        {
+            probe.commit();
+            return Ok(Some(AstStatement::ExpressionStatement(expression)));
+        }
+    }
     let Some(expression) = parse_expression(buffer)? else { return Ok(None); };
 
     let redirected =

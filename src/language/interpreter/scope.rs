@@ -41,11 +41,13 @@ pub(super) struct Scope
 impl Scope
 {
     pub fn new(natives: impl IntoIterator<Item = Rc<NativeFunction>>,
-               scope: String, types: TypeRegistry, color_mode: TtyColorMode) -> Self
+               scope: String, mut types: TypeRegistry, color_mode: TtyColorMode) -> Self
     {
         let native_functions: HashMap<_, _> = natives.into_iter()
             .filter(|item| item.visibility != NativeVisibility::Hidden)
             .map(|item| (item.name.to_string(), item)).collect();
+        types.qualified_functions.extend(native_functions.keys()
+            .filter(|name| name.contains("::")).cloned());
         let builtins = native_functions.values().map(|item| item.name).collect();
         let mut variables = ScopedVariables::new_from_environment();
         let widget_array = types.intern(TypeKind::Array(types.native_types["WidgetFn"].id));

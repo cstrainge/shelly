@@ -619,11 +619,13 @@ impl<'a> Tokenizer<'a>
             let enum_variant = self.enum_variant_follows && token.kind == TokenKind::Symbol;
             self.index_follows = self.pending_operator.is_none()
                 && self.input.peek_next() == Some('[')
-                && (enum_variant || matches!(token.kind, TokenKind::Identifier | TokenKind::Literal
+                && (enum_variant || matches!(token.kind,
+                    TokenKind::Identifier | TokenKind::AutoIdentifier | TokenKind::Literal
                     | TokenKind::SquareClose | TokenKind::ParenClose | TokenKind::Member));
             self.member_follows = self.pending_operator.is_none()
                 && self.input.peek_next() == Some('.')
-                && (enum_variant || matches!(token.kind, TokenKind::Identifier | TokenKind::Literal
+                && (enum_variant || matches!(token.kind,
+                    TokenKind::Identifier | TokenKind::AutoIdentifier | TokenKind::Literal
                     | TokenKind::SquareClose | TokenKind::ParenClose | TokenKind::Member));
             self.enum_variant_follows = token.kind == TokenKind::Scope;
         }

@@ -29,6 +29,7 @@ use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
                          native::{ NativeFunction, NativeFunctions, NativeVisibility },
                          data::{ value::{ ExecResult, Executable, Value },
                                  closure::ClosureValue,
+                                 formats::{ FACTORIES, encode, decode },
                                  map_key::MapKey,
                                  methods::{ BoundMethod, MethodDefinition, method_key },
                                  range::Range,
@@ -232,8 +233,9 @@ pub struct Interpreter
     pub(super) native_functions: NativeFunctions,
     pub(super) widget_environment: Option<Vec<(String, String)>>,
     pub(super) prompt_widgets: Option<Rc<RefCell<ScopedValue>>>,
-    captured_stdout: Option<Vec<u8>>,
-    redirections: Vec<Redirection>,
+    pub(super) pipeline_inputs: Vec<Value>,
+    pub(super) captured_stdout: Option<Vec<u8>>,
+    pub(super) redirections: Vec<Redirection>,
     last_cmd_time: Duration,
     pub(super) color_mode: TtyColorMode,
     startup_input: Vec<Event>,
@@ -368,6 +370,25 @@ impl Interpreter
                 }));
         }
 
+        for &(name, format, encoding) in FACTORIES
+        {
+            bodies.insert(name, Rc::new(move |interpreter, location, args|
+                {
+                    let [value] = args else
+                    {
+                        return Err(InterpreterError { location: location.clone(),
+                            what: ErrorWhat::ArgumentMismatch(
+                                format!("{} requires exactly one argument", name)) });
+                    };
+                    let result = if encoding
+                        { encode(format, value) }
+                        else { decode(format, value) };
+                    interpreter.last_result = Some(result.map_err(|message| InterpreterError
+                        { location: location.clone(), what: ErrorWhat::InvalidOperand(message) })?);
+                    Ok(())
+                }));
+        }
+
         let native_functions: NativeFunctions = bodies.into_iter().map(|(name, body)|
             (name, NativeFunction::new(name, NativeVisibility::Visible, body))).collect();
 
@@ -439,6 +460,7 @@ impl Interpreter
                 native_functions,
                 widget_environment: None,
                 prompt_widgets: None,
+                pipeline_inputs: Vec::new(),
                 captured_stdout: None,
                 redirections: Vec::new(),
                 last_cmd_time: Duration::ZERO,
@@ -713,6 +735,7 @@ impl Interpreter
 
             match instruction.code
             {
+                Code::Pipeline(ref pipeline) => self.execute_pipeline(pipeline)?,
                 Code::BeginRedirect =>
                     {
                         let Some(Value::Array(parts)) = &instruction.operand else
@@ -899,7 +922,7 @@ impl Interpreter
                         self.last_result = Some(Value::None);
                     },
 
-                Code::Execute =>
+                Code::Execute | Code::PreparePipelineCall =>
                     {
                         let mut args = Vec::new();
 
@@ -965,7 +988,13 @@ impl Interpreter
                             }
                         }
 
-                        self.execute_value(&location, executable, args)?;
+                        if matches!(instruction.code, Code::PreparePipelineCall)
+                        {
+                            self.last_result = Some(Value::from_array(vec![
+                                    executable, Value::from_array(args),
+                                ]));
+                        }
+                        else { self.execute_value(&location, executable, args)?; }
                     }
 
                 Code::NewAlias =>
@@ -2264,7 +2293,7 @@ impl Interpreter
         Self::read_projection(location, root, &reference.indexes, &reference.fields)
     }
 
-    fn write_variable(&mut self, location: &Location, name: &str,
+    pub(super) fn write_variable(&mut self, location: &Location, name: &str,
                       mut value: Value) -> InterpreterResult<()>
     {
         let invalid = |message| InterpreterError { location: location.clone(),
@@ -2327,6 +2356,12 @@ impl Interpreter
     pub(super) fn read_raw_variable(&self, name: &str, location: &Location)
         -> InterpreterResult<Value>
     {
+        if name == "$"
+        {
+            return self.pipeline_inputs.last().cloned().ok_or_else(|| InterpreterError
+                { location: location.clone(), what: ErrorWhat::InvalidOperand(
+                    "Bare $ is only available inside a pipeline stage".into()) });
+        }
         if let Some(reference) = self.variable_reference(name)
         {
             self.read_reference(location, &reference)
@@ -2346,7 +2381,7 @@ impl Interpreter
         }
     }
 
-    fn bind_executable(&self, value: Value) -> Value
+    pub(super) fn bind_executable(&self, value: Value) -> Value
     {
         if let Value::String(name, Executable::Yes) = &value
         {
@@ -2765,7 +2800,7 @@ impl Interpreter
         Ok(())
     }
 
-    fn redirection_error(location: &Location, error: impl Display) -> InterpreterError
+    pub(super) fn redirection_error(location: &Location, error: impl Display) -> InterpreterError
     {
         InterpreterError
             {
@@ -2774,7 +2809,7 @@ impl Interpreter
             }
     }
 
-    fn begin_redirection(&mut self, location: &Location, stream: i64,
+    pub(super) fn begin_redirection(&mut self, location: &Location, stream: i64,
                           variable: bool, target: Value) -> InterpreterResult<()>
     {
         let Value::String(text, _) = target else
@@ -2814,7 +2849,7 @@ impl Interpreter
         Ok(())
     }
 
-    fn finish_redirections(&mut self, depth: usize) -> InterpreterResult<()>
+    pub(super) fn finish_redirections(&mut self, depth: usize) -> InterpreterResult<()>
     {
         let mut result = Ok(());
         while self.redirections.len() > depth
@@ -2834,7 +2869,7 @@ impl Interpreter
         result
     }
 
-    fn redirect_source(&mut self, location: &Location, value: Value,
+    pub(super) fn redirect_source(&mut self, location: &Location, value: Value,
                         command_word: bool) -> InterpreterResult<()>
     {
         if    value.is_executable()
@@ -2875,7 +2910,7 @@ impl Interpreter
         result.map_err(|error| Self::redirection_error(location, error))
     }
 
-    fn command_name(location: &Location, value: Value) -> InterpreterResult<String>
+    pub(super) fn command_name(location: &Location, value: Value) -> InterpreterResult<String>
     {
         match value
         {
@@ -3280,7 +3315,7 @@ impl Interpreter
     /**
      * Shorten a leading home directory for display, matching complete path segments.
      */
-    fn eval_path_to(&self, path: &str) -> String
+    pub(super) fn eval_path_to(&self, path: &str) -> String
     {
         let Some(home) = self.home_path() else { return path.to_string(); };
         let home = home.trim_end_matches(is_separator);
@@ -3447,7 +3482,7 @@ impl Interpreter
         Ok(Value::from_argument_expansion(arguments))
     }
 
-    fn resolve_alias(&self,
+    pub(super) fn resolve_alias(&self,
                      location: &Location,
                      command: &str) -> InterpreterResult<(String, Vec<String>, String)>
     {

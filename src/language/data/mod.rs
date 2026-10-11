@@ -1,6 +1,7 @@
 
 pub mod value;
 pub mod conversion;
+pub mod formats;
 pub mod methods;
 pub mod range;
 pub mod map_key;
