@@ -599,6 +599,30 @@ Methods are registered per type in the type registry. Adding a builtin method
 does not require a new parser rule or a separate opcode for each method. Struct
 fields and enum `.index` retain their existing behavior.
 
+Every value provides `.properties`, returning a `[String: any]` hash. Structs
+contribute their fields; other values, including arrays and hashes, contribute a
+`"value"` entry containing the value itself. Every result includes `"type"`, and
+enum values also include `"index"`.
+
+Available methods appear as bound function references. Collecting properties
+does not execute them. Field values are snapshots, while method references keep
+their live receiver and the method version selected when the hash was created.
+Struct fields take precedence over methods with the same name. Imported objects
+expose only methods available under the normal module visibility rules.
+`next_item` is included for iterable values; calling it advances the receiver.
+Receiver-free `from_*` conversion factories are not object methods and are excluded.
+
+```shy
+let $properties = 5.properties
+echo $properties["value"]               # 5
+echo ($properties["type"] == Integer)   # true
+
+let $items = [3, 1, 2]
+let $properties = $items.properties
+echo ($properties["count"])             # 3
+echo ($properties["next_item"])         # 3; $items now contains [1, 2]
+```
+
 ## User-defined type methods
 
 Use `fn TypeName::method(...)` to extend any visible type, including builtin types,

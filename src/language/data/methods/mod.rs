@@ -2,13 +2,14 @@
 mod array;
 mod string;
 mod iteration;
+mod properties;
 
 use std::rc::Rc;
 
 use crate::language::{ bytecode::FunctionRef,
                        data::{ value::Value, scoped_variables::ValueReference,
                                types::{ TypeId, TypeKind, TypeRegistry },
-                               methods::{ iteration::next_item,
+                               methods::{ iteration::next_item, properties::properties,
                                           array::{ sort, zip, count },
                                           string::{ chars, contains, starts_with, ends_with,
                                                     replace, split, trim, trim_start, trim_end } } } };
@@ -42,6 +43,7 @@ pub struct BoundMethod
     pub receiver: ValueReference,
     pub name: String,
     pub definition: MethodDefinition,
+    pub snapshot: Value,
 }
 
 pub fn register_methods(registry: &mut TypeRegistry)
@@ -85,6 +87,12 @@ pub fn register_methods(registry: &mut TypeRegistry)
         }
     }
     let any = registry.builtin_id("any").unwrap();
+    let properties_type = registry.intern(TypeKind::Map(string, any));
+    registry.register_method(any, BuiltinMethod
+        {
+            name: "properties", argument_count: 0, return_type: properties_type,
+            body: properties, mutates_receiver: false, native_iterator: false,
+        });
     let pair = registry.intern(TypeKind::FixedArray(vec![any, any]));
     for (name, item) in [("Array", any), ("ArgumentExpansion", any),
                          ("HashMap", pair), ("Range", integer)]

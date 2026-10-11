@@ -74,6 +74,10 @@ redirection, live exports, terminal identity/lifecycle, UTF-8 boundaries, deadli
 process-group cleanup, and Ctrl+C. `harness/` tests schema/result validation,
 catalog/matrix completeness, miniature suites exercising the actual runner, and Ctrl+C against a frozen suite.
 These tests deliberately run failing children and assert that they fail correctly.
+`native/properties.shy` and `repl/properties.shy` check member snapshots, type
+metadata, scalar and collection values, enum indexes, callback fields, builtin
+and user methods, public module extensions, live receivers, retained method
+versions, iterator references, named types, collisions, and invalid arguments.
 `native/outer_command.shy` and `repl/outer_command.shy` check `::name` external
 lookup across function, prelude, alias, and native shadows; grouped calls, literal
 arguments, saved and named-type references, redirections, pipeline data/status, missing binaries,

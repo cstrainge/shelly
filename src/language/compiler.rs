@@ -144,6 +144,8 @@ fn function_binding(function: &AstFunctionStatement) -> String
 // mask outer versions and resolve through the frozen function scope at execution time.
 fn method_snapshot(block: &FunctionBlockRef, name: &str) -> Value
 {
+    if name == "properties"
+    { return method_snapshot_matching(block, |key| key.starts_with("\0method:")); }
     let suffix = format!(":{}", name);
     method_snapshot_matching(block, |key| key.starts_with("\0method:") && key.ends_with(&suffix))
 }

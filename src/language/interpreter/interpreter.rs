@@ -2518,7 +2518,7 @@ impl Interpreter
                 { MethodDefinition::User(function) }
                 else if matches!(self.scope().types.get(id).kind, TypeKind::Named(_))
                 { continue; }
-                else if let Some(method) = self.scope().types.method(
+                else if let Some(method) = self.scope().types.direct_method(
                     if id == base_type { receiver_type } else { id }, name)
                 { MethodDefinition::Builtin(method) }
                 else { continue; };
@@ -2533,7 +2533,7 @@ impl Interpreter
                 underlying = &item.value;
             }
             return Some(BoundMethod
-                { receiver, name: name.to_string(), definition });
+                { receiver, name: name.to_string(), definition, snapshot: snapshot.clone() });
         }
         None
     }
@@ -2576,9 +2576,11 @@ impl Interpreter
         {
             MethodDefinition::Builtin(definition) =>
                 {
-                    let value = (definition.body)(&mut receiver, arguments)
+                    let mut value = (definition.body)(&mut receiver, arguments)
                         .map_err(|message| InterpreterError { location: location.clone(),
                             what: ErrorWhat::InvalidOperand(message) })?;
+                    if definition.name == "properties"
+                    { self.add_property_methods(&receiver, method, &mut value); }
                     if definition.mutates_receiver
                     { self.write_receiver(location, "$self", &method.receiver, receiver)?; }
                     self.last_result = Some(value);

@@ -395,8 +395,28 @@ impl TypeRegistry
 
     pub fn method(&self, receiver: TypeId, name: &str) -> Option<Rc<BuiltinMethod>>
     {
+        self.direct_method(receiver, name)
+            .or_else(|| self.direct_method(self.builtin_id("any")?, name))
+    }
+
+    pub fn method_names(&self, receiver: TypeId) -> HashSet<String>
+    {
+        let types = self.method_types(receiver);
+        let mut names = HashSet::new();
+        for id in &types
+        {
+            if let Some(methods) = self.methods.get(id)
+            { names.extend(methods.keys().map(|name| name.to_string())); }
+        }
+        names.extend(self.extensions.iter().filter(|(id, _)| types.contains(id))
+            .map(|(_, name)| name.clone()));
+        names
+    }
+
+    pub fn direct_method(&self, receiver: TypeId, name: &str) -> Option<Rc<BuiltinMethod>>
+    {
         let definition = self.get(receiver);
-        if let TypeKind::Named(inner) = definition.kind { return self.method(inner, name); }
+        if let TypeKind::Named(inner) = definition.kind { return self.direct_method(inner, name); }
         let receiver = match definition.kind
             {
                 TypeKind::Array(_) | TypeKind::FixedArray(_) => self.builtin_id("Array")?,

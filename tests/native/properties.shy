@@ -1,0 +1,48 @@
+# Member snapshots and live method references share normal object lookup semantics.
+let $fixture = $args[0]
+fn property_case($source: String, $expected: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $expected) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "properties mismatch" }
+}
+property_case 'let $p: [String: any] = 5.properties; echo $p["value"] ($p["type"] == Integer)' "5 true\n" ""
+property_case 'for $v in [1.5, true, "", 1..3, [], ["x": 1], Integer] { let $p = $v.properties; echo ($p["value"] == $v) ($p["type"] == $v.type) }; let $p = ().properties; echo ($p["value"] == ()) ($p["type"] == ().type)' "true true\ntrue true\ntrue true\ntrue true\ntrue true\ntrue true\ntrue true\ntrue true\n" ""
+property_case 'let $s = "abc"; let $p = $s.properties; $s = "def"; echo $p["value"] ($p["contains"] "ef") ($p["trim"]); let $q = ($p["properties"]); echo $q["value"]' "abc true def\ndef\n" ""
+property_case 'struct Box { n: Integer, cb: fn(): String, extra: optional String }; fn Box::bump(): Integer { $self.n = $self.n + 1; $self.n }; let $b = Box(n: 2, cb: fn(): String { "callback" }); let $p = $b.properties; echo $p["n"] $p["extra"] ($p["cb"]) ($p["bump"]) $b.n ($p["type"] == Box)' "2 () callback 3 3 true\n" ""
+property_case 'enum State { Ready, Done }; let $p = State::Done.properties; echo $p["value"] $p["index"] ($p["type"] == State)' "State::Done 1 true\n" ""
+property_case 'let $a: [Integer] = [2, 1]; let $p = $a.properties; echo ($p["count"]) ($p["sort"])... ($p["next_item"]); echo $a... $p["value"]...' "2 1 2 2\n1 2 1\n" ""
+property_case 'let $h = ["x": 7]; let $p = $h.properties; let $pair = ($p["next_item"]); echo $pair... ($h.next_item == ()) $p["value"]["x"]' "x 7 true 7\n" ""
+property_case 'let $r = 1..3; let $p = $r.properties; echo ($p["next_item"]) ($p["next_item"]) ($p["next_item"])' "1 2 ()\n" ""
+property_case 'type Count = Integer; fn Count::bump(): Count { $self = Count(Integer($self) + 1); $self }; let $n: Count = 4; let $p = $n.properties; echo ($p["value"].type == Count) ($p["type"] == Count) ($p["bump"]) $n' "true true 5 5\n" ""
+property_case 'type Text = String | Integer; let $s: Text = "text"; let $p = $s.properties; echo ($p["contains"] "ex") ($p["type"] == Text)' "true true\n" ""
+property_case 'fn Number::tag(): String { "number" }; fn any::tag(): String { "any" }; fn any::hello(): String { "hello" }; let $p = 5.properties; echo ($p["tag"]) ($p["hello"])' "number hello\n" ""
+property_case 'struct Box { value: Integer, properties: String }; let $b = Box(value: 9, properties: "field"); let $p = ($b.properties); echo $p' "field\n" ""
+property_case 'struct Box { value: Integer }; fn Box::read(): Integer { $self.value }; let $p = Box(value: 9).properties; echo $p["value"] ($p["read"])' "9 9\n" ""
+property_case 'let $calls = 0; fn Integer::effect(): Integer { $calls = $calls + 1; $self }; let $p = 5.properties; echo $calls; echo ($p["effect"]) $calls' "0\n5 1\n" ""
+property_case 'let $a = [[1,2]]; let $p = $a[0].properties; echo ($p["next_item"]) $a[0]...' "1 2\n" ""
+property_case 'let $s = "  text  "; let $reflect = `$s.properties; $s = " new "; let $p = ($reflect); echo $p["value"] ($p["trim"])' " new  new\n" ""
+property_case 'fn inspect($v: any): [String: any] { $v.properties }; let $p = (inspect 7); echo $p["value"] ($p["type"] == Integer); let $status: ExecResult; let $p = $status.properties; echo ($p["value"] == $status) ($p["type"] == ExecResult)' "7 true\ntrue true\n" ""
+property_case 'let $f = fn(): String { "callback" }; let $p = $f.properties; echo ($p["value"]) ($p["type"] == $f.type)' "callback true\n" ""
+property_case 'let $t = open_terminal ["/usr/bin/cat"] ["rows": 10, "columns": 40]; let $p = $t.properties; echo ($p["value"] == $t) ($p["type"] == Terminal); let _ = terminal_close $t' "true true\n" ""
+property_case 'fn Integer::tag(): String { "outer" }; fn collect(): [String: any] { fn Integer::tag(): String { "inner" }; 1.properties }; let $saved = (collect); let $p = 1.properties; echo ($saved["tag"]) ($p["tag"])' "inner outer\n" ""
+property_case 'type Count = Integer; let $n: Count = 2; let $p = $n.properties; echo ($p["from_integer"] == ())' "true\n" ""
+property_case 'echo (5.properties 1)' "" "expected 0 arguments"
+property_case 'let $p: [String: Integer] = 5.properties' "" "Expected Integer"
+printf "%s" 'pub struct Box { n: Integer }; pub fn Box::read(): Integer { $self.n }; fn Box::secret(): String { "private" }; pub fn String::tag(): String { "tag:" + $self }; fn String::hidden(): String { "private" }' -> "${fixture}/objects.shy"
+property_case 'import objects; let $b = objects::Box(n: 8); let $p = $b.properties; echo ($p["read"]) $p["n"]; let $q = "x".properties; echo ($q["tag"])' "8 8\ntag:x\n" ""
+property_case 'import objects; let $p = objects::Box(n: 8).properties; echo ($p["secret"] == ())' "true\n" ""
+property_case 'import objects; let $p = "x".properties; echo ($p["hidden"] == ())' "true\n" ""

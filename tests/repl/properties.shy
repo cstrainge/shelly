@@ -1,0 +1,16 @@
+check_repl ["id": "PROPERTIES", "name": "Object properties and retained method references", "steps": [
+    ["let \$p: [String: any] = 5.properties; echo \$p[\"value\"] (\$p[\"type\"] == Integer)", "output", "5 true"],
+    ["fn Integer::tag(): String { \"old\" }; let \$n = 1; let \$p = \$n.properties", "quiet", ""],
+    ["fn Integer::tag(): String { \"new\" }; let \$q = \$n.properties; echo (\$p[\"tag\"]) (\$q[\"tag\"])", "output", "old new"],
+    ["let \$reflect_number = `\$n.properties; fn Integer::tag(): String { \"latest\" }", "quiet", ""],
+    ["let \$old = (\$reflect_number); let \$fresh = \$n.properties; echo (\$old[\"tag\"]) (\$fresh[\"tag\"])", "output", "new latest"],
+    ["fn Integer::bump(): Integer { \$self = \$self + 1; \$self }; let \$p = \$n.properties", "quiet", ""],
+    ["echo (\$p[\"bump\"]) \$n \$p[\"value\"]", "output", "2 2 1"],
+    ["let \$items: [Integer] = [3,4]; let \$p = \$items.properties", "quiet", ""],
+    ["echo (\$p[\"next_item\"]) (\$p[\"count\"])", "output", "3 1"],
+    ["echo \$items... \$p[\"value\"]...", "output", "4 3 4"],
+    ["let \$s = \"one\"; let \$reflect = `\$s.properties", "quiet", ""],
+    ["\$s = \"two\"; let \$p = (\$reflect); echo \$p[\"value\"] (\$p[\"contains\"] \"wo\")", "output", "two true"],
+    ["echo (5.properties 1)", "error", "expected 0 arguments"],
+    ["echo 5.properties[\"value\"]", "output", "5"]
+], "exit": 0]
