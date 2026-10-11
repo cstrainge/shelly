@@ -391,8 +391,10 @@ impl Interpreter
                 }));
         }
 
-        let native_functions: NativeFunctions = bodies.into_iter().map(|(name, body)|
+        let mut native_functions: NativeFunctions = bodies.into_iter().map(|(name, body)|
             (name, NativeFunction::new(name, NativeVisibility::Visible, body))).collect();
+        native_functions.insert("__source_spans", NativeFunction::new("__source_spans",
+            NativeVisibility::Hidden, Rc::new(Interpreter::handle_source_spans)));
 
         let special_vars: SpecialVars = HashMap::from([
                 (

@@ -22,6 +22,12 @@ test into a disposable driver. Drivers and the programs they test use the same
 `cases/negative` describes expected rejection of the nested program, not failure
 of the assertion driver.
 
+`native/source_spans.shy` checks the shared tokenizer's UTF-8 byte spans and
+optional lexical metadata. Its hidden `__source_spans` inspection bridge must
+be enabled explicitly with `visible`; it tokenizes text without evaluating it.
+The checks compare string and one-byte streaming buffers, reconstruct original
+input from token/trivia spans, and verify string escapes and indentation maps.
+
 ## Process case records
 
 Every process case calls `check` with an explicit record:

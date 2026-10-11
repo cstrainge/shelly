@@ -1,0 +1,156 @@
+# Hidden inspection uses the real tokenizer; it never evaluates the inspected source.
+visible `__source_spans
+
+fn inspect_source($source: String): any
+{
+    let $plain = __source_spans $source false true
+    let $stream = __source_spans $source true true
+    require ($plain == $stream) "string/one-byte streaming source metadata differs"
+    require ($plain["peek_offset"] == 0) "peeking consumed source bytes"
+    let $strict = __source_spans $source false false
+    require ($strict["tokens"] == $plain["tokens"]) "metadata changed tokenization"
+    require ($strict["error"] == $plain["error"]) "metadata changed strict diagnostics"
+    require (($strict["strings"] == []) && ($strict["trivia"] == [])) "metadata not opt-in"
+    $plain
+}
+
+fn expect_span($span: any, $start: Integer, $end: Integer, $raw: String)
+{
+    if ($span["start"] != $start) || ($span["end"] != $end) || ($span["raw"] != $raw)
+    { echo $span "expected" $start $end $raw; fail "wrong exact source span" }
+}
+
+fn reconstruct($source: String, $report: any)
+{
+    require ($report["error"] == ()) "valid lexical input rejected"
+    let $spans = []
+    for $token in $report["tokens"] { $spans = [$spans..., $token["span"]] }
+    for $trivia in $report["trivia"] { $spans = [$spans..., $trivia["span"]] }
+    let $offset = 0
+    let $restored = ""
+    for _ in $spans
+    {
+        let $found = false
+        for $span in $spans
+        {
+            if $span["start"] == $offset
+            {
+                require ($span["end"] > $offset) "empty or reversed token span"
+                $offset = $span["end"]
+                $restored = $restored + $span["raw"]
+                $found = true
+                break
+            }
+        }
+        require $found "source contains overlapping spans or uncovered bytes"
+    }
+    require (($restored == $source) && ($offset == $report["consumed"])) "source not preserved"
+}
+
+let $source = "let \$x:Integer = -2; 1..=3 1.0.sum \$x<2 \${x}..3 ::sum x==y \$rows |:csv sink"
+let $r = inspect_source $source
+let $expected = [
+    ["Let", 0, 3, "let"], ["Identifier", 4, 6, "\$x"], ["TypeDelimiter", 6, 7, ":"],
+    ["Symbol", 7, 14, "Integer"], ["Assign", 15, 16, "="], ["Literal", 17, 19, "-2"],
+    ["StatementBreak", 19, 20, ";"], ["Literal", 21, 22, "1"],
+    ["RangeInclusive", 22, 25, "..="], ["Literal", 25, 26, "3"],
+    ["Literal", 27, 30, "1.0"], ["Member", 30, 34, ".sum"],
+    ["Identifier", 35, 37, "\$x"], ["Less", 37, 38, "<"], ["Literal", 38, 39, "2"],
+    ["Identifier", 40, 44, "\${x}"], ["Range", 44, 46, ".."], ["Literal", 46, 47, "3"],
+    ["Scope", 48, 50, "::"], ["Symbol", 50, 53, "sum"], ["Symbol", 54, 55, "x"],
+    ["Equal", 55, 57, "=="], ["Symbol", 57, 58, "y"],
+    ["Identifier", 59, 64, "\$rows"], ["Pipe", 65, 66, "|"],
+    ["TypeDelimiter", 66, 67, ":"], ["Symbol", 67, 70, "csv"], ["Symbol", 71, 75, "sink"]]
+require ($r["tokens"].count == $expected.count) "wrong prefetch token count"
+for $i in 0..$expected.count
+{
+    let $token = $r["tokens"][$i]
+    let $want = $expected[$i]
+    require ($token["kind"] == $want[0]) "wrong prefetch token kind"
+    expect_span $token["span"] $want[1] $want[2] $want[3]
+}
+reconstruct $source $r
+
+$source = "\té猫 # 💜\r\n  echo \\\n\t\"é\\n猫\\\$x\""
+$r = inspect_source $source
+reconstruct $source $r
+expect_span $r["tokens"][0]["span"] 1 6 "é猫"
+require (($r["tokens"][0]["line"] == 1) && ($r["tokens"][0]["column"] == 5)) "tab/Unicode columns"
+expect_span $r["trivia"][2]["span"] 7 14 "# 💜\r"
+require ($r["trivia"][5]["kind"] == "LineContinuation") "continuation not recorded"
+let $s = $r["strings"][0]
+require ($s["decoded"] == "é\n猫\$x") "escaped Unicode string decoding"
+require $s["interpolated"] "double-quoted string flag"
+expect_span $s["mapped"][0] 26 28 "é"
+expect_span $s["mapped"][1] 28 30 "\\n"
+expect_span $s["mapped"][2] 30 33 "猫"
+expect_span $s["mapped"][3] 33 35 "\\\$"
+
+# Whitespace trimming is represented as gaps in decoded mappings, not missing raw bytes.
+$source = "\"*\n    α\n\n    β\n    *\""
+$r = inspect_source $source
+reconstruct $source $r
+$s = $r["strings"][0]
+require ($s["decoded"] == "α\n\nβ\n") "multiline decoding changed"
+expect_span $s["opening"] 0 2 "\"*"
+expect_span $s["closing"] 22 24 "\*\""
+expect_span $s["mapped"][0] 7 9 "α"
+expect_span $s["mapped"][2] 10 11 "\n"
+expect_span $s["mapped"][3] 15 17 "β"
+expect_span $s["whole"] 7 18 "α\n\n    β\n"
+
+for $sample in ["", " \t\r", "#comment", "#comment\n", "'猫'", "\"\"",
+    "\"\\x41Z\\o101Q\\065!\"", "1.e+2 2.5e-2 -1.0.foo 1...",
+    "\$foo::bar[0].type \${name}.txt \$HOME/foo a[bc]* ../x . ./x .../x",
+    "\$x<=2 \$x<-2 a!=b a&&b a=>b x>=y x||y",
+    "echo hi -> \$out ~-> \$err ~+-> \$both; cmd csv:|:tsv sink",
+    "[when true] { pub fn foo(\$x: Integer): String { \"\${x}\" } }"]
+{
+    $r = inspect_source $sample
+    reconstruct $sample $r
+}
+
+for $sample in ["\"é猫", "\"\\", "\"\\xZZ\"", "\"bad\nnext", "\"*\n  unfinished", "echo <- file"]
+{
+    $r = inspect_source $sample
+    require ($r["error"] != ()) "strict lexical failure became successful"
+}
+$r = inspect_source "echo \"é猫"
+require ($r["tokens"].count == 1) "partial token prefix lost"
+$s = $r["strings"][0]
+require (($s["decoded"] == "é猫") && ($s["closing"] == ())) "unfinished string metadata lost"
+expect_span $s["span"] 5 11 "\"é猫"
+
+# Lexical inspection has no access to modules, getters, commands, or live values.
+let $sentinel = 7
+$r = inspect_source "\$sentinel = 99; cd /; import nonexistent; exit 9; touch should_not_exist"
+require ($sentinel == 7) "inspection mutated script state"
+require ($r["error"] == ()) "inspection attempted semantic resolution"
+
+$r = inspect_source "'é\\n\$x'"
+$s = $r["strings"][0]
+require (!$s["interpolated"]) "single-quoted string flag"
+require ($s["decoded"] == "é\n\$x") "single-quoted decoding"
+expect_span $s["mapped"][1] 3 5 "\\n"
+$r = inspect_source "\"\\x41Z\\o101Q\\065!\""
+$s = $r["strings"][0]
+require ($s["decoded"] == "AZAQA!") "numeric escape decoding"
+expect_span $s["mapped"][0] 1 5 "\\x41"
+expect_span $s["mapped"][2] 6 11 "\\o101"
+expect_span $s["mapped"][4] 12 16 "\\065"
+
+let $fixture = $args[0]
+for ($source, $message) in [
+    ["__source_spans \"echo hidden\" false true", "Executable not found"],
+    ["visible `__source_spans; __source_spans", "expects a String and two Booleans"],
+    ["visible `__source_spans; __source_spans 1 false true", "expects a String and two Booleans"],
+    ["visible `__source_spans; __source_spans \"x\" 0 true", "expects a String and two Booleans"]]
+{
+    let $result = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "timeout_ms": 1000, "stderr_file": "${fixture}/source.err"]
+    require (($result["exit_code"] == 1) && (!$result["timed_out"]) &&
+        ($result["signal"] == ()) && ($result["error"] == ())) "hidden source bridge validation"
+    let $error: String
+    "${fixture}/source.err" -> $error
+    require ($error.contains $message) "wrong source bridge diagnostic"
+}

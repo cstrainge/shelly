@@ -1,7 +1,9 @@
 
 use std::fmt::{ self, Display, Formatter };
 
-use crate::language::text::{ buffer::Buffer, location::Location };
+use crate::language::{ text::{ buffer::Buffer, location::Location, span::SourceSpan },
+                       tokenizer::source::{ LexicalMetadata, Trivia, TriviaKind,
+                                            StringSource, StringPart, StringPartKind } };
 
 /**
  * Represents all the different types of tokens that can be recognized in the Shelly script
@@ -382,6 +384,9 @@ pub struct Token
      */
     pub location: Location,
 
+    /// Exact half-open byte range, including original quotes and escapes for strings.
+    pub span: SourceSpan,
+
     /**
      * The type of the token, indicating its role in the language syntax.
      */
@@ -597,19 +602,105 @@ pub struct Tokenizer<'a>
     pending_operand: Option<Token>,
     index_follows: bool,
     member_follows: bool,
-    enum_variant_follows: bool
+    enum_variant_follows: bool,
+    metadata: Option<LexicalMetadata>,
+    active_string: Option<usize>,
 }
 
 
 impl<'a> Tokenizer<'a>
 {
+    /// Opt into lexical facts for analysis. Normal execution allocates no sidecar metadata.
+    pub fn with_metadata(input: &'a mut dyn Buffer) -> Self
+    {
+        let mut tokenizer = Self::new(input);
+        tokenizer.metadata = Some(LexicalMetadata::default());
+        tokenizer
+    }
+
+    pub fn metadata(&self) -> Option<&LexicalMetadata> { self.metadata.as_ref() }
+
+    pub fn byte_offset(&self) -> usize { self.input.byte_offset() }
+
+    fn word_span(&self, start: usize) -> SourceSpan
+    {
+        // Word extraction may have already consumed the following operator or member.
+        // Its pending token owns those bytes, not the word being returned now.
+        SourceSpan::new(start, self.pending_operator.as_ref()
+            .map_or(self.input.byte_offset(), |token| token.span.start))
+    }
+
+    fn record_trivia(&mut self, kind: TriviaKind, start: usize)
+    {
+        if let Some(metadata) = &mut self.metadata && self.active_string.is_none()
+        {
+            let span = SourceSpan::new(start, self.input.byte_offset());
+            if    let Some(previous) = metadata.trivia.last_mut()
+               && previous.kind == kind
+               && previous.span.end == span.start
+            { previous.span.end = span.end; }
+            else { metadata.trivia.push(Trivia { kind, span }); }
+        }
+    }
+
+    fn begin_string(&mut self, start: usize, flag: &StringFlag)
+    {
+        if let Some(metadata) = &mut self.metadata
+        {
+            self.active_string = Some(metadata.strings.len());
+            let opening = SourceSpan::new(start, self.input.byte_offset());
+            metadata.strings.push(StringSource
+                {
+                    span: opening,
+                    opening,
+                    closing: None,
+                    interpolated: *flag == StringFlag::Interpolated,
+                    decoded: String::new(),
+                    parts: Vec::new(),
+                });
+        }
+    }
+
+    fn push_string(&mut self, text: &mut String, character: char,
+                   source: SourceSpan, kind: StringPartKind)
+    {
+        let decoded = SourceSpan::new(text.len(), text.len() + character.len_utf8());
+        text.push(character);
+        if let Some(index) = self.active_string && let Some(metadata) = &mut self.metadata
+        {
+            let string = &mut metadata.strings[index];
+            string.decoded.push(character);
+            if    let Some(previous) = string.parts.last_mut()
+               && kind == StringPartKind::Text
+               && previous.kind == kind
+               && previous.source.end == source.start
+               && previous.decoded.end == decoded.start
+            {
+                previous.source.end = source.end;
+                previous.decoded.end = decoded.end;
+            }
+            else { string.parts.push(StringPart { source, decoded, kind }); }
+        }
+    }
+
+    fn close_string(&mut self, start: usize)
+    {
+        if let Some(index) = self.active_string.take() && let Some(metadata) = &mut self.metadata
+        {
+            let string = &mut metadata.strings[index];
+            string.span.end = self.input.byte_offset();
+            string.closing = Some(SourceSpan::new(start, string.span.end));
+        }
+    }
+
     /**
      * Construct a new tokenizer with the given input buffer.
      */
     pub fn new(input: &'a mut dyn Buffer) -> Self
     {
         Self { input, pending_operator: None, pending_operand: None, index_follows: false,
-            member_follows: false, enum_variant_follows: false }
+            member_follows: false, enum_variant_follows: false,
+            metadata: None, active_string: None }
     }
 
     /**
@@ -620,6 +711,8 @@ impl<'a> Tokenizer<'a>
     pub fn next_token(&mut self) -> Result<Option<Token>, TokenizerError>
     {
         let mut result = self.read_token();
+        if let Some(index) = self.active_string && let Some(metadata) = &mut self.metadata
+        { metadata.strings[index].span.end = self.input.byte_offset(); }
         if let Ok(Some(token)) = &mut result
         {
             if    token.kind == TokenKind::Less
@@ -698,6 +791,7 @@ impl<'a> Tokenizer<'a>
             return Ok(Some(Token
                 {
                     location: dot.location,
+                    span: SourceSpan::new(dot.span.start, self.input.byte_offset()),
                     kind: TokenKind::Member,
                     value: TokenValue::Symbol(name),
                 }));
@@ -709,6 +803,7 @@ impl<'a> Tokenizer<'a>
             self.skip_whitespace(SkipComments::Yes, SkipNewlines::No);
             if self.input.peek_next() != Some('\\') { break; }
             let location = self.input.location().clone();
+            let start = self.input.byte_offset();
             self.input.next();
             if self.input.peek_next() != Some('\n')
             {
@@ -719,6 +814,7 @@ impl<'a> Tokenizer<'a>
                     });
             }
             self.input.next();
+            self.record_trivia(TriviaKind::LineContinuation, start);
         }
 
         // Check to see what the next character is, if any.
@@ -746,12 +842,14 @@ impl<'a> Tokenizer<'a>
                                 && !matches!(next, ']' | '=' | '!' | '&'))
                     {
                         let word = "...".to_string() + &self.extract_to_separator(None);
-                        token = Self::symbol_str_to_token(token.location, word);
+                        token = Self::symbol_str_to_token(token.location, word,
+                            self.word_span(token.span.start));
                     }
                     if    let TokenValue::Symbol(word) = &mut token.value
                        && word == "."
                     {
                         *word += &self.extract_to_separator(None);
+                        token.span = self.word_span(token.span.start);
                     }
                     Ok(Some(token))
                 },
@@ -770,17 +868,18 @@ impl<'a> Tokenizer<'a>
     fn parse_symbol(&mut self) -> Token
     {
         let location = self.input.location().clone();
+        let start = self.input.byte_offset();
         let symbol = self.extract_to_separator(
             if self.enum_variant_follows { Some(&['.', '[']) } else { None });
 
-        Self::symbol_str_to_token(location, symbol)
+        Self::symbol_str_to_token(location, symbol, self.word_span(start))
     }
 
     /**
      * Internal method to convert the symbol string into a corresponding token. This is used to
      * differentiate between keywords and general symbols.
      */
-    fn symbol_str_to_token(location: Location, symbol: String) -> Token
+    fn symbol_str_to_token(location: Location, symbol: String, span: SourceSpan) -> Token
     {
         let kind = match symbol.as_str()
             {
@@ -817,7 +916,7 @@ impl<'a> Tokenizer<'a>
                 _                  => TokenValue::None
             };
 
-         Token { location, kind, value }
+         Token { location, span, kind, value }
     }
 
     /**
@@ -829,11 +928,13 @@ impl<'a> Tokenizer<'a>
         while self.input.peek_next() == Some(':')
         {
             let location = self.input.location().clone();
+            let start = self.input.byte_offset();
             self.input.next();
             if self.input.peek_next() != Some(':')
             {
                 self.pending_operator = Some(Token
-                    { location, kind: TokenKind::TypeDelimiter, value: TokenValue::None });
+                    { location, span: self.word_span(start), kind: TokenKind::TypeDelimiter,
+                      value: TokenValue::None });
                 break;
             }
             self.input.next();
@@ -852,6 +953,7 @@ impl<'a> Tokenizer<'a>
     fn parse_identifier(&mut self) -> Result<Token, TokenizerError>
     {
         let location = self.input.location().clone();
+        let start = self.input.byte_offset();
         let mut identifier = "$".to_string();
 
         // Ensure that the next character is a '$' before proceeding with parsing the identifier.
@@ -922,7 +1024,7 @@ impl<'a> Tokenizer<'a>
             // Preserve the variable boundary when the resulting word is interpolated.
             if braced { identifier = format!("${{{}}}", &identifier[1..]); }
             identifier += &suffix;
-            return Ok(Self::symbol_str_to_token(location, identifier));
+            return Ok(Self::symbol_str_to_token(location, identifier, self.word_span(start)));
         }
 
         if identifier.len() == 1
@@ -930,6 +1032,7 @@ impl<'a> Tokenizer<'a>
             return Ok(Token
                 {
                     location,
+                    span: self.word_span(start),
                     kind: TokenKind::AutoIdentifier,
                     value: TokenValue::None
                 });
@@ -938,6 +1041,7 @@ impl<'a> Tokenizer<'a>
         Ok(Token
             {
                 location,
+                span: self.word_span(start),
                 kind: TokenKind::Identifier,
                 value: TokenValue::Identifier(identifier)
             })
@@ -950,6 +1054,7 @@ impl<'a> Tokenizer<'a>
     fn try_parse_number(&mut self) -> Token
     {
         let location = self.input.location().clone();
+        let start = self.input.byte_offset();
         let number_str = self.extract_word(Some(&['[']), true);
 
         // Attempt to parse the collected string as an integer first. If that fails, try parsing it
@@ -959,6 +1064,7 @@ impl<'a> Tokenizer<'a>
             Token
                 {
                     location,
+                    span: self.word_span(start),
                     kind: TokenKind::Literal,
                     value: TokenValue::Literal(TokenLiteral::Integer(number, number_str))
                 }
@@ -968,13 +1074,14 @@ impl<'a> Tokenizer<'a>
             Token
                 {
                     location,
+                    span: self.word_span(start),
                     kind: TokenKind::Literal,
                     value: TokenValue::Literal(TokenLiteral::Float(number, number_str))
                 }
         }
         else
         {
-            Self::symbol_str_to_token(location, number_str)
+            Self::symbol_str_to_token(location, number_str, self.word_span(start))
         }
     }
 
@@ -1037,6 +1144,7 @@ impl<'a> Tokenizer<'a>
                     self.pending_operator = Some(Token
                         {
                             location: token.location,
+                            span: SourceSpan::new(token.span.start, self.input.byte_offset()),
                             kind: TokenKind::Member,
                             value: TokenValue::Symbol(member),
                         });
@@ -1062,8 +1170,9 @@ impl<'a> Tokenizer<'a>
                && !(next == '>' && result.ends_with('-'))
             {
                 let location = self.input.location().clone();
+                let start = self.input.byte_offset();
                 self.input.next();
-                self.pending_operator = Some(self.ordering_token(location, next));
+                self.pending_operator = Some(self.ordering_token(location, next, start));
                 break;
             }
             // Preserve single '=' and trailing '!' in shell words, and glob classes.
@@ -1071,13 +1180,15 @@ impl<'a> Tokenizer<'a>
             if !in_glob_class && matches!(next, '=' | '!' | '&')
             {
                 let location = self.input.location().clone();
+                let start = self.input.byte_offset();
                 self.input.next();
                 let second = if next == '&' { '&' } else { '=' };
                 if next == '=' && self.input.peek_next() == Some('>')
                 {
                     self.input.next();
                     self.pending_operator = Some(Token
-                        { location, kind: TokenKind::MatchArrow, value: TokenValue::None });
+                        { location, span: self.word_span(start), kind: TokenKind::MatchArrow,
+                          value: TokenValue::None });
                     break;
                 }
                 if self.input.peek_next() == Some(second)
@@ -1089,7 +1200,8 @@ impl<'a> Tokenizer<'a>
                             '!' => TokenKind::NotEqual,
                             _ => TokenKind::And
                         };
-                    self.pending_operator = Some(Token { location, kind, value: TokenValue::None });
+                    self.pending_operator = Some(Token
+                        { location, span: self.word_span(start), kind, value: TokenValue::None });
                     break;
                 }
                 result.push(next);
@@ -1112,7 +1224,7 @@ impl<'a> Tokenizer<'a>
         result
     }
 
-    fn ordering_token(&mut self, location: Location, first: char) -> Token
+    fn ordering_token(&mut self, location: Location, first: char, start: usize) -> Token
     {
         let equal = self.input.peek_next() == Some('=');
         if equal { self.input.next(); }
@@ -1123,24 +1235,25 @@ impl<'a> Tokenizer<'a>
                 ('>', false) => TokenKind::Greater,
                 _ => TokenKind::GreaterEqual,
             };
-        Token { location, kind, value: TokenValue::None }
+        Token { location, span: self.word_span(start), kind, value: TokenValue::None }
     }
 
     fn parse_dot(&mut self) -> Token
     {
         let location = self.input.location().clone();
+        let start = self.input.byte_offset();
         self.input.next();
         if self.input.peek_next() != Some('.')
         {
             // A single dot remains part of a float or path. Leave following
             // characters for the numeric extractor when it is reading a float.
-            return Self::symbol_str_to_token(location, ".".to_string());
+            return Self::symbol_str_to_token(location, ".".to_string(), self.word_span(start));
         }
         self.input.next();
         if self.input.peek_next() == Some('/')
         {
             let word = "..".to_string() + &self.extract_to_separator(None);
-            return Self::symbol_str_to_token(location, word);
+            return Self::symbol_str_to_token(location, word, self.word_span(start));
         }
         let kind = match self.input.peek_next()
             {
@@ -1148,7 +1261,7 @@ impl<'a> Tokenizer<'a>
                 Some('=') => { self.input.next(); TokenKind::RangeInclusive },
                 _ => TokenKind::Range
             };
-        Token { location, kind, value: TokenValue::None }
+        Token { location, span: self.word_span(start), kind, value: TokenValue::None }
     }
 
     /**
@@ -1161,7 +1274,9 @@ impl<'a> Tokenizer<'a>
     fn parse_string(&mut self, flag: StringFlag) -> Result<Option<Token>, TokenizerError>
     {
         let location = self.input.location().clone();
+        let start = self.input.byte_offset();
         let next = self.input.next().unwrap();
+        self.begin_string(start, &flag);
 
         assert!(matches!(next, '"' | '\''),
                 "Internal error, expected a quote to start a string literal.");
@@ -1169,7 +1284,7 @@ impl<'a> Tokenizer<'a>
         if    let Some(next) = self.input.peek_next()
            && next == '*'
         {
-            return self.parse_multiline_string(location, flag);
+            return self.parse_multiline_string(location, flag, start);
         }
         else
         {
@@ -1179,16 +1294,19 @@ impl<'a> Tokenizer<'a>
 
             while let Some(next) = self.input.next()
             {
+                let char_start = self.input.byte_offset() - next.len_utf8();
                 match next
                 {
                     '"' if flag == StringFlag::Interpolated =>
                         {
+                            self.close_string(char_start);
                             closed = true;
                             break;
                         },
 
                     '\'' if flag == StringFlag::NonInterpolated =>
                         {
+                            self.close_string(char_start);
                             closed = true;
                             break;
                         },
@@ -1207,10 +1325,17 @@ impl<'a> Tokenizer<'a>
                         {
                             let escaped = self.process_string_escape()?;
                             if escaped == '$' { escaped_dollars.push(literal_string.len()); }
-                            literal_string.push(escaped);
+                            let source = SourceSpan::new(char_start, self.input.byte_offset());
+                            self.push_string(&mut literal_string, escaped, source,
+                                StringPartKind::Escape);
                         },
 
-                    _    => literal_string.push(next)
+                    _ =>
+                        {
+                            let source = SourceSpan::new(char_start, self.input.byte_offset());
+                            self.push_string(&mut literal_string, next, source,
+                                StringPartKind::Text);
+                        }
                 }
             }
 
@@ -1226,6 +1351,7 @@ impl<'a> Tokenizer<'a>
             Ok(Some(Token
                 {
                     location,
+                    span: self.word_span(start),
                     kind: TokenKind::Literal,
                     value: TokenValue::Literal(TokenLiteral::String(
                         literal_string,
@@ -1242,19 +1368,24 @@ impl<'a> Tokenizer<'a>
      */
     fn parse_multiline_string(&mut self,
                               location: Location,
-                              flag: StringFlag) -> Result<Option<Token>, TokenizerError>
+                              flag: StringFlag, start: usize)
+                              -> Result<Option<Token>, TokenizerError>
     {
         // Helper for skipping extra whitespace at the beginning of each line.  If there is no text
         // on a given line it is skipped entirely.
         fn skip_whitespace_until_column<'a>(location: &Location, buffer: &mut dyn Buffer,
-                                            target_column: usize)
-                                            -> Result<(), TokenizerError>
+                                            target_column: usize, capture: bool)
+                                            -> Result<Vec<SourceSpan>, TokenizerError>
         {
+            let mut newlines = Vec::new();
             while    let Some(next) = buffer.peek_next()
                   && Tokenizer::<'a>::is_whitespace_char(&next)
                   && buffer.location().column < target_column
             {
+                let start = buffer.byte_offset();
                 let _ = buffer.next();
+                if capture && next == '\n'
+                { newlines.push(SourceSpan::new(start, buffer.byte_offset())); }
             }
 
             if buffer.peek_next().is_none()
@@ -1266,7 +1397,7 @@ impl<'a> Tokenizer<'a>
                     });
             }
 
-            Ok(())
+            Ok(newlines)
         }
 
         // Append newlines for skipped empty lines.
@@ -1282,6 +1413,8 @@ impl<'a> Tokenizer<'a>
         // *.
         let next = self.input.next().unwrap();
         assert!(next == '*');
+        if let Some(index) = self.active_string && let Some(metadata) = &mut self.metadata
+        { metadata.strings[index].opening.end = self.input.byte_offset(); }
 
         // Skip over any whitespace at the beginning of the string.  Using the location of the first
         // textual character to calibrate what we will consider the beginning of the actual line of
@@ -1298,6 +1431,7 @@ impl<'a> Tokenizer<'a>
         // Keep going until we either hit the end of the buffer or the closing *" pair.
         while let Some(next) = self.input.next()
         {
+            let char_start = self.input.byte_offset() - next.len_utf8();
             match next
             {
                 // We found the * but did we find the "?
@@ -1310,13 +1444,15 @@ impl<'a> Tokenizer<'a>
                            || (quote == '\'' && flag == StringFlag::NonInterpolated)
                         {
                             let _ = self.input.next();
+                            self.close_string(char_start);
                             closed = true;
                             break;
                         }
                         else
                         {
                             // Looks like a stray * so we'll just add it to the text.
-                            text.push('*');
+                            let source = SourceSpan::new(char_start, self.input.byte_offset());
+                            self.push_string(&mut text, '*', source, StringPartKind::Text);
                         }
                     }
                     else
@@ -1334,35 +1470,44 @@ impl<'a> Tokenizer<'a>
                     {
                         let escaped = self.process_string_escape()?;
                         if escaped == '$' { escaped_dollars.push(text.len()); }
-                        text.push(escaped);
+                        let source = SourceSpan::new(char_start, self.input.byte_offset());
+                        self.push_string(&mut text, escaped, source, StringPartKind::Escape);
                     },
 
                 // Process the new line skipping any extra whitespace until we hit the target
                 // column.
                 '\n' =>
                 {
-                    text.push('\n');
+                    let source = SourceSpan::new(char_start, self.input.byte_offset());
+                    self.push_string(&mut text, '\n', source, StringPartKind::Text);
 
                     // Keep track of the starting line so that we can add newlines for skipped empty
                     // lines.  Then start skipping until we find something useful or we hit the
                     // target column.
                     let start_line = self.input.location().line;
 
-                    skip_whitespace_until_column(&location, self.input, target_column)?;
+                    let newlines = skip_whitespace_until_column(&location, self.input,
+                        target_column, self.metadata.is_some())?;
 
                     // If we skipped any empty lines then we need to backfill the newlines.
                     let current_line = self.input.location().line;
 
                     if current_line > start_line
                     {
-                        append_newlines(&mut text, current_line - start_line);
+                        if self.metadata.is_some()
+                        {
+                            for source in newlines
+                            { self.push_string(&mut text, '\n', source, StringPartKind::Text); }
+                        }
+                        else { append_newlines(&mut text, current_line - start_line); }
                     }
                 }
 
                 // Just add the character to the text.
                 _ =>
                 {
-                    text.push(next);
+                    let source = SourceSpan::new(char_start, self.input.byte_offset());
+                    self.push_string(&mut text, next, source, StringPartKind::Text);
                 }
             }
         }
@@ -1379,6 +1524,7 @@ impl<'a> Tokenizer<'a>
         Ok(Some(Token
             {
                 location,
+                span: self.word_span(start),
                 kind: TokenKind::Literal,
                 value: TokenValue::Literal(TokenLiteral::String(text, flag, escaped_dollars))
             }))
@@ -1481,10 +1627,10 @@ impl<'a> Tokenizer<'a>
      */
     fn try_parse_operator(&mut self) -> Result<Option<Token>, TokenizerError>
     {
-        fn operator_token(location: Location, kind: TokenKind) -> Result<Option<Token>,
-                                                                       TokenizerError>
+        fn operator_token(location: Location, span: SourceSpan, kind: TokenKind)
+            -> Result<Option<Token>, TokenizerError>
         {
-            Ok(Some(Token{ location, kind, value: TokenValue::None }))
+            Ok(Some(Token { location, span, kind, value: TokenValue::None }))
         }
 
         // First, check to see if the next character is a separator operator that can be immediately
@@ -1492,67 +1638,70 @@ impl<'a> Tokenizer<'a>
         // operator. This disambiguates "-" from "-f" or "--foo" where the latter two can be treated
         // as text to be passed through.
         let location = self.input.location().clone();
+        let start = self.input.byte_offset();
         let next = self.input.next().unwrap();
 
         match next
         {
-            '<' | '>' => return Ok(Some(self.ordering_token(location, next))),
+            '<' | '>' => return Ok(Some(self.ordering_token(location, next, start))),
             '-' if self.input.peek_next() == Some('>') =>
                 {
                     self.input.next();
-                    return operator_token(location, TokenKind::RedirectTo);
+                    return operator_token(location, self.word_span(start), TokenKind::RedirectTo);
                 },
             '|' =>
                 {
                     if self.input.peek_next() == Some('|')
                     {
                         self.input.next();
-                        return operator_token(location, TokenKind::Or);
+                        return operator_token(location, self.word_span(start), TokenKind::Or);
                     }
-                    return operator_token(location, TokenKind::Pipe);
+                    return operator_token(location, self.word_span(start), TokenKind::Pipe);
                 },
             '!' =>
                 {
                     if self.input.peek_next() == Some('=')
                     {
                         self.input.next();
-                        return operator_token(location, TokenKind::NotEqual);
+                        return operator_token(location, self.word_span(start), TokenKind::NotEqual);
                     }
-                    return operator_token(location, TokenKind::Not);
+                    return operator_token(location, self.word_span(start), TokenKind::Not);
                 },
             '=' if self.input.peek_next() == Some('>') =>
                 {
                     self.input.next();
-                    return operator_token(location, TokenKind::MatchArrow);
+                    return operator_token(location, self.word_span(start), TokenKind::MatchArrow);
                 },
             '=' | '&' if self.input.peek_next() == Some(next) =>
                 {
                     self.input.next();
-                    return operator_token(location,
+                    return operator_token(location, self.word_span(start),
                         if next == '=' { TokenKind::Equal } else { TokenKind::And });
                 },
-            ';'  => return operator_token(location, TokenKind::StatementBreak),
-            '('  => return operator_token(location, TokenKind::ParenOpen),
-            ')'  => return operator_token(location, TokenKind::ParenClose),
-            '{'  => return operator_token(location, TokenKind::BlockOpen),
-            '}'  => return operator_token(location, TokenKind::BlockClose),
-            '['  => return operator_token(location, TokenKind::SquareOpen),
-            ']'  => return operator_token(location, TokenKind::SquareClose),
-            '`'  => return operator_token(location, TokenKind::ExecEscape),
-            '\n' => return operator_token(location, TokenKind::LineBreak),
-            '\\' => return operator_token(location, TokenKind::LineContinue),
-            ','  => return operator_token(location, TokenKind::Comma),
+            ';'  => return operator_token(location, self.word_span(start),
+                TokenKind::StatementBreak),
+            '('  => return operator_token(location, self.word_span(start), TokenKind::ParenOpen),
+            ')'  => return operator_token(location, self.word_span(start), TokenKind::ParenClose),
+            '{'  => return operator_token(location, self.word_span(start), TokenKind::BlockOpen),
+            '}'  => return operator_token(location, self.word_span(start), TokenKind::BlockClose),
+            '['  => return operator_token(location, self.word_span(start), TokenKind::SquareOpen),
+            ']'  => return operator_token(location, self.word_span(start), TokenKind::SquareClose),
+            '`'  => return operator_token(location, self.word_span(start), TokenKind::ExecEscape),
+            '\n' => return operator_token(location, self.word_span(start), TokenKind::LineBreak),
+            '\\' => return operator_token(location, self.word_span(start), TokenKind::LineContinue),
+            ','  => return operator_token(location, self.word_span(start), TokenKind::Comma),
             '-' if self.input.peek_next() == Some('[') =>
-                return operator_token(location, TokenKind::Minus),
+                return operator_token(location, self.word_span(start), TokenKind::Minus),
             ':'  =>
                 {
                     if let Some(':') = self.input.peek_next()
                     {
                         let _ = self.input.next();
-                        return operator_token(location, TokenKind::Scope);
+                        return operator_token(location, self.word_span(start), TokenKind::Scope);
                     }
 
-                    return operator_token(location, TokenKind::TypeDelimiter);
+                    return operator_token(location, self.word_span(start),
+                        TokenKind::TypeDelimiter);
                 }
 
             // Nothing to do here, pass through to non-separator operator parsing.
@@ -1585,6 +1734,7 @@ impl<'a> Tokenizer<'a>
                 return Ok(Some(Token
                     {
                         location,
+                        span: self.word_span(start),
                         kind: TokenKind::Literal,
                         value: TokenValue::Literal(number)
                     }));
@@ -1593,28 +1743,32 @@ impl<'a> Tokenizer<'a>
 
         match operator_str.as_str()
         {
-            "="    => return operator_token(location, TokenKind::Assign),
-            "{"    => return operator_token(location, TokenKind::BlockOpen),
-            "}"    => return operator_token(location, TokenKind::BlockClose),
-            "-"    => return operator_token(location, TokenKind::Minus),
-            "~"    => return operator_token(location, TokenKind::ErrorSource),
-            "+"    => return operator_token(location, TokenKind::Plus),
-            "*"    => return operator_token(location, TokenKind::Asterisk),
-            "/"    => return operator_token(location, TokenKind::Slash),
-            "%"    => return operator_token(location, TokenKind::Percent),
-            "->"   => return operator_token(location, TokenKind::RedirectTo),
-            "~->"  => return operator_token(location, TokenKind::RedirectErrorTo),
-            "~+->" => return operator_token(location, TokenKind::RedirectBothTo),
+            "="    => return operator_token(location, self.word_span(start), TokenKind::Assign),
+            "{"    => return operator_token(location, self.word_span(start), TokenKind::BlockOpen),
+            "}"    => return operator_token(location, self.word_span(start), TokenKind::BlockClose),
+            "-"    => return operator_token(location, self.word_span(start), TokenKind::Minus),
+            "~"    => return operator_token(location, self.word_span(start),
+                TokenKind::ErrorSource),
+            "+"    => return operator_token(location, self.word_span(start), TokenKind::Plus),
+            "*"    => return operator_token(location, self.word_span(start), TokenKind::Asterisk),
+            "/"    => return operator_token(location, self.word_span(start), TokenKind::Slash),
+            "%"    => return operator_token(location, self.word_span(start), TokenKind::Percent),
+            "->"   => return operator_token(location, self.word_span(start), TokenKind::RedirectTo),
+            "~->"  => return operator_token(location, self.word_span(start),
+                TokenKind::RedirectErrorTo),
+            "~+->" => return operator_token(location, self.word_span(start),
+                TokenKind::RedirectBothTo),
             "<-" | "<-~" | "<-+~" => return Err(TokenizerError
                 {
                     location,
                     message: "Left-facing redirection is not supported; data flows left to right."
                         .to_string(),
                 }),
-            "{}"   => return operator_token(location, TokenKind::EmptyBlock),
-            "**"   => return operator_token(location, TokenKind::Glob),
-            "..."  => return operator_token(location, TokenKind::Splat),
-            _      => Ok(Some(Self::symbol_str_to_token(location, operator_str)))
+            "{}"   => return operator_token(location, self.word_span(start), TokenKind::EmptyBlock),
+            "**"   => return operator_token(location, self.word_span(start), TokenKind::Glob),
+            "..."  => return operator_token(location, self.word_span(start), TokenKind::Splat),
+            _      => Ok(Some(Self::symbol_str_to_token(location, operator_str,
+                self.word_span(start))))
         }
     }
 
@@ -1639,6 +1793,7 @@ impl<'a> Tokenizer<'a>
             }
 
             // It's a whitespace character or part of a comment, so consume it.
+            let start = self.input.byte_offset();
             let _ = self.input.next();
 
             // If the next character is a comment indicator and we are supposed to skip comments,
@@ -1656,7 +1811,9 @@ impl<'a> Tokenizer<'a>
 
                     let _ = self.input.next();
                 }
+                self.record_trivia(TriviaKind::Comment, start);
             }
+            else { self.record_trivia(TriviaKind::Whitespace, start); }
         }
     }
 

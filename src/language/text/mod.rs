@@ -3,6 +3,7 @@
  * This module holds the location based struct for keeping track of locations in source code.
  */
 pub mod location;
+pub mod span;
 
 /**
  * This module holds a simple buffer for reading through source text character by character while

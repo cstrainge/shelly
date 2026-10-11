@@ -10,6 +10,11 @@ use crate::language::text::location::Location;
 pub trait Buffer
 {
     /**
+     * Bytes consumed logically. Peeking must not advance this offset.
+     */
+    fn byte_offset(&self) -> usize;
+
+    /**
      * A persistent read/decoding error, distinct from normal end of input.
      */
     fn read_error(&self) -> Option<&str> { None }
@@ -95,7 +100,8 @@ pub struct SimpleBuffer<'a>
      * Buffered copy of the last character read from the source iterator. Peeking will populate this
      * value. Getting the next character will drain it if it's present.
      */
-    current_char: Option<char>
+    current_char: Option<char>,
+    byte_offset: usize,
 }
 
 
@@ -111,7 +117,8 @@ impl<'a> SimpleBuffer<'a>
                 text: source.chars(),
                 location: Location::new(origin, 1, 1),
                 tab_width: tab_width.unwrap_or(4),
-                current_char: None
+                current_char: None,
+                byte_offset: 0,
             }
     }
 }
@@ -119,6 +126,7 @@ impl<'a> SimpleBuffer<'a>
 
 impl<'a> Buffer for SimpleBuffer<'a>
 {
+    fn byte_offset(&self) -> usize { self.byte_offset }
     /**
      * Return the current logical location in the text.
      */
@@ -168,6 +176,7 @@ impl<'a> Buffer for SimpleBuffer<'a>
         // If we hadn't hit EOF yet then increment the logical location based on the next character.
         if let Some(next) = next
         {
+            self.byte_offset += next.len_utf8();
             self.increment_location(next, self.tab_width);
         }
 

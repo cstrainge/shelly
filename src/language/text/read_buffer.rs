@@ -28,7 +28,8 @@ pub struct ReadBuffer<'a, R: BufRead>
      */
     current_char: Option<char>,
     exhausted: bool,
-    error: Option<String>
+    error: Option<String>,
+    byte_offset: usize,
 }
 
 
@@ -46,7 +47,8 @@ impl<'a, R: BufRead> ReadBuffer<'a, R>
                 tab_width: tab_width.unwrap_or(4),
                 current_char: None,
                 exhausted: false,
-                error: None
+                error: None,
+                byte_offset: 0,
             }
     }
 
@@ -93,6 +95,7 @@ impl<'a, R: BufRead> ReadBuffer<'a, R>
 
 impl<'a, R: BufRead> Buffer for ReadBuffer<'a, R>
 {
+    fn byte_offset(&self) -> usize { self.byte_offset }
     fn read_error(&self) -> Option<&str> { self.error.as_deref() }
 
     /**
@@ -147,6 +150,7 @@ impl<'a, R: BufRead> Buffer for ReadBuffer<'a, R>
         // If we hadn't hit EOF yet then increment the logical location based on the next character.
         if let Some(next) = next
         {
+            self.byte_offset += next.len_utf8();
             self.increment_location(next, self.tab_width);
         }
 
