@@ -2053,6 +2053,27 @@ impl Interpreter
                         );
                     },
 
+                Code::CompareLess | Code::CompareLessEqual
+                | Code::CompareGreater | Code::CompareGreaterEqual =>
+                    {
+                        let rhs = Self::pop(&location, &mut stack)?;
+                        let lhs = Self::pop(&location, &mut stack)?;
+                        let order = lhs.numeric_order(&rhs).map_err(|message| InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::ArithmeticError(message.to_string()),
+                            })?;
+                        let result = match instruction.code
+                            {
+                                Code::CompareLess => order.is_lt(),
+                                Code::CompareLessEqual => !order.is_gt(),
+                                Code::CompareGreater => order.is_gt(),
+                                Code::CompareGreaterEqual => !order.is_lt(),
+                                _ => unreachable!(),
+                            };
+                        Self::push(&mut stack, Value::Boolean(result));
+                    },
+
                 Code::MathAdd | Code::MathSubtract | Code::MathMultiply
                 | Code::MathDivide | Code::MathModulo =>
                     {
@@ -3018,6 +3039,30 @@ impl Interpreter
         Ok(index)
     }
 
+    fn array_slice(location: &Location, elements: &[Value],
+                   range: &Range) -> InterpreterResult<Value>
+    {
+        let length = elements.len();
+        let bound = |value: i64, inclusive: bool| -> InterpreterResult<usize>
+            {
+                let index = usize::try_from(value).ok().filter(|index|
+                    if inclusive { *index < length } else { *index <= length });
+                index.ok_or_else(|| InterpreterError
+                    {
+                        location: location.clone(),
+                        what: ErrorWhat::ArrayError(format!(
+                            "Array slice bound {} is out of bounds for length {}", value, length)),
+                    })
+            };
+        let start = range.start.map(|value| bound(value, false)).transpose()?.unwrap_or(0);
+        let end = match range.end
+            {
+                Some(value) => bound(value, range.inclusive)? + usize::from(range.inclusive),
+                None => length,
+            };
+        Ok(Value::from_array(elements[start.min(end)..end].to_vec()))
+    }
+
     fn struct_field_index(location: &Location, item: &StructValue,
                            field: &Value) -> InterpreterResult<usize>
     {
@@ -3051,7 +3096,11 @@ impl Interpreter
                 .get(&MapKey::from_value(index))
                 .cloned()
                 .unwrap_or(Value::None)),
-            Value::Array(values) => Ok(values[Self::array_index(location, values, index)?].clone()),
+            Value::Array(values) => match index
+                {
+                    Value::Range(range) => Self::array_slice(location, values, range),
+                    _ => Ok(values[Self::array_index(location, values, index)?].clone()),
+                },
             _ => Err(InterpreterError
                 {
                     location: location.clone(),
@@ -3134,6 +3183,15 @@ impl Interpreter
                 },
             Value::Array(values) =>
                 {
+                    if matches!(index, Value::Range(_))
+                    {
+                        return Err(InterpreterError
+                            {
+                                location: location.clone(),
+                                what: ErrorWhat::ArrayError(
+                                    "Array slices are read-only".to_string()),
+                            });
+                    }
                     let index = Self::array_index(location, values, index)?;
                     Self::set_element(
                         location,

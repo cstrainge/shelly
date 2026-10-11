@@ -1,0 +1,13 @@
+check_repl ["id": "NUMERIC_LITERAL_METHODS", "name": "Numeric literal methods across submissions", "steps": [
+    ["fn Float::sum(\$rest: Float...): Float { for \$v in \$rest { \$self = \$self + \$v }; \$self }", "quiet", ""],
+    ["echo (1.0.sum 2 3 4 5 6)", "output", "21.0"],
+    ["echo (-1.5.sum 2 3) (1.e+2.sum 2)", "output", "3.5 102.0"],
+    ["let \$saved = `1.0.sum", "quiet", ""],
+    ["echo (\$saved 2)", "output", "3.0"],
+    ["echo (\$saved 3)", "output", "6.0"],
+    ["fn Float::sum(\$rest: Float...): Float { 99.0 }", "quiet", ""],
+    ["echo (1.0.sum 2) (\$saved 4)", "output", "99.0 10.0"],
+    ["echo (1.0.sum \"bad\")", "error", "Expected Float, got String"],
+    ["echo \"1.0.sum\" 1.0.txt/file", "output", "1.0.sum 1.0.txt/file"],
+    ["echo (1.0.type == Float)", "output", "true"],
+], "exit": 0]

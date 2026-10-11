@@ -91,6 +91,10 @@ pub enum Code
     MathModulo,
     CompareEqual,
     CompareNotEqual,
+    CompareLess,
+    CompareLessEqual,
+    CompareGreater,
+    CompareGreaterEqual,
     // Pop a pattern, compare against the retained subject, and set last_result.
     // A successful comparison also consumes the subject; failure keeps it for the next arm.
     MatchPattern,

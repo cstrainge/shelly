@@ -1,0 +1,15 @@
+check_repl ["id": "SLICES_ORDERING", "name": "Array slices and numeric ordering across submissions", "steps": [
+    ["fn Array::min(): Number { let \$value = \$self[0]; for \$next in \$self[1..] { if \$next < \$value { \$value = \$next } }; \$value }", "quiet", ""],
+    ["let \$a: [Integer] = [8,3,5]", "quiet", ""],
+    ["echo \$a.min \$a...", "output", "3 8 3 5"],
+    ["let \$tail = \$a[1..]; \$tail[0] = 9; echo \$a... \$tail...", "output", "8 3 5 9 5"],
+    ["\$a[..] = []", "error", "Array slices are read-only"],
+    ["\$a[1..][0] = 9", "error", "Array slices are read-only"],
+    ["echo \$a...", "output", "8 3 5"],
+    ["for \$v in \$a[..] { let \$bad: Boolean = \$v }", "error", "Compile error:"],
+    ["echo \$a[-1..]", "error", "Array slice bound"],
+    ["echo [].min", "error", "out of bounds"],
+    ["echo (\"1\" < 2)", "error", "Ordering comparisons require numbers"],
+    ["echo (2<=2.0) (3>2) (false && \"bad\" < 2)", "output", "true true false"],
+    ["echo \$a.min", "output", "3"],
+], "exit": 0]

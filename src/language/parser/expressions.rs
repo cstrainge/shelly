@@ -990,6 +990,10 @@ fn parse_boolean_tail(buffer: &mut TokenBuffer<'_, '_>,
                 TokenKind::And => (AstBooleanOperator::And, 2),
                 TokenKind::Equal => (AstBooleanOperator::Equal, 3),
                 TokenKind::NotEqual => (AstBooleanOperator::NotEqual, 3),
+                TokenKind::Less => (AstBooleanOperator::Less, 4),
+                TokenKind::LessEqual => (AstBooleanOperator::LessEqual, 4),
+                TokenKind::Greater => (AstBooleanOperator::Greater, 4),
+                TokenKind::GreaterEqual => (AstBooleanOperator::GreaterEqual, 4),
                 _ => break
             };
         if precedence < min_precedence { break; }
@@ -1054,7 +1058,8 @@ fn parse_range_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
                 | TokenKind::BlockClose | TokenKind::ParenClose | TokenKind::SquareClose
                 | TokenKind::Comma | TokenKind::TypeDelimiter | TokenKind::Equal
                 | TokenKind::NotEqual | TokenKind::And | TokenKind::Or | TokenKind::MatchArrow
-                | TokenKind::Pipe))
+                | TokenKind::Less | TokenKind::LessEqual | TokenKind::Greater
+                | TokenKind::GreaterEqual | TokenKind::Pipe))
         };
     let end = if at_end { None } else { parse_scalar_expression(buffer)? };
     if    (inclusive && end.is_none())

@@ -719,8 +719,16 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                 instructions.push(Instruction
                     {
                         location: Some(expression.location.clone()),
-                        code: if matches!(operator, AstBooleanOperator::Equal)
-                            { Code::CompareEqual } else { Code::CompareNotEqual },
+                        code: match operator
+                            {
+                                AstBooleanOperator::Equal => Code::CompareEqual,
+                                AstBooleanOperator::NotEqual => Code::CompareNotEqual,
+                                AstBooleanOperator::Less => Code::CompareLess,
+                                AstBooleanOperator::LessEqual => Code::CompareLessEqual,
+                                AstBooleanOperator::Greater => Code::CompareGreater,
+                                AstBooleanOperator::GreaterEqual => Code::CompareGreaterEqual,
+                                _ => unreachable!(),
+                            },
                         operand: None
                     });
             },
@@ -1395,7 +1403,11 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     | Code::MathDivide
                     | Code::MathModulo
                     | Code::CompareEqual
-                    | Code::CompareNotEqual => result_is_empty
+                    | Code::CompareNotEqual
+                    | Code::CompareLess
+                    | Code::CompareLessEqual
+                    | Code::CompareGreater
+                    | Code::CompareGreaterEqual => result_is_empty
                 };
             true
         });

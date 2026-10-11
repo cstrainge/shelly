@@ -790,6 +790,7 @@ fn known_type(registry: &TypeRegistry, expression: &AstExpression) -> Option<Typ
     {
         AstExpressionKind::AnonymousFunction(function) => anonymous_type(registry, function),
         AstExpressionKind::Array(_) => registry.builtin_id("Array"),
+        AstExpressionKind::Range(_, _, _) => registry.builtin_id("Range"),
         AstExpressionKind::HashMap(_) => registry.builtin_id("HashMap"),
         AstExpressionKind::Symbol(symbol) if symbol.is_glob() =>
             registry.builtin_id("ArgumentExpansion"),
@@ -825,11 +826,13 @@ fn known_type(registry: &TypeRegistry, expression: &AstExpression) -> Option<Typ
                 if registry.has_extension(id, name) { return None; }
                 registry.method(id, name).map(|method| method.return_type)
             },
-        AstExpressionKind::Index(object, _) =>
-            match registry.get(known_type(registry, object)?).kind
+        AstExpressionKind::Index(object, index) =>
             {
-                TypeKind::Array(element) => Some(element),
-                _ => None
+                let index_type = known_type(registry, index)
+                    .or_else(|| constant_value(registry, index)
+                        .map(|value| registry.inferred_value_type(&value)));
+                indexed_type(registry, known_type(registry, object)?, None,
+                             slice_index(registry, index_type))
             },
         _ => None
     }
@@ -1238,7 +1241,8 @@ fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bind
                                 item_type.filter(|id| matches!(registry
                                     .get(registry.underlying_type(*id)).kind,
                                     TypeKind::Array(_) | TypeKind::FixedArray(_)))
-                                    .and_then(|id| indexed_type(registry, id, Some(index)))
+                                    .and_then(|id| indexed_type(
+                                        registry, id, Some(index), Some(false)))
                             }
                             else { item_type };
                         loop_bindings.insert(name.clone(), Binding
@@ -1595,12 +1599,13 @@ fn declared_conversion_source(registry: &TypeRegistry, expression: &AstExpressio
         AstExpressionKind::Index(object, index) =>
             {
                 let id = declared_conversion_source(registry, object, bindings)?;
+                let slice = slice_index(registry, binding_type(registry, index, bindings));
                 let index = match constant_value(registry, index)
                 {
                     Some(Value::Integer(index)) => usize::try_from(index).ok(),
                     _ => None,
                 };
-                indexed_type(registry, id, index)
+                indexed_type(registry, id, index, slice)
             },
         _ => None,
     }
@@ -1700,12 +1705,13 @@ fn binding_type_inner(
             },
         AstExpressionKind::Index(object, index) =>
             {
+                let slice = slice_index(registry, binding_type(registry, index, bindings));
                 let index = match constant_value(registry, index)
                     {
                         Some(Value::Integer(index)) => usize::try_from(index).ok(),
                         _ => None,
                     };
-                indexed_type(registry, binding_type(registry, object, bindings)?, index)
+                indexed_type(registry, binding_type(registry, object, bindings)?, index, slice)
             },
         _ => known_type(registry, expression)
     }
@@ -1728,14 +1734,29 @@ fn implicit_callable_result(registry: &TypeRegistry, expression: &AstExpression,
 }
 
 
-fn indexed_type(registry: &TypeRegistry, id: TypeId, index: Option<usize>) -> Option<TypeId>
+// An unknown index may be an integer or a range. Do not assume an element result.
+fn slice_index(registry: &TypeRegistry, index_type: Option<TypeId>) -> Option<bool>
+{
+    match index_type
+    {
+        Some(id) if Some(id) == registry.builtin_id("Range") => Some(true),
+        Some(id) if Some(id) == registry.builtin_id("Integer") => Some(false),
+        _ => None,
+    }
+}
+
+
+fn indexed_type(registry: &TypeRegistry, id: TypeId,
+                index: Option<usize>, slice: Option<bool>) -> Option<TypeId>
 {
     let id = registry.underlying_type(id);
     match &registry.get(id).kind
     {
-        TypeKind::Array(element) => Some(*element),
+        TypeKind::Array(element) => Some(if slice? { id } else { *element }),
+        TypeKind::FixedArray(items) if slice == Some(true) => Some(registry.intern(TypeKind::Array(
+            registry.common_type(items.iter().copied())))),
         TypeKind::Map(_, element) => Some(registry.intern(TypeKind::Optional(*element))),
-        TypeKind::FixedArray(items) => match index
+        TypeKind::FixedArray(items) if slice == Some(false) => match index
             {
                 Some(index) => items.get(index).copied(),
                 None => Some(registry.common_type(items.iter().copied())),

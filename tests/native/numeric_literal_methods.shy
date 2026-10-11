@@ -1,0 +1,42 @@
+# Numeric literal receivers retain their types and spelling, with postfix method access.
+fn numeric_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $stdout) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "numeric literal method mismatch" }
+}
+numeric_case "fn Float::sum(\$rest: Float...): Float { for \$v in \$rest { \$self = \$self + \$v }; \$self }; fn Integer::sum(\$rest: Integer...): Integer { for \$v in \$rest { \$self = \$self + \$v }; \$self }; echo (1.0.sum 2 3 4 5 6)" "21.0\n" ""
+numeric_case "fn Float::sum(\$rest: Float...): Float { for \$v in \$rest { \$self = \$self + \$v }; \$self }; fn Integer::sum(\$rest: Integer...): Integer { for \$v in \$rest { \$self = \$self + \$v }; \$self }; echo (1.sum 2 3 4 5 6)" "21\n" ""
+numeric_case "fn Float::sum(\$rest: Float...): Float { for \$v in \$rest { \$self = \$self + \$v }; \$self }; fn Integer::sum(\$rest: Integer...): Integer { for \$v in \$rest { \$self = \$self + \$v }; \$self }; echo (-1.5.sum 2 3) (-1.sum 2 3)" "3.5 4\n" ""
+numeric_case "fn Float::sum(\$rest: Float...): Float { for \$v in \$rest { \$self = \$self + \$v }; \$self }; fn Integer::sum(\$rest: Integer...): Integer { for \$v in \$rest { \$self = \$self + \$v }; \$self }; echo (1e2.sum 2) (1e-2.sum 2) (1.e2.sum 2) (1.e+2.sum 2) (1.e-2.sum 2)" "102.0 2.01 102.0 102.0 2.01\n" ""
+numeric_case "fn Float::sum(\$rest: Float...): Float { for \$v in \$rest { \$self = \$self + \$v }; \$self }; fn Integer::sum(\$rest: Integer...): Integer { for \$v in \$rest { \$self = \$self + \$v }; \$self }; echo (1E2.sum 2) (-1.e+2.sum 2) (-1.e-2.sum 2)" "102.0 -98.0 1.99\n" ""
+numeric_case "fn Float::sum(\$rest: Float...): Float { for \$v in \$rest { \$self = \$self + \$v }; \$self }; fn Integer::sum(\$rest: Integer...): Integer { for \$v in \$rest { \$self = \$self + \$v }; \$self }; echo (0.0.sum) (0.sum) (-0.0.sum)" "0.0 0 -0.0\n" ""
+numeric_case "fn Float::sum(\$rest: Float...): Float { for \$v in \$rest { \$self = \$self + \$v }; \$self }; fn Integer::sum(\$rest: Integer...): Integer { for \$v in \$rest { \$self = \$self + \$v }; \$self }; let \$n = 1.0; echo (\$n.sum 2) \$n; echo (1.0.sum 2) (1.0.sum 2)" "3.0 3.0\n3.0 3.0\n" ""
+numeric_case "fn Float::sum(\$rest: Float...): Float { for \$v in \$rest { \$self = \$self + \$v }; \$self }; fn Integer::sum(\$rest: Integer...): Integer { for \$v in \$rest { \$self = \$self + \$v }; \$self }; let \$method = `1.0.sum; echo (\$method 2) (\$method 3)" "3.0 6.0\n" ""
+numeric_case "fn Float::twice(): Float { \$self * 2 }; echo 1.5.twice.twice" "6.0\n" ""
+numeric_case "fn Integer::_identity(): Integer { \$self }; echo 7._identity" "7\n" ""
+numeric_case "echo (1.0.type == Float) (1.type == Integer) (-1.5.type == Float) (-1.type == Integer)" "true true true true\n" ""
+numeric_case "fn Float::sum(\$rest: Float...): Float { for \$v in \$rest { \$self = \$self + \$v }; \$self }; fn Integer::sum(\$rest: Integer...): Integer { for \$v in \$rest { \$self = \$self + \$v }; \$self }; echo (1.5.sum 2) + 1" "4.5\n" ""
+numeric_case "fn Float::twice(): Float { \$self * 2 }; let \$a = [1.5.twice, 2.0.twice]; echo \$a..." "3.0 4.0\n" ""
+numeric_case "fn Float::twice(): Float { \$self * 2 }; echo (1.5.twice < 4) (-3<-2.0.twice)" "true false\n" ""
+numeric_case "echo [1.0.type, 2.type]..." "Float Integer\n" ""
+numeric_case "echo 1.0 1.50 1e2 1.e+2 -1.e-2 1.2.3 1.0.txt/file \"1.0.sum\"" "1.0 1.50 1e2 1.e+2 -1.e-2 1.2.3 1.0.txt/file 1.0.sum\n" ""
+numeric_case "fn Float::sum(\$rest: Float...): Float { for \$v in \$rest { \$self = \$self + \$v }; \$self }; fn Integer::sum(\$rest: Integer...): Integer { for \$v in \$rest { \$self = \$self + \$v }; \$self }; echo \"1.0.sum\" \"-1.0.sum\"" "1.0.sum -1.0.sum\n" ""
+numeric_case "fn Float::sum(\$rest: Float...): Float { for \$v in \$rest { \$self = \$self + \$v }; \$self }; fn Integer::sum(\$rest: Integer...): Integer { for \$v in \$rest { \$self = \$self + \$v }; \$self }; echo (1.sum 2.0)" "" "Expected Integer, got Float"
+numeric_case "fn Float::sum(\$rest: Float...): Float { for \$v in \$rest { \$self = \$self + \$v }; \$self }; fn Integer::sum(\$rest: Integer...): Integer { for \$v in \$rest { \$self = \$self + \$v }; \$self }; echo (1.0.sum \"2\")" "" "Expected Float, got String"
+numeric_case "echo 1.0.missing" "" "Cannot access a field on Float"
+numeric_case "echo 1.missing" "" "Cannot access a field on Integer"
+numeric_case "fn Float::twice(): Float { \$self * 2 }; echo 1.5.twice.no_such_method" "" "Cannot access a field"

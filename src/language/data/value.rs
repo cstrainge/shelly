@@ -1,5 +1,5 @@
 
-use std::{ collections::HashMap, rc::Rc, fmt::{ self, Debug, Formatter } };
+use std::{ cmp::Ordering, collections::HashMap, rc::Rc, fmt::{ self, Debug, Formatter } };
 
 use crate::{ runtime::process::Terminal,
              language::{ data::{ closure::ClosureValue, callable::CallableValue, map_key::MapKey,
@@ -344,6 +344,26 @@ impl Value
             Value::ExecResult(_) => Some("Command statuses cannot be used in arithmetic"),
             Value::None => Some("None cannot be used in arithmetic"),
         }
+    }
+
+    pub fn numeric_order(&self, other: &Value) -> Result<Ordering, &'static str>
+    {
+        if matches!(self, Value::Named(_)) || matches!(other, Value::Named(_))
+        {
+            let (Value::Named(left), Value::Named(right)) = (self, other) else
+            { return Err("Named comparisons require matching types; convert explicitly"); };
+            if left.definition.id != right.definition.id
+            { return Err("Named comparisons require matching types; convert explicitly"); }
+            return left.value.numeric_order(&right.value);
+        }
+        if let (Value::Integer(left), Value::Integer(right)) = (self, other)
+        { return Ok(left.cmp(right)); }
+        if    !matches!(self, Value::Integer(_) | Value::Float(_, _))
+           || !matches!(other, Value::Integer(_) | Value::Float(_, _))
+        { return Err("Ordering comparisons require numbers"); }
+        let left = self.arithmetic_float().ok_or("Non-finite floating-point operand")?;
+        let right = other.arithmetic_float().ok_or("Non-finite floating-point operand")?;
+        Ok(left.partial_cmp(&right).unwrap())
     }
 
     pub fn arithmetic_float(&self) -> Option<f64>

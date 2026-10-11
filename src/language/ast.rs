@@ -45,6 +45,10 @@ pub enum AstBooleanOperator
 {
     Equal,
     NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
     And,
     Or
 }

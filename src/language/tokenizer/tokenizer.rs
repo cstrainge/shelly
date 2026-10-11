@@ -135,6 +135,10 @@ pub enum TokenKind
 
     Equal,
     NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
     And,
     Or,
     Not,
@@ -470,6 +474,10 @@ impl Token
             TokenKind::MatchArrow        => "=>".to_string(),
             TokenKind::Equal             => "==".to_string(),
             TokenKind::NotEqual          => "!=".to_string(),
+            TokenKind::Less              => "<".to_string(),
+            TokenKind::LessEqual         => "<=".to_string(),
+            TokenKind::Greater           => ">".to_string(),
+            TokenKind::GreaterEqual      => ">=".to_string(),
             TokenKind::And               => "&&".to_string(),
             TokenKind::Or                => "||".to_string(),
             TokenKind::Not               => "!".to_string(),
@@ -583,8 +591,10 @@ pub struct Tokenizer<'a>
      * The source code input buffer to read our tokens from.
      */
     input: &'a mut dyn Buffer,
-    // Reading a word can consume the following two-character boolean operator.
+    // Reading a word can consume the following operator.
     pending_operator: Option<Token>,
+    // A prefetched negative operand distinguishes `a<-2` from removed `<-` arrows.
+    pending_operand: Option<Token>,
     index_follows: bool,
     member_follows: bool,
     enum_variant_follows: bool
@@ -598,8 +608,8 @@ impl<'a> Tokenizer<'a>
      */
     pub fn new(input: &'a mut dyn Buffer) -> Self
     {
-        Self { input, pending_operator: None, index_follows: false, member_follows: false,
-            enum_variant_follows: false }
+        Self { input, pending_operator: None, pending_operand: None, index_follows: false,
+            member_follows: false, enum_variant_follows: false }
     }
 
     /**
@@ -612,6 +622,23 @@ impl<'a> Tokenizer<'a>
         let mut result = self.read_token();
         if let Ok(Some(token)) = &mut result
         {
+            if    token.kind == TokenKind::Less
+               && self.input.peek_next() == Some('-')
+               && let Some(operand) = self.read_token()?
+            {
+                if    operand.kind == TokenKind::Minus
+                   || matches!(&operand.value, TokenValue::Symbol(word)
+                        if matches!(word.as_str(), "-~" | "-+~"))
+                {
+                    return Err(TokenizerError
+                        {
+                            location: token.location.clone(),
+                            message: "Left-facing redirection is not supported; \
+                                data flows left to right.".to_string(),
+                        });
+                }
+                self.pending_operand = Some(operand);
+            }
             if token.kind == TokenKind::SquareOpen && self.index_follows
             {
                 token.kind = TokenKind::IndexOpen;
@@ -642,6 +669,7 @@ impl<'a> Tokenizer<'a>
 
     fn read_token(&mut self) -> Result<Option<Token>, TokenizerError>
     {
+        if let Some(operand) = self.pending_operand.take() { return Ok(Some(operand)); }
         if let Some(operator) = self.pending_operator.take()
         {
             return Ok(Some(operator));
@@ -885,7 +913,7 @@ impl<'a> Tokenizer<'a>
         if    self.pending_operator.is_none()
            && (!suffix.is_empty() || self.input.peek_next().is_some_and(|next|
                 next == '/' || (braced && !Self::is_separator_char(&next)
-                    && !matches!(next, '[' | ']' | '=' | '\'' | '"'))))
+                    && !matches!(next, '[' | ']' | '=' | '<' | '>' | '\'' | '"'))))
         {
             suffix += &self.extract_to_separator(None);
         }
@@ -977,6 +1005,43 @@ impl<'a> Tokenizer<'a>
                     self.pending_operator = Some(token);
                     break;
                 }
+                // Keep decimal points and scientific notation inside numbers,
+                // but separate a numeric receiver from its first method name.
+                if    result.parse::<f64>().is_ok()
+                   && self.input.peek_next().is_some_and(|next|
+                        next.is_alphabetic() || next == '_')
+                {
+                    let mut member = String::new();
+                    while    let Some(next) = self.input.peek_next()
+                          && (next.is_alphanumeric() || next == '_')
+                    {
+                        member.push(self.input.next().unwrap());
+                    }
+                    if    matches!(member.as_str(), "e" | "E")
+                       && self.input.peek_next().is_some_and(|next| matches!(next, '+' | '-'))
+                    {
+                        member.push(self.input.next().unwrap());
+                        while    let Some(next) = self.input.peek_next()
+                              && next.is_ascii_digit()
+                        {
+                            member.push(self.input.next().unwrap());
+                        }
+                    }
+                    let candidate = format!("{}.{}", result, member);
+                    if    candidate.parse::<f64>().is_ok()
+                       || self.input.peek_next() == Some('/')
+                    {
+                        result = candidate;
+                        continue;
+                    }
+                    self.pending_operator = Some(Token
+                        {
+                            location: token.location,
+                            kind: TokenKind::Member,
+                            value: TokenValue::Symbol(member),
+                        });
+                    break;
+                }
                 result += &token.token_value_text();
                 continue;
             }
@@ -992,6 +1057,14 @@ impl<'a> Tokenizer<'a>
                     if character == '}' { break; }
                 }
                 continue;
+            }
+            if    !in_glob_class && matches!(next, '<' | '>')
+               && !(next == '>' && result.ends_with('-'))
+            {
+                let location = self.input.location().clone();
+                self.input.next();
+                self.pending_operator = Some(self.ordering_token(location, next));
+                break;
             }
             // Preserve single '=' and trailing '!' in shell words, and glob classes.
             // Paired operators delimit operands even without surrounding whitespace.
@@ -1037,6 +1110,20 @@ impl<'a> Tokenizer<'a>
         }
 
         result
+    }
+
+    fn ordering_token(&mut self, location: Location, first: char) -> Token
+    {
+        let equal = self.input.peek_next() == Some('=');
+        if equal { self.input.next(); }
+        let kind = match (first, equal)
+            {
+                ('<', false) => TokenKind::Less,
+                ('<', true) => TokenKind::LessEqual,
+                ('>', false) => TokenKind::Greater,
+                _ => TokenKind::GreaterEqual,
+            };
+        Token { location, kind, value: TokenValue::None }
     }
 
     fn parse_dot(&mut self) -> Token
@@ -1409,6 +1496,12 @@ impl<'a> Tokenizer<'a>
 
         match next
         {
+            '<' | '>' => return Ok(Some(self.ordering_token(location, next))),
+            '-' if self.input.peek_next() == Some('>') =>
+                {
+                    self.input.next();
+                    return operator_token(location, TokenKind::RedirectTo);
+                },
             '|' =>
                 {
                     if self.input.peek_next() == Some('|')

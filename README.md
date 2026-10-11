@@ -293,6 +293,15 @@ Signed numbers and unary minus work: `-2 + 3` produces `1`, and `-(2.5 + 3)`
 produces `-5.5`. Division/remainder by zero, integer overflow, and non-finite
 floating-point operands or results produce language errors, including in release builds.
 
+Ordering comparisons `<`, `<=`, `>`, and `>=` accept numbers, promoting Integer
+and Float operands to Float when mixed. Integer pairs compare without losing
+precision. Other values and non-finite floats are errors; numeric strings require
+explicit conversion. Same-type named numbers can be compared; mixing named types
+requires explicit conversion. Ordering binds more tightly than equality (`==`,
+`!=`) and logical operators (`&&`, `||`), and less tightly than arithmetic.
+Spaces around ordering operators are optional. Quote literal `<` and `>` text
+when passing it as a command argument.
+
 Expressions can stand alone, including inside functions. A top-level expression
 is evaluated without automatically printing its value; use `echo` to display it.
 
@@ -309,12 +318,49 @@ echo $a[3]...                # 40 5
 echo [7, 8][0]               # 7
 ```
 
+Index an array with a range to copy a slice. The end is exclusive unless `..=`
+is used; omitted bounds use the array edges:
+
+```text
+let $a = [10, 20, 30, 40]
+echo $a[1..3]...             # 20 30
+echo $a[1..=3]...            # 20 30 40
+echo $a[1..]...              # 20 30 40
+echo $a[..2]...              # 10 20
+echo $a[..]...               # 10 20 30 40
+```
+
+Bounds must be nonnegative integers within the array. An exclusive end or start
+may equal its length; an inclusive end must identify an existing element.
+Reversed bounds yield an empty array after both bounds are checked. Slices retain
+their element types. Slice assignment, including writing through a slice or a
+mutating method on one, is rejected. A slice stored in a variable is an independent
+array that can be modified without changing its source.
+
+Slicing works with user methods and iteration:
+
+```text
+fn Array::min(): Number
+{
+    let $value = $self[0]
+    for $next in $self[1..]
+    {
+        if $next < $value { $value = $next }
+    }
+    $value
+}
+echo [4, 2, 6, -3, 5].min    # -3
+```
+
+This method requires a nonempty numeric array; indexing element zero of an empty
+array is an error.
+
 Elements evaluate left to right and retain their types. Nested arrays remain
 nested. Newlines, comments, and a trailing comma are allowed between elements.
 Each element accepts the same value expressions as an initializer, including
 calls and conditionals: `[foo 3, if true { 1 } else { 2 }]`.
 
-Indexes are zero-based integers. `$a[$i + 1]`, `${a}[0]`, `(make_array)[0]`,
+Individual element indexes are zero-based integers. `$a[$i + 1]`, `${a}[0]`, `(make_array)[0]`,
 and chained `$a[1][2]` reads work. The opening index bracket must touch its
 value: `$a[0]` is an element, while `$a [0]` supplies a separate array argument.
 Negative, out-of-range, or non-integer indexes (including `"0"` and `1.0`)
@@ -454,6 +500,22 @@ let $start = 10
 echo ($start.sum 1 2 3)                 # 16
 ```
 
+Numeric literals support method access directly, including negative and scientific
+notation: `1.sum`, `1.0.sum`, `-1.5.sum`, and `1e2.sum`. The receiver retains its
+numeric type. For example:
+
+```text
+fn Float::sum($rest: Float...): Float
+{
+    for $value in $rest { $self = $self + $value }
+    $self
+}
+echo (1.0.sum 2 3 4 5 6)                # 21.0
+```
+
+Integer arguments promote to Float for this method's parameters. Quote a literal
+filename or argument such as `"1.0.sum"` when its dots should remain text.
+
 Methods use the same parameter annotations, trailing optional parameters, final
 variadic parameter, return annotations, explicit `return`, and implicit final
 result as ordinary functions. Calls use the same dot syntax as builtin methods.
@@ -569,8 +631,8 @@ Bounds must be integers; floats, numeric strings, and other types produce an
 error. Use `Integer($start)` to explicitly convert a numeric string; integer function
 arguments already retain their type. Inclusive ranges require an end bound, and chained
 ranges such as `1..2..3` are rejected. Omitted bounds remain unspecified;
-expanding such a range is an error. Range indexing and array slicing are not
-implemented yet.
+expanding such a range is an error. Ranges can index arrays to select slices;
+indexing a Range value itself is not implemented.
 
 Ranges compare by their bounds and inclusivity: `1..3` differs from `1..=2`
 even though they expand to the same elements. They can be map keys and function
@@ -1083,7 +1145,7 @@ if    ($expected != "")
 ```
 
 Precedence, highest first: parentheses and indexing; unary `!` and unary minus;
-`* / %`; `+ -`; `.. ..=`; `== !=`; `&&`; `||`. Range operators cannot be chained;
+`* / %`; `+ -`; `.. ..=`; `< <= > >=`; `== !=`; `&&`; `||`. Range operators cannot be chained;
 other binary operators at the same precedence associate left to right. Boolean
 operators do not require surrounding spaces, so `$x!=0` and `!$x` work. Quote
 operator text when passing it literally.
@@ -2461,8 +2523,7 @@ function bodies. Prior REPL bindings and functions are available.
 - Variables use dynamic caller scope; function definitions are hoisted within each input.
 - Command results are statuses, not captured stdout. Shell errors in noninteractive
   execution return a general failure status; only explicit `exit N` selects a specific status.
-- Append redirection, ordering comparisons (`<`, `>`, `<=`, `>=`), array slicing,
-  and array append syntax are not implemented.
+- Append redirection and array append syntax are not implemented.
 - Iterating or expanding a range requires both bounds. `break` cannot carry a value
   or target a named loop. Standalone blocks are statements, not general expressions.
 - Some parser diagnostics contain verbose lists of attempted alternatives.
