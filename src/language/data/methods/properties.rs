@@ -1,10 +1,11 @@
 
 use std::collections::HashMap;
 
-use crate::language::data::{ map_key::MapKey, types::TypeKind, value::Value };
+use crate::language::data::{ map_key::MapKey, methods::NativeMethodError,
+                             types::TypeKind, value::Value };
 
 
-pub(super) fn properties(receiver: &mut Value, _: &[Value]) -> Result<Value, String>
+pub(super) fn properties(receiver: &mut Value, _: &[Value]) -> Result<Value, NativeMethodError>
 {
     let mut members = HashMap::new();
     if let Value::Struct(item) = receiver.underlying()

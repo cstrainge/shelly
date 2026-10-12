@@ -1971,6 +1971,23 @@ a binding in the current scope. The initializer runs before the binding is
 replaced, so `let $x = $x + 1` can read the old value. An initializer error does
 not overwrite the binding with an empty value.
 
+### Runtime call stacks
+
+When a runtime failure occurs inside a call, its diagnostic includes a call
+stack, listed from the failing call outward to its callers. Each frame names the
+function or method and shows the file,
+line, and column where it was called. Closures use `<anonymous>`. Constructors,
+getters/setters, imported functions, and pipeline callbacks participate in the
+same trace; native calls are marked `[native]` and include their Rust dispatch
+boundary. A separate `Native error at`
+line identifies the Rust source location of the failed runtime check, including
+the implementation of a native method. These paths refer to the source used
+to build Shelly. Parse and compile failures before execution have no runtime
+call frames.
+The original diagnostic and its source location remain at the top of the error.
+Successful calls and errors from earlier REPL submissions are absent from the
+next trace.
+
 ## Scoped code blocks
 
 Standalone `{ ... }` blocks create variable scopes and may be nested, both at the

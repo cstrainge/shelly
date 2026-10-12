@@ -9,9 +9,10 @@ use crate::language::{ data::{ map_key::MapKey, range::RangeIterator, value::Val
                        text::location::Location };
 
 
+#[track_caller]
 fn iteration_error(location: &Location, message: impl Into<String>) -> InterpreterError
 {
-    InterpreterError { location: location.clone(), what: ErrorWhat::IterationError(message.into()) }
+    InterpreterError::new(location.clone(), ErrorWhat::IterationError(message.into()))
 }
 
 

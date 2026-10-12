@@ -1,0 +1,11 @@
+check_repl ["id": "CALL-STACKS", "name": "Call stacks survive errors and clear between submissions", "steps": [
+    ["fn inner() { let \$a = []; \$a[0] }; fn outer() { inner }", "quiet", ""],
+    ["outer", "error", "at inner (<repl>: (1, 49))"],
+    ["let \$a = [1]; echo \$a[0]", "output", "1"],
+    ["fn inner() { 7 }; fn outer() { inner }; echo (outer)", "output", "7"],
+    ["fn bad() { let \$a = [1, \"x\"]; \$a.sort }; bad", "error", "Native error at src/language/data/methods/array.rs:"],
+    ["echo (outer)", "output", "7"],
+    ["let \$reads = 0; struct Basket { pub items: Array }; fn Basket::get_items(): Array { \$reads = \$reads + 1; \$self.::items }; let \$b = Basket(items: [1, \"x\"])", "quiet", ""],
+    ["\$b.items.sort", "error", "at Array::sort [native]"],
+    ["echo \$reads", "output", "1"]
+], "exit": 0]

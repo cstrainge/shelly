@@ -283,3 +283,8 @@ to run the complete suite; denied inspection is a failure, not a passing skip.
 `native/language_intelligence.shy` exercises LSP hovers and completions, module
 visibility, properties and raw storage, named constructors, imported source edits,
 external command signatures, Markdown layout, and UTF-16 cursor positions.
+
+`native/call_stacks.shy` checks ordered runtime traces, recursive and anonymous
+calls, module source locations, argument and return errors, property accessors,
+constructors, native failures, and pipeline conversion context.
+`repl/call_stacks.shy` checks recovery across separate interactive submissions.

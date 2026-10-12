@@ -1,0 +1,74 @@
+# Runtime failures retain their Shelly callers and the native failure location.
+let $fixture = $args[0]
+fn trace_case($source: String, $frames: Array, $diagnostic: String): String
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $err: String
+    "${fixture}/err" -> $err
+    require (($reply["exit_code"] == 1) && ($reply["error"] == ()) &&
+        ($reply["signal"] == ()) && (!$reply["timed_out"])) "unexpected trace process result"
+    if !($err.contains $diagnostic) { echo $source $err };
+    require ($err.contains $diagnostic) "original diagnostic missing"
+    require ($err.contains "Native error at src/language/") "native failure location missing"
+    let $actual = []
+    for $line in $err.split "\n"
+    { if $line.starts_with "    at " { $actual = [$actual..., $line] } }
+    if $actual.count != $frames.count { echo $source $err };
+    require ($actual.count == $frames.count) "unexpected call stack depth"
+    for $index in 0..$frames.count
+    { require ($actual[$index].starts_with $frames[$index]) "call stack order or name wrong" }
+    $err
+}
+let $err = trace_case 'fn inner() { let $a = [1]; echo $a[5] }; fn outer() { inner }; outer' [
+    "    at inner (command line: (1, 55))", "    at outer (command line: (1, 64))"] "out of bounds"
+trace_case 'fn inner() { let $a = [1, "x"]; $a.sort }; fn outer() { inner }; outer' [
+    "    at Array::sort [native] (", "    at inner (", "    at outer ("] "mutually comparable"
+let $err = trace_case 'fn inner() { let $a = [1, "x"]; $a.sort }; inner' [
+    "    at Array::sort [native] (", "    at inner ("] "mutually comparable"
+require ($err.contains "Native error at src/language/data/methods/array.rs:") "method implementation missing"
+require ($err.contains "native boundary at src/language/interpreter/interpreter.rs:") "native call boundary missing"
+trace_case 'fn inner() { run_process [] }; fn outer() { inner }; outer' [
+    "    at run_process [native] (", "    at inner (", "    at outer ("] "run_process"
+trace_case 'fn recurse($n: Integer) { if $n > 0 { recurse ($n - 1) } else { let $a = []; $a[0] } }; recurse 3' [
+    "    at recurse (", "    at recurse (", "    at recurse (", "    at recurse ("] "out of bounds"
+trace_case 'let $f = fn() { let $a = []; $a[0] }; fn invoke($f: any) { $f }; invoke $f' [
+    "    at <anonymous> (", "    at invoke ("] "out of bounds"
+trace_case 'fn inner($x: Integer) { $x }; fn outer($bad: any) { inner $bad }; outer "bad"' [
+    "    at inner (", "    at outer ("] "Expected Integer"
+trace_case 'fn inner(): Integer { let $bad: any = "bad"; $bad }; fn outer() { inner }; outer' [
+    "    at inner (", "    at outer ("] "return value"
+trace_case 'struct Foo { pub value: Integer }; fn Foo::new(): Foo { let $a = []; $a[0]; Foo(value: 1) }; Foo()' [
+    "    at Foo::new ("] "out of bounds"
+trace_case 'struct Foo { pub value: Integer }; fn Foo::get_display(): String { let $a = []; $a[0]; "ok" }; let $f = Foo(value: 1); echo $f.display' [
+    "    at Foo::get_display ("] "out of bounds"
+trace_case 'struct Foo { pub value: Integer }; fn Foo::set_display($value: String) { let $a = []; $a[0] }; let $f = Foo(value: 1); $f.display = "bad"' [
+    "    at Foo::set_display ("] "out of bounds"
+printf "%s" 'pub fn inner() { let $a = []; $a[0] }; pub fn outer() { inner }' -> "${fixture}/trace_module.shy"
+let $err = trace_case 'import trace_module; trace_module::outer' [
+    "    at inner (", "    at trace_module::outer ("] "out of bounds"
+require ($err.contains "trace_module.shy: (1,") "module source location missing"
+trace_case 'fn stage($value: any): any { let $a = []; $a[0] }; fn outer() { let $out: Array; [1] | stage | $out }; outer' [
+    "    at stage (", "    at outer ("] "out of bounds"
+# Conversion context must preserve the structured trace rather than stringify it.
+trace_case 'struct Foo { pub seed: Integer }; fn Foo::new($seed: Integer): Foo { let $a = []; $a[0]; Foo(seed: $seed) }; fn outer() { let $out: [Foo]; printf "seed\\n1\\n" csv:|:Foo $out }; outer' [
+    "    at Foo::new (", "    at outer ("] "out of bounds"
+trace_case 'fn String::from_json($value: any): String { let $a = []; $a[0]; "" }; fn outer() { let $out: String; [1] |:json cat | $out }; outer' [
+    "    at String::from_json (", "    at outer ("] "out of bounds"
+
+# Frozen native references use their registered names too.
+trace_case 'let $native = `run_process; fn outer($call: any) { $call [] }; outer $native' [
+    "    at run_process [native] (", "    at outer ("] "run_process"
+# Static rejection has no pretend execution frames or native failure site.
+let $reply = run_process [`$shelly, "-m", "-c", 'fn bad( {'] [
+    "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+        "SHELLY_STD_PATH": ""], "stdin_file": "/dev/null",
+    "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+let $err: String
+"${fixture}/err" -> $err
+require (($reply["exit_code"] == 1) && (!$reply["timed_out"])) "parse failure missing"
+require ((!($err.contains "Call stack")) && (!($err.contains "Native error at"))) "static failure has a runtime trace"

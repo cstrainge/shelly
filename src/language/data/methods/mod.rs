@@ -4,27 +4,56 @@ mod string;
 mod iteration;
 mod properties;
 
-use std::rc::Rc;
+use std::{ panic::Location as NativeLocation, rc::Rc };
 
-use crate::language::{ bytecode::FunctionRef,
+use crate::language::{ bytecode::FunctionRef, text::location::Location,
                        data::{ value::Value, scoped_variables::ValueReference,
                                types::{ TypeId, TypeKind, TypeRegistry },
                                methods::{ iteration::next_item, properties::properties,
                                           array::{ sort, reverse, zip, count },
                                           string::{ chars, contains, starts_with, ends_with,
-                                                    replace, split, trim, trim_start, trim_end } } } };
+                                                    replace, split, trim, trim_start,
+                                                    trim_end } } } };
 
 pub fn method_key(receiver: TypeId, name: &str) -> String
 {
     format!("\0method:{}:{}", receiver.0, name)
 }
 
-pub type MethodBody = fn(&mut Value, &[Value]) -> Result<Value, String>;
+pub struct NativeMethodError
+{
+    pub message: String,
+    pub location: Location,
+}
+
+impl From<String> for NativeMethodError
+{
+    #[track_caller]
+    fn from(message: String) -> Self
+    {
+        let caller = NativeLocation::caller();
+        Self
+        {
+            message,
+            location: Location::new(caller.file(), caller.line() as usize,
+                                    caller.column() as usize),
+        }
+    }
+}
+
+impl From<&str> for NativeMethodError
+{
+    #[track_caller]
+    fn from(message: &str) -> Self { Self::from(message.to_string()) }
+}
+
+pub type MethodBody = fn(&mut Value, &[Value]) -> Result<Value, NativeMethodError>;
 
 #[derive(Clone, Debug)]
 pub struct BuiltinMethod
 {
     pub name: &'static str,
+    pub receiver_type: TypeId,
     pub mutates_receiver: bool,
     pub native_iterator: bool,
     pub argument_count: usize,
@@ -67,7 +96,7 @@ pub fn register_methods(registry: &mut TypeRegistry)
     {
         registry.register_method(string, BuiltinMethod
             {
-                name, argument_count, return_type, body,
+                name, argument_count, return_type, body, receiver_type: string,
                 mutates_receiver: false, native_iterator: false,
             });
     }
@@ -83,7 +112,7 @@ pub fn register_methods(registry: &mut TypeRegistry)
         {
             registry.register_method(receiver, BuiltinMethod
                 {
-                    name, argument_count, return_type, body,
+                    name, argument_count, return_type, body, receiver_type: receiver,
                     mutates_receiver: false, native_iterator: false,
                 });
         }
@@ -92,7 +121,7 @@ pub fn register_methods(registry: &mut TypeRegistry)
     let properties_type = registry.intern(TypeKind::Map(string, any));
     registry.register_method(any, BuiltinMethod
         {
-            name: "properties", argument_count: 0, return_type: properties_type,
+            name: "properties", receiver_type: any, argument_count: 0, return_type: properties_type,
             body: properties, mutates_receiver: false, native_iterator: false,
         });
     let pair = registry.intern(TypeKind::FixedArray(vec![any, any]));
@@ -103,7 +132,8 @@ pub fn register_methods(registry: &mut TypeRegistry)
         let return_type = registry.intern(TypeKind::Optional(item));
         registry.register_method(receiver, BuiltinMethod
             {
-                name: "next_item", argument_count: 0, return_type, body: next_item,
+                name: "next_item", receiver_type: receiver, argument_count: 0,
+                return_type, body: next_item,
                 mutates_receiver: true, native_iterator: true,
             });
     }

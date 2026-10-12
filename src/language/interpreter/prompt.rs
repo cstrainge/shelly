@@ -39,8 +39,10 @@ impl Interpreter
     {
         let Value::Array(widgets) = self.read_raw_variable("$widgets", location)? else
         {
-            return Err(InterpreterError { location: location.clone(),
-                what: ErrorWhat::InvalidOperand("Widgets require an array".into()) });
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::InvalidOperand("Widgets require an array".into())
+            ));
         };
         let widget_type = self.scope().types.native_types["WidgetFn"].id;
         let mut rendered = String::new();
@@ -56,8 +58,10 @@ impl Interpreter
         {
             let Value::String(color, _) = self.read_raw_variable("$widget_color", location)? else
             {
-                return Err(InterpreterError { location: location.clone(),
-                    what: ErrorWhat::InvalidOperand("Widget color must be a String".into()) });
+                return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::InvalidOperand("Widget color must be a String".into())
+                ));
             };
             // An empty setting uses the terminal's default text color, not the bracket grey.
             if color.is_empty() { reset.to_string() } else { color }
@@ -66,15 +70,19 @@ impl Interpreter
         for widget in widgets.iter()
         {
             let widget = self.scope().types.coerce(widget_type, widget.clone())
-                .map_err(|message| InterpreterError { location: location.clone(),
-                    what: ErrorWhat::InvalidOperand(message) })?;
+                .map_err(|message| InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::InvalidOperand(message)
+                ))?;
             self.last_result = None;
             self.execute_value(location, widget, Vec::new())?;
             if self.halted { break; }
             let Value::String(text, _) = self.last_result.take().unwrap_or(Value::None) else
             {
-                return Err(InterpreterError { location: location.clone(),
-                    what: ErrorWhat::InvalidOperand("Widget must return a String".into()) });
+                return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::InvalidOperand("Widget must return a String".into())
+                ));
             };
             if text.is_empty() { continue; }
             rendered.push_str(brackets);
@@ -124,8 +132,10 @@ impl Interpreter
                 let prompt_type = self.scope().types.native_types["Prompt"].id;
                 let prompt = self.scope().types.coerce(prompt_type,
                     self.read_raw_variable("$prompt", &location)?)
-                    .map_err(|message| InterpreterError { location: location.clone(),
-                        what: ErrorWhat::InvalidOperand(message) })?;
+                    .map_err(|message| InterpreterError::new(
+                        location.clone(),
+                        ErrorWhat::InvalidOperand(message)
+                    ))?;
                 let home = self.prompt_home(&prompt);
                 let scope = self.scopes.get_mut(&home).expect("Prompt module must exist");
                 let initial_scope = scope.variables.current_scope();

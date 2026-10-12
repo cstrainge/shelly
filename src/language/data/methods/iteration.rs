@@ -1,12 +1,12 @@
 
 use std::rc::Rc;
 
-use crate::language::data::value::Value;
+use crate::language::data::{ methods::NativeMethodError, value::Value };
 
 
 // Direct method calls advance the receiver. For loops use a private snapshot and
 // an equivalent native cursor to avoid repeatedly copying or shifting collections.
-pub(super) fn next_item(receiver: &mut Value, _: &[Value]) -> Result<Value, String>
+pub(super) fn next_item(receiver: &mut Value, _: &[Value]) -> Result<Value, NativeMethodError>
 {
     match receiver
     {

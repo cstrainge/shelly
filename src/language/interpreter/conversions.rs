@@ -50,13 +50,16 @@ impl Interpreter
             };
         if matches!(bound, Some(Value::None)) && function.is_none()
         {
-            return Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::InvalidOperand(format!(
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::InvalidOperand(
+                    format!(
                         "Conversion method '{}::{}' is unavailable during module initialization",
-                        self.scope().types.get(target).name, name)),
-                });
+                        self.scope().types.get(target).name,
+                        name
+                    )
+                )
+            ));
         }
         let converted = if let Some(function) = function
         {
@@ -70,11 +73,10 @@ impl Interpreter
         {
             self.scope().types.convert(target, &value)
         };
-        self.last_result = Some(converted.map_err(|message| InterpreterError
-            {
-                location: location.clone(),
-                what: ErrorWhat::InvalidOperand(format!("Type conversion error: {}", message)),
-            })?);
+        self.last_result = Some(converted.map_err(|message| InterpreterError::new(
+            location.clone(),
+            ErrorWhat::InvalidOperand(format!("Type conversion error: {}", message))
+        ))?);
         Ok(())
     }
 }

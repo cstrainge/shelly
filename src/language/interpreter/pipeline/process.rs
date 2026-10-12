@@ -70,13 +70,12 @@ impl External
             })();
         if let Err(error) = redirects
         { let _ = interpreter.finish_redirections(depth); return Err(error); }
-        let child = command.spawn().map_err(|error| InterpreterError
-            {
-                location: stage.location.clone(),
-                what: if error.kind() == ErrorKind::NotFound
-                    { ErrorWhat::ExecutableNotFound(interpreter.eval_path_to(&executable)) }
-                    else { ErrorWhat::ExecutableIoError(error.to_string()) },
-            });
+        let child = command.spawn().map_err(|error| InterpreterError::new(
+            stage.location.clone(),
+            if error.kind() == ErrorKind::NotFound
+            { ErrorWhat::ExecutableNotFound(interpreter.eval_path_to(&executable)) }
+            else { ErrorWhat::ExecutableIoError(error.to_string()) }
+        ));
         // Process-specific captures remain alive until that process has completed.
         // The stream owns their shell endpoints; no endpoint leaks into later stages.
         let redirects = interpreter.redirections.split_off(depth);

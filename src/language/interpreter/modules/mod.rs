@@ -173,9 +173,10 @@ impl ModuleSource
 }
 
 
+#[track_caller]
 fn module_error(location: &Location, message: impl Into<String>) -> InterpreterError
 {
-    InterpreterError { location: location.clone(), what: ErrorWhat::ModuleError(message.into()) }
+    InterpreterError::new(location.clone(), ErrorWhat::ModuleError(message.into()))
 }
 
 
@@ -453,8 +454,10 @@ impl Interpreter
     {
         if !args.is_empty()
         {
-            return Err(InterpreterError { location: location.clone(),
-                what: ErrorWhat::ArgumentMismatch("prelude_reload expects no arguments.".into()) });
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::ArgumentMismatch("prelude_reload expects no arguments.".into())
+            ));
         }
         if self.prelude_loading
         { return Err(module_error(location, "Cannot reload the prelude while it is loading")); }

@@ -55,10 +55,13 @@ impl<'a> StageStream<'a>
             external_started: false, iterate_source, iteration: None }
     }
 
+    #[track_caller]
     fn error(&self, message: impl Into<String>) -> InterpreterError
     {
-        InterpreterError { location: self.stage.location.clone(),
-            what: ErrorWhat::InvalidOperand(message.into()) }
+        InterpreterError::new(
+            self.stage.location.clone(),
+            ErrorWhat::InvalidOperand(message.into())
+        )
     }
 
     fn prepare(&self, interpreter: &mut Interpreter, input: Option<&Value>)
@@ -237,9 +240,12 @@ impl<'a> StageStream<'a>
                 if let Some(item) = item
                 {
                     value = interpreter.scope().types.coerce(item, value).map_err(|message|
-                        InterpreterError { location: self.stage.location.clone(),
-                            what: ErrorWhat::InvalidOperand(
-                                format!("Pipeline destination: {}", message)) })?;
+                        InterpreterError::new(
+                            self.stage.location.clone(),
+                            ErrorWhat::InvalidOperand(
+                                format!("Pipeline destination: {}", message)
+                            )
+                        ))?;
                 }
             }
             values.push(value);

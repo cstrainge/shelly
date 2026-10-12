@@ -22,6 +22,7 @@ pub(super) struct BoundaryStream<'a>
 }
 
 
+#[track_caller]
 fn error(boundary: &PipelineBoundary, source: impl Display,
          message: impl Display)
     -> InterpreterError
@@ -29,9 +30,26 @@ fn error(boundary: &PipelineBoundary, source: impl Display,
     let format = boundary.decode.as_deref().or(boundary.annotation.as_deref()).unwrap_or("default");
     let target = boundary.type_id.map(|_| boundary.annotation.as_deref().unwrap())
         .unwrap_or("inferred");
-    InterpreterError { location: boundary.location.clone(), what: ErrorWhat::InvalidOperand(
-        format!("Pipe conversion format '{}', source {}, destination {}: {}",
-            format, source, target, message)) }
+    InterpreterError::new(
+        boundary.location.clone(),
+        ErrorWhat::InvalidOperand(
+            format!(
+                "Pipe conversion format '{}', source {}, destination {}: {}",
+                format,
+                source,
+                target,
+                message
+            )
+        )
+    )
+}
+
+
+fn conversion_error(boundary: &PipelineBoundary, source: impl Display,
+                    cause: InterpreterError) -> InterpreterError
+{
+    let context = error(boundary, source, &cause.what);
+    cause.with_context(context)
 }
 
 
@@ -80,20 +98,28 @@ impl<'a> BoundaryStream<'a>
         if let Some(target) = self.target
         {
             value = interpreter.pipeline_target(self.boundary, target, value)
-                .map_err(|error_value| error(self.boundary, &source, error_value))?;
+                .map_err(|error_value| conversion_error(self.boundary, &source, error_value))?;
         }
         if let Some(format) = &self.encoder
         {
             let source = value.type_name();
-            let encoding_error = |message: String| InterpreterError
-                {
-                    location: self.boundary.location.clone(),
-                    what: ErrorWhat::InvalidOperand(format!(
+            let encoding_error = |message: String| InterpreterError::new(
+                self.boundary.location.clone(),
+                ErrorWhat::InvalidOperand(
+                    format!(
                         "Pipe conversion format '{}', source {}, destination String: {}",
-                        format, source, message)),
-                };
+                        format,
+                        source,
+                        message
+                    )
+                )
+            );
             value = interpreter.pipeline_codec(self.boundary, format, true, value)
-                .map_err(|error| encoding_error(error.to_string()))?;
+                .map_err(|error|
+                    {
+                        let context = encoding_error(error.what.to_string());
+                        error.with_context(context)
+                    })?;
             let Value::String(text, Executable::No) = value.underlying() else
                 { return Err(encoding_error("An encoder must return String".into())); };
             return Ok(Data::Bytes(text.as_bytes().to_vec()));
@@ -105,7 +131,8 @@ impl<'a> BoundaryStream<'a>
     {
         let format = self.boundary.decode.as_ref().unwrap();
         let mut value = interpreter.pipeline_codec(self.boundary, format, false,
-            Value::from_string(record)).map_err(|message| error(self.boundary, "String", message))?;
+            Value::from_string(record))
+            .map_err(|cause| conversion_error(self.boundary, "String", cause))?;
         if let Some(target) = self.target
             && matches!(interpreter.scope().types.get(
                 interpreter.scope().types.underlying_type(target)).kind, TypeKind::Struct(_))
@@ -183,7 +210,7 @@ impl Stream for BoundaryStream<'_>
                             .map_err(|message| error(self.boundary, "bytes", message))?;
                         let value = interpreter.pipeline_codec(self.boundary, format, false,
                             Value::from_string(text))
-                            .map_err(|message| error(self.boundary, "String", message))?;
+                            .map_err(|cause| conversion_error(self.boundary, "String", cause))?;
                         Ok(Step::Data(self.map(interpreter, value)?))
                     }
                     else { Ok(Step::End) }
@@ -250,6 +277,7 @@ impl Interpreter
                                   value: Value) -> InterpreterResult<Value>
     {
         let types = self.scope().types.clone();
+        let mut failure = None;
         map_value(&types, target, value, &mut |target, value|
             {
                 if let Value::Struct(candidate) = value
@@ -266,7 +294,12 @@ impl Interpreter
                     let arguments = signature.arguments(candidate.fields.clone())?;
                     self.last_result = None;
                     self.execute_value(&boundary.location, factory, arguments)
-                        .map_err(|error| error.to_string())?;
+                        .map_err(|error|
+                            {
+                                let message = error.what.to_string();
+                                failure = Some(error);
+                                message
+                            })?;
                     let value = self.last_result.take().unwrap_or(Value::None);
                     return types.coerce(signature.result, value).map(Some);
                 }
@@ -276,10 +309,19 @@ impl Interpreter
                     else { return Ok(None); };
                 self.last_result = None;
                 self.execute_value(&boundary.location, factory, vec![value.clone()])
-                    .map_err(|error| error.to_string())?;
+                    .map_err(|error|
+                            {
+                                let message = error.what.to_string();
+                                failure = Some(error);
+                                message
+                            })?;
                 let converted = self.last_result.take().unwrap_or(Value::None);
                 types.coerce(target, converted).map(Some)
-            }).map_err(|message| error(boundary, "decoded value", message))
+            }).map_err(|message|
+                {
+                    let context = error(boundary, "decoded value", message);
+                    if let Some(cause) = failure { cause.with_context(context) } else { context }
+                })
     }
 
 
@@ -311,8 +353,12 @@ impl Interpreter
                 .map_err(|message| error(&boundary, value.type_name(), message))?;
             return Ok(converted.as_text().into_bytes());
         }
-        Err(InterpreterError { location: stage.location.clone(), what: ErrorWhat::InvalidOperand(
-            "External input requires String or a String conversion; specify an encoding format"
-                .into()) })
+        Err(InterpreterError::new(
+            stage.location.clone(),
+            ErrorWhat::InvalidOperand(
+                "External input requires String or a String conversion; specify an encoding format"
+                .into()
+            )
+        ))
     }
 }

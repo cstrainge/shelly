@@ -141,12 +141,12 @@ impl Interpreter
     {
         let [Value::String(source, _), Value::String(mode, _), Value::Array(commands)] = args else
         {
-            return Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::ArgumentMismatch(
-                        "__highlight_source expects source, color mode, and command names".into()),
-                });
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::ArgumentMismatch(
+                    "__highlight_source expects source, color mode, and command names".into()
+                )
+            ));
         };
         let mode = match mode.as_str()
             {
@@ -154,11 +154,10 @@ impl Interpreter
                 "basic" => TtyColorMode::TtyBasic,
                 "256" => TtyColorMode::Tty256,
                 "truecolor" => TtyColorMode::TtyTrueColor,
-                _ => return Err(InterpreterError
-                    {
-                        location: location.clone(),
-                        what: ErrorWhat::ArgumentMismatch("Unknown highlighting color mode".into()),
-                    }),
+                _ => return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::ArgumentMismatch("Unknown highlighting color mode".into())
+                )),
             };
         let before = self.scope().types.definition_count();
         let mut snapshot = self.symbol_snapshot();
@@ -166,11 +165,10 @@ impl Interpreter
         {
             let Value::String(command, _) = command else
             {
-                return Err(InterpreterError
-                    {
-                        location: location.clone(),
-                        what: ErrorWhat::ArgumentMismatch("External names must be Strings".into()),
-                    });
+                return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::ArgumentMismatch("External names must be Strings".into())
+                ));
             };
             snapshot.external_commands.insert(command.clone());
         }
@@ -201,12 +199,12 @@ impl Interpreter
     {
         let [Value::String(source, _), Value::Array(commands)] = args else
         {
-            return Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::ArgumentMismatch(
-                        "__semantic_source expects a String and an array of Strings".into()),
-                });
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::ArgumentMismatch(
+                    "__semantic_source expects a String and an array of Strings".into()
+                )
+            ));
         };
         fn require_send_sync<T: Send + Sync>() {}
         require_send_sync::<SymbolSnapshot>();
@@ -217,11 +215,10 @@ impl Interpreter
         {
             let Value::String(command, _) = command else
             {
-                return Err(InterpreterError
-                    {
-                        location: location.clone(),
-                        what: ErrorWhat::ArgumentMismatch("External names must be Strings".into()),
-                    });
+                return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::ArgumentMismatch("External names must be Strings".into())
+                ));
             };
             snapshot.external_commands.insert(command.clone());
         }
@@ -246,8 +243,10 @@ impl Interpreter
     {
         let [Value::String(source, _)] = args else
         {
-            return Err(InterpreterError { location: location.clone(),
-                what: ErrorWhat::ArgumentMismatch("__editor_source expects one String".into()) });
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::ArgumentMismatch("__editor_source expects one String".into())
+            ));
         };
         let analysis: EditorAnalysis = analyze_editor(source);
         let tokens = analysis.tokens.iter().map(|token| record([
@@ -315,9 +314,12 @@ impl Interpreter
     {
         let [Value::String(source, _), Value::Boolean(stream), Value::Boolean(metadata)] = args else
         {
-            return Err(InterpreterError { location: location.clone(),
-                what: ErrorWhat::ArgumentMismatch(
-                    format!("{} expects a String and two Booleans", name)) });
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::ArgumentMismatch(
+                    format!("{} expects a String and two Booleans", name)
+                )
+            ));
         };
         let result = if *stream
             {

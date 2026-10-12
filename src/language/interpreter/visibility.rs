@@ -10,9 +10,10 @@ use crate::language::{ ast::{ AstExpression, AstExpressionKind, AstStatement, As
                        text::location::Location };
 
 
+#[track_caller]
 fn visibility_error(location: &Location, message: impl Into<String>) -> InterpreterError
 {
-    InterpreterError { location: location.clone(), what: ErrorWhat::ModuleError(message.into()) }
+    InterpreterError::new(location.clone(), ErrorWhat::ModuleError(message.into()))
 }
 
 

@@ -1,34 +1,34 @@
 
 use std::cmp::Ordering;
 
-use crate::language::data::value::Value;
+use crate::language::data::{ methods::NativeMethodError, value::Value };
 
 
 
-fn elements(receiver: &Value) -> Result<&[Value], String>
+fn elements(receiver: &Value) -> Result<&[Value], NativeMethodError>
 {
     match receiver
     {
         Value::Array(values) | Value::ArgumentExpansion(values) => Ok(values),
-        _ => Err("Array methods require an array or argument expansion".to_string()),
+        _ => Err("Array methods require an array or argument expansion".into()),
     }
 }
 
-pub(super) fn count(receiver: &mut Value, _: &[Value]) -> Result<Value, String>
+pub(super) fn count(receiver: &mut Value, _: &[Value]) -> Result<Value, NativeMethodError>
 {
     let length = i64::try_from(elements(receiver)?.len())
         .map_err(|_| "Array length exceeds Integer range".to_string())?;
     Ok(Value::Integer(length))
 }
 
-pub(super) fn reverse(receiver: &mut Value, _: &[Value]) -> Result<Value, String>
+pub(super) fn reverse(receiver: &mut Value, _: &[Value]) -> Result<Value, NativeMethodError>
 {
     let mut result = Value::from_array(elements(receiver)?.iter().rev().cloned().collect());
     if let Some(id) = receiver.collection_type() { result = result.with_collection_type(id); }
     Ok(result)
 }
 
-pub(super) fn zip(receiver: &mut Value, arguments: &[Value]) -> Result<Value, String>
+pub(super) fn zip(receiver: &mut Value, arguments: &[Value]) -> Result<Value, NativeMethodError>
 {
     let left = elements(receiver)?;
     let right = elements(&arguments[0])?;
@@ -68,7 +68,7 @@ fn compare(left: &Value, right: &Value) -> Option<Ordering>
     }
 }
 
-pub(super) fn sort(receiver: &mut Value, _: &[Value]) -> Result<Value, String>
+pub(super) fn sort(receiver: &mut Value, _: &[Value]) -> Result<Value, NativeMethodError>
 {
     let values = elements(receiver)?;
     // Validate even singleton inputs. Comparison must be total within the chosen category.
@@ -79,7 +79,7 @@ pub(super) fn sort(receiver: &mut Value, _: &[Value]) -> Result<Value, String>
             if compare(first, value).is_none()
             {
                 return Err("sort requires numbers, strings, booleans, or variants of one enum; \
-                    values must be mutually comparable and numbers finite".to_string());
+                    values must be mutually comparable and numbers finite".into());
             }
         }
     }

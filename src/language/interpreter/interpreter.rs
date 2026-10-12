@@ -9,6 +9,7 @@ use std::{ cell::RefCell,
                   set_current_dir,
                   split_paths },
            fmt::{ self, Debug, Display, Formatter },
+           panic::Location as NativeLocation,
            fs::File,
            io::{ BufReader, Error, ErrorKind, Read, Write, copy, pipe, stdout, stderr },
            path::{ Path, PathBuf, Component, MAIN_SEPARATOR_STR, is_separator },
@@ -26,6 +27,7 @@ use hostname::get as get_hostname;
 
 use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
                          compiler::CompileError,
+                         interpreter::CallFrame,
                          native::{ NativeFunction, NativeFunctions, NativeVisibility },
                          data::{ value::{ ExecResult, Executable, Value },
                                  closure::ClosureValue,
@@ -146,7 +148,69 @@ impl Display for ErrorWhat
 pub struct InterpreterError
 {
     pub(super) location: Location,
-    pub(super) what: ErrorWhat
+    pub(super) what: ErrorWhat,
+    pub(super) trace: Box<ErrorTrace>,
+}
+
+
+pub(super) struct ErrorTrace
+{
+    pub(super) call_stack: Vec<CallFrame>,
+    pub(super) native_location: Option<Location>,
+}
+
+
+impl InterpreterError
+{
+    #[track_caller]
+    pub(super) fn new(location: Location, what: ErrorWhat) -> Self
+    {
+        let caller = NativeLocation::caller();
+        let native_location = if matches!(what,
+            ErrorWhat::ParserError(_) | ErrorWhat::CompileError(_))
+        {
+            None
+        }
+        else
+        {
+            Some(Location::new(caller.file(), caller.line() as usize,
+                               caller.column() as usize))
+        };
+        let trace = Box::new(ErrorTrace
+            {
+                call_stack: Vec::new(),
+                native_location,
+            });
+        Self { location, what, trace }
+    }
+
+    pub fn call_stack(&self) -> &[CallFrame] { &self.trace.call_stack }
+
+    pub fn native_location(&self) -> Option<&Location> { self.trace.native_location.as_ref() }
+
+    pub(super) fn with_context(self, mut context: Self) -> Self
+    {
+        context.location = self.location;
+        context.trace.native_location = self.trace.native_location;
+        context.trace.call_stack = self.trace.call_stack;
+        context
+    }
+
+    #[track_caller]
+    pub(super) fn through_call(mut self, name: &str, location: &Location, native: bool) -> Self
+    {
+        let caller = NativeLocation::caller();
+        let native_location = native.then(||
+            Location::new(caller.file(), caller.line() as usize, caller.column() as usize));
+        self.trace.call_stack.push(CallFrame
+            {
+                name: name.into(),
+                location: location.clone(),
+                native,
+                native_location,
+            });
+        self
+    }
 }
 
 
@@ -154,11 +218,7 @@ impl From<ParserError> for InterpreterError
 {
     fn from(error: ParserError) -> Self
     {
-        InterpreterError
-            {
-                location: Location::default(),
-                what: ErrorWhat::ParserError(error)
-            }
+        InterpreterError::new(Location::default(), ErrorWhat::ParserError(error))
     }
 }
 
@@ -167,11 +227,7 @@ impl From<CompileError> for InterpreterError
 {
     fn from(error: CompileError) -> Self
     {
-        InterpreterError
-            {
-                location: Location::default(),
-                what: ErrorWhat::CompileError(error)
-            }
+        InterpreterError::new(Location::default(), ErrorWhat::CompileError(error))
     }
 }
 
@@ -180,7 +236,21 @@ impl Display for InterpreterError
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
     {
-        write!(f, "Interpreter error at {}: {}", self.location, self.what)
+        write!(f, "Interpreter error at {}: {}", self.location, self.what)?;
+        if let Some(location) = self.native_location()
+        { write!(f, "\nNative error at {}", location)?; }
+        if !self.trace.call_stack.is_empty()
+        {
+            write!(f, "\nCall stack (most recent call first):")?;
+            for frame in self.call_stack()
+            {
+                let native = if frame.native { " [native]" } else { "" };
+                write!(f, "\n    at {}{} ({})", frame.name, native, frame.location)?;
+                if let Some(location) = &frame.native_location
+                { write!(f, "\n        native boundary at {}", location)?; }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -377,11 +447,10 @@ impl Interpreter
                         if let Some(output) = interpreter.captured_stdout.as_mut()
                         { output.extend_from_slice(&bytes); }
                     }
-                    let result = result.map_err(|error| InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::InvalidOperand(error),
-                            })?;
+                    let result = result.map_err(|error| InterpreterError::new(
+                        location.clone(),
+                        ErrorWhat::InvalidOperand(error)
+                    ))?;
                     interpreter.last_result = Some(result);
                     Ok(())
                 }));
@@ -393,15 +462,20 @@ impl Interpreter
                 {
                     let [value] = args else
                     {
-                        return Err(InterpreterError { location: location.clone(),
-                            what: ErrorWhat::ArgumentMismatch(
-                                format!("{} requires exactly one argument", name)) });
+                        return Err(InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::ArgumentMismatch(
+                                format!("{} requires exactly one argument", name)
+                            )
+                        ));
                     };
                     let result = if encoding
                         { encode(format, value) }
                         else { decode(format, value) };
-                    interpreter.last_result = Some(result.map_err(|message| InterpreterError
-                        { location: location.clone(), what: ErrorWhat::InvalidOperand(message) })?);
+                    interpreter.last_result = Some(result.map_err(|message| InterpreterError::new(
+                        location.clone(),
+                        ErrorWhat::InvalidOperand(message)
+                    ))?);
                     Ok(())
                 }));
         }
@@ -770,8 +844,7 @@ impl Interpreter
 
             if take_interrupt()
             {
-                return Err(InterpreterError
-                    { location: location.clone(), what: ErrorWhat::Interrupted });
+                return Err(InterpreterError::new(location.clone(), ErrorWhat::Interrupted));
             }
 
             match instruction.code
@@ -785,10 +858,14 @@ impl Interpreter
                              Value::Integer(pending)] = parts.as_slice()
                         else { unreachable!("Invalid redirection operand"); };
                         let index = stack.len().checked_sub(*pending as usize)
-                            .ok_or_else(|| InterpreterError
-                                { location: location.clone(), what: ErrorWhat::StackUnderflow })?;
-                        let target = stack.remove(index).ok_or_else(|| InterpreterError
-                            { location: location.clone(), what: ErrorWhat::StackUnderflow })?;
+                            .ok_or_else(|| InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::StackUnderflow
+                            ))?;
+                        let target = stack.remove(index).ok_or_else(|| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::StackUnderflow
+                        ))?;
                         self.begin_redirection(&location, *stream, *variable, target)?;
                     },
 
@@ -801,8 +878,10 @@ impl Interpreter
                     {
                         let Some(Value::Boolean(command_word)) = &instruction.operand
                         else { unreachable!("Invalid redirection source operand"); };
-                        let value = self.last_result.take().ok_or_else(|| InterpreterError
-                            { location: location.clone(), what: ErrorWhat::NoResult })?;
+                        let value = self.last_result.take().ok_or_else(|| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::NoResult
+                        ))?;
                         self.redirect_source(&location, value, *command_word)?;
                     },
 
@@ -816,11 +895,10 @@ impl Interpreter
                         {
                             let message = "Missing operand for Push instruction.".to_string();
 
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(message)
-                                });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(message)
+                            ));
                         }
                     },
 
@@ -828,11 +906,10 @@ impl Interpreter
                     {
                         if !self.scope().in_function()
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::ReturnOutsideFunction
-                                });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::ReturnOutsideFunction
+                            ));
                         }
 
                         return Ok(());
@@ -881,23 +958,25 @@ impl Interpreter
 
                 Code::MakeExecutable =>
                     {
-                        let value = self.last_result.take().ok_or_else(|| InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::NoResult
-                            })?;
+                        let value = self.last_result.take().ok_or_else(|| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::NoResult
+                        ))?;
                         if matches!(value, Value::Type(_))
                         {
-                            return Err(InterpreterError { location: location.clone(),
-                                what: ErrorWhat::InvalidOperand(
-                                    "Cannot execute a type as a command".into()) });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    "Cannot execute a type as a command".into()
+                                )
+                            ));
                         }
                         if matches!(value, Value::Enum(_) | Value::Struct(_) | Value::Terminal(_))
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(format!(
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    format!(
                                         "Cannot execute {} as a command",
                                         if matches!(value, Value::Enum(_))
                                         {
@@ -911,8 +990,9 @@ impl Interpreter
                                         {
                                             "a struct"
                                         }
-                                    )),
-                                });
+                                    )
+                                )
+                            ));
                         }
                         self.last_result = Some(match value
                             {
@@ -949,11 +1029,10 @@ impl Interpreter
 
                             Some(value) => self.last_result = Some(value),
 
-                            None => return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::NoResult
-                                })
+                            None => return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::NoResult
+                            ))
                         }
                     },
 
@@ -976,11 +1055,10 @@ impl Interpreter
                             {
                                 let message = "Negative argument count for Execute instruction.";
 
-                                return Err(InterpreterError
-                                    {
-                                        location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand(message.to_string())
-                                    });
+                                return Err(InterpreterError::new(
+                                    location.clone(),
+                                    ErrorWhat::InvalidOperand(message.to_string())
+                                ));
                             }
 
                             for _ in 0..value
@@ -1002,12 +1080,12 @@ impl Interpreter
                         }
                         else
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        "Missing operand for Execute instruction.".to_string())
-                                });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    "Missing operand for Execute instruction.".to_string()
+                                )
+                            ));
                         }
 
                         args.reverse();
@@ -1055,14 +1133,14 @@ impl Interpreter
 
                         let Some((alias, count)) = definition else
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        "NewAlias requires a nonempty alias name and a \
-                                            nonnegative argument count."
-                                            .to_string())
-                                });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    "NewAlias requires a nonempty alias name and a \
+                                    nonnegative argument count."
+                                    .to_string()
+                                )
+                            ));
                         };
 
                         let mut arguments = Vec::new();
@@ -1080,8 +1158,10 @@ impl Interpreter
 
                 Code::BindParameter | Code::BindRestParameter =>
                     {
-                        let invalid = |message| InterpreterError { location: location.clone(),
-                            what: ErrorWhat::ArgumentMismatch(message) };
+                        let invalid = |message| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::ArgumentMismatch(message)
+                        );
                         let Some(Value::Array(parts)) = &instruction.operand else
                         { return Err(invalid("Invalid parameter binding operand".to_string())); };
                         let [
@@ -1161,20 +1241,22 @@ impl Interpreter
                                     {
                                         let [Value::String(name, _),
                                              Value::Integer(id)] = parts.as_slice() else
-                                        { return Err(InterpreterError { location: location.clone(),
-                                            what: ErrorWhat::InvalidOperand(
-                                                "Invalid typed variable operand".to_string()) }); };
+                                        { return Err(InterpreterError::new(
+                                            location.clone(),
+                                            ErrorWhat::InvalidOperand(
+                                                "Invalid typed variable operand".to_string()
+                                            )
+                                        )); };
                                         (name.clone(), Some(TypeId(*id as usize)))
                                     },
-                                _ => return Err(InterpreterError
-                                    {
-                                        location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand(
-                                            "Missing or invalid operand for NewVariable \
-                                                instruction."
-                                                .to_string(),
-                                        )
-                                    })
+                                _ => return Err(InterpreterError::new(
+                                    location.clone(),
+                                    ErrorWhat::InvalidOperand(
+                                        "Missing or invalid operand for NewVariable \
+                                        instruction."
+                                        .to_string()
+                                    )
+                                ))
                             };
 
                         let type_id = type_id.or_else(||
@@ -1202,12 +1284,12 @@ impl Interpreter
                                     reference: None,
                                 })
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        format!("Failed to create variable: {}", error))
-                                });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    format!("Failed to create variable: {}", error)
+                                )
+                            ));
                         }
                     },
 
@@ -1216,29 +1298,27 @@ impl Interpreter
                         let Some(Value::Integer(id)) = instruction.operand
                         else
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        "Invalid ValidateType operand".to_string(),
-                                    ),
-                                });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    "Invalid ValidateType operand".to_string()
+                                )
+                            ));
                         };
-                        let value = stack.back_mut().ok_or_else(|| InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::InvalidOperand(
-                                    "Missing value for type validation".to_string(),
-                                ),
-                            })?;
+                        let value = stack.back_mut().ok_or_else(|| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::InvalidOperand(
+                                "Missing value for type validation".to_string()
+                            )
+                        ))?;
                         *value = self.scope().types
                             .coerce(TypeId(id as usize), value.clone())
-                            .map_err(|message| InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        format!("Type error: {}", message)),
-                                })?;
+                            .map_err(|message| InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    format!("Type error: {}", message)
+                                )
+                            ))?;
                     },
 
                 Code::SetVariable =>
@@ -1246,15 +1326,14 @@ impl Interpreter
                         let variable_name = match &instruction.operand
                             {
                                 Some(Value::String(name, _)) => name.clone(),
-                                _ => return Err(InterpreterError
-                                    {
-                                        location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand(
-                                            "Missing or invalid operand for SetVariable \
-                                                instruction."
-                                                .to_string(),
-                                        )
-                                    })
+                                _ => return Err(InterpreterError::new(
+                                    location.clone(),
+                                    ErrorWhat::InvalidOperand(
+                                        "Missing or invalid operand for SetVariable \
+                                        instruction."
+                                        .to_string()
+                                    )
+                                ))
                             };
 
                         let mut value = Self::pop(&location, &mut stack)?;
@@ -1288,11 +1367,10 @@ impl Interpreter
 
                 Code::NextIteration =>
                     {
-                        let iteration = iterations.last_mut().ok_or_else(|| InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::InvalidOperand("No active iteration".to_string())
-                            })?;
+                        let iteration = iterations.last_mut().ok_or_else(|| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::InvalidOperand("No active iteration".to_string())
+                        ))?;
                         if let Some(value) = iteration.next(self, &location)?
                         {
                             Self::push(&mut stack, value);
@@ -1306,11 +1384,10 @@ impl Interpreter
 
                 Code::EndIteration =>
                     {
-                        iterations.pop().ok_or_else(|| InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::InvalidOperand("No active iteration".to_string())
-                            })?;
+                        iterations.pop().ok_or_else(|| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::InvalidOperand("No active iteration".to_string())
+                        ))?;
                         self.last_result = None;
                     },
 
@@ -1320,13 +1397,12 @@ impl Interpreter
                             {
                                 Some(Value::Integer(flags)) if (0..=7).contains(&flags)
                                     && (flags & 4 == 0 || flags & 2 != 0) => flags,
-                                _ => return Err(InterpreterError
-                                    {
-                                        location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand(
-                                            "Invalid MakeRange flags.".to_string(),
-                                        ),
-                                    })
+                                _ => return Err(InterpreterError::new(
+                                    location.clone(),
+                                    ErrorWhat::InvalidOperand(
+                                        "Invalid MakeRange flags.".to_string()
+                                    )
+                                ))
                             };
                         let end = if flags & 2 != 0
                         {
@@ -1366,13 +1442,12 @@ impl Interpreter
                         let count = match instruction.operand
                             {
                                 Some(Value::Integer(count)) if count >= 0 => count as usize,
-                                _ => return Err(InterpreterError
-                                    {
-                                        location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand(
-                                            "Invalid MakeHashMap count.".to_string(),
-                                        ),
-                                    })
+                                _ => return Err(InterpreterError::new(
+                                    location.clone(),
+                                    ErrorWhat::InvalidOperand(
+                                        "Invalid MakeHashMap count.".to_string()
+                                    )
+                                ))
                             };
                         let mut pairs = Vec::new();
                         for _ in 0..count
@@ -1392,33 +1467,36 @@ impl Interpreter
                     {
                         let Some(Value::Integer(count)) = instruction.operand else
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        "Missing array destructuring length".to_string()),
-                                });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    "Missing array destructuring length".to_string()
+                                )
+                            ));
                         };
                         let value = Self::pop(&location, &mut stack)?;
                         let values = match value.underlying()
                             {
                                 Value::Array(values) | Value::ArgumentExpansion(values) => values,
-                                _ => return Err(InterpreterError
-                                    {
-                                        location: location.clone(),
-                                        what: ErrorWhat::ArrayError(
-                                            "Array destructuring requires an array".to_string()),
-                                    })
+                                _ => return Err(InterpreterError::new(
+                                    location.clone(),
+                                    ErrorWhat::ArrayError(
+                                        "Array destructuring requires an array".to_string()
+                                    )
+                                ))
                             };
                         if usize::try_from(count).ok() != Some(values.len())
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::ArrayError(format!(
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::ArrayError(
+                                    format!(
                                         "Array destructuring expected {} elements, got {}",
-                                        count, values.len())),
-                                });
+                                        count,
+                                        values.len()
+                                    )
+                                )
+                            ));
                         }
                         for value in values.iter() { Self::push(&mut stack, value.clone()); }
                     },
@@ -1428,13 +1506,12 @@ impl Interpreter
                         let count = match instruction.operand
                             {
                                 Some(Value::Integer(count)) if count >= 0 => count as usize,
-                                _ => return Err(InterpreterError
-                                    {
-                                        location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand(
-                                            "Invalid MakeArray count.".to_string(),
-                                        ),
-                                    })
+                                _ => return Err(InterpreterError::new(
+                                    location.clone(),
+                                    ErrorWhat::InvalidOperand(
+                                        "Invalid MakeArray count.".to_string()
+                                    )
+                                ))
                             };
                         let mut elements = Vec::new();
                         for _ in 0..count { elements.push(Self::pop(&location, &mut stack)?); }
@@ -1454,11 +1531,10 @@ impl Interpreter
 
                 Code::MakeStruct =>
                     {
-                        let invalid = |message| InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::InvalidOperand(message),
-                            };
+                        let invalid = |message| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::InvalidOperand(message)
+                        );
                         let Some(Value::Array(parts)) = &instruction.operand else
                         { return Err(invalid("Invalid MakeStruct operand".to_string())); };
                         let [Value::Integer(id), Value::Array(indexes), snapshot,
@@ -1584,9 +1660,12 @@ impl Interpreter
                             self.read_reference(&location, &reference)?);
                         let Some(Value::Array(operands)) = &instruction.operand else
                         {
-                            return Err(InterpreterError { location: location.clone(),
-                                what: ErrorWhat::InvalidOperand(
-                                    "Missing field operand".to_string()) });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    "Missing field operand".to_string()
+                                )
+                            ));
                         };
                         let field = &operands[0];
                         let field = self.resolve_field_name(&location, field)?;
@@ -1623,21 +1702,19 @@ impl Interpreter
                                         [Value::String(name, _),
                                          Value::Array(fields)] if !fields.is_empty() =>
                                             (name, fields),
-                                        _ => return Err(InterpreterError
-                                            {
-                                                location: location.clone(),
-                                                what: ErrorWhat::InvalidOperand(
-                                                    "Invalid SetElement operand.".to_string(),
-                                                ),
-                                            })
+                                        _ => return Err(InterpreterError::new(
+                                            location.clone(),
+                                            ErrorWhat::InvalidOperand(
+                                                "Invalid SetElement operand.".to_string()
+                                            )
+                                        ))
                                     },
-                                _ => return Err(InterpreterError
-                                    {
-                                        location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand(
-                                            "Missing SetElement operand.".to_string(),
-                                        ),
-                                    })
+                                _ => return Err(InterpreterError::new(
+                                    location.clone(),
+                                    ErrorWhat::InvalidOperand(
+                                        "Missing SetElement operand.".to_string()
+                                    )
+                                ))
                             };
                         let value = Self::pop(&location, &mut stack)?;
                         let mut indexes = Vec::new();
@@ -1656,12 +1733,12 @@ impl Interpreter
                         self.set_element(&location, &mut updated, &indexes, fields, value)?;
                         let updated = self.scope().types
                             .coerce_value(updated)
-                            .map_err(|message| InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        format!("Type error: {}", message)),
-                                })?;
+                            .map_err(|message| InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    format!("Type error: {}", message)
+                                )
+                            ))?;
                         self.write_variable(&location, name, updated)?;
                     },
 
@@ -1670,15 +1747,14 @@ impl Interpreter
                         let variable_name = match &instruction.operand
                             {
                                 Some(Value::String(name, _)) => name.clone(),
-                                _ => return Err(InterpreterError
-                                    {
-                                        location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand(
-                                            "Missing or invalid operand for GetVariable \
-                                                instruction."
-                                                .to_string(),
-                                        )
-                                    })
+                                _ => return Err(InterpreterError::new(
+                                    location.clone(),
+                                    ErrorWhat::InvalidOperand(
+                                        "Missing or invalid operand for GetVariable \
+                                        instruction."
+                                        .to_string()
+                                    )
+                                ))
                             };
 
                         let value = self.read_variable(&variable_name, &location)?;
@@ -1699,11 +1775,8 @@ impl Interpreter
                             // found none. Error out hard.
                             self.halted = true;
 
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::NoResult
-                                });
+                            return Err(InterpreterError::new(
+                                location.clone(), ErrorWhat::NoResult));
                         }
                     },
 
@@ -1732,20 +1805,18 @@ impl Interpreter
 
                                 ExecResult::Value(code) =>
                                     {
-                                        return Err(InterpreterError
-                                            {
-                                                location: location.clone(),
-                                                what: ErrorWhat::ExecutableBadReturn(code)
-                                            });
+                                        return Err(InterpreterError::new(
+                                            location.clone(),
+                                            ErrorWhat::ExecutableBadReturn(code)
+                                        ));
                                     },
 
                                 ExecResult::Signaled =>
                                     {
-                                        return Err(InterpreterError
-                                            {
-                                                location: location.clone(),
-                                                what: ErrorWhat::ExecutableSignaled
-                                            });
+                                        return Err(InterpreterError::new(
+                                            location.clone(),
+                                            ErrorWhat::ExecutableSignaled
+                                        ));
                                     }
                             }
                         }
@@ -1756,15 +1827,14 @@ impl Interpreter
                         let variable_name = match &instruction.operand
                             {
                                 Some(Value::String(name, _)) => name.clone(),
-                                _ => return Err(InterpreterError
-                                    {
-                                        location: location.clone(),
-                                        what: ErrorWhat::InvalidOperand(
-                                            "Missing or invalid operand for ExportVariable \
-                                                instruction."
-                                                .to_string(),
-                                        )
-                                    })
+                                _ => return Err(InterpreterError::new(
+                                    location.clone(),
+                                    ErrorWhat::InvalidOperand(
+                                        "Missing or invalid operand for ExportVariable \
+                                        instruction."
+                                        .to_string()
+                                    )
+                                ))
                             };
 
                         if let Some(mut value) = self.scope_mut().variables.get_mut(&variable_name)
@@ -1773,14 +1843,13 @@ impl Interpreter
                         }
                         else
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        "Variable not found for ExportVariable \
-                                            instruction.".to_string(),
-                                    )
-                                });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    "Variable not found for ExportVariable \
+                                    instruction.".to_string()
+                                )
+                            ));
                         }
                     },
 
@@ -1819,11 +1888,10 @@ impl Interpreter
 
                             Value::Range(range) =>
                                 {
-                                    let error = |message: &str| InterpreterError
-                                        {
-                                            location: location.clone(),
-                                            what: ErrorWhat::RangeError(message.to_string())
-                                        };
+                                    let error = |message: &str| InterpreterError::new(
+                                        location.clone(),
+                                        ErrorWhat::RangeError(message.to_string())
+                                    );
                                     let length = range.len()
                                         .ok_or_else(
                                             || error("Cannot expand a range with omitted bounds"))?;
@@ -1869,11 +1937,10 @@ impl Interpreter
                     {
                         if self.scope().variables.current_scope() == initial_scope
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InitialScopePopAttempt
-                                });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InitialScopePopAttempt
+                            ));
                         }
 
                         self.scope_mut().variables.pop_scope();
@@ -1883,23 +1950,21 @@ impl Interpreter
                     {
                         let Some(Value::Array(targets)) = &instruction.operand else
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        "Expected two linked loop targets".to_string(),
-                                    ),
-                                });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    "Expected two linked loop targets".to_string()
+                                )
+                            ));
                         };
                         if targets.len() != 2
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        "Expected two linked loop targets".to_string(),
-                                    ),
-                                });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    "Expected two linked loop targets".to_string()
+                                )
+                            ));
                         }
                         loops.push(LoopFrame
                             {
@@ -1920,20 +1985,20 @@ impl Interpreter
 
                 Code::ExitLoop =>
                     {
-                        loops.pop().ok_or_else(|| InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::InvalidOperand(
-                                    "No active loop to exit".to_string()),
-                            })?;
+                        loops.pop().ok_or_else(|| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::InvalidOperand(
+                                "No active loop to exit".to_string()
+                            )
+                        ))?;
                     },
 
                 Code::Break | Code::Continue =>
                     {
-                        let frame = loops.last().ok_or_else(|| InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::LoopControlError(format!(
+                        let frame = loops.last().ok_or_else(|| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::LoopControlError(
+                                format!(
                                     "Cannot {} outside a loop",
                                     if matches!(instruction.code, Code::Break)
                                     {
@@ -1943,8 +2008,9 @@ impl Interpreter
                                     {
                                         "continue"
                                     }
-                                )),
-                            })?;
+                                )
+                            )
+                        ))?;
                         // A transfer may abandon nested blocks and partially evaluated
                         // expressions. Restore the state saved before the iteration body.
                         self.finish_redirections(frame.redirection_depth)?;
@@ -1973,13 +2039,12 @@ impl Interpreter
                             {
                                 let Some(Value::Boolean(condition)) = &self.last_result else
                                 {
-                                    return Err(InterpreterError
-                                        {
-                                            location: location.clone(),
-                                            what: ErrorWhat::InvalidOperand(
-                                                "Expected a boolean jump condition".to_string(),
-                                            ),
-                                        });
+                                    return Err(InterpreterError::new(
+                                        location.clone(),
+                                        ErrorWhat::InvalidOperand(
+                                            "Expected a boolean jump condition".to_string()
+                                        )
+                                    ));
                                 };
                                 *condition == matches!(instruction.code, Code::JumpIfTrue)
                             };
@@ -1994,27 +2059,28 @@ impl Interpreter
                     {
                         let Some(Value::Array(operands)) = &instruction.operand else
                         {
-                            return Err(InterpreterError
-                                {
-                                    location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(
-                                        "Missing conversion target".to_string()),
-                                });
+                            return Err(InterpreterError::new(
+                                location.clone(),
+                                ErrorWhat::InvalidOperand(
+                                    "Missing conversion target".to_string()
+                                )
+                            ));
                         };
                         let Value::Integer(id) = operands[0] else { unreachable!(); };
-                        let value = self.last_result.take().ok_or_else(|| InterpreterError
-                            { location: location.clone(), what: ErrorWhat::NoResult })?;
+                        let value = self.last_result.take().ok_or_else(|| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::NoResult
+                        ))?;
                         self.convert_value(&location, TypeId(id as usize), value,
                                            &operands[1], &operands[2])?;
                     },
 
                 Code::ToBoolean | Code::BooleanNot =>
                     {
-                        let value = self.last_result.take().ok_or_else(|| InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::NoResult
-                            })?;
+                        let value = self.last_result.take().ok_or_else(|| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::NoResult
+                        ))?;
                         let value = value.as_bool();
                         self.last_result = Some(Value::Boolean(
                             if matches!(instruction.code, Code::BooleanNot)
@@ -2030,11 +2096,10 @@ impl Interpreter
 
                 Code::MathNegate =>
                     {
-                        let error = |message: &str| InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::ArithmeticError(message.to_string()),
-                            };
+                        let error = |message: &str| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::ArithmeticError(message.to_string())
+                        );
                         let mut value = self.last_result.take().unwrap_or(Value::None);
                         let mut named = Vec::new();
                         while let Value::Named(item) = value
@@ -2062,14 +2127,18 @@ impl Interpreter
 
                 Code::Discard => { Self::pop(&location, &mut stack)?; },
 
-                Code::MatchFail => return Err(InterpreterError
-                    { location: location.clone(), what: ErrorWhat::MatchError }),
+                Code::MatchFail => return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::MatchError
+                )),
 
                 Code::MatchPattern =>
                     {
                         let pattern = Self::pop(&location, &mut stack)?;
-                        let subject = stack.back().ok_or_else(|| InterpreterError
-                            { location: location.clone(), what: ErrorWhat::StackUnderflow })?;
+                        let subject = stack.back().ok_or_else(|| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::StackUnderflow
+                        ))?;
                         let matched = match (&pattern, subject)
                             {
                                 (Value::Range(range), Value::Integer(value)) =>
@@ -2106,11 +2175,10 @@ impl Interpreter
                     {
                         let rhs = Self::pop(&location, &mut stack)?;
                         let lhs = Self::pop(&location, &mut stack)?;
-                        let order = lhs.numeric_order(&rhs).map_err(|message| InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::ArithmeticError(message.to_string()),
-                            })?;
+                        let order = lhs.numeric_order(&rhs).map_err(|message| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::ArithmeticError(message.to_string())
+                        ))?;
                         let result = match instruction.code
                             {
                                 Code::CompareLess => order.is_lt(),
@@ -2125,11 +2193,10 @@ impl Interpreter
                 Code::MathAdd | Code::MathSubtract | Code::MathMultiply
                 | Code::MathDivide | Code::MathModulo =>
                     {
-                        let error = |message: &str| InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::ArithmeticError(message.to_string())
-                            };
+                        let error = |message: &str| InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::ArithmeticError(message.to_string())
+                        );
                         let mut rhs = Self::pop(&location, &mut stack)?;
                         let mut lhs = Self::pop(&location, &mut stack)?;
                         let mut named = Vec::new();
@@ -2274,8 +2341,10 @@ impl Interpreter
     pub fn history_settings(&self) -> InterpreterResult<(Option<PathBuf>, usize)>
     {
         let location = Location::new("$history_path", 1, 1);
-        let invalid = |message: &str| InterpreterError
-            { location: location.clone(), what: ErrorWhat::InvalidOperand(message.into()) };
+        let invalid = |message: &str| InterpreterError::new(
+            location.clone(),
+            ErrorWhat::InvalidOperand(message.into())
+        );
         let path = match self.read_raw_variable("$history_path", &location)?
         {
             Value::None => None,
@@ -2292,9 +2361,12 @@ impl Interpreter
         {
             Value::Integer(limit) if limit >= 0 => usize::try_from(limit).ok(),
             _ => None,
-        }.filter(|limit| *limit != usize::MAX).ok_or_else(|| InterpreterError
-            { location, what: ErrorWhat::InvalidOperand(
-                "History limit must be a nonnegative, representable Integer".into()) })?;
+        }.filter(|limit| *limit != usize::MAX).ok_or_else(|| InterpreterError::new(
+            location,
+            ErrorWhat::InvalidOperand(
+                "History limit must be a nonnegative, representable Integer".into()
+            )
+        ))?;
         Ok((path, limit))
     }
 
@@ -2357,8 +2429,10 @@ impl Interpreter
             if matches!(field, Value::None)
             {
                 let Value::Named(item) = value else
-                { return Err(InterpreterError { location: location.clone(),
-                    what: ErrorWhat::InvalidOperand("Named receiver changed type".into()) }); };
+                { return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::InvalidOperand("Named receiver changed type".into())
+                )); };
                 value = item.value.clone();
                 continue;
             }
@@ -2372,9 +2446,15 @@ impl Interpreter
                             Value::from_string(item.name.clone()),
                         Value::Struct(item) =>
                             item.fields[Self::struct_field_index(location, item, index)?].clone(),
-                        _ => return Err(InterpreterError { location: location.clone(),
-                            what: ErrorWhat::InvalidOperand(format!(
-                                "Cannot access a field on {}", value.type_name())) }),
+                        _ => return Err(InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::InvalidOperand(
+                                format!(
+                                    "Cannot access a field on {}",
+                                    value.type_name()
+                                )
+                            )
+                        )),
                     }
                 }
                 else { Self::get_element(location, &value, index)? };
@@ -2390,12 +2470,12 @@ impl Interpreter
         {
             let value = Self::read_projection(location, root.clone(),
                 &reference.indexes[..*depth], &reference.fields[..*depth])?;
-            self.scope().types.validate(*id, &value).map_err(|message| InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::InvalidOperand(
-                        format!("Type error for receiver: {}", message)),
-                })?;
+            self.scope().types.validate(*id, &value).map_err(|message| InterpreterError::new(
+                location.clone(),
+                ErrorWhat::InvalidOperand(
+                    format!("Type error for receiver: {}", message)
+                )
+            ))?;
         }
         let value = Self::read_projection(location, root, &reference.indexes, &reference.fields)?;
         self.scope().types.validate_value(&value)
@@ -2409,8 +2489,10 @@ impl Interpreter
     pub(super) fn write_variable(&mut self, location: &Location, name: &str,
                       mut value: Value) -> InterpreterResult<()>
     {
-        let invalid = |message| InterpreterError { location: location.clone(),
-            what: ErrorWhat::InvalidOperand(message) };
+        let invalid = |message| InterpreterError::new(
+            location.clone(),
+            ErrorWhat::InvalidOperand(message)
+        );
         let variable = self.variable_binding(name)
             .ok_or_else(|| invalid("Variable not found for SetVariable instruction.".to_string()))?;
         if let Some(id) = variable.borrow().type_id
@@ -2426,8 +2508,10 @@ impl Interpreter
     fn write_receiver(&mut self, location: &Location, name: &str,
                       reference: &ValueReference, mut value: Value) -> InterpreterResult<()>
     {
-        let invalid = |message| InterpreterError { location: location.clone(),
-            what: ErrorWhat::InvalidOperand(message) };
+        let invalid = |message| InterpreterError::new(
+            location.clone(),
+            ErrorWhat::InvalidOperand(message)
+        );
         let root = reference.root.borrow();
         let root_type = root.type_id;
         if let Some(id) = Self::read_projection(location, root.value.clone(),
@@ -2498,9 +2582,12 @@ impl Interpreter
     {
         if name == "$"
         {
-            return self.pipeline_inputs.last().cloned().ok_or_else(|| InterpreterError
-                { location: location.clone(), what: ErrorWhat::InvalidOperand(
-                    "Bare $ is only available inside a pipeline stage".into()) });
+            return self.pipeline_inputs.last().cloned().ok_or_else(|| InterpreterError::new(
+                location.clone(),
+                ErrorWhat::InvalidOperand(
+                    "Bare $ is only available inside a pipeline stage".into()
+                )
+            ));
         }
         if let Some(reference) = self.variable_reference(name)
         {
@@ -2512,12 +2599,12 @@ impl Interpreter
         }
         else
         {
-            Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::InvalidOperand(
-                        format!("Variable '{}' not found.", name))
-                })
+            Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::InvalidOperand(
+                    format!("Variable '{}' not found.", name)
+                )
+            ))
         }
     }
 
@@ -2546,8 +2633,10 @@ impl Interpreter
             let home = closure.function.functions.borrow().scope.clone();
             let Some(scope) = self.scopes.get_mut(&home) else
             {
-                return Err(InterpreterError { location: location.clone(),
-                    what: ErrorWhat::ModuleError("The defining module failed to load".into()) });
+                return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::ModuleError("The defining module failed to load".into())
+                ));
             };
             let mut variables = scope.variables.global_bindings();
             variables.overlay(&closure.captures);
@@ -2566,8 +2655,10 @@ impl Interpreter
         {
             let TypeKind::Function(parameters, result) = &callable.prototype.kind
                 else { unreachable!("Callable values carry a function prototype"); };
-            let error = |message| InterpreterError { location: location.clone(),
-                what: ErrorWhat::InvalidOperand(format!("Function prototype: {}", message)) };
+            let error = |message| InterpreterError::new(
+                location.clone(),
+                ErrorWhat::InvalidOperand(format!("Function prototype: {}", message))
+            );
             if args.len() != parameters.len()
             {
                 return Err(error(format!("Expected {} arguments, got {}",
@@ -2588,7 +2679,7 @@ impl Interpreter
         if let Value::String(name, Executable::Function(function)) = value
         { return self.execute_function(location, &name, &function, &args); }
         if let Value::String(_, Executable::Native(function)) = value
-        { return (function.body)(self, location, &args); }
+        { return self.execute_native(location, &function, &args); }
         if let Value::String(_, Executable::Method(method)) = value
         { return self.execute_method(location, &method, &args); }
         if let Value::String(name, Executable::External) = value
@@ -2673,7 +2764,23 @@ impl Interpreter
         let active = property.as_ref().map(|property| property.active.replace(true));
         let result = self.execute_method_body(location, method, arguments);
         if let Some(property) = property { property.active.set(active.unwrap()); }
-        result
+        result.map_err(|error|
+            {
+                let native = matches!(method.definition, MethodDefinition::Builtin(_));
+                // User methods already acquired a frame in execute_function_with_receiver.
+                if !native && error.trace.call_stack.last().is_some_and(|frame|
+                    frame.location == *location && frame.name.ends_with(
+                        &format!("::{}", method.name)))
+                { return error; }
+                let receiver_type = match &method.definition
+                    {
+                        MethodDefinition::Builtin(definition) => Some(definition.receiver_type),
+                        MethodDefinition::User(function) => function.receiver_type,
+                    };
+                let name = receiver_type.map_or_else(|| method.name.clone(), |id|
+                    format!("{}::{}", self.scope().types.get(id).name, method.name));
+                error.through_call(&name, location, native)
+            })
     }
 
     fn execute_method_body(&mut self, location: &Location, method: &BoundMethod,
@@ -2683,9 +2790,12 @@ impl Interpreter
            && is_conversion_method(&method.name)
            && function.receiver_type.is_some()
         {
-            return Err(InterpreterError { location: location.clone(),
-                what: ErrorWhat::InvalidOperand(
-                    "Conversion methods have no receiver; use Target(value)".into()) });
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::InvalidOperand(
+                    "Conversion methods have no receiver; use Target(value)".into()
+                )
+            ));
         }
         let mut receiver =
             self.eval_value_paths_to(self.read_reference(location, &method.receiver)?);
@@ -2705,18 +2815,33 @@ impl Interpreter
                     Some(max) if max != minimum => format!("{} to {}", minimum, max),
                     Some(max) => max.to_string(),
                 };
-            return Err(InterpreterError { location: location.clone(),
-                what: ErrorWhat::ArgumentMismatch(format!(
-                    "Method '{}.{}' expected {} arguments, but got {}", receiver.type_name(),
-                    method.name, expected, arguments.len())) });
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::ArgumentMismatch(
+                    format!(
+                        "Method '{}.{}' expected {} arguments, but got {}",
+                        receiver.type_name(),
+                        method.name,
+                        expected,
+                        arguments.len()
+                    )
+                )
+            ));
         }
         match &method.definition
         {
             MethodDefinition::Builtin(definition) =>
                 {
                     let mut value = (definition.body)(&mut receiver, arguments)
-                        .map_err(|message| InterpreterError { location: location.clone(),
-                            what: ErrorWhat::InvalidOperand(message) })?;
+                        .map_err(|error|
+                            {
+                                let mut failure = InterpreterError::new(
+                                    location.clone(),
+                                    ErrorWhat::InvalidOperand(error.message)
+                                );
+                                failure.trace.native_location = Some(error.location);
+                                failure
+                            })?;
                     if definition.name == "properties"
                     { self.add_property_methods(&receiver, method, &mut value); }
                     if definition.mutates_receiver
@@ -2794,6 +2919,24 @@ impl Interpreter
                                       function: &FunctionRef, args: &[Value],
                                       receiver: Option<&ValueReference>) -> InterpreterResult<()>
     {
+        self.execute_function_body(location, name, function, args, receiver)
+            .map_err(|error|
+                {
+                    let display = function.receiver_type.map(|id|
+                        {
+                            let binding = function.functions.borrow();
+                            let method = binding.function_name.as_deref().unwrap_or(name)
+                                .rsplit(':').next().unwrap_or(name);
+                            format!("{}::{}", self.scope().types.get(id).name, method)
+                        }).unwrap_or_else(|| name.into());
+                    error.through_call(&display, location, false)
+                })
+    }
+
+    fn execute_function_body(&mut self, location: &Location, name: &str,
+                             function: &FunctionRef, args: &[Value],
+                             receiver: Option<&ValueReference>) -> InterpreterResult<()>
+    {
         if    args.len() < function.minimum_arguments
            || !function.variadic
            && args.len() > function.arguments.len()
@@ -2814,16 +2957,17 @@ impl Interpreter
                     function.arguments.len()
                 )
             };
-            return Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::ArgumentMismatch(format!(
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::ArgumentMismatch(
+                    format!(
                         "Function {} expected {} arguments, but got {}.",
                         name,
                         expected,
                         args.len()
-                    )),
-                });
+                    )
+                )
+            ));
         }
 
         let registry = &self.scope().types;
@@ -2831,12 +2975,12 @@ impl Interpreter
             .chain(function.return_type.iter()).any(|id| registry.has_receiver_type(*id));
         let (value_type, key_type) = if dependent
             {
-                let reference = receiver.ok_or_else(|| InterpreterError
-                    {
-                        location: location.clone(),
-                        what: ErrorWhat::ArgumentMismatch(
-                            "Receiver-dependent annotations require a bound method receiver".into()),
-                    })?;
+                let reference = receiver.ok_or_else(|| InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::ArgumentMismatch(
+                        "Receiver-dependent annotations require a bound method receiver".into()
+                    )
+                ))?;
                 let value = self.read_reference(location, reference)?;
                 (registry.receiver_member_type(location, reference, &value, "value_type"),
                  registry.receiver_member_type(location, reference, &value, "key_type"))
@@ -2856,8 +3000,10 @@ impl Interpreter
         let home = function.functions.borrow().scope.clone();
         if !self.scopes.contains_key(&home)
         {
-            return Err(InterpreterError { location: location.clone(),
-                what: ErrorWhat::ModuleError("The defining module failed to load".into()) });
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::ModuleError("The defining module failed to load".into())
+            ));
         }
         let caller_scope = replace(&mut self.current_scope, home);
         let caller = self.scope_mut().enter_function(function.functions.clone());
@@ -2885,12 +3031,16 @@ impl Interpreter
             let mut value = self.last_result.take().unwrap_or(Value::None);
             if factory || self.active_factories.is_empty() { seal_constructed(&mut value); }
             self.last_result = Some(self.scope().types.coerce(id, value).map_err(|message|
-                InterpreterError
-                    {
-                        location: location.clone(),
-                        what: ErrorWhat::ArgumentMismatch(format!(
-                            "Type error for return value of '{}': {}", name, message)),
-                    })?);
+                InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::ArgumentMismatch(
+                        format!(
+                            "Type error for return value of '{}': {}",
+                            name,
+                            message
+                        )
+                    )
+                ))?);
         }
         Ok(())
     }
@@ -2909,12 +3059,12 @@ impl Interpreter
         if executable.contains("::") && self.scope().types.module_names
             .contains(executable.split("::").next().unwrap())
         {
-            return Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::ModuleError(
-                        format!("Module function '{}' is unavailable", executable)),
-                });
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::ModuleError(
+                    format!("Module function '{}' is unavailable", executable)
+                )
+            ));
         }
         Ok(false)
     }
@@ -2931,6 +3081,13 @@ impl Interpreter
         result
     }
 
+    fn execute_native(&mut self, location: &Location, function: &NativeFunction,
+                      args: &[Value]) -> InterpreterResult<()>
+    {
+        (function.body)(self, location, args)
+            .map_err(|error| error.through_call(function.name, location, true))
+    }
+
     fn execute_resolved(&mut self, location: &Location, executable: String,
                         resolved_args: Vec<String>, args: Vec<Value>) -> InterpreterResult<()>
     {
@@ -2943,7 +3100,7 @@ impl Interpreter
 
         if let Some(built_in) = self.module_native_function(executable.as_str())
         {
-            return (built_in.body)(self, location, &args);
+            return self.execute_native(location, &built_in, &args);
         }
 
         if self.find_and_execute_function(location, &executable, &args)?
@@ -2951,11 +3108,8 @@ impl Interpreter
             // Make sure `last_result` as been updated by the executed function.
             if self.last_result.is_none()
             {
-                return Err(InterpreterError
-                    {
-                        location: location.clone(),
-                        what: ErrorWhat::NoResult
-                    });
+                return Err(InterpreterError::new(
+                                location.clone(), ErrorWhat::NoResult));
             }
 
             return Ok(());
@@ -3002,18 +3156,17 @@ impl Interpreter
         // for explicit capture rather than interrupting the following assignment.
         take_interrupt();
         let status = status_result
-            .map_err(|error| InterpreterError
+            .map_err(|error| InterpreterError::new(
+                location.clone(),
+                match error.kind()
                 {
-                    location: location.clone(),
-                    what: match error.kind()
-                    {
-                        ErrorKind::NotFound =>
-                            ErrorWhat::ExecutableNotFound(self.eval_path_to(&executable)),
+                    ErrorKind::NotFound =>
+                        ErrorWhat::ExecutableNotFound(self.eval_path_to(&executable)),
 
-                        _ => ErrorWhat::ExecutableIoError(
-                            format!("'{}': {}", self.eval_path_to(&executable), error))
-                    }
-                })?;
+                    _ => ErrorWhat::ExecutableIoError(
+                        format!("'{}': {}", self.eval_path_to(&executable), error))
+                }
+            ))?;
 
         // Set the `last_result` to indicate the result of the executed command.
         let value = Value::from_status_code(status.code());
@@ -3022,13 +3175,10 @@ impl Interpreter
         Ok(())
     }
 
+    #[track_caller]
     pub(super) fn redirection_error(location: &Location, error: impl Display) -> InterpreterError
     {
-        InterpreterError
-            {
-                location: location.clone(),
-                what: ErrorWhat::RedirectionError(error.to_string()),
-            }
+        InterpreterError::new(location.clone(), ErrorWhat::RedirectionError(error.to_string()))
     }
 
     pub(super) fn begin_redirection(&mut self, location: &Location, stream: i64,
@@ -3136,42 +3286,42 @@ impl Interpreter
     {
         match value
         {
-            Value::Type(_) => Err(InterpreterError { location: location.clone(),
-                what: ErrorWhat::InvalidOperand("Cannot execute a type as a command".into()) }),
-            Value::Terminal(_) => Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::InvalidOperand(
-                        "Cannot execute a terminal as a command".to_string()),
-                }),
-            Value::Struct(_) => Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::InvalidOperand(
-                        "Cannot execute a struct as a command".to_string()),
-                }),
-            Value::Enum(_) => Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::InvalidOperand(
-                        "Cannot execute an enum as a command".to_string()),
-                }),
-            Value::Range(_) => Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::RangeError("Cannot execute a range as a command".to_string())
-                }),
-            Value::HashMap(_) => Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::HashMapError(
-                        "Cannot execute a hash map as a command".to_string()),
-                }),
-            Value::Array(_) | Value::ArgumentExpansion(_) => Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::ArrayError("Cannot execute an array as a command".to_string())
-                }),
+            Value::Type(_) => Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::InvalidOperand("Cannot execute a type as a command".into())
+            )),
+            Value::Terminal(_) => Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::InvalidOperand(
+                    "Cannot execute a terminal as a command".to_string()
+                )
+            )),
+            Value::Struct(_) => Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::InvalidOperand(
+                    "Cannot execute a struct as a command".to_string()
+                )
+            )),
+            Value::Enum(_) => Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::InvalidOperand(
+                    "Cannot execute an enum as a command".to_string()
+                )
+            )),
+            Value::Range(_) => Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::RangeError("Cannot execute a range as a command".to_string())
+            )),
+            Value::HashMap(_) => Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::HashMapError(
+                    "Cannot execute a hash map as a command".to_string()
+                )
+            )),
+            Value::Array(_) | Value::ArgumentExpansion(_) => Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::ArrayError("Cannot execute an array as a command".to_string())
+            )),
             value => Ok(value.as_text())
         }
     }
@@ -3184,11 +3334,10 @@ impl Interpreter
     fn jump_target(instructions: &[Instruction], operand: Option<&Value>,
                     location: &Location) -> InterpreterResult<usize>
     {
-        let invalid = || InterpreterError
-            {
-                location: location.clone(),
-                what: ErrorWhat::InvalidOperand("Expected a linked jump target".to_string())
-            };
+        let invalid = || InterpreterError::new(
+            location.clone(),
+            ErrorWhat::InvalidOperand("Expected a linked jump target".to_string())
+        );
         let Some(Value::Integer(target)) = operand else { return Err(invalid()); };
         let target = usize::try_from(*target).map_err(|_| invalid())?;
         if !matches!(instructions.get(target), Some(Instruction { code: Code::JumpTarget, .. }))
@@ -3203,11 +3352,10 @@ impl Interpreter
         match value
         {
             Value::Integer(value) => Ok(value),
-            _ => Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::RangeError("Range bounds must be integers".to_string())
-                })
+            _ => Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::RangeError("Range bounds must be integers".to_string())
+            ))
         }
     }
 
@@ -3216,11 +3364,10 @@ impl Interpreter
     fn array_index(location: &Location, elements: &[Value],
                     index: &Value) -> InterpreterResult<usize>
     {
-        let error = |message| InterpreterError
-            {
-                location: location.clone(),
-                what: ErrorWhat::ArrayError(message)
-            };
+        let error = |message| InterpreterError::new(
+            location.clone(),
+            ErrorWhat::ArrayError(message)
+        );
         let Value::Integer(index) = index else
         {
             return Err(error("Array index must be an integer".to_string()));
@@ -3248,12 +3395,16 @@ impl Interpreter
             {
                 let index = usize::try_from(value).ok().filter(|index|
                     if inclusive { *index < length } else { *index <= length });
-                index.ok_or_else(|| InterpreterError
-                    {
-                        location: location.clone(),
-                        what: ErrorWhat::ArrayError(format!(
-                            "Array slice bound {} is out of bounds for length {}", value, length)),
-                    })
+                index.ok_or_else(|| InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::ArrayError(
+                        format!(
+                            "Array slice bound {} is out of bounds for length {}",
+                            value,
+                            length
+                        )
+                    )
+                ))
             };
         let start = range.start.map(|value| bound(value, false)).transpose()?.unwrap_or(0);
         let end = match range.end
@@ -3277,15 +3428,16 @@ impl Interpreter
                     field.name == name.strip_prefix("::").unwrap_or(name)),
                 _ => None
             };
-        index.ok_or_else(|| InterpreterError
-            {
-                location: location.clone(),
-                what: ErrorWhat::InvalidOperand(format!(
+        index.ok_or_else(|| InterpreterError::new(
+            location.clone(),
+            ErrorWhat::InvalidOperand(
+                format!(
                     "Unknown field '{}.{}'",
                     item.definition.name,
                     field.as_text()
-                )),
-            })
+                )
+            )
+        ))
     }
 
     fn resolve_field_name(&self, location: &Location, field: &Value)
@@ -3299,9 +3451,15 @@ impl Interpreter
         if matches!(value.underlying(), Value::String(_, _))
         { return Ok(Value::from_string(if raw { format!("::{}", value.as_text()) }
                 else { value.as_text() })); }
-        Err(InterpreterError { location: location.clone(),
-            what: ErrorWhat::InvalidOperand(format!(
-                "Field name must be String, got {}", value.type_name())) })
+        Err(InterpreterError::new(
+            location.clone(),
+            ErrorWhat::InvalidOperand(
+                format!(
+                    "Field name must be String, got {}",
+                    value.type_name()
+                )
+            )
+        ))
     }
 
     fn resolve_field(&mut self, location: &Location, mut reference: ValueReference,
@@ -3402,9 +3560,15 @@ impl Interpreter
             {
                 if let Value::Struct(item) = &value
                 { Self::struct_field_index(location, item, field)?; }
-                return Err(InterpreterError { location: location.clone(),
-                    what: ErrorWhat::InvalidOperand(format!(
-                        "Cannot access a field on {}", value.type_name())) });
+                return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::InvalidOperand(
+                        format!(
+                            "Cannot access a field on {}",
+                            value.type_name()
+                        )
+                    )
+                ));
             };
         Ok((result, reference))
     }
@@ -3440,13 +3604,12 @@ impl Interpreter
                         else { value }),
                     _ => Ok(values[Self::array_index(location, values, index)?].clone()),
                 },
-            _ => Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::ArrayError(
-                        "Cannot index a value that is not an array or hash map".to_string(),
-                    ),
-                })
+            _ => Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::ArrayError(
+                    "Cannot index a value that is not an array or hash map".to_string()
+                )
+            ))
         }
     }
 
@@ -3510,42 +3673,49 @@ impl Interpreter
         {
             if matches!(index, Value::String(name, _) if name == "type")
             {
-                return Err(InterpreterError { location: location.clone(),
-                    what: ErrorWhat::InvalidOperand("The .type property is read-only".into()) });
+                return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::InvalidOperand("The .type property is read-only".into())
+                ));
             }
             if    matches!(collection, Value::Type(_))
                && matches!(index, Value::String(name, _) if name == "name")
             {
-                return Err(InterpreterError { location: location.clone(),
-                    what: ErrorWhat::InvalidOperand("Type name is read-only".into()) });
+                return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::InvalidOperand("Type name is read-only".into())
+                ));
             }
             if    matches!(collection, Value::Array(_) | Value::HashMap(_))
                && matches!(index, Value::String(name, _) if name == "value_type"
                     || (name == "key_type" && matches!(collection, Value::HashMap(_))))
             {
-                return Err(InterpreterError { location: location.clone(),
-                    what: ErrorWhat::InvalidOperand(
-                        "Collection type properties are read-only".into()) });
+                return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::InvalidOperand(
+                        "Collection type properties are read-only".into()
+                    )
+                ));
             }
             if    matches!(collection, Value::Enum(_))
                && matches!(index, Value::String(name, _) if name == "index")
             {
-                return Err(InterpreterError
-                    {
-                        location: location.clone(),
-                        what: ErrorWhat::InvalidOperand("Enum index is read-only".to_string()),
-                    });
+                return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::InvalidOperand("Enum index is read-only".to_string())
+                ));
             }
             let Value::Struct(item) = collection else
             {
-                return Err(InterpreterError
-                    {
-                        location: location.clone(),
-                        what: ErrorWhat::InvalidOperand(format!(
+                return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::InvalidOperand(
+                        format!(
                             "Cannot assign a field on {}",
                             collection.type_name()
-                        )),
-                    });
+                        )
+                    )
+                ));
             };
             let index = Self::struct_field_index(location, item, index)?;
             self.check_private_field(location, item, index)?;
@@ -3577,13 +3747,12 @@ impl Interpreter
                     // Missing intermediate keys do not implicitly create containers.
                     if !values.contains_key(&key)
                     {
-                        return Err(InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::HashMapError(
-                                    "Missing intermediate key in indexed assignment".to_string(),
-                                ),
-                            });
+                        return Err(InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::HashMapError(
+                                "Missing intermediate key in indexed assignment".to_string()
+                            )
+                        ));
                     }
                     let child = Rc::make_mut(values).get_mut(&key).unwrap();
                     self.set_element(location, child, rest, &fields[1..], value)
@@ -3592,12 +3761,12 @@ impl Interpreter
                 {
                     if matches!(index, Value::Range(_))
                     {
-                        return Err(InterpreterError
-                            {
-                                location: location.clone(),
-                                what: ErrorWhat::ArrayError(
-                                    "Array slices are read-only".to_string()),
-                            });
+                        return Err(InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::ArrayError(
+                                "Array slices are read-only".to_string()
+                            )
+                        ));
                     }
                     let index = Self::array_index(location, values, index)?;
                     self.set_element(
@@ -3608,23 +3777,19 @@ impl Interpreter
                         value,
                     )
                 },
-            _ => Err(InterpreterError
-                {
-                    location: location.clone(),
-                    what: ErrorWhat::ArrayError(
-                        "Cannot index a value that is not an array or hash map".to_string(),
-                    ),
-                })
+            _ => Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::ArrayError(
+                    "Cannot index a value that is not an array or hash map".to_string()
+                )
+            ))
         }
     }
 
     fn pop(location: &Location, stack: &mut VecDeque<Value>) -> InterpreterResult<Value>
     {
-        stack.pop_back().ok_or(InterpreterError
-            {
-                location: location.clone(),
-                what: ErrorWhat::StackUnderflow
-            })
+        stack.pop_back().ok_or_else(||
+            InterpreterError::new(location.clone(), ErrorWhat::StackUnderflow))
     }
 
     fn pop_as_text(location: &Location,
@@ -3638,11 +3803,10 @@ impl Interpreter
         escape_glob: bool,
     ) -> InterpreterResult<()>
     {
-        let invalid_operand = |message| InterpreterError
-            {
-                location: location.clone(),
-                what: ErrorWhat::InvalidOperand(message)
-            };
+        let invalid_operand = |message| InterpreterError::new(
+            location.clone(),
+            ErrorWhat::InvalidOperand(message)
+        );
 
         let Value::String(text, executable) = Self::pop(location, stack)? else
         {
@@ -3671,11 +3835,10 @@ impl Interpreter
                              escaped_dollars: &[usize], display_paths: bool,
                              escape_glob: bool) -> InterpreterResult<String>
     {
-        let invalid_operand = |message| InterpreterError
-            {
-                location: location.clone(),
-                what: ErrorWhat::InvalidOperand(message)
-            };
+        let invalid_operand = |message| InterpreterError::new(
+            location.clone(),
+            ErrorWhat::InvalidOperand(message)
+        );
 
         let mut interpolated = String::with_capacity(text.len());
         let mut offset = 0;
@@ -3832,12 +3995,12 @@ impl Interpreter
                 ..MatchOptions::new()
             };
 
-        let invalid_pattern = |error| InterpreterError
-            {
-                location: Location::default(),
-                what: ErrorWhat::InvalidOperand(
-                    format!("Invalid glob pattern '{}': {}", display_pattern, error))
-            };
+        let invalid_pattern = |error| InterpreterError::new(
+            Location::default(),
+            ErrorWhat::InvalidOperand(
+                format!("Invalid glob pattern '{}': {}", display_pattern, error)
+            )
+        );
 
         let matcher = Pattern::new(
             &normalized_path(Path::new(&pattern)).to_string_lossy())
@@ -3851,12 +4014,12 @@ impl Interpreter
 
         for entry in paths
         {
-            let path = entry.map_err(|error| InterpreterError
-                {
-                    location: Location::default(),
-                    what: ErrorWhat::FileGlobError(
-                        format!("Failed to expand '{}': {}", display_pattern, error))
-                })?;
+            let path = entry.map_err(|error| InterpreterError::new(
+                Location::default(),
+                ErrorWhat::FileGlobError(
+                    format!("Failed to expand '{}': {}", display_pattern, error)
+                )
+            ))?;
 
             let path_text = path.to_string_lossy();
 
@@ -3880,12 +4043,12 @@ impl Interpreter
 
         if arguments.is_empty()
         {
-            return Err(InterpreterError
-                {
-                    location: Location::default(),
-                    what: ErrorWhat::FileGlobError(
-                        format!("No paths matched glob pattern '{}'.", display_pattern))
-                });
+            return Err(InterpreterError::new(
+                Location::default(),
+                ErrorWhat::FileGlobError(
+                    format!("No paths matched glob pattern '{}'.", display_pattern)
+                )
+            ));
         }
 
         Ok(Value::from_argument_expansion(arguments))
@@ -3904,13 +4067,16 @@ impl Interpreter
         {
             if !visited.insert((home.clone(), name.clone()))
             {
-                return Err(InterpreterError
-                    {
-                        location: location.clone(),
-                        what: ErrorWhat::InvalidOperand(
-                            format!("Alias cycle detected at '{}' while resolving '{}'.",
-                                    name, command))
-                    });
+                return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::InvalidOperand(
+                        format!(
+                            "Alias cycle detected at '{}' while resolving '{}'.",
+                            name,
+                            command
+                        )
+                    )
+                ));
             }
 
             // Target arguments precede the arguments of aliases that refer to it.
@@ -3963,20 +4129,18 @@ impl Interpreter
         self.exit_code = match args
             {
                 [] => 0,
-                [code] => code.parse::<u8>().map_err(|_| InterpreterError
-                    {
-                        location: location.clone(),
-                        what: ErrorWhat::ArgumentMismatch(
-                            "exit expects a status from 0 to 255.".to_string(),
-                        ),
-                    })?,
-                _ => return Err(InterpreterError
-                    {
-                        location: location.clone(),
-                        what: ErrorWhat::ArgumentMismatch(
-                            "exit expects at most one argument.".to_string(),
-                        ),
-                    })
+                [code] => code.parse::<u8>().map_err(|_| InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::ArgumentMismatch(
+                        "exit expects a status from 0 to 255.".to_string()
+                    )
+                ))?,
+                _ => return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::ArgumentMismatch(
+                        "exit expects at most one argument.".to_string()
+                    )
+                ))
             };
         self.halted = true;
         self.last_result = Some(Value::None);
@@ -3986,9 +4150,10 @@ impl Interpreter
 }
 
 
+#[track_caller]
 fn protocol_error(location: &Location, message: &str) -> InterpreterError
 {
-    InterpreterError { location: location.clone(), what: ErrorWhat::InvalidOperand(message.into()) }
+    InterpreterError::new(location.clone(), ErrorWhat::InvalidOperand(message.into()))
 }
 
 fn seal_constructed(value: &mut Value)
