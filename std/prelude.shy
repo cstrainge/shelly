@@ -1,5 +1,5 @@
 
-# The prelude of the Shelly standard library. Everything published from here are included in every
+# The prelude of the Shelly standard library. Everything published from here is included in every
 # loaded module.
 
 
@@ -181,8 +181,8 @@ pub fn Array::sum(): Number
 }
 
 
-# Get the minimum value of an array of numbers or "comparable items." Returns the lessest item or
-# () if the array is empty.
+# Get the minimum value of an array of numbers or "comparable items." Returns the least item or ()
+# if the array is empty.
 pub fn Array::min(): $self.value_type | ()
 {
     if $self.empty
@@ -234,7 +234,7 @@ pub fn Array::push($value: $self.value_type)
 }
 
 
-# Push a list of items in the order provided.
+# Push each supplied item in order; the last supplied item becomes the top of the stack.
 pub fn Array::push_many($values: $self.value_type...)
 {
     $self = [$values.reverse..., $self...]
