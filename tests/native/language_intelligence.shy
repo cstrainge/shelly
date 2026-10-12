@@ -1,0 +1,369 @@
+# Drive the real stdio server with LSP frames; no interpreter code may run in that process.
+let $fixture = $args[0]
+
+fn frame_text($body: String): String
+{
+    $body | cat -> "${fixture}/body"
+    let $length: String
+    let $result = run_process ["wc", "-c"] ["stdin_file": "${fixture}/body"] -> $length
+    require ($result["exit_code"] == 0) "could not measure UTF-8 frame"
+    $length = $length.trim
+    "Content-Length: ${length}\r\n\r\n${body}"
+}
+
+fn frame($message: any): String { frame_text (String::from_json $message) }
+
+fn request($id: any, $method: String, $params: any): String
+{ frame ["jsonrpc": "2.0", "id": $id, "method": $method, "params": $params] }
+
+fn notification($method: String, $params: any): String
+{ frame ["jsonrpc": "2.0", "method": $method, "params": $params] }
+
+fn run_server($input: String): any
+{
+    $input | cat -> "${fixture}/input"
+    let $reply = run_process [`$shelly, "--language-server"] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "${fixture}/bin:/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "${fixture}/input", "stdout_file": "${fixture}/output",
+        "stderr_file": "${fixture}/error", "timeout_ms": 5000]
+    require ((!$reply["timed_out"]) && ($reply["signal"] == ()) && ($reply["error"] == ())) "server did not finish"
+    $reply
+}
+
+fn has_key($value: HashMap, $name: String): Boolean
+{
+    for ($key, _) in $value { if $key == $name { return true } }
+    false
+}
+
+fn response_for($messages: Array, $id: any): any
+{
+    for $message in $messages
+    { if (has_key $message "id") && ($message["id"] == $id) { return $message } }
+    fail "missing server response"
+}
+
+fn token_at($data: Array, $line: Integer, $column: Integer, $length: Integer, $kind: Integer): Boolean
+{
+    let $current_line = 0
+    let $current_column = 0
+    require ($data.count % 5 == 0) "bad semantic token encoding"
+    for $index in 0..$data.count
+    {
+        if $index % 5 != 0 { continue }
+        $current_line = $current_line + $data[$index]
+        $current_column = if $data[$index] == 0
+            { $current_column + $data[$index + 1] } else { $data[$index + 1] }
+        require ($data[$index + 2] > 0) "empty semantic token"
+        if ($current_line == $line) && ($current_column == $column) &&
+            ($data[$index + 2] == $length) && ($data[$index + 3] == $kind) { return true }
+    }
+    false
+}
+
+
+fn inspect($source: String, $queries: Array, $extra: String, $file: String | (), $raw: Boolean | ()): Array
+{
+    let $uri = if $file == () { "file://${fixture}/main.shy" }
+        else { "file://${fixture}/${file}" }
+    let $input = request 1 "initialize" ["capabilities": [:]]
+    $input = $input + (notification "initialized" [:]) + $extra
+    $input = $input + (notification "textDocument/didOpen" ["textDocument": [
+        "uri": $uri, "languageId": "shelly", "version": 1, "text": $source]])
+    for $index in 0..$queries.count
+    {
+        let $query = $queries[$index]
+        if $query[0] == "notify"
+        {
+            $input = $input + (notification $query[1] $query[2])
+            continue
+        }
+        $input = $input + (request ($index + 10) $query[0] ["textDocument": ["uri": $uri],
+            "position": ["line": $query[1], "character": $query[2]]])
+    }
+    $input = $input + (request 2 "shutdown" ()) + (notification "exit" ())
+    require ((run_server $input)["exit_code"] == 0) "intelligence lifecycle failed"
+    let $output: String
+    "${fixture}/output" -> $output
+    let $messages = []
+    let $chunks = $output.split "Content-Length: "
+    for $index in 1..$chunks.count
+    {
+        let $parts = $chunks[$index].split "\r\n\r\n"
+        $messages = [$messages..., (json::from_string $parts[1])]
+    }
+    let $capabilities = (response_for $messages 1)["result"]["capabilities"]
+    require ($capabilities["hoverProvider"] == true) "hover capability missing"
+    require ($capabilities["completionProvider"]["triggerCharacters"] == [".", ":", "$"]) "completion triggers missing"
+    let $results = []
+    for $index in 0..$queries.count
+    {
+        if $queries[$index][0] == "notify" { continue }
+        let $reply = response_for $messages ($index + 10)
+        $results = [$results..., if $raw == true { $reply } else { $reply["result"] }]
+    }
+    $results
+}
+
+fn has($items: Array, $label: String): Boolean
+{ for $item in $items { if $item["label"] == $label { return true } }; false }
+fn hover_text($hover: any): String
+{ if $hover == () { return "" }; $hover["contents"]["value"] }
+
+mkdir -p "${fixture}/bin"
+printf "%s\n%s\n" '#!/bin/sh' 'touch binary-executed' -> "${fixture}/bin/shelly_test_binary"
+chmod +x "${fixture}/bin/shelly_test_binary"
+printf "%s" 'touch rc-executed' -> "${fixture}/.shelly_init.shy"
+
+let $source = '*
+pub struct Foo { hidden: Integer, pub title: String }
+pub fn Foo::new($initial: Integer): Foo { Foo(hidden: $initial, title: "ok") }
+fn Foo::secret(): Integer { $self.::hidden }
+pub fn Foo::get_display(): String { $self.title }
+pub fn Foo::set_display($value: String) { $self.title = $value }
+pub fn Foo::measure($n: Integer, $rest: String...): Integer { $n }
+let $f: Foo = Foo(initial: 3)
+echo $f.
+shelly_test_binary
+*'
+let $results = inspect $source [["textDocument/hover", 0, 12],
+    ["textDocument/completion", 7, 8], ["textDocument/hover", 8, 6]] ""
+let $type = hover_text $results[0]
+require (($type.contains "title: String") && ($type.contains "display: String") &&
+    ($type.contains "measure(") && ($type.contains "secret(") && (!($type.contains "hidden: Integer"))) "local type interface wrong"
+require ((has $results[1] "title") && (has $results[1] "display") &&
+    (has $results[1] "measure") && (has $results[1] "secret") &&
+    (!(has $results[1] "hidden")) && (!(has $results[1] "new"))) "member visibility wrong"
+require ((hover_text $results[2]).contains "args: any...") "external signature missing"
+require (!(test -e "${fixture}/binary-executed")) "external binary executed"
+require (!(test -e "${fixture}/rc-executed")) "startup file executed"
+
+# Imported declarations are indexed without running module code.
+printf "%s" 'touch import-executed; pub struct Box { hidden: Integer, pub name: String }; fn Box::new($seed: Integer): Box { Box(hidden: $seed, name: "ok") }; fn Box::secret(): Integer { $self.::hidden }; pub fn Box::size($factor: Integer): Integer { $factor }; pub fn Box::get_display(): String { $self.name }; pub fn make(): Box { Box(seed: 3) }; fn hidden_fn() {}; pub fn String::tag($suffix: String): String { $self + $suffix }; fn String::private_tag(): String { $self }' -> "${fixture}/api.shy"
+let $source = '*
+import api
+let $b = api::make
+echo $b.
+echo $b.size
+let $x: api::Box
+api::
+echo "x".
+*'
+let $results = inspect $source [["textDocument/completion", 2, 8],
+    ["textDocument/hover", 3, 10], ["textDocument/hover", 4, 13],
+    ["textDocument/completion", 5, 5], ["textDocument/completion", 6, 9]] ""
+require ((has $results[0] "name") && (has $results[0] "display") &&
+    (has $results[0] "size") && (!(has $results[0] "secret")) &&
+    (!(has $results[0] "hidden")) && (!(has $results[0] "new"))) "imported members leaked privacy"
+require ((hover_text $results[1]).contains '$factor: Integer') "method parameters missing"
+let $type = hover_text $results[2]
+require (($type.contains "name: String") && ($type.contains "size(") &&
+    (!($type.contains "secret(")) && (!($type.contains "new(")) &&
+    (!($type.contains "hidden: Integer"))) "imported type hover leaked privacy"
+require ((has $results[3] "Box") && (has $results[3] "make") &&
+    (!(has $results[3] "hidden_fn"))) "namespace export completion wrong"
+require ((has $results[4] "tag") && (!(has $results[4] "private_tag"))) "extension visibility wrong"
+require (!(test -e "${fixture}/import-executed")) "indexed module executed"
+
+mkdir -p "${fixture}/api"
+let $source = '*
+import super
+let $x: super::Box
+super::Box::
+*'
+let $results = inspect $source [["textDocument/completion", 2, 12]] "" "api/child.shy"
+require (has $results[0] "new") "child could not see parent private constructor"
+
+printf "%s" 'pub import api::{ Box, make }' -> "${fixture}/bridge.shy"
+let $source = '*
+import bridge
+let $b = bridge::make
+echo $b.
+bridge::Box::
+*'
+let $results = inspect $source [["textDocument/completion", 2, 8],
+    ["textDocument/completion", 3, 13]] ""
+require ((has $results[0] "size") && (!(has $results[0] "secret"))) "reexport member visibility wrong"
+require (!(has $results[1] "new")) "reexport exposed private constructor"
+
+# Open buffers take precedence over stale disk declarations.
+let $extra = notification "textDocument/didOpen" ["textDocument": [
+    "uri": "file://${fixture}/api.shy", "languageId": "shelly", "version": 7,
+    "text": 'pub struct Box { pub changed: String }; pub fn make(): Box { Box(changed: "new") }']]
+let $source = '*
+import api
+let $b = api::make
+echo $b.
+*'
+let $results = inspect $source [["textDocument/completion", 2, 8]] $extra
+require ((has $results[0] "changed") && (!(has $results[0] "name"))) "unsaved dependency ignored"
+
+# Lexical bindings and private raw storage are available only in the owning method.
+let $source = '*
+struct Local { private_value: Integer, pub title: String }
+fn Local::new($initial: Integer): Local { Local(private_value: $initial, title: "ok") }
+fn Local::read($argument: String): String {
+    let $inside: Integer = 3
+    echo $self.::
+    echo $arg
+    $argument
+}
+let $x: Local = Local(initial: 1)
+echo $x.::
+echo $ins
+*'
+let $results = inspect $source [["textDocument/completion", 4, 17],
+    ["textDocument/completion", 5, 13], ["textDocument/completion", 9, 10],
+    ["textDocument/completion", 10, 9]] ""
+require ((has $results[0] "private_value") && (has $results[0] "title")) "owner raw fields missing"
+require (has $results[1] '$argument') "parameter completion missing"
+require (!(has $results[2] "private_value")) "raw completion bypassed privacy"
+require (!(has $results[3] '$inside')) "local variable escaped scope"
+
+let $source = '*
+struct Foo { hidden: Integer }
+fn Foo::new($initial: Integer, $label: String | ()): Foo { Foo(hidden: $initial) }
+let $f = Foo(ini
+*'
+let $results = inspect $source [["textDocument/completion", 2, 16]] ""
+require ((has $results[0] "initial") && (!(has $results[0] "hidden"))) "named constructor arguments wrong"
+require ($results[0][0]["textEdit"]["newText"] == "initial: ") "named argument edit wrong"
+require ($results[0][0]["detail"] == "initial: Integer") "named argument type missing"
+
+let $source = '*
+struct Foo { pub text: String }
+let $f: Foo = Foo(text: "ok")
+let $name: String = "text"
+let $bad: Foo = Foo(text: "wrong")
+echo "${f.te}"
+echo "${f.text.trim}"
+echo $f.$
+# $f.
+echo "ordinary text"
+echo Foo(text: "x").
+*'
+let $results = inspect $source [["textDocument/completion", 4, 12],
+    ["textDocument/hover", 5, 16], ["textDocument/completion", 6, 9],
+    ["textDocument/completion", 7, 5], ["textDocument/hover", 8, 11],
+    ["textDocument/completion", 9, 20]] ""
+require (has $results[0] "text") "interpolated field completion missing"
+require ((hover_text $results[1]).contains "String::trim") "interpolated method hover missing"
+require ((has $results[2] '$name') && (!(has $results[2] '$bad'))) "dynamic name completion type wrong"
+require ($results[3] == []) "comment completion should be empty"
+require ($results[4] == ()) "ordinary string hover should be empty"
+require (has $results[5] "text") "temporary receiver completion missing"
+
+# Hidden native symbols obey visible declarations and are not exported automatically.
+let $source = '*
+__editor_s
+visible `__editor_source
+__editor_s
+*'
+let $results = inspect $source [["textDocument/completion", 0, 10],
+    ["textDocument/completion", 2, 10]] ""
+require (has $results[1] "__editor_source") "visible native function completion missing"
+
+let $results = inspect "__editor_s" [["textDocument/completion", 0, 10]] ""
+require (!(has $results[0] "__editor_source")) "hidden native symbol advertised"
+
+# A repeated binding uses the version visible at each source position.
+let $source = '*
+struct First { pub first: Integer }
+struct Second { pub second: String }
+let $v: First
+echo $v.
+let $v: Second
+echo $v.
+*'
+let $results = inspect $source [["textDocument/completion", 3, 8],
+    ["textDocument/completion", 5, 8]] ""
+require ((has $results[0] "first") && (!(has $results[0] "second")) &&
+    (has $results[1] "second") && (!(has $results[1] "first"))) "binding version ignored"
+
+# A bare type's dot members describe the type object; a constructed value has instance fields.
+let $source = '*
+struct Foo { pub value: Integer }
+Foo.
+Foo().
+*'
+let $results = inspect $source [["textDocument/completion", 1, 4],
+    ["textDocument/completion", 2, 6]] ""
+require ((has $results[0] "name") && (!(has $results[0] "value")) &&
+    (has $results[1] "value")) "type object confused with instance"
+
+# Imported extensions override native signatures, but nested extensions stay in scope.
+printf "%s" 'pub fn String::trim($extra: String): Integer { 1 }' -> "${fixture}/override.shy"
+let $source = '*
+import override
+echo "a".trim
+{ fn String::local_only(): Integer { 1 }; echo "a". }
+echo "a".
+*'
+let $results = inspect $source [["textDocument/hover", 1, 12],
+    ["textDocument/completion", 2, 51], ["textDocument/completion", 3, 9]] ""
+require ((hover_text $results[0]).contains '$extra: String') "native signature masked extension"
+require ((has $results[1] "local_only") && (!(has $results[2] "local_only"))) "nested extension escaped scope"
+
+mkdir -p "${fixture}/package/child"
+printf "%s" 'pub struct Leaf { pub ready: Boolean }' -> "${fixture}/package/child/init.shy"
+let $source = '*
+import package::child
+package::
+package::child::
+*'
+let $results = inspect $source [["textDocument/completion", 1, 9],
+    ["textDocument/completion", 2, 16]] ""
+require (has $results[0] "child") "nested namespace prefix missing"
+require (has $results[1] "Leaf") "package declarations missing"
+
+printf "%s" 'pub let $value: Integer = 7; pub fn make(): Integer { 7 }; let $secret = 0' -> "${fixture}/variables.shy"
+let $source = '*
+import variables
+$variables::
+*'
+let $results = inspect $source [["textDocument/completion", 1, 12]] ""
+require ((has $results[0] "value") && (!(has $results[0] '$value')) &&
+    (!(has $results[0] "make")) && (!(has $results[0] "secret"))) "qualified variable edit wrong"
+
+# Document changes invalidate cached interfaces; stale updates and closed documents do not leak data.
+let $before = 'struct Foo { pub old: String }; let $f: Foo; echo $f.'
+let $after = 'struct Foo { pub fresh: String }; let $f: Foo; echo $f.'
+let $uri = "file://${fixture}/main.shy"
+let $results = inspect $before [["textDocument/completion", 0, $before.chars.count],
+    ["notify", "textDocument/didChange", ["textDocument": ["uri": $uri, "version": 2], "contentChanges": [["text": $after]]]],
+    ["textDocument/completion", 0, $after.chars.count],
+    ["notify", "textDocument/didChange", ["textDocument": ["uri": $uri, "version": 1], "contentChanges": [["text": $before]]]],
+    ["textDocument/completion", 0, $after.chars.count]] ""
+require ((has $results[0] "old") && (has $results[1] "fresh") &&
+    (!(has $results[1] "old")) && (has $results[2] "fresh")) "document cache stale"
+let $results = inspect 'echo "💜"' [["textDocument/hover", 0, 7],
+    ["notify", "textDocument/didClose", ["textDocument": ["uri": $uri]]],
+    ["textDocument/hover", 0, 0]] "" () true
+require (($results[0]["error"]["code"] == -32602) &&
+    ($results[1]["error"]["code"] == -32602)) "invalid UTF-16 or closed document accepted"
+
+# Hovers use Markdown headings and separate signatures from member lists.
+let $source = 'pub struct Tasteful { pub label: String }; pub fn Tasteful::show(): String { $self.label }'
+let $results = inspect $source [["textDocument/hover", 0, 15]] ""
+let $markdown = hover_text $results[0]
+require (($markdown.contains "**Tasteful**") && ($markdown.contains "```shy") &&
+    ($markdown.contains "**Methods**") && ($markdown.contains "\n- `pub fn Tasteful::show")) "hover Markdown layout wrong"
+
+# CRLF and supplementary Unicode positions follow LSP's UTF-16 convention.
+let $source = "struct Foo { pub text: String }\r\nlet \$猫: Foo\r\necho \$猫."
+let $results = inspect $source [["textDocument/hover", 1, 0],
+    ["textDocument/completion", 2, 8]] ""
+require (has $results[1] "text") "CRLF or Unicode completion position wrong"
+
+# Collection element annotations retain the declaring namespace.
+let $source = '*
+struct Child { pub value: String }
+struct Parent { pub children: [Child], pub lookup: [String: Child] }
+let $parent: Parent
+echo $parent.children[0].
+echo $parent.lookup["key"].
+*'
+let $results = inspect $source [["textDocument/completion", 3, 25],
+    ["textDocument/completion", 4, 27]] ""
+require ((has $results[0] "value") && (has $results[1] "value")) "collection element members missing"

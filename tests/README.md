@@ -279,3 +279,7 @@ source, functions, and interactive sessions, including conflicting environment v
 remain Shelly code. There is no dependency on Python, pexpect, or an external
 timeout helper. Sandboxed hosts must permit process inspection and PTY creation
 to run the complete suite; denied inspection is a failure, not a passing skip.
+
+`native/language_intelligence.shy` exercises LSP hovers and completions, module
+visibility, properties and raw storage, named constructors, imported source edits,
+external command signatures, Markdown layout, and UTF-16 cursor positions.

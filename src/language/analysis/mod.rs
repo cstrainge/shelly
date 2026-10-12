@@ -65,6 +65,8 @@ pub struct SymbolSnapshot
     pub symbols: BTreeMap<String, SymbolDescriptor>,
     pub types: Arc<Vec<TypeDescriptor>>,
     pub external_commands: BTreeSet<String>,
+    pub method_arguments: BTreeMap<(usize, String), usize>,
+    pub hidden_symbols: BTreeSet<String>,
 }
 
 

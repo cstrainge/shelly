@@ -36,6 +36,7 @@ impl Position
 pub struct Document
 {
     pub version: i64,
+    pub source: String,
     pub tokens: Vec<u32>,
     pub diagnostics: Vec<Value>,
 }
@@ -98,7 +99,7 @@ impl Document
                         "severity": severity, "source": "shelly-shell",
                         "message": diagnostic.message })
             }).collect();
-        Self { version, tokens, diagnostics }
+        Self { version, source: source.into(), tokens, diagnostics }
     }
 }
 

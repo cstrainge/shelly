@@ -1,5 +1,5 @@
 
-use std::{ collections::HashMap, io::{ self, BufReader, BufWriter, stdin, stdout },
+use std::{ collections::{ BTreeSet, HashMap }, io::{ self, BufReader, BufWriter, stdin, stdout },
            process::ExitCode };
 
 use serde_json::{ Value, json };
@@ -9,6 +9,7 @@ use crate::{ language::{ analysis::SymbolSnapshot, interpreter::Interpreter },
                        transport::{ read_message, write_message } } };
 
 mod document;
+mod intelligence;
 mod transport;
 
 
@@ -18,6 +19,8 @@ struct Server
     shutdown: bool,
     snapshot: SymbolSnapshot,
     documents: HashMap<String, Document>,
+    project: Option<(String, intelligence::Project)>,
+    commands: Option<BTreeSet<String>>,
 }
 
 
@@ -55,6 +58,9 @@ impl Server
             return vec![response(id, json!({ "capabilities": {
                 "positionEncoding": "utf-16",
                 "textDocumentSync": { "openClose": true, "change": 1 },
+                "hoverProvider": true,
+                "completionProvider": { "triggerCharacters": [".", ":", "$"],
+                                        "resolveProvider": false },
                 "semanticTokensProvider": {
                     "legend": { "tokenTypes": TOKEN_TYPES, "tokenModifiers": [] },
                     "full": true, "range": false } },
@@ -73,8 +79,9 @@ impl Server
         }
         match method
         {
-            "initialized" | "$/cancelRequest" | "$/setTrace"
-            | "workspace/didChangeConfiguration" => Vec::new(),
+            "initialized" | "$/cancelRequest" | "$/setTrace" => Vec::new(),
+            "workspace/didChangeConfiguration" | "workspace/didChangeWatchedFiles" =>
+                { self.project = None; self.commands = None; Vec::new() },
             "shutdown" =>
                 {
                     if let Some(id) = id
@@ -96,8 +103,44 @@ impl Server
                     let Some(uri) = params["textDocument"]["uri"].as_str()
                         else { return Vec::new(); };
                     self.documents.remove(uri);
+                    self.project = None;
                     vec![json!({ "jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
                                  "params": { "uri": uri, "diagnostics": [] } })]
+                },
+            "textDocument/hover" | "textDocument/completion" =>
+                {
+                    let Some(id) = id else { return Vec::new(); };
+                    let Some(uri) = params["textDocument"]["uri"].as_str()
+                        else { return vec![error(id, -32602, "Missing document URI")]; };
+                    let Some(document) = self.documents.get(uri)
+                        else { return vec![error(id, -32602, "Document is not open")]; };
+                    let (Some(line), Some(character)) = (params["position"]["line"].as_u64(),
+                        params["position"]["character"].as_u64())
+                        else { return vec![error(id, -32602, "Missing position")]; };
+                    let Some(offset) = intelligence::offset(&document.source, line, character)
+                        else { return vec![error(id, -32602, "Invalid UTF-16 position")]; };
+                    let home = intelligence::uri_path(uri).unwrap_or_else(|| uri.into());
+                    if self.project.as_ref().is_none_or(|(key, _)| *key != home)
+                    {
+                        let mut project = intelligence::Project::new(&self.snapshot);
+                        for (uri, document) in &self.documents
+                        {
+                            if let Some(path) = intelligence::uri_path(uri)
+                            { project.overlays.insert(path, document.source.clone()); }
+                        }
+                        if let Some(commands) = &self.commands { project.commands = commands.clone(); }
+                        else
+                        {
+                            project.discover_commands();
+                            self.commands = Some(project.commands.clone());
+                        }
+                        project.load(&home, Some(document.source.clone()));
+                        self.project = Some((home.clone(), project));
+                    }
+                    let project = &self.project.as_ref().unwrap().1;
+                    let result = if method == "textDocument/hover" { project.hover(&home, offset) }
+                        else { project.completion(&home, offset) };
+                    vec![response(id, result)]
                 },
             "textDocument/semanticTokens/full" =>
                 {
@@ -137,21 +180,22 @@ impl Server
         let document = Document::analyze(source, version, &self.snapshot);
         let publication = diagnostic_message(uri, &document);
         self.documents.insert(uri.into(), document);
+        self.project = None;
         vec![publication]
     }
 }
 
 
 /**
- * A server owns source facts only. No shell startup, module execution, PATH discovery,
- * Reedline, terminal query, or user-defined conversion runs in this mode.
+ * Source indexing reads declarations and executable names only. No shell startup,
+ * module execution, terminal query, or user-defined conversion runs in this mode.
  */
 pub fn run() -> io::Result<ExitCode>
 {
     let mut server = Server
         {
             initialized: false, shutdown: false, snapshot: Interpreter::server_snapshot(),
-            documents: HashMap::new(),
+            documents: HashMap::new(), project: None, commands: None,
         };
     let mut input = BufReader::new(stdin().lock());
     let mut output = BufWriter::new(stdout().lock());

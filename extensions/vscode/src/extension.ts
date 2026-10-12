@@ -11,6 +11,7 @@ import { BracketColors } from './brackets';
 let client: LanguageClient | undefined;
 let output: vscode.LogOutputChannel | undefined;
 let brackets: BracketColors | undefined;
+let files: vscode.FileSystemWatcher | undefined;
 
 
 function serverPath(): string
@@ -32,6 +33,7 @@ async function startServer(): Promise<void>
     output?.info(`Starting language server: ${command} --language-server`);
     await verifyServer(command);
     const colors = new BracketColors();
+    const watcher = vscode.workspace.createFileSystemWatcher('**/*.shy');
     const server: ServerOptions = {
         command,
         args: ['--language-server'],
@@ -43,7 +45,7 @@ async function startServer(): Promise<void>
             { language: 'shelly', scheme: 'file' },
             { language: 'shelly', scheme: 'untitled' }
         ],
-        synchronize: { configurationSection: 'shelly-shell' },
+        synchronize: { configurationSection: 'shelly-shell', fileEvents: watcher },
         middleware: {
             provideDocumentSemanticTokens: async (document, token, provide) =>
             {
@@ -61,10 +63,12 @@ async function startServer(): Promise<void>
         await next.start();
         client = next;
         brackets = colors;
+        files = watcher;
     }
     catch (error)
     {
         colors.dispose();
+        watcher.dispose();
         try { await next.dispose(); }
         catch (cleanup) { output?.error(`Failed to dispose starting client: ${String(cleanup)}`); }
         throw error;
@@ -107,5 +111,7 @@ export async function deactivate(): Promise<void>
     client = undefined;
     brackets?.dispose();
     brackets = undefined;
+    files?.dispose();
+    files = undefined;
     if (previous) { await previous.dispose(); }
 }

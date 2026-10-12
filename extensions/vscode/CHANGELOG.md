@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add module-aware type, function, field, and method hovers with compact Markdown.
+- Complete scoped names, visible members, imported namespaces, and named factory arguments.
+- Index unsaved buffers, workspace imports, and the standard prelude without executing source.
+- Describe external commands with variadic `any` arguments.
+- Require Shelly 0.5.3 or later.
+
 - Recognize named struct factories, enum defaults, private storage, and public fields through the updated Shelly server.
 - Highlight computed properties using accessor types and raw access using storage types.
 - Cover raw interpolation and dynamic access in the bracket-coloring fixtures.

@@ -3,7 +3,8 @@ use std::{ collections::HashSet, sync::Arc };
 
 use crate::language::{ analysis::{ SymbolDescriptor, SymbolKind, SymbolSnapshot, TypeDescriptor },
                        data::{ methods::method_key, types::{ TypeId, TypeKind }, value::Value },
-                       interpreter::Interpreter };
+                       interpreter::Interpreter,
+                       native::NativeVisibility };
 use crate::runtime::{ color::TtyColorMode, highlighting::{ SyntaxSettings, SYNTAX_COLORS } };
 
 
@@ -15,7 +16,26 @@ impl Interpreter
      */
     pub fn server_snapshot() -> SymbolSnapshot
     {
-        let mut snapshot = Self::registered(TtyColorMode::TtyMonochrome).symbol_snapshot();
+        let interpreter = Self::registered(TtyColorMode::TtyMonochrome);
+        let mut snapshot = interpreter.symbol_snapshot();
+        snapshot.hidden_symbols.extend(interpreter.native_functions.iter()
+            .filter(|(_, function)| function.visibility == NativeVisibility::Hidden)
+            .map(|(name, _)| name.to_string()));
+        snapshot.hidden_symbols.extend(interpreter.scope().types.native_types.iter()
+            .filter(|(_, ty)| ty.visibility == NativeVisibility::Hidden)
+            .map(|(name, _)| name.clone()));
+        for (name, function) in &interpreter.native_functions
+        {
+            if function.visibility == NativeVisibility::Hidden
+            { snapshot.symbols.insert(name.to_string(),
+                SymbolDescriptor::new(SymbolKind::Builtin, None)); }
+        }
+        for (name, ty) in &interpreter.scope().types.native_types
+        {
+            if ty.visibility == NativeVisibility::Hidden
+            { snapshot.symbols.insert(name.clone(),
+                SymbolDescriptor::new(SymbolKind::Type, Some(ty.id.0))); }
+        }
         for (name, type_name) in [
                 ("$OS", "String"), ("$os", "String"), ("$args", "Array"),
                 ("$shelly", "String"), ("$interactive", "Boolean"), ("$login", "Boolean"),
@@ -110,7 +130,11 @@ impl Interpreter
                     let result = if let Some(function) = function
                         { function.return_type.map(|id| id.0) }
                         else if let Some(method) = registry.registered_method(receiver, &name)
-                        { Some(method.return_type.0) }
+                        {
+                            snapshot.method_arguments.insert((index, name.clone()),
+                                method.argument_count);
+                            Some(method.return_type.0)
+                        }
                         else { continue; };
                     descriptor.methods.insert(name.clone(), SymbolDescriptor
                         {

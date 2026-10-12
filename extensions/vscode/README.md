@@ -2,7 +2,7 @@
 
 The extension's internal name is `shelly-shell`, matching the Rust package.
 It recognizes `.shy` files and Shelly shebangs, starts `shelly --language-server`,
-and displays semantic highlighting and syntax diagnostics. The server uses the
+and provides semantic highlighting, syntax diagnostics, hovers, and completions. The server uses the
 same tokenizer, parser, and semantic classifications as the REPL. There is no
 separate TextMate grammar. Your VS Code theme chooses the colors.
 
@@ -14,8 +14,9 @@ semantic tokens to exclude that text. Set `shelly-shell.bracketColorization` to
 `false` to disable Shelly's bracket coloring. Bracket colors clear on edits until
 fresh tokens arrive; split editors share the same document results.
 
-Requires VS Code 1.140 or later and a Shelly build supporting `--language-server`
-(introduced in the shell's 0.5.2 source). The extension does not bundle the shell.
+Requires **Shelly 0.5.3 or later** and VS Code 1.140 or later.
+The extension does not bundle Shelly; an older server executable cannot provide
+these language features.
 On Windows, run it in a WSL workspace with Shelly installed inside WSL. Linux
 and macOS use their native Shelly executable.
 
@@ -68,7 +69,7 @@ The workspace launches an Extension Development Host using the debug binary.
 The **Shelly** output channel reports startup failures. Set
 `shelly-shell.trace.server` to `messages` or `verbose` for protocol tracing.
 
-## First-version boundaries
+## Language features
 
 Highlighting includes lexical tokens, parser context, declarations, native types
 and methods, and understood references within the current document. For example,
@@ -98,9 +99,29 @@ Server**. Updating the extension alone does not update its server executable.
 Invalid syntax gets diagnostics;
 unfinished input gets hints. Clearing or closing a document clears its diagnostics.
 
-The server never executes profiles, RC files, the prelude, imports, or document
-code. Standard-library and workspace import indexing, completion, hover,
-navigation, formatting, and type checking are follow-up work. Unknown names do
+Hover a type to see its public storage fields, accessible properties, and methods
+visible from the current module. Function and method hovers show their declared
+parameter and return types. Property hovers distinguish read-only, write-only,
+and writable properties. External binaries found on the server's PATH use the
+placeholder signature `fn command($args: any...): any`.
+
+Completion supports local variables and parameters, types, functions, imported
+namespaces, methods, properties, raw access, and named constructor arguments.
+Private constructors remain visible to their defining module and its children;
+private storage is offered only inside the owning type's methods. `Type::` offers
+constructors, methods, and enum variants; `Type.` describes the type object.
+Open, unsaved dependency buffers take precedence over disk contents. Workspace
+`.shy` file changes invalidate the declaration cache.
+
+Imports are indexed using local-first lookup, `module.shy` and `module/init.shy`,
+`SHELLY_MODULE_PATH`, and the separate `SHELLY_STD_PATH` lookup for `std::` modules.
+The standard prelude is indexed automatically. Conditions that require executing
+code are left uncertain; their declarations are not advertised. Indexing is
+bounded to 64 modules, 1 MiB per module, and 8 MiB of source in total.
+
+The server reads declarations and executable metadata. It never executes profiles,
+RC files, prelude code, imported module code, getters, or external binaries.
+Navigation, formatting, and type checking remain follow-up work. Unknown names do
 not produce speculative type errors. Source analysis covers up to 1 MiB and
 640,000 parser reads per document, with a diagnostic when a limit is reached.
 Analysis results are cached by document version; stale updates are ignored.
