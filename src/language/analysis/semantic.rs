@@ -178,6 +178,9 @@ impl Classifier<'_>
                 SyntaxRole::EnumVariantDeclaration =>
                     Some(SymbolDescriptor::new(SymbolKind::EnumVariant, None)),
                 SyntaxRole::Variable => self.symbol(raw),
+                SyntaxRole::Member if raw.starts_with(".$") =>
+                    Some(self.symbol(&raw[1..]).unwrap_or_else(||
+                        SymbolDescriptor::new(SymbolKind::Variable, None))),
                 SyntaxRole::Name | SyntaxRole::CommandName | SyntaxRole::TypeName
                 | SyntaxRole::ImportName | SyntaxRole::ModuleName | SyntaxRole::PipeAnnotation =>
                     {
@@ -540,7 +543,9 @@ impl Classifier<'_>
                         .filter(|token| token.token_value_text() == *name).map(|token| token.span);
                     if let Some(span) = member
                     {
-                        let symbol = if name.starts_with('$') { self.symbol(name) }
+                        let symbol = if name.starts_with('$')
+                            { Some(self.symbol(name).unwrap_or_else(||
+                                SymbolDescriptor::new(SymbolKind::Variable, None))) }
                             else { info.type_id.and_then(|id| self.member(id, name, 0)) };
                         if let Some(symbol) = symbol
                         {
@@ -750,12 +755,35 @@ impl Classifier<'_>
             .map(|part| part.decoded.start).collect();
         for reference in interpolation_references(&string.decoded, &escaped)
         {
-            if let Some(span) = string.source_span(reference.span)
+            let mut names = reference.name.split('.');
+            let root = names.next().unwrap();
+            let symbol = self.symbol(root)
+                .unwrap_or_else(|| SymbolDescriptor::new(SymbolKind::Variable, None));
+            if !reference.name.contains('.') || reference.error.is_some()
             {
-                let root = reference.name.split('.').next().unwrap();
-                let symbol = self.symbol(root)
-                    .unwrap_or_else(|| SymbolDescriptor::new(SymbolKind::Variable, None));
-                self.mark(span, &symbol);
+                if let Some(span) = string.source_span(reference.span)
+                { self.mark(span, &symbol); }
+                continue;
+            }
+            // Braced member paths include an extra '{' before the decoded root name.
+            let mut end = reference.span.start + root.len() + 1;
+            if let Some(span) = string.source_span(SourceSpan::new(reference.span.start, end))
+            { self.mark(span, &symbol); }
+            let mut receiver = symbol.type_id;
+            for name in names
+            {
+                let start = end;
+                end += 1 + name.len();
+                let dynamic = name.starts_with('$');
+                let symbol = if dynamic
+                    { self.symbol(name).unwrap_or_else(||
+                        SymbolDescriptor::new(SymbolKind::Variable, None)) }
+                    else
+                    { receiver.and_then(|id| self.member(id, name, 0)).unwrap_or_else(||
+                        SymbolDescriptor::new(SymbolKind::Field, None)) };
+                if let Some(span) = string.source_span(SourceSpan::new(start, end))
+                { self.mark(span, &symbol); }
+                receiver = if dynamic { None } else { symbol.return_type.or(symbol.type_id) };
             }
         }
     }

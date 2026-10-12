@@ -73,7 +73,15 @@ The **Shelly** output channel reports startup failures. Set
 Highlighting includes lexical tokens, parser context, declarations, native types
 and methods, and understood references within the current document. For example,
 `let` is an argument in `echo let`, and references inside interpolated strings
-are classified without evaluating them. Invalid syntax gets diagnostics;
+are classified without evaluating them. Member interpolation such as `${p.name}`
+colors the root as a variable and the member as a property; nested getters retain
+method highlighting. Dynamic accessors such as `$p.$name` and `${p.$name}` are
+variable references, including assignment targets and unknown names. Interpolation
+braces stay outside structural bracket coloring. These forms require a Shelly
+binary built with member interpolation and dynamic member support; rebuild it and
+run **Shelly: Restart Language Server** after updating the shell.
+
+Invalid syntax gets diagnostics;
 unfinished input gets hints. Clearing or closing a document clears its diagnostics.
 
 The server never executes profiles, RC files, the prelude, imports, or document

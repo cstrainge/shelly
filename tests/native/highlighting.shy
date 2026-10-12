@@ -125,3 +125,12 @@ let $large = ""
 for _ in 0..16385 { $large = $large + "    " }
 $large = "${large}猫"
 let _ = highlight_report $large "truecolor"
+
+# Member interpolation and dynamic read/write names use the same editor classifications.
+let $members = highlight_report 'struct Person { name: String }; let $p = Person(name: "Ada"); let $name = "name"; echo "${p.name} ${p.name.trim} ${p.$name}"; $p.$name = "Grace"; echo $p.$unknown' "truecolor"
+require (highlight_has $members ".name" "Field") "interpolated field lost its classification"
+require (highlight_has $members ".trim" "Method") "interpolated getter lost its classification"
+require (highlight_has $members '$p.$name' "Variable") "dynamic write accessor is not a variable"
+require (highlight_has $members '$p.$unknown' "Variable") "unknown accessor is not a variable"
+let $escaped_member = highlight_report 'echo "\\${p.name}"' "truecolor"
+require (!(highlight_has $escaped_member ".name" "Field")) "escaped member was interpolated"

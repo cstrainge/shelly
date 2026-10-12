@@ -142,3 +142,8 @@ for $character in "fn callback(\$value: String): String { \"hi \${value}\".trim 
 let $prefix = ""
 for $character in 'echo $p.$field.child "${p.name} ${p.$field}"'.chars
 { $prefix = $prefix + $character; let _ = semantic_report $prefix }
+
+let $members = semantic_report 'struct Person { name: String }; let $p = Person(name: "Ada"); let $field = "name"; echo "${p.name} ${p.$field}"; $p.$field = "Grace"; echo $p.$unknown'
+require (semantic_has $members ".name" "Field" "String") "interpolated field type was lost"
+require (semantic_has $members '.$field' "Variable" "String") "dynamic accessor binding was lost"
+require (semantic_has $members '.$unknown' "Variable" ()) "unknown dynamic accessor is not a variable"

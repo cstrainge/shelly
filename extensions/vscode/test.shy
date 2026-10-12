@@ -8,7 +8,7 @@ fn editor_case($source: String, $data: Array, $actions: Array): any
 {
     let $output: String
     let $request = ["source": $source, "data": $data,
-        "legend": ["string", "shellyDelimiter", "comment"], "actions": $actions]
+        "legend": ["string", "shellyDelimiter", "comment", "variable", "property"], "actions": $actions]
     let $result = (String::from_json $request) | node tests/brackets.cjs -> $output
     require Boolean($result) "editor fixture failed"
     json::from_string $output
@@ -57,4 +57,15 @@ require ($states["disposed"] && ($states["subscriptions"] == 0)) "editor resourc
 let $cleared = editor_case "()" [0, 0, 2, 1, 0] [["op": "accept"],
     ["op": "accept", "data": []]]
 require ($cleared["frames"][1][0] == $empty) "empty token response retained colors"
+
+# Interpolation braces carry variable/string tokens, never structural delimiters.
+let $members = editor_case '["${p.name}", $p.$name]' [
+    0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 3, 3, 0, 0, 3, 5, 4, 0,
+    0, 5, 2, 0, 0, 0, 2, 1, 1, 0, 0, 2, 8, 3, 0, 0, 8, 1, 1, 0
+] [["op": "accept"], ["op": "split"], ["op": "edit"], ["op": "accept"]]
+let $member_brackets = [[[0, 0, 0, 1], [0, 22, 0, 23]], [], [], []]
+require ($members["frames"][0][0] == $member_brackets) "interpolation braces affected nesting"
+require ($members["frames"][1] == [$member_brackets, $member_brackets]) "member split colors differ"
+require ($members["frames"][2] == [$empty, $empty]) "member edits retained stale colors"
+require ($members["frames"][3] == [$member_brackets, $member_brackets]) "member colors not restored"
 echo "Bracket coloring tests passed."
