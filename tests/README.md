@@ -47,6 +47,15 @@ and comments. The VS Code extension's `test.shy` runs Shelly assertions against
 Node editor fixtures; run `npm test` from `extensions/vscode` after building the
 debug binary and installing the extension's development dependencies.
 
+`native/nested_imports.shy` checks nested module paths, `init.shy` packages,
+search precedence, ambiguous file/directory layouts, public re-exports, shared identities,
+directory preludes, reloads, rejected direct entry-point imports, and source spans.
+`repl/nested_imports.shy` checks package state across separate submissions.
+`repl/module_search.shy` checks startup-script local lookup, source-relative nested
+imports, colon-separated search paths, and ordinary/standard lookup separation.
+`native/bundled_std.shy` checks bundled imports through their public module names,
+without depending on whether a module uses a file or directory layout.
+
 ## Process case records
 
 `native/colon_arguments.shy` verifies attached colons in command and alias words,
@@ -211,6 +220,10 @@ ordinary and selective imports, public re-export chains, conversion factories,
 live receiver methods, iterators, standard-library imports, local overrides,
 private isolation, duplicate/conflicting imports, explicit factories overriding
 implied defaults in either import order, retained references and rollback.
+The native and REPL `parent_imports.shy` tests cover structural `super` namespaces,
+selected private types, ancestor and sibling imports, parent re-exports, shared
+type identity, explicit conversion factories, direct child scripts, directory
+preludes, private function isolation, and recovery after failed child imports.
 `repl/prelude_reload*.shy` checks reload identity, scope isolation, cached dependencies,
 and recovery after failed reloads. The native and REPL `prelude_startup.shy` tests
 check explicit profile reloads and availability in later startup scripts.

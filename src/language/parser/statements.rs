@@ -810,16 +810,26 @@ fn parse_import_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
     let token = expect_type_name(buffer)?;
     buffer.annotate(token.span, SyntaxRole::ModuleName);
     let mut module = token.token_value_text();
-    if module == "std"
+    let mut selection = false;
+    while try_expect_token(buffer, TokenKind::Scope)?.is_some()
     {
-        expect_token(buffer, TokenKind::Scope)?;
+        let lookahead = Lookahead::new(buffer);
+        selection = lookahead.buffer.next()?.is_some_and(|token|
+            token.kind == TokenKind::BlockOpen);
+        drop(lookahead);
+        if selection { break; }
         module.push_str("::");
         let token = expect_type_name(buffer)?;
         buffer.annotate(token.span, SyntaxRole::ModuleName);
         module.push_str(&token.token_value_text());
     }
+    if module == "std"
+    {
+        return Err(ParserError { location: Some(token.location),
+            kind: ParserErrorKind::InvalidImport("Expected a module after 'std::'".into()) });
+    }
     let mut names = Vec::new();
-    if try_expect_token(buffer, TokenKind::Scope)?.is_some()
+    if selection
     {
         expect_token(buffer, TokenKind::BlockOpen)?;
         loop

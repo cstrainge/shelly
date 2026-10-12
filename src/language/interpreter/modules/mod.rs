@@ -24,6 +24,8 @@ use crate::language::{ ast::{ AstExpression, AstExpressionKind, AstImportStateme
                        text::{ location::Location, read_buffer::ReadBuffer },
                        tokenizer::Tokenizer };
 
+mod parent;
+
 
 // Each prelude generation retains its own scope and type handles. Changing the
 // search path alone does not replace it; prelude_reload publishes a new generation.
@@ -41,13 +43,33 @@ struct ModuleBindings
     types: HashMap<String, TypeId>,
     functions: HashSet<String>,
     methods: HashMap<String, FunctionRef>,
+    forward_methods: HashSet<String>,
 }
 
 
-enum ModuleSource
+#[derive(Clone)]
+pub(super) enum ModuleSource
+{
+    File { path: PathBuf, library: PathBuf },
+    Bundled { name: String, source: &'static str },
+}
+
+
+pub(super) struct PendingModule
+{
+    types: Option<AstTopLevel>,
+    imports: Vec<AstImportStatement>,
+    body: Option<AstTopLevel>,
+    methods: Vec<(String, String, bool)>,
+    preparing: bool,
+    deferred: bool,
+}
+
+
+enum ModuleDirectory
 {
     File(PathBuf),
-    Bundled { name: String, source: &'static str },
+    Bundled(PathBuf),
 }
 
 
@@ -57,8 +79,7 @@ impl ModuleSource
     {
         match self
         {
-            Self::File(file) => file.parent().unwrap_or_else(|| Path::new("."))
-                .to_string_lossy().into_owned(),
+            Self::File { library, .. } => library.to_string_lossy().into_owned(),
             Self::Bundled { .. } => "embedded".into(),
         }
     }
@@ -67,19 +88,85 @@ impl ModuleSource
     {
         match self
         {
-            Self::File(file) => file.to_string_lossy().into_owned(),
-            Self::Bundled { name, .. } => format!("<bundled:std::{}>", name),
+            Self::File { path, .. } => path.to_string_lossy().into_owned(),
+            Self::Bundled { name, .. } => format!("<bundled:std::{}>", name.replace('/', "::")),
         }
+    }
+
+    fn directory(&self) -> ModuleDirectory
+    {
+        match self
+        {
+            Self::File { path, .. } => ModuleDirectory::File(
+                path.parent().unwrap_or_else(|| Path::new(".")).to_path_buf()),
+            Self::Bundled { name, .. } => ModuleDirectory::Bundled(
+                Path::new(name).parent().unwrap_or_else(|| Path::new("")).to_path_buf()),
+        }
+    }
+
+    fn files(files: &[PathBuf], library: &Path, location: &Location)
+        -> InterpreterResult<Option<Self>>
+    {
+        let mut found: Option<(PathBuf, &PathBuf)> = None;
+        for file in files
+        {
+            match canonicalize(file)
+            {
+                Ok(path) if path.is_file() =>
+                    {
+                        if let Some((_, previous)) = &found
+                        {
+                            return Err(module_error(location, format!(
+                                "Ambiguous module: both '{}' and '{}' exist",
+                                previous.display(), file.display())));
+                        }
+                        found = Some((path, file));
+                    },
+                Ok(_) => {},
+                Err(error) if matches!(error.kind(),
+                    ErrorKind::NotFound | ErrorKind::NotADirectory) => {},
+                Err(error) => return Err(module_error(location,
+                    format!("Cannot resolve '{}': {}", file.display(), error))),
+            }
+        }
+        Ok(found.map(|(path, _)| Self::File
+            {
+                path, library: canonicalize(library).unwrap_or_else(|_| library.to_path_buf()),
+            }))
+    }
+
+    fn bundled(name: &str, directory: &Path, location: &Location)
+        -> InterpreterResult<Option<Self>>
+    {
+        let path = directory.join(name.replace("::", "/"));
+        let mut found: Option<Self> = None;
+        for path in [path.clone(), path.join("init")]
+        {
+            let name = path.components().map(|component| component.as_os_str().to_str())
+                .collect::<Option<Vec<_>>>().ok_or_else(|| module_error(location,
+                    "Invalid bundled module path"))?.join("/");
+            if let Some(source) = bundled_source(&name)
+            {
+                if let Some(Self::Bundled { name: previous, .. }) = &found
+                {
+                    return Err(module_error(location, format!(
+                        "Ambiguous module: both bundled '{}.shy' and '{}.shy' exist",
+                        previous, name)));
+                }
+                found = Some(Self::Bundled { name, source });
+            }
+        }
+        Ok(found)
     }
 
     fn reader(&self, location: &Location) -> InterpreterResult<Box<dyn BufRead>>
     {
         match self
         {
-            Self::File(file) => File::open(file)
+            Self::File { path, .. } => File::open(path)
                 .map(|file| Box::new(BufReader::new(file)) as Box<dyn BufRead>)
                 .map_err(|error| module_error(location,
-                    format!("Cannot open '{}': {}", file.display(), error))),
+                    format!("Cannot open '{}': {}", path.display(), error))),
             Self::Bundled { source, .. } => Ok(Box::new(Cursor::new(source.as_bytes()))),
         }
     }
@@ -105,6 +192,7 @@ impl Interpreter
     {
         let mut member = name;
         let mut local = true;
+        let mut parent_types = false;
         while member.contains("::")
         {
             // Imports may bind a compound namespace such as std::net. Prefer the
@@ -114,11 +202,13 @@ impl Interpreter
                     .is_some_and(|tail| tail.starts_with("::"))
                     && (local || scope.exports.contains(namespace.as_str())))
                 .max_by_key(|(namespace, _)| namespace.len())?;
+            parent_types = local && scope.parent_namespaces.contains(namespace);
             member = &member[namespace.len() + 2..];
             scope = self.scopes.get(key)?;
             local = false;
         }
-        scope.exports.contains(member).then_some((scope, member))
+        (scope.exports.contains(member) || (parent_types && scope.types.names.contains_key(member)))
+            .then_some((scope, member))
     }
 
     pub(super) fn module_alias_in(&self, home: &str, name: &str) -> Option<Rc<Alias>>
@@ -126,6 +216,7 @@ impl Interpreter
         let scope = self.scopes.get(home)?;
         if !name.contains("::") { return scope.aliases.get(name).cloned(); }
         let (scope, name) = self.module_member_in(scope, name)?;
+        if !scope.exports.contains(name) { return None; }
         scope.aliases.get(name).cloned()
     }
 
@@ -133,6 +224,7 @@ impl Interpreter
     {
         if !name.contains("::") { return self.scope().function(name); }
         let (scope, name) = self.module_member(name)?;
+        if !scope.exports.contains(name) { return None; }
         scope.base_function(name)
     }
 
@@ -142,6 +234,7 @@ impl Interpreter
         { return Some(function.clone()); }
         if !name.contains("::") { return self.scope().native_functions.get(name).cloned(); }
         let (scope, name) = self.module_member(name)?;
+        if !scope.exports.contains(name) { return None; }
         scope.native_functions.get(name).cloned()
     }
 
@@ -224,18 +317,26 @@ impl Interpreter
         Ok(enabled)
     }
 
-    fn source_directory(origin: &str) -> PathBuf
+    fn source_directory(&self, origin: &str) -> ModuleDirectory
     {
-        if origin.starts_with('<') { return current_dir().unwrap_or_else(|_| ".".into()); }
-        canonicalize(origin).unwrap_or_else(|_| PathBuf::from(origin))
-            .parent().unwrap_or_else(|| Path::new(".")).to_path_buf()
+        let path = if origin.starts_with('<')
+            { current_dir().unwrap_or_else(|_| ".".into()) }
+            else
+            {
+                let expanded = self.eval_path_from(origin);
+                canonicalize(&expanded).unwrap_or_else(|_| PathBuf::from(expanded))
+                    .parent().unwrap_or_else(|| Path::new(".")).to_path_buf()
+            };
+        ModuleDirectory::File(path)
     }
 
-    fn module_directories(&self, standard: bool, directory: &Path, location: &Location)
+    fn module_directories(&self, standard: bool, directory: &ModuleDirectory, location: &Location)
         -> InterpreterResult<Vec<PathBuf>>
     {
         let variable = if standard { "$SHELLY_STD_PATH" } else { "$SHELLY_MODULE_PATH" };
-        let mut directories = if standard { Vec::new() } else { vec![directory.to_path_buf()] };
+        let mut directories = Vec::new();
+        if !standard && let ModuleDirectory::File(directory) = directory
+        { directories.push(directory.clone()); }
         let paths = if let Some(binding) = self.variable_binding(variable)
             {
                 let value = binding.borrow().value.clone();
@@ -251,35 +352,47 @@ impl Interpreter
         Ok(directories)
     }
 
-    fn find_module_source(&self, import: &AstImportStatement, directory: &Path)
+    fn find_module_source(&self, import: &AstImportStatement, directory: &ModuleDirectory)
         -> InterpreterResult<Option<ModuleSource>>
     {
         let standard = import.module.strip_prefix("std::");
         let name = standard.unwrap_or(&import.module);
         let directories = self.module_directories(standard.is_some(), directory, &import.location)?;
+        // Embedded imports have a real virtual parent, rather than borrowing the
+        // caller's cwd. Ordinary imports first search beside their embedded source.
+        if    standard.is_none()
+           && let ModuleDirectory::Bundled(directory) = directory
+           && let Some(source) = ModuleSource::bundled(name, directory, &import.location)?
+        { return Ok(Some(source)); }
         for directory in directories
         {
             if standard.is_some() && directory.as_os_str() == "bundled"
             {
-                if let Some(source) = bundled_source(name)
-                { return Ok(Some(ModuleSource::Bundled { name: name.into(), source })); }
+                if let Some(source) = ModuleSource::bundled(name, Path::new(""), &import.location)?
+                { return Ok(Some(source)); }
                 continue;
             }
-            let file = directory.join(format!("{}.shy", name));
-            match canonicalize(&file)
-            {
-                Ok(path) => return Ok(Some(ModuleSource::File(path))),
-                Err(error) if error.kind() == ErrorKind::NotFound => {},
-                Err(error) => return Err(module_error(&import.location,
-                    format!("Cannot resolve '{}': {}", file.display(), error))),
-            }
+            let relative = name.replace("::", "/");
+            let files = [
+                    directory.join(format!("{}.shy", relative)),
+                    directory.join(&relative).join("init.shy"),
+                ];
+            if let Some(source) = ModuleSource::files(&files, &directory, &import.location)?
+            { return Ok(Some(source)); }
         }
         Ok(None)
     }
 
-    fn load_import(&mut self, import: &AstImportStatement, directory: &Path)
+    fn load_import(&mut self, import: &AstImportStatement, directory: &ModuleDirectory)
         -> InterpreterResult<String>
     {
+        if import.module.rsplit("::").next() == Some("init")
+        {
+            return Err(module_error(&import.location,
+                "init.shy is a module entry point; import its containing module instead"));
+        }
+        if import.module.split("::").next() == Some("super")
+        { return self.load_parent_import(import); }
         if import.module == "std::prelude" && !self.prelude_loading
         {
             // An existing module keeps its own prelude generation after a reload.
@@ -304,7 +417,8 @@ impl Interpreter
                 location: location.clone(), module: "std::prelude".into(), names: Vec::new(),
                 condition: None, enabled: true,
             };
-        let Some(source) = self.find_module_source(&import, Path::new("."))?
+        let directory = ModuleDirectory::File(".".into());
+        let Some(source) = self.find_module_source(&import, &directory)?
             else { return Ok(()); };
         // No implicit prelude is installed while bootstrapping the prelude itself
         // and its dependencies. Explicit circular imports still fail normally.
@@ -344,7 +458,8 @@ impl Interpreter
                 location: location.clone(), module: "std::prelude".into(), names: Vec::new(),
                 condition: None, enabled: true,
             };
-        let source = self.find_module_source(&import, Path::new("."))?
+        let directory = ModuleDirectory::File(".".into());
+        let source = self.find_module_source(&import, &directory)?
             .ok_or_else(|| module_error(location, "Module 'std::prelude' was not found"))?;
         self.prelude_generation += 1;
         let key = format!("<prelude:{}:{}>", self.prelude_generation, source.origin());
@@ -413,6 +528,17 @@ impl Interpreter
     fn load_module(&mut self, source: &ModuleSource, location: &Location)
         -> InterpreterResult<String>
     {
+        // A child entered as a script has a scope key distinct from its filename.
+        // Its deferred parent may import that already compiled child without loading
+        // a second copy or confusing the remaining execution with a circular import.
+        if self.module_sources.get(&self.current_scope)
+            .is_some_and(|parent| parent.contains_child(source))
+        {
+            let origin = source.origin();
+            if let Some((key, _)) = self.module_sources.iter().find(|(key, module)|
+                module.origin() == origin && !self.pending_modules.contains_key(*key))
+            { return Ok(key.clone()); }
+        }
         self.load_module_as(source, location, source.origin())
     }
 
@@ -425,49 +551,68 @@ impl Interpreter
         if self.loading_modules.contains(&origin)
         { return Err(module_error(location, format!("Circular import of '{}'", origin))); }
         if self.scopes.contains_key(&key) { return Ok(key); }
+        let existing: HashSet<_> = self.scopes.keys().cloned().collect();
         self.loading_modules.insert(origin.clone());
         let result = (||
             {
-                let mut reader = source.reader(location)?;
-                let mut buffer = ReadBuffer::new(&origin, &mut reader, Some(4));
-                let mut statements = parse_text(&mut Tokenizer::new(&mut buffer))?;
-                // Conditions see the caller before the new module's scope exists.
-                let imports = self.import_conditions(&mut statements)?;
-                let mut scope = Scope::new(self.native_functions.values().cloned(), key.clone(),
-                    self.scope().types.module_registry(), self.color_mode);
-                // Inherit shell settings as values, not aliases into the caller's bindings.
-                for (name, mut binding) in self.scope().variables.get_all_flattened()
-                {
-                    if binding.exported == ValueVisibility::Exported || matches!(name.as_str(),
-                        "$OS" | "$os" | "$shelly" | "$version" | "$build_date" | "$build_time"
-                        | "$interactive" | "$login" | "$SHELLY_MODULE_PATH" | "$SHELLY_STD_PATH")
-                    {
-                        binding.value = self.read_raw_variable(&name, location)?;
-                        binding.reference = None;
-                        let _ = scope.variables.create(name, binding);
-                    }
-                }
-                let _ = scope.variables.create("$args".into(), ScopedValue
-                    {
-                        value: Value::from_array(Vec::new()), type_id: None,
-                        exported: ValueVisibility::Private, reference: None,
-                    });
-                self.scopes.insert(key.clone(), scope);
+                let (mut statements, imports) = self.open_module_scope(source, location, &key)?;
                 let caller = replace(&mut self.current_scope, key.clone());
                 let previous = self.last_result.take();
-                let directory = Self::source_directory(&origin);
+                let directory = source.directory();
                 let module_location = Location::new(origin.as_str(), 1, 1);
                 let loaded = self.install_prelude(&module_location)
                     .and_then(|()| self.compile_module(&mut statements, imports, &directory))
                     .and_then(|code| self.execute_instructions(&code));
                 self.last_result = previous;
                 self.current_scope = caller;
-                if loaded.is_err() { self.scopes.remove(&key); }
+                if loaded.is_err()
+                { self.discard_module_scope(&key); }
                 loaded
             })();
         self.loading_modules.remove(&origin);
-        result?;
+        if let Err(error) = result
+        {
+            self.discard_parent_scopes(&existing);
+            return Err(error);
+        }
+        if let Err(error) = self.finish_parent_modules()
+        {
+            self.discard_parent_scopes(&existing);
+            return Err(error);
+        }
         Ok(key)
+    }
+
+    fn open_module_scope(&mut self, source: &ModuleSource, location: &Location, key: &str)
+        -> InterpreterResult<(AstTopLevel, Vec<AstImportStatement>)>
+    {
+        let origin = source.origin();
+        let mut reader = source.reader(location)?;
+        let mut buffer = ReadBuffer::new(&origin, &mut reader, Some(4));
+        let mut statements = parse_text(&mut Tokenizer::new(&mut buffer))?;
+        // Conditions see the caller before the new module's scope exists.
+        let imports = self.import_conditions(&mut statements)?;
+        let mut scope = Scope::new(self.native_functions.values().cloned(), key.to_string(),
+            self.scope().types.module_registry(), self.color_mode);
+        for (name, mut binding) in self.scope().variables.get_all_flattened()
+        {
+            if binding.exported == ValueVisibility::Exported || matches!(name.as_str(),
+                "$OS" | "$os" | "$shelly" | "$version" | "$build_date" | "$build_time"
+                | "$interactive" | "$login" | "$SHELLY_MODULE_PATH" | "$SHELLY_STD_PATH")
+            {
+                binding.value = self.read_raw_variable(&name, location)?;
+                binding.reference = None;
+                let _ = scope.variables.create(name, binding);
+            }
+        }
+        let _ = scope.variables.create("$args".into(), ScopedValue
+            {
+                value: Value::from_array(Vec::new()), type_id: None,
+                exported: ValueVisibility::Private, reference: None,
+            });
+        self.scopes.insert(key.to_string(), scope);
+        self.module_sources.insert(key.to_string(), source.clone());
+        Ok((statements, imports))
     }
 
     fn install_import(&mut self, import: &AstImportStatement, key: &str) -> InterpreterResult<()>
@@ -486,7 +631,9 @@ impl Interpreter
         for name in &import.names
         {
             let module = &self.scopes[key];
-            if !module.exports.contains(name)
+            let parent_type = import.module.split("::").all(|name| name == "super")
+                && module.types.names.contains_key(name);
+            if !module.exports.contains(name) && !parent_type
             {
                 return Err(module_error(&import.location,
                     format!("Module '{}' has no member '{}'", import.module, name)));
@@ -570,6 +717,8 @@ impl Interpreter
             self.scope_mut().exports.extend(methods);
         }
         self.scope_mut().modules.insert(import.module.clone(), key.to_string());
+        if import.module.split("::").all(|name| name == "super")
+        { self.scope_mut().parent_namespaces.insert(import.module.clone()); }
         if import.public && import.names.is_empty()
         { self.scope_mut().exports.insert(import.module.clone()); }
         Ok(())
@@ -587,7 +736,11 @@ impl Interpreter
                 if !visiting.insert(key.clone()) { continue; }
                 let module = &scopes[key];
                 let prefix = format!("{}{}::", prefix, name);
-                for name in &module.exports
+                let mut members = module.exports.clone();
+                if local && scope.parent_namespaces.contains(name)
+                { members.extend(module.types.names.keys().filter(|name|
+                    !name.contains("::")).cloned()); }
+                for name in &members
                 {
                     if name.starts_with("\0method:")
                     {
@@ -614,11 +767,13 @@ impl Interpreter
                             }
                             bindings.methods.insert(name.clone(), function);
                         }
+                        else if module.declared_function(name)
+                        { bindings.forward_methods.insert(name.clone()); }
                         continue;
                     }
                     if let Some(id) = module.types.names.get(name)
                     { bindings.types.insert(format!("{}{}", prefix, name), *id); }
-                    if module.base_function(name).is_some()
+                    if module.base_function(name).is_some() || module.declared_function(name)
                         || module.native_functions.contains_key(name)
                         || module.aliases.contains_key(name)
                     { bindings.functions.insert(format!("{}{}", prefix, name)); }
@@ -649,7 +804,7 @@ impl Interpreter
                 }
             }
         }
-        let ModuleBindings { types: names, functions, methods } = bindings;
+        let ModuleBindings { types: names, functions, methods, forward_methods } = bindings;
         let extensions: Vec<_> = names.values().filter_map(|id|
             {
                 let source = self.scopes.get(self.type_scopes.get(id)?)?;
@@ -678,15 +833,17 @@ impl Interpreter
             }
         }
         self.scope_mut().refresh_methods(methods);
+        for key in forward_methods { self.scope_mut().announce_function(key); }
         Ok(())
     }
 
     fn compile_module(&mut self, statements: &mut AstTopLevel, imports: Vec<AstImportStatement>,
-                      directory: &Path) -> InterpreterResult<Vec<Instruction>>
+                      directory: &ModuleDirectory) -> InterpreterResult<Vec<Instruction>>
     {
         let checkpoint = self.scope().checkpoint();
         let result = (||
             {
+                self.stage_parent_types(statements, &imports);
                 for import in imports
                 {
                     self.scope_mut().types.module_names
@@ -696,6 +853,13 @@ impl Interpreter
                     self.install_import(&import, &key)?;
                 }
                 self.refresh_module_names()?;
+                let mut exposed_types = false;
+                if let Some(pending) = self.pending_modules.get_mut(&self.current_scope)
+                {
+                    exposed_types = pending.types.is_none();
+                    *statements = pending.types.take().unwrap_or_default();
+                    statements.extend(pending.body.take().unwrap_or_default());
+                }
                 self.prepare_visibility(statements)?;
                 let first_type = self.scope().types.definition_count();
                 let code = self.scope_mut().compile(statements)?;
@@ -729,25 +893,40 @@ impl Interpreter
                     if public { self.scope_mut().exports.insert(name); }
                     else { self.scope_mut().exports.remove(&name); }
                 }
+                if exposed_types { self.refresh_parent_children(&self.current_scope.clone())?; }
                 Ok(code)
             })();
         if result.is_err() { self.scopes.insert(self.current_scope.clone(), checkpoint); }
+        self.pending_modules.remove(&self.current_scope);
         result
     }
 
     pub(super) fn execute_submission(&mut self, mut statements: AstTopLevel, origin: &str)
         -> InterpreterResult<()>
     {
-        let directory = Self::source_directory(origin);
-        let key = canonicalize(origin).ok().map(|path| path.to_string_lossy().into_owned());
+        let existing: HashSet<_> = self.scopes.keys().cloned().collect();
+        let directory = self.source_directory(origin);
+        let key = canonicalize(self.eval_path_from(origin)).ok()
+            .map(|path| path.to_string_lossy().into_owned());
+        if let Some(path) = &key
+        {
+            self.module_sources.insert(self.current_scope.clone(), ModuleSource::File
+                {
+                    path: PathBuf::from(path),
+                    library: Path::new(path).parent().unwrap().to_path_buf(),
+                });
+        }
+        else { self.module_sources.remove(&self.current_scope); }
         if let Some(key) = &key { self.loading_modules.insert(key.clone()); }
         let result = (||
             {
                 let imports = self.import_conditions(&mut statements)?;
                 let code = self.compile_module(&mut statements, imports, &directory)?;
+                self.finish_parent_modules()?;
                 self.execute_instructions(&code)
             })();
         if let Some(key) = key { self.loading_modules.remove(&key); }
+        if result.is_err() { self.discard_parent_scopes(&existing); }
         result
     }
 }

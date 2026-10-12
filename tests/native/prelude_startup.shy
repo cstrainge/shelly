@@ -17,11 +17,12 @@ fn startup_case($flags: Array, $source: String, $expected: String, $status: Inte
         "stderr_file": "${fixture}/err", "timeout_ms": 3000]
     require (($result["error"] == ()) && (!$result["timed_out"]) &&
         ($result["signal"] == ())) "startup child failed"
-    require ($result["exit_code"] == $status) "wrong startup status"
     let $stdout: String
     let $stderr: String
     "${fixture}/out" -> $stdout
     "${fixture}/err" -> $stderr
+    if $result["exit_code"] != $status
+    { echo $flags $source $result $stdout $stderr; fail "wrong startup status" }
     # System profiles may emit output before this fixture's user profile begins.
     if $expected.starts_with "profile\n"
     {

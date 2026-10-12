@@ -43,9 +43,21 @@ impl Interpreter
                 Some(Value::String(_, Executable::Function(function))) => Some(function.clone()),
                 // A declaration without a compiled body is resolved in the captured
                 // lexical scope. An absent entry must not acquire a later REPL definition.
-                Some(Value::None) => self.scope().lexical_function(&key),
+                Some(Value::None) => self.scope().lexical_function(&key)
+                    .or_else(|| self.scope().imported_methods.get(&key).cloned())
+                    .or_else(|| self.module_method(target, &key)),
                 _ => None,
             };
+        if matches!(bound, Some(Value::None)) && function.is_none()
+        {
+            return Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::InvalidOperand(format!(
+                        "Conversion method '{}::{}' is unavailable during module initialization",
+                        self.scope().types.get(target).name, name)),
+                });
+        }
         let converted = if let Some(function) = function
         {
             let display = format!("{}::{}", self.scope().types.get(target).name, name);

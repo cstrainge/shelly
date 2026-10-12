@@ -41,8 +41,8 @@ use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
                          tokenizer::Tokenizer,
                          text::{ interpolation::interpolation_references, buffer::Buffer,
                                  location::Location, read_buffer::ReadBuffer },
-                         interpreter::{ Alias, iteration::Iteration,
-                                        scope::Scope, modules::Prelude,
+                         interpreter::{ Alias, iteration::Iteration, scope::Scope,
+                                        modules::{ Prelude, ModuleSource, PendingModule },
                                         redirection::{ Redirection, Output, configure } } },
              runtime::{ color::TtyColorMode, process::{ COMMANDS, invoke },
                         terminal::detect_capabilities, sixel::banner as sixel_banner,
@@ -227,6 +227,8 @@ pub struct Interpreter
     pub(super) scopes: HashMap<String, Scope>,
     pub(super) current_scope: String,
     pub(super) loading_modules: HashSet<String>,
+    pub(super) module_sources: HashMap<String, ModuleSource>,
+    pub(super) pending_modules: HashMap<String, PendingModule>,
     pub(super) prelude: Option<Prelude>,
     pub(super) prelude_loading: bool,
     pub(super) prelude_generation: usize,
@@ -484,6 +486,8 @@ impl Interpreter
                     ]),
                 current_scope: MAIN_SCOPE.to_string(),
                 loading_modules: HashSet::new(),
+                module_sources: HashMap::new(),
+                pending_modules: HashMap::new(),
                 prelude: None,
                 prelude_loading: false,
                 prelude_generation: 0,
@@ -2550,7 +2554,14 @@ impl Interpreter
             let function = if let Some(Value::String(_, Executable::Function(function))) = bound
                 { Some(function.clone()) }
                 else
-                { self.scope().lexical_function(&key).or_else(|| self.module_method(id, &key)) };
+                {
+                    self.scope().lexical_function(&key).or_else(||
+                        {
+                            if matches!(bound, Some(Value::None))
+                            { self.scope().imported_methods.get(&key).cloned() }
+                            else { None }
+                        }).or_else(|| self.module_method(id, &key))
+                };
             let definition = if let Some(function) = function
                 { MethodDefinition::User(function) }
                 else if matches!(self.scope().types.get(id).kind, TypeKind::Named(_))

@@ -1,0 +1,26 @@
+# A failed child must not leave its header-only parent cached in the REPL.
+let $fixture = $args[0]
+mkdir -p "${fixture}/package" "${fixture}/broken" "${fixture}/late"
+printf "%s" 'struct Hidden { n: Integer }; pub import child::{ build }; echo loaded-parent' -> "${fixture}/package/init.shy"
+printf "%s" 'import super::{ Hidden }; pub fn build(): Hidden { Hidden(n: 7) }' -> "${fixture}/package/child.shy"
+printf "%s" 'import super::{ absent }' -> "${fixture}/package/bad.shy"
+printf "%s" 'struct Bad { n: Missing }; pub import child::{ build }' -> "${fixture}/broken/init.shy"
+printf "%s" 'import super::{ Bad }; pub fn build(): Bad { Bad(n: 8) }' -> "${fixture}/broken/child.shy"
+printf "%s" 'pub struct Later { n: Integer }; pub import child::{ build }; unknown_parent_command' -> "${fixture}/late/init.shy"
+printf "%s" 'import super::{ Later }; pub fn build(): Later { Later(n: 9) }' -> "${fixture}/late/child.shy"
+check_repl ["id": "PARENT-IMPORT-REPL", "name": "Parent type imports and recovery",
+    "steps": [
+        ['import package::bad', "error", "has no member"],
+        ['import package', "output", "loaded-parent"],
+        ['echo (package::build)', "output", "Hidden(n: 7)"],
+        ['import package::child', "quiet", ""],
+        ['echo (package::child::build).type == (package::build).type', "output", "true"],
+        ['let $private: package::Hidden', "error", "Unknown type"],
+        ['echo (package::build)', "output", "Hidden(n: 7)"],
+        ['import broken', "error", "Unknown type"],
+        ['printf "%s" \'struct Bad { n: Integer }; pub import child::{ build }\' -> "broken/init.shy"', "quiet", ""],
+        ['import broken; echo (broken::build)', "output", "Bad(n: 8)"],
+        ['import late', "error", "Executable not found"],
+        ['printf "%s" \'pub struct Later { n: Integer }; pub import child::{ build }\' -> "late/init.shy"', "quiet", ""],
+        ['import late; let $n: late::Later = late::build; echo $n', "output", "Later(n: 9)"]
+    ], "exit": 0]

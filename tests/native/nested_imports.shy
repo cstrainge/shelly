@@ -1,0 +1,102 @@
+# Nested paths and init.shy packages preserve module interfaces and identities.
+let $fixture = $args[0]
+mkdir -p "${fixture}/tools" "${fixture}/package" "${fixture}/cyclic" "${fixture}/empty" "${fixture}/Ω" "${fixture}/first/tier/item" "${fixture}/second/tier" "${fixture}/std/prelude" "${fixture}/std/tools" "${fixture}/broken"
+let $api = 'pub let $value: Integer = 7; pub type Count = Integer; pub struct Box { n: Integer }; pub enum Choice { Ready }; pub fn read(): Integer { $value }; pub alias show = read; fn hidden(): Integer { 99 }; pub fn String::nested_tag(): String { "tag:" + $self }'
+printf "%s" $api -> "${fixture}/tools/number.shy"
+printf "%s" $api -> "${fixture}/package/leaf.shy"
+printf "%s" 'pub import leaf::{ read, $value, Count, Box, Choice, show }; echo package-once' -> "${fixture}/package/init.shy"
+printf "%s" 'import child' -> "${fixture}/cyclic/init.shy"
+printf "%s" 'import cyclic' -> "${fixture}/cyclic/child.shy"
+printf "%s" 'pub fn label(): String { "unicode" }' -> "${fixture}/Ω/猫.shy"
+printf "%s" 'pub fn label(): String { "first-directory" }' -> "${fixture}/first/tier/item/init.shy"
+printf "%s" 'pub fn label(): String { "second-file" }' -> "${fixture}/second/tier/item.shy"
+printf "%s" 'pub fn label(): String { "file" }' -> "${fixture}/package.shy"
+printf "%s" 'pub fn read(): Integer { 33 }' -> "${fixture}/std/tools/number.shy"
+printf "%s" 'pub let $shared = 11; pub struct Shared {}; pub fn value(): Integer { $shared }; pub fn Shared::tag(): String { "shared" }' -> "${fixture}/std/prelude/values.shy"
+printf "%s" 'pub fn label(): String { "helper" }' -> "${fixture}/std/prelude/helpers.shy"
+printf "%s" 'pub fn init(): String { "ready" }' -> "${fixture}/tools/hooks.shy"
+printf "%s" 'pub import values::{ $shared, Shared, value }; pub import helpers; echo prelude-once' -> "${fixture}/std/prelude/init.shy"
+printf "%s" 'pub fn use(): Integer { value }; pub fn make(): Shared { Shared() }' -> "${fixture}/consumer.shy"
+printf "%s" 'let $' -> "${fixture}/broken.shy"
+printf "%s" 'echo wrong' -> "${fixture}/broken/init.shy"
+
+fn nested_case($source: String, $settings: [String: String], $expected: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $environment = ["HOME": $fixture, "PATH": "/usr/bin:/bin", "LANG": "C.UTF-8",
+        "SHELLY_STD_PATH": ""]
+    for ($name, $value) in $settings { $environment[$name] = $value }
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": $environment, "stdin_file": "/dev/null",
+        "stdout_file": "${fixture}/out", "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($reply["exit_code"] != $status) || ($reply["error"] != ()) ||
+        ($reply["signal"] != ()) || $reply["timed_out"] || ($out != $expected) ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "nested import mismatch" }
+}
+
+nested_case 'import tools::number; echo (tools::number::read) $tools::number::value tools::number::Box(n: 1) tools::number::Choice::Ready (tools::number::show)' [:] "7 7 Box(n: 1) Choice::Ready 7\n" ""
+nested_case 'import tools::number::{ read, $value, Box, Count }; $value = 8; let $n: Count = 3; echo (read) $tools::number::value Box(n: 2) (Integer($n)) "x".nested_tag' [:] "8 8 Box(n: 2) 3 tag:x\n" ""
+nested_case 'import tools::number::{ hidden }' [:] "" "has no member"
+nested_case 'import tools::number; tools::number::hidden' [:] "" "unavailable"
+nested_case 'import Ω::猫; echo (Ω::猫::label)' [:] "unicode\n" ""
+nested_case 'import package; echo (package::label)' [:] "" "Ambiguous module"
+nested_case 'import package when false; echo skipped' [:] "skipped\n" ""
+rm "${fixture}/package/init.shy"
+nested_case 'import package; echo (package::label)' [:] "file\n" ""
+printf "%s" 'pub import leaf::{ read, $value, Count, Box, Choice, show }; echo package-once' -> "${fixture}/package/init.shy"
+rm "${fixture}/package.shy"
+nested_case 'import package; import package; import package::{ Box }; echo (package::read) (Box == package::Box) "x".nested_tag' [:] "package-once\n7 true tag:x\n" ""
+nested_case 'import package::{ read, $value, Box, Count }; $value = 9; echo (read) $package::value Box(n: 2) "x".nested_tag' [:] "package-once\n9 9 Box(n: 2) tag:x\n" ""
+nested_case 'import package::leaf; import package; echo (package::read) (package::leaf::read) (package::Box == package::leaf::Box)' [:] "package-once\n7 7 true\n" ""
+nested_case 'import package; package::leaf::read' [:] "package-once\n" "unavailable"
+nested_case 'import cyclic' ["SHELLY_MODULE_PATH": $fixture] "" "Circular import"
+nested_case 'import empty' [:] "" "was not found"
+nested_case 'import absent::child when false; echo skipped' [:] "skipped\n" ""
+nested_case 'import broken' [:] "" "Ambiguous module"
+rm "${fixture}/broken/init.shy"
+nested_case 'import broken' [:] "" "Parser error"
+nested_case 'import tier::item; echo (tier::item::label)' ["SHELLY_MODULE_PATH": "${fixture}/first:${fixture}/second"] "first-directory\n" ""
+nested_case 'import tier::item; echo (tier::item::label)' ["SHELLY_MODULE_PATH": "${fixture}/second:${fixture}/first"] "second-file\n" ""
+nested_case 'import tools::number::{ read }; echo (read)' ["SHELLY_MODULE_PATH": "${fixture}/std"] "7\n" ""
+printf "%s" 'echo ambiguous-wrong' -> "${fixture}/first/tier/item.shy"
+nested_case 'import tier::item' ["SHELLY_MODULE_PATH": "${fixture}/first:${fixture}/second"] "" "Ambiguous module"
+nested_case 'import tier::item; echo (tier::item::label)' ["SHELLY_MODULE_PATH": "${fixture}/second:${fixture}/first"] "second-file\n" ""
+
+# A directory prelude re-exports live bindings, types, namespaces, and extensions implicitly.
+let $standard = ["SHELLY_STD_PATH": "${fixture}/std"]
+nested_case 'echo (value) $shared Shared().tag (helpers::label) $SHELLY_STD_FOUND; import consumer; $shared = 12; echo (consumer::use) (consumer::make).tag' $standard "prelude-once\n11 11 shared helper ${fixture}/std\n12 shared\n" ""
+nested_case 'import std::prelude; import std::prelude; import std::prelude::values; echo (std::prelude::value) (Shared == std::prelude::values::Shared)' $standard "prelude-once\n11 true\n" ""
+nested_case 'import init' [:] "" "init.shy is a module entry point"
+nested_case 'import package::init' [:] "" "init.shy is a module entry point"
+nested_case 'pub import package::init::{ read }' [:] "" "init.shy is a module entry point"
+nested_case 'import std::prelude::init' $standard "prelude-once\n" "init.shy is a module entry point"
+nested_case 'import package::init when false; echo skipped' [:] "skipped\n" ""
+nested_case 'import super::init' [:] "" "init.shy is a module entry point"
+nested_case 'import tools::hooks::{ init }; echo (init)' [:] "ready\n" ""
+nested_case 'import std::tools::number::{ read }; echo (read)' $standard "prelude-once\n33\n" ""
+mkdir -p "${fixture}/std/tools/number"
+printf "%s" 'echo std-ambiguous-wrong' -> "${fixture}/std/tools/number/init.shy"
+nested_case 'import std::tools::number' $standard "prelude-once\n" "Ambiguous module"
+nested_case 'import std::missing::child when false; echo skipped' $standard "prelude-once\nskipped\n" ""
+nested_case 'let $SHELLY_STD_PATH = "std"; prelude_reload; echo (value) $SHELLY_STD_FOUND' $standard "prelude-once\nprelude-once\n11 ${fixture}/std\n" ""
+printf "%s" 'echo prelude-ambiguous-wrong' -> "${fixture}/std/prelude.shy"
+nested_case 'echo wrong' $standard "" "Ambiguous module"
+for $source in ['import std', 'import std::{ read }', 'import tools::',
+    'import tools::number::{}', 'import tools::number::{ read, read }', 'import tools::number::7']
+{ nested_case $source [:] "" "Parser error" }
+
+# Source facts retain every nested module component for the REPL and language server.
+visible `__syntax_spans
+let $syntax = __syntax_spans 'pub import std::tools::number::{ read } when false' false true
+require ($syntax["error"] == ()) "nested import source analysis failed"
+let $modules = []
+for $fact in $syntax["facts"]
+{ if $fact["role"] == "ModuleName" { $modules = [$modules..., $fact["span"]["raw"]] } }
+require ($modules == ["std", "tools", "number"]) "nested module source spans were lost"

@@ -1,0 +1,78 @@
+# super grants structural parents' types without changing unrelated module visibility.
+let $fixture = $args[0]
+mkdir -p "${fixture}/family" "${fixture}/flat" "${fixture}/std/prelude" "${fixture}/tree/branch"
+mkdir -p "${fixture}/factory"
+mkdir -p "${fixture}/eager"
+printf "%s" 'type Count = Integer; pub fn Count::from_integer($n: Integer): Count { let $value: Count = $n + 100; $value }; pub fn Integer::bump(): Integer { $self + 10 }; pub fn String::from_integer($n: Integer): String { "<${n}>" }; pub import child::{ count, number, text }' -> "${fixture}/factory/init.shy"
+printf "%s" 'import super::{ Count }; pub fn count(): Count { Count(5) }; pub fn number(): Integer { 1.bump }; pub fn text(): String { String(3) }' -> "${fixture}/factory/child.shy"
+printf "%s" 'type Count = Integer; pub fn Count::from_integer($n: Integer): Count { let $value: Count = $n + 100; $value }; pub import child::{ count }' -> "${fixture}/eager/init.shy"
+printf "%s" 'import super::{ Count }; pub fn count(): Count { Count(5) }; echo (count)' -> "${fixture}/eager/child.shy"
+printf "%s" 'struct Secret { n: Integer }; enum State { Ready }; type Counter = Integer; type Callback = fn(Integer): Integer; pub fn Secret::read(): Integer { $self.n }; fn hidden(): Integer { 99 }; pub fn label(): String { "parent" }; pub import child::{ build, count, state, label }; echo parent-ready' -> "${fixture}/family/init.shy"
+printf "%s" 'import super; pub fn build($n: Integer): super::Secret { super::Secret(n: $n) }; pub fn count($n: Integer): super::Counter { let $value: super::Counter = $n; $value }; pub fn state(): super::State { super::State::Ready }; pub fn label(): String { super::label }' -> "${fixture}/family/child.shy"
+printf "%s" 'import super::{ Secret, Counter, State, Callback }; pub fn build(): Secret { Secret(n: 4) }; pub fn count(): Counter { Counter(5) }; pub fn apply($fn: Callback): Integer { $fn 3 }' -> "${fixture}/family/selected.shy"
+printf "%s" 'import super::{ hidden }' -> "${fixture}/family/bad.shy"
+printf "%s" 'import super; pub fn bad(): Integer { super::hidden }' -> "${fixture}/family/private_function.shy"
+printf "%s" 'struct Item { n: Integer }; pub import flat::child::{ build }' -> "${fixture}/flat.shy"
+printf "%s" 'import super::{ Item }; pub fn build(): Item { Item(n: 6) }' -> "${fixture}/flat/child.shy"
+printf "%s" 'struct Item { wrong: String }' -> "${fixture}/flat/init.shy"
+printf "%s" 'type Token = Integer; pub import child::{ token }; pub import value::{ number }' -> "${fixture}/std/prelude/init.shy"
+printf "%s" 'import super::{ Token }; pub fn token(): Token { let $n: Token = 8; $n }' -> "${fixture}/std/prelude/child.shy"
+printf "%s" 'pub fn number(): Integer { 7 }' -> "${fixture}/std/prelude/value.shy"
+printf "%s" 'import shapes::{ Shape }; struct Root { item: Shape }; pub import branch::{ build }' -> "${fixture}/tree/init.shy"
+printf "%s" 'pub struct Shape { n: Integer }' -> "${fixture}/tree/shapes.shy"
+printf "%s" 'import super::{ Root }; type Branch = Root; pub import leaf::{ build }' -> "${fixture}/tree/branch/init.shy"
+printf "%s" 'import super::{ Branch }; import super::super::{ Root, Shape }; pub fn build(): Branch { Branch(Root(item: Shape(n: 9))) }' -> "${fixture}/tree/branch/leaf.shy"
+printf "%s" 'import super::shapes::{ Shape }; pub fn shape(): Shape { Shape(n: 10) }' -> "${fixture}/tree/sibling.shy"
+printf "%s" 'pub import super::{ Secret }; pub fn build(): Secret { Secret(n: 11) }' -> "${fixture}/family/exported.shy"
+printf "%s" 'pub import super' -> "${fixture}/family/namespace.shy"
+printf "%s" 'import super' -> "${fixture}/root.shy"
+
+fn parent_case($source: String, $settings: [String: String], $expected: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $environment = ["HOME": $fixture, "PATH": "/usr/bin:/bin", "LANG": "C.UTF-8",
+        "SHELLY_STD_PATH": ""]
+    for ($name, $value) in $settings { $environment[$name] = $value }
+    let $command = if $source.ends_with ".shy"
+        { [`$shelly, "-m", $source] }
+        else { [`$shelly, "-m", "-c", $source] }
+    let $reply = run_process $command [
+        "cwd": $fixture, "env": $environment, "stdin_file": "/dev/null",
+        "stdout_file": "${fixture}/out", "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($reply["exit_code"] != $status) || ($reply["error"] != ()) ||
+        ($reply["signal"] != ()) || $reply["timed_out"] || ($out != $expected) ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "parent import mismatch" }
+}
+
+parent_case 'import family; echo (family::build 3).read (Integer(family::count 2)) (family::state)' [:] "parent-ready\n3 2 State::Ready\n" ""
+parent_case 'import family::child; echo (family::child::build 3).read (family::child::label)' [:] "parent-ready\n3 parent\n" ""
+parent_case 'import family::selected; echo (family::selected::build) (Integer(family::selected::count)) (family::selected::apply fn($x: Integer): Integer { $x + 1 })' [:] "parent-ready\nSecret(n: 4) 5 4\n" ""
+parent_case 'import family; let $value: family::Secret' [:] "parent-ready\n" "Unknown type"
+parent_case 'import family; let $value: family::State' [:] "parent-ready\n" "Unknown type"
+parent_case 'import family::child; let $value: family::child::super::Secret' [:] "parent-ready\n" "Unknown type"
+parent_case 'import family::bad' [:] "" "has no member"
+parent_case 'import family::private_function; family::private_function::bad' [:] "parent-ready\n" "unavailable"
+parent_case 'import flat' [:] "" "Ambiguous module"
+parent_case 'import flat::child' [:] "" "Ambiguous module"
+rm "${fixture}/flat/init.shy"
+parent_case 'import flat; echo (flat::build)' [:] "Item(n: 6)\n" ""
+parent_case 'import super' [:] "" "no containing module"
+parent_case 'echo (Integer(token)) (number)' ["SHELLY_STD_PATH": "${fixture}/std"] "8 7\n" ""
+parent_case 'import tree; echo (tree::build)' [:] "Root(item: Shape(n: 9))\n" ""
+parent_case 'import factory; echo (Integer(factory::count))' [:] "105\n" ""
+parent_case 'import factory; echo (factory::number) (factory::text)' [:] "11 <3>\n" ""
+parent_case 'family/child.shy' [:] "parent-ready\n" ""
+parent_case 'import super when false; echo skipped' [:] "skipped\n" ""
+parent_case 'import family::missing' [:] "" "was not found"
+parent_case 'import tree::sibling; echo (tree::sibling::shape)' [:] "Shape(n: 10)\n" ""
+parent_case 'import family::exported::{ Secret, build }; let $n: Secret = build; echo $n' [:] "parent-ready\nSecret(n: 11)\n" ""
+parent_case 'root.shy' [:] "" "no parent module"
+parent_case 'import eager' [:] "" "unavailable during module initialization"
+parent_case 'import family::namespace::{ super }; let $value: super::Secret' [:] "parent-ready\n" "Unknown type"

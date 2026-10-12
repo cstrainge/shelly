@@ -4315,6 +4315,6 @@ STDLIB-043	positive	prelude used by import conditions	tests/cases/positive/STDLI
 STDLIB-044	negative	prelude excluded types unavailable	tests/cases/negative/STDLIB-044.shy
 STDLIB-045	positive	std path may be changed after initialization	tests/cases/positive/STDLIB-045.shy
 STDLIB-046	negative	std namespace requires module name	tests/cases/negative/STDLIB-046.shy
-STDLIB-047	negative	unsupported nested standard path rejected	tests/cases/negative/STDLIB-047.shy
+STDLIB-047	negative	missing nested standard path rejected	tests/cases/negative/STDLIB-047.shy
 STDLIB-048	negative	unknown selected standard member	tests/cases/negative/STDLIB-048.shy
 STDLIB-049	positive	canonical cache shares standard and ordinary import	tests/cases/positive/STDLIB-049.shy

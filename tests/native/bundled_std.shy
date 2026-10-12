@@ -32,8 +32,10 @@ let $system_prelude = false
 let $system_widgets = false
 for $directory in ["/etc/shelly/std", "/usr/local/share/shelly/std", "/usr/share/shelly/std"]
 {
-    if (test -e "${directory}/prelude.shy") { $system_prelude = true }
-    if (test -e "${directory}/widgets.shy") { $system_widgets = true }
+    if (test -e "${directory}/prelude.shy") || (test -e "${directory}/prelude/init.shy")
+    { $system_prelude = true }
+    if (test -e "${directory}/widgets.shy") || (test -e "${directory}/widgets/init.shy")
+    { $system_widgets = true }
 }
 if !$system_prelude
 {
@@ -41,7 +43,7 @@ if !$system_prelude
     bundled_case "import local; echo (local::combine)" [:] "6\n" ""
     bundled_case "let \$saved = `1.0.sum; prelude_reload; echo (\$saved 2) (1.0.sum 2)" [:] "3.0 3.0\n" ""
     bundled_case "let \$SHELLY_STD_PATH = \"\"; import std::prelude; echo (1.0.sum 2)" [:] "3.0\n" ""
-    bundled_case "echo [\"bad\"].sum" [:] "" "<bundled:std::prelude>"
+    bundled_case "echo [\"bad\"].sum" [:] "" "<bundled:std::"
 }
 if (!$system_prelude) && (!$system_widgets)
 {
@@ -53,6 +55,7 @@ if (!$system_prelude) && (!$system_widgets)
 bundled_case "echo \$SHELLY_STD_PATH \$SHELLY_STD_FOUND" ["SHELLY_STD_PATH": "bundled"] "bundled embedded\n" ""
 bundled_case "echo (1.0.sum 2 3 4 5 6); import local; echo (local::combine) \$SHELLY_STD_FOUND" ["SHELLY_STD_PATH": "bundled"] "21.0\n6 embedded\n" ""
 bundled_case "import std::widgets::{ command_time_widget }; echo ((command_time_widget) == \"\")" ["SHELLY_STD_PATH": "bundled"] "true\n" ""
+bundled_case 'import std::net; echo bundled-net' ["SHELLY_STD_PATH": "bundled"] "bundled-net\n" ""
 bundled_case "\$SHELLY_STD_FOUND = \"fake\"" ["SHELLY_STD_PATH": "bundled"] "" "Variable not found for SetVariable"
 bundled_case "echo (\$SHELLY_STD_FOUND == ())" ["SHELLY_STD_PATH": ""] "true\n" ""
 bundled_case "echo (\$SHELLY_STD_FOUND == ())" ["SHELLY_STD_PATH": "${fixture}/missing"] "true\n" ""

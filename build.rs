@@ -1,7 +1,23 @@
 
-use std::{ env::var_os, fs::{ read_dir, write }, path::PathBuf };
+use std::{ env::var_os, fs::{ read_dir, write }, path::{ Path, PathBuf } };
 
 use chrono::Utc;
+
+
+fn collect_modules(directory: &Path, files: &mut Vec<PathBuf>)
+{
+    for entry in read_dir(directory).expect("Cannot read the standard library")
+    {
+        let entry = entry.expect("Cannot read a standard-library entry");
+        let path = entry.path();
+        // Do not follow directory symlinks, which can lead back into the same tree.
+        if entry.file_type().expect("Cannot read a standard-library file type").is_dir()
+        { collect_modules(&path, files); }
+        else if path.is_file() && path.extension().is_some_and(|extension| extension == "shy")
+        { files.push(path); }
+    }
+}
+
 
 fn main()
 {
@@ -13,17 +29,15 @@ fn main()
     // Cargo installs the executable only. Carry the matching Shelly sources in it.
     let directory = PathBuf::from(var_os("CARGO_MANIFEST_DIR").unwrap()).join("std");
     println!("cargo::rerun-if-changed={}", directory.display());
-    let mut files: Vec<_> = read_dir(&directory).expect("Cannot read the standard library")
-        .map(|entry| entry.expect("Cannot read a standard-library entry").path())
-        .filter(|path| path.is_file()
-            && path.extension().is_some_and(|extension| extension == "shy"))
-        .collect();
+    let mut files = Vec::new();
+    collect_modules(&directory, &mut files);
     files.sort();
     let mut modules = String::from("const MODULES: &[(&str, &str)] = &[\n");
     for file in files
     {
-        let name = file.file_stem().unwrap().to_str()
-            .expect("Invalid standard-library module name");
+        let relative = file.strip_prefix(&directory).unwrap().with_extension("");
+        let name = relative.components().map(|component| component.as_os_str().to_str()
+            .expect("Invalid standard-library module name")).collect::<Vec<_>>().join("/");
         modules.push_str(&format!("    ({:?}, include_str!({:?})),\n", name, file));
     }
     modules.push_str("];\n");

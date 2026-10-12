@@ -40,6 +40,8 @@ pub(super) struct Scope
     pub types: TypeRegistry,
     pub aliases: HashMap<String, Rc<Alias>>,
     pub modules: HashMap<String, String>,
+    // Only a direct structural-parent import grants access to private type names.
+    pub parent_namespaces: HashSet<String>,
     pub native_functions: HashMap<String, Rc<NativeFunction>>,
     pub exports: HashSet<String>,
     pub prelude_bindings: HashMap<String, PreludeBinding>,
@@ -129,6 +131,7 @@ impl Scope
                 types,
                 aliases: HashMap::new(),
                 modules: HashMap::new(),
+                parent_namespaces: HashSet::new(),
                 native_functions,
                 exports: HashSet::new(),
                 imported_types: HashMap::new(),
@@ -156,6 +159,7 @@ impl Scope
                 types: self.types.clone(),
                 aliases: self.aliases.clone(),
                 modules: self.modules.clone(),
+                parent_namespaces: self.parent_namespaces.clone(),
                 native_functions: self.native_functions.clone(),
                 exports: self.exports.clone(),
                 imported_types: self.imported_types.clone(),
@@ -231,7 +235,11 @@ impl Scope
                         { self.aliases.remove(name); true } else { false }
                     },
                 PreludeBinding::Module(key) if self.modules.get(name) == Some(&key) =>
-                    { self.modules.remove(name); true },
+                    {
+                        self.modules.remove(name);
+                        self.parent_namespaces.remove(name);
+                        true
+                    },
                 _ => false,
             };
         if removed { self.exports.remove(name); }
@@ -269,6 +277,24 @@ impl Scope
     pub fn base_function(&self, name: &str) -> Option<FunctionRef>
     {
         self.base_function_block.borrow().functions.get(name).cloned()
+    }
+
+    pub fn declared_function(&self, name: &str) -> bool
+    {
+        self.base_function_block.borrow().declared_functions.contains(name)
+    }
+
+    pub fn announce_function(&mut self, name: String)
+    {
+        self.base_function_block.borrow_mut().declared_functions.insert(name);
+    }
+
+    pub fn mask_implied_factory(&mut self, name: &str)
+    {
+        let mut block = self.base_function_block.borrow_mut();
+        if block.functions.get(name).is_some_and(|function| function.implied_conversion)
+        { block.functions.remove(name); }
+        block.declared_functions.insert(name.to_string());
     }
 
     pub fn function(&self, name: &str) -> Option<FunctionRef>

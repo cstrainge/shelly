@@ -2541,12 +2541,67 @@ echo $foo::value
 let $settings: config::Settings = config::Settings(enabled: $enabled)
 ```
 
-`import foo` searches for `foo.shy` beside the importing file, then searches
-the directories in `$SHELLY_MODULE_PATH`, in order. Set that variable in the
+`import foo` searches beside the importing file, then searches
+the directories in `$SHELLY_MODULE_PATH`, in order. In each directory it checks
+`foo.shy` and `foo/init.shy`. If both exist, the import fails as ambiguous; otherwise,
+the first directory containing either form wins. Set that variable in the
 environment or an earlier REPL submission; it is a colon-separated String.
 For command-line source and REPL input, the first search directory is the current
 directory. Modules are cached by canonical path and initialized once per
 interpreter. Circular imports are errors.
+
+Nested module names map `::` to directories:
+
+```shy
+import collections::array
+import collections::array::{ push, pop }
+pub import collections::array::{ push, pop }
+```
+
+These resolve to `collections/array.shy` or `collections/array/init.shy` under
+each search directory. A directory module must contain `init.shy`; Shelly loads
+that file rather than importing every file in the directory. Imports inside it
+resolve beside `init.shy`, so it can select and re-export its implementation:
+
+```shy
+# collections/array/init.shy
+pub import operations::{ push, pop }
+```
+
+The example loads `collections/array/operations.shy` or
+`collections/array/operations/init.shy`. Private imports stay private, and
+`pub import` follows the same rules as a file module. When the directory form is
+selected, repeated imports of `array` reach the same cached module and preserve
+symbol identity. `init.shy` is an implementation entry point: direct imports such
+as `import init` or `import array::init` are errors. Import `array` instead, using
+the same name whether its implementation is a file or a directory.
+
+Child modules can access their containing module through `super`. The parent is
+the directory's `init.shy`, or the adjacent parent file (for example, `array.shy`
+for `array/operations.shy`). This relationship follows the source layout, rather
+than whichever script happened to import the child.
+
+```shy
+# collections/array/init.shy
+struct State { count: Integer }             # Private to the module family.
+pub import operations::{ make_state }
+
+# collections/array/operations.shy
+import super                              # Use super::State.
+import super::{ State }                   # Bring State into this scope.
+pub fn make_state(): State { State(count: 0) }
+```
+
+`super` grants access to both public and private parent types, preserving their
+identity. Public parent functions and variables follow the usual visibility
+rules; private functions and variables stay private. A parent's types are prepared
+before its children, so its `init.shy` can import and re-export children that use
+those types. Private parent types remain inaccessible to unrelated importers unless
+explicitly re-exported with `pub import super::{ State }`.
+
+Use `super::super` to reach a grandparent, or `super::sibling` to resolve another
+module beside the parent. Selected imports and `when` conditions work as usual.
+An active `import super` fails when the source has no containing module.
 
 Only public names listed in `::{ ... }` enter the enclosing scope. Other public
 variables, functions, types, structs, enums, and aliases remain accessible through the module
@@ -2660,7 +2715,10 @@ import std::foo when $OS == "linux"
 std::net::ping "host"
 ```
 
-`std::net` resolves to `net.shy` directly inside a standard-library directory.
+`std::net` resolves to `net.shy` or `net/init.shy` inside a standard-library directory.
+Nested imports such as `std::net::http` resolve to `net/http.shy` or
+`net/http/init.shy` there. If both forms exist in the same search directory,
+the import fails as ambiguous. The first directory containing a module wins.
 It never searches beside the importing file or through `$SHELLY_MODULE_PATH`.
 `$SHELLY_STD_PATH` is a colon-separated String; a set value replaces all default
 sources. The special entry `bundled` selects the embedded library at that point
@@ -2672,10 +2730,13 @@ standard-library modules. When unset, Shelly first searches these directories:
 ```
 
 If the requested module is absent from all three directories, Shelly loads its
-embedded copy. The bundled library is built directly from the shipped `std/*.shy`
-files and stays with the executable when it is installed, upgraded, or moved.
+embedded copy. The bundled library includes shipped `.shy` files recursively under `std/`
+and stays with the executable when it is installed, upgraded, or moved.
 Bundled modules use the same parser, module scopes, public exports, and type
-identities as filesystem modules. Their diagnostics identify the source as, for
+identities as filesystem modules, including nested and directory modules.
+Ordinary imports in an embedded module first search beside its embedded source,
+then use `$SHELLY_MODULE_PATH`; they do not borrow the process's current directory.
+Their diagnostics identify the source as, for
 example, `<bundled:std::widgets>`.
 
 To select only the embedded library, or retain it as a fallback for development:
@@ -2698,7 +2759,7 @@ let export $SHELLY_STD_PATH = "/home/me/workdir/shelly/std:/etc/shelly/std:/usr/
 Qualified access retains the `std::` prefix, including variables
 (`$std::foo::value`) and types (`std::foo::Type`).
 
-Shelly selects `std::prelude` by searching for `prelude.shy` using the same
+Shelly selects `std::prelude` by searching for `prelude.shy` or `prelude/init.shy` using the same
 standard-library search path. All its public symbols are automatically available
 without qualification in the main scope and subsequently loaded modules, including
 types, functions, variables, aliases, native symbols, and re-exported modules.
@@ -2709,6 +2770,27 @@ imports. For example, the prelude's `sum` needs no import:
 ```shy
 echo (sum 1 2 3) # 6
 ```
+
+A directory prelude can organize those exports into smaller files:
+
+```text
+std/
+  prelude/
+    init.shy
+    arrays.shy
+    numbers.shy
+```
+
+```shy
+# std/prelude/init.shy
+pub import arrays
+pub import numbers::{ sum, min, max }
+```
+
+The public `arrays` namespace and selected number helpers become implicit
+prelude imports. Public type extensions re-exported by either import also apply.
+`$SHELLY_STD_FOUND` remains the selected stdlib directory, rather than its
+`prelude/` subdirectory; it remains `embedded` for the bundled library.
 
 Startup runs in this order:
 

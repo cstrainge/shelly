@@ -1,0 +1,40 @@
+# Startup imports resolve beside the real script, even when diagnostics shorten its path.
+let $fixture = $args[0]
+mkdir -p "${fixture}/home" "${fixture}/work" "${fixture}/modules/owner"
+mkdir -p "${fixture}/alternate" "${fixture}/standard"
+printf "%s" 'import helper::{ label }; echo startup (label)' -> "${fixture}/home/.shelly_init.shy"
+printf "%s" 'pub fn label(): String { "home" }' -> "${fixture}/home/helper.shy"
+printf "%s" 'pub fn label(): String { "path" }' -> "${fixture}/modules/helper.shy"
+printf "%s" 'pub fn who(): String { "cwd" }' -> "${fixture}/work/peer.shy"
+printf "%s" 'pub fn who(): String { "path" }' -> "${fixture}/modules/peer.shy"
+printf "%s" 'pub fn who(): String { "owner" }' -> "${fixture}/modules/owner/peer.shy"
+printf "%s" 'pub import peer::{ who }' -> "${fixture}/modules/owner/init.shy"
+printf "%s" 'pub fn label(): String { "fallback" }' -> "${fixture}/alternate/fallback.shy"
+printf "%s" 'pub fn label(): String { "standard" }' -> "${fixture}/standard/stdonly.shy"
+let $terminal = open_terminal [`$shelly, "-m", "-b"] [
+    "cwd": "${fixture}/work", "env": ["HOME": "${fixture}/home",
+        "PATH": "${fixture}/bin:/usr/bin:/bin", "TERM": "xterm-256color", "LANG": "C.UTF-8",
+        "SHELLY_MODULE_PATH": ":${fixture}/modules::${fixture}/alternate:",
+        "SHELLY_STD_PATH": "${fixture}/standard"], "rows": 40, "columns": 140]
+let $initial = drain $terminal
+if $initial["eof"] || !($initial["output"].contains "startup home") ||
+    ($initial["output"].contains "Error processing startup file")
+{ echo $initial["output"]; fail "startup import did not resolve beside its script" }
+for ($source, $kind, $expected) in [
+    ['echo (label)', "output", "home"],
+    ['import peer; echo (peer::who)', "output", "cwd"],
+    ['import owner; echo (owner::who)', "output", "owner"],
+    ['import fallback; echo (fallback::label)', "output", "fallback"],
+    ['import stdonly', "error", "was not found"],
+    ['import std::stdonly; echo (std::stdonly::label)', "output", "standard"]
+]
+{
+    let $reply = submit $terminal $source
+    if $reply["eof"] || !(repl_matches $kind $expected $reply["output"])
+    { echo $source $reply["output"]; fail "module search order differs" }
+}
+terminal_write $terminal "\x04"
+let $closed = drain $terminal
+require $closed["eof"] "Ctrl+D did not close the module search session"
+let $status = terminal_close $terminal
+require (($status["exit_code"] == 0) && ($status["signal"] == ())) "wrong module search exit status"
