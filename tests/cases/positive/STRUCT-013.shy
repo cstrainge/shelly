@@ -1,7 +1,7 @@
 # STRUCT-013: recursive array
 check ["id": "STRUCT-013",
     "name": "recursive array",
-    "source": "struct Node { children: [Node] }; echo Node(children: [Node(children: [])]).children[0].children...",
+    "source": "struct Node { pub children: [Node] }; echo Node(children: [Node(children: [])]).children[0].children...",
     "mode": "code",
     "args": [],
     "stdout": "\n",

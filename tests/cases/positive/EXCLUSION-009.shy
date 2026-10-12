@@ -2,7 +2,7 @@
 check [
     "id": "EXCLUSION-009",
     "name": "nested false block does not mask included declaration",
-    "source": "[when true] { [when false] { struct S { x: Missing } }; struct S {} }; echo S()",
+    "source": "[when true] { [when false] { struct S { pub x: Missing } }; struct S {} }; echo S()",
     "mode": "code",
     "args": [],
     "stdout": "S()\n",

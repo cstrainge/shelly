@@ -3730,7 +3730,7 @@ STRUCT-064	negative	shared namespace duplicate reverse	tests/cases/negative/STRU
 STRUCT-065	negative	duplicate field	tests/cases/negative/STRUCT-065.shy
 STRUCT-066	negative	duplicate constructor field	tests/cases/negative/STRUCT-066.shy
 STRUCT-067	negative	unknown constructor type	tests/cases/negative/STRUCT-067.shy
-STRUCT-068	negative	enum is not constructor	tests/cases/negative/STRUCT-068.shy
+STRUCT-068	negative	enum without default factory cannot be constructed	tests/cases/negative/STRUCT-068.shy
 STRUCT-069	negative	unknown constructor field	tests/cases/negative/STRUCT-069.shy
 STRUCT-070	negative	missing required untyped	tests/cases/negative/STRUCT-070.shy
 STRUCT-071	negative	missing required any	tests/cases/negative/STRUCT-071.shy

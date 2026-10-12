@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Recognize named struct factories, enum defaults, private storage, and public fields through the updated Shelly server.
+- Highlight computed properties using accessor types and raw access using storage types.
+- Cover raw interpolation and dynamic access in the bracket-coloring fixtures.
+- Require the updated Shelly executable for the new language syntax; restart the language server after rebuilding.
+
 ## 0.1.1
 
 - Color bracket nesting from server-classified delimiters using the theme's bracket palette.

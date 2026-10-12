@@ -192,6 +192,7 @@ pub struct FunctionBlock
     pub scope: String,
     pub parent: Option<FunctionBlockRef>,
     pub function_name: Option<String>,
+    pub protocol_owner: Option<TypeId>,
     pub declared_functions: HashSet<String>,
     pub builtins: Rc<HashSet<&'static str>>,
     pub functions: HashMap<String, FunctionRef>

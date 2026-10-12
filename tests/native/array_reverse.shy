@@ -11,7 +11,7 @@ require ([7].reverse == [7]) "singleton reverse"
 require ([(), 1].reverse == [1, ()]) "unit elements"
 
 enum Color { Red, Blue }
-struct Item { n: Integer }
+struct Item { pub n: Integer }
 let $mixed = [1, "two", 3.5, true, Color::Blue, Item(n: 6), [7], ["x": 8]]
 let $result = $mixed.reverse
 require ($result[0] == ["x": 8]) "hash element"

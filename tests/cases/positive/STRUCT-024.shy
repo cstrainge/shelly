@@ -1,7 +1,7 @@
 # STRUCT-024: map root struct update
 check ["id": "STRUCT-024",
     "name": "map root struct update",
-    "source": "struct S { n: Number }; let \$a = [\"s\": S(n: 1)]; \$a[\"s\"].n = 3; echo \$a[\"s\"].n",
+    "source": "struct S { pub n: Number }; let \$a = [\"s\": S(n: 1)]; \$a[\"s\"].n = 3; echo \$a[\"s\"].n",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

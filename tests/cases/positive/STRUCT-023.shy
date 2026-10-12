@@ -1,7 +1,7 @@
 # STRUCT-023: array root struct update
 check ["id": "STRUCT-023",
     "name": "array root struct update",
-    "source": "struct S { n: Number }; let \$a = [S(n: 1)]; \$a[0].n = 3; echo \$a[0].n",
+    "source": "struct S { pub n: Number }; let \$a = [S(n: 1)]; \$a[0].n = 3; echo \$a[0].n",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

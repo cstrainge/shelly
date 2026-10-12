@@ -1,6 +1,6 @@
 # Visibility, reference identities and rollback across REPL submissions.
 let $fixture = $args[0]
-printf "%s" 'let $private = 4; pub let $value = 7; pub struct Item { n: Integer }; fn hidden(): Integer { $private }; pub fn read(): Integer { hidden }; fn Item::secret(): Integer { $self.n }; pub fn Item::read(): Integer { $self.secret }' -> "${fixture}/api.shy"
+printf "%s" 'let $private = 4; pub let $value = 7; pub struct Item { pub n: Integer }; fn hidden(): Integer { $private }; pub fn read(): Integer { hidden }; fn Item::secret(): Integer { $self.n }; pub fn Item::read(): Integer { $self.secret }' -> "${fixture}/api.shy"
 printf "%s" 'import api::{ read, $value, Item }; pub fn wrapper(): Integer { read }' -> "${fixture}/bridge.shy"
 printf "%s" 'pub import api::{ read, $value, Item }; pub visible `cd; pub fn broken(): Missing { () }' -> "${fixture}/broken.shy"
 check_repl ["id": "MODULE-PRIVACY", "name": "Module privacy across submissions", "steps": [

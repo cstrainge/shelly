@@ -1,7 +1,7 @@
 # STRUCT-065: duplicate field
 check ["id": "STRUCT-065",
     "name": "duplicate field",
-    "source": "struct S { n, n }",
+    "source": "struct S { pub n, pub n }",
     "mode": "code",
     "args": [],
     "stdout": "",

@@ -1,7 +1,7 @@
 # STRUCT-016: forward declaration
 check ["id": "STRUCT-016",
     "name": "forward declaration",
-    "source": "echo A(b: B()).b; struct A { b: B }; struct B {}",
+    "source": "echo A(b: B()).b; struct A { pub b: B }; struct B {}",
     "mode": "code",
     "args": [],
     "stdout": "B()\n",

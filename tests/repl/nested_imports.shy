@@ -1,7 +1,7 @@
 # Keep nested package bindings and mutable state across separate REPL submissions.
 let $fixture = $args[0]
 mkdir -p "${fixture}/tools/package"
-printf "%s" 'pub let $value = 7; pub fn read(): Integer { $value }; pub struct Box { n: Integer }; pub fn Box::read(): Integer { $self.n }' -> "${fixture}/tools/package/leaf.shy"
+printf "%s" 'pub let $value = 7; pub fn read(): Integer { $value }; pub struct Box { pub n: Integer }; pub fn Box::read(): Integer { $self.n }' -> "${fixture}/tools/package/leaf.shy"
 printf "%s" 'pub import leaf::{ $value, read, Box }; echo package-once' -> "${fixture}/tools/package/init.shy"
 check_repl ["id": "NESTED-IMPORT-REPL", "name": "Nested package imports",
     "steps": [

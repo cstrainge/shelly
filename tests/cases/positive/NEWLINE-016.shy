@@ -1,7 +1,7 @@
 # NEWLINE-016: keyword fields
 check ["id": "NEWLINE-016",
     "name": "keyword fields",
-    "source": "struct S { if, true }; echo S\n(if: 1, true: 2).true",
+    "source": "struct S { pub if, pub true }; echo S\n(if: 1, true: 2).true",
     "mode": "code",
     "args": [],
     "stdout": "2\n",

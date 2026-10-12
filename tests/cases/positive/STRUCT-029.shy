@@ -1,7 +1,7 @@
 # STRUCT-029: struct key snapshots
 check ["id": "STRUCT-029",
     "name": "struct key snapshots",
-    "source": "struct Key { xs: [Number] }; let \$k = Key(xs: [1]); let \$m = [\$k: \"found\"]; \$k.xs[0] = 2; echo \$m[Key(xs: [1])] \$m[\$k]",
+    "source": "struct Key { pub xs: [Number] }; let \$k = Key(xs: [1]); let \$m = [\$k: \"found\"]; \$k.xs[0] = 2; echo \$m[Key(xs: [1])] \$m[\$k]",
     "mode": "code",
     "args": [],
     "stdout": "found ()\n",

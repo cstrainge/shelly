@@ -1,7 +1,7 @@
 # CONVERT-012: matrix Struct to None
 check ["id": "CONVERT-012",
     "name": "matrix Struct to None",
-    "source": "struct S { n: Integer }; let \$v = S(n: 2); let \$converted: None = None(\$v); echo \$converted",
+    "source": "struct S { pub n: Integer }; let \$v = S(n: 2); let \$converted: None = None(\$v); echo \$converted",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

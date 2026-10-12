@@ -30,6 +30,22 @@ impl Interpreter
             names.extend(self.scope().types.method_names(
                 self.scope().types.value_type(underlying)));
         }
+        if let Value::Struct(item) = underlying
+        {
+            for (owner, name) in self.scope().types.properties.keys()
+            {
+                if *owner != item.definition.id { continue; }
+                let key = MapKey::String(name.clone());
+                members.remove(&key);
+                if let Some(bound) = self.resolve_method(receiver, method.receiver.clone(),
+                    &format!("get_{}", name), &method.snapshot)
+                {
+                    members.insert(key, Value::String(
+                        format!("{}.{}", receiver.type_name(), name),
+                        Executable::Method(Rc::new(bound))));
+                }
+            }
+        }
         // A saved reflector keeps lexical method versions even after a module reload.
         if let Value::HashMap(snapshot) = &method.snapshot
         {

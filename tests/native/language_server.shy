@@ -77,6 +77,20 @@ $source = $source + "\n" + 'echo $p.$name'
 $source = $source + "\n" + '$p.$name = "Grace"'
 $source = $source + "\n" + 'echo $p.$unknown'
 $source = $source + "\n" + 'echo "${p.name.trim}"'
+$source = $source + "\n" + 'struct Account { balance: Integer, pub label: String }'
+$source = $source + "\n" + 'pub fn Account::new($initial: Integer): Account { Account(balance: $initial, label: "ok") }'
+$source = $source + "\n" + 'pub fn Account::get_balance(): String { String($self.::balance) }'
+$source = $source + "\n" + 'pub fn Account::set_balance($v: String) { $self.::balance = Integer($v) }'
+$source = $source + "\n" + 'pub fn Account::get_caption(): String { $self.label }'
+$source = $source + "\n" + 'let $account = Account(initial: 42)'
+$source = $source + "\n" + 'echo $account.balance.trim $account.::balance $account.caption.trim'
+$source = $source + "\n" + 'echo "${account.balance.trim} ${account.::balance} ${account.::$name}"'
+$source = $source + "\n" + '$account.::$name = "balance"'
+$source = $source + "\n" + 'enum Mood { Ready }'
+$source = $source + "\n" + 'pub fn Mood::new(): Mood { Mood::Ready }'
+$source = $source + "\n" + 'let $mood = Mood()'
+$source = $source + "\n" + 'echo $mood.index'
+$source = $source + "\n" + 'Account::new 42'
 let $input = request 0 "textDocument/semanticTokens/full" [:]
 $input = $input + (request 1 "initialize" ["capabilities": [:]])
 $input = $input + (notification "initialized" [:])
@@ -150,6 +164,20 @@ require (token_at $data 13 0 8 2) "dynamic write accessor is not a variable"
 require (token_at $data 14 5 11 2) "unknown dynamic accessor is not a variable"
 require (token_at $data 15 9 5 15) "nested interpolated field is not a property"
 require (token_at $data 15 14 5 5) "nested interpolated getter is not a method"
+require (token_at $data 16 35 3 1) "protocol token missing: 16 pub"
+require (token_at $data 17 16 3 5) "protocol token missing: 17 new"
+require (token_at $data 21 23 7 15) "protocol token missing: 21 initial"
+require (token_at $data 22 13 8 15) "protocol token missing: 22 .balance"
+require (token_at $data 22 21 5 5) "protocol token missing: 22 .trim"
+require (token_at $data 22 35 10 15) "protocol token missing: 22 .::balance"
+require (token_at $data 22 54 8 15) "protocol token missing: 22 .caption"
+require (token_at $data 23 15 8 15) "protocol token missing: 23 .balance"
+require (token_at $data 23 23 5 5) "protocol token missing: 23 .trim"
+require (token_at $data 23 39 10 15) "protocol token missing: 23 .::balance"
+require (token_at $data 23 51 17 2) "raw dynamic interpolation is not a variable"
+require (token_at $data 24 0 16 2) "protocol token missing: raw dynamic assignment"
+require (token_at $data 28 10 6 15) "protocol token missing: 28 .index"
+require (token_at $data 29 9 3 5) "protocol token missing: 29 new"
 require ((response_for $messages 3)["result"]["resultId"] == "2") "stale document version accepted"
 require ((response_for $messages 4)["result"]["data"] == []) "empty document retained tokens"
 require ((response_for $messages 5)["error"]["code"] == -32602) "closed document retained tokens"

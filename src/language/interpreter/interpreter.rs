@@ -34,7 +34,8 @@ use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
                                  methods::{ BoundMethod, MethodDefinition, method_key },
                                  range::Range,
                                  conversion::is_conversion_method,
-                                 scoped_variables::{ ScopedValue, ScopedVariables, ValueReference,
+                                 scoped_variables::{ PropertyReference, ScopedValue,
+                                                     ScopedVariables, ValueReference,
                                                      ValueVisibility },
                                  types::{ StructValue, TypeId, TypeKind, TypeRegistry } },
                          parser::{ ParserError, parse_text },
@@ -224,6 +225,8 @@ pub enum Interactive
 
 pub struct Interpreter
 {
+    protocol_context: Vec<(Option<TypeId>, String)>,
+    active_factories: Vec<TypeId>,
     pub(super) scopes: HashMap<String, Scope>,
     pub(super) current_scope: String,
     pub(super) loading_modules: HashSet<String>,
@@ -485,6 +488,8 @@ impl Interpreter
                             MAIN_SCOPE.to_string(), TypeRegistry::new(), color_mode))
                     ]),
                 current_scope: MAIN_SCOPE.to_string(),
+                protocol_context: Vec::new(),
+                active_factories: Vec::new(),
                 loading_modules: HashSet::new(),
                 module_sources: HashMap::new(),
                 pending_modules: HashMap::new(),
@@ -1456,29 +1461,67 @@ impl Interpreter
                             };
                         let Some(Value::Array(parts)) = &instruction.operand else
                         { return Err(invalid("Invalid MakeStruct operand".to_string())); };
-                        let [Value::Integer(id), Value::Array(indexes)] = parts.as_slice() else
-                        { return Err(invalid("Invalid MakeStruct operand".to_string())); };
-                        let definition = self.scope().types.get(TypeId(*id as usize));
-                        let TypeKind::Struct(fields) = &definition.kind else
-                        { return Err(invalid("Expected a struct definition".to_string())); };
-                        let mut values = vec![Value::None; fields.len()];
+                        let [Value::Integer(id), Value::Array(indexes), snapshot,
+                             Value::Boolean(raw)] = parts.as_slice() else
+                        { return Err(invalid("Invalid MakeStruct operand".into())); };
+                        let id = TypeId(*id as usize);
+                        let definition = self.scope().types.get(id);
+                        let fields = match &definition.kind
+                            { TypeKind::Struct(fields) => fields.as_slice(), _ => &[] };
+                        if !*raw && self.active_factories.contains(&id)
+                        { return Err(invalid(
+                            "Recursive constructor call; create raw storage inside ::new".into()));
+                        }
+                        let raw = *raw;
+                        if raw && matches!(definition.kind, TypeKind::Enum(_))
+                        { return Err(invalid("Use an explicit enum variant inside ::new".into())); }
+                        let signature = if !raw
+                            { self.scope().types.constructors.get(&id).cloned() }
+                            else { None };
+                        if    signature.is_some()
+                           && !self.scope().types.constructor_permissions.contains(&id)
+                        { return Err(invalid("Constructor is private to its module".into())); }
+                        let mut values = signature.as_ref().map_or_else(
+                            || vec![Value::None; fields.len()], |signature| signature.defaults());
                         for index in indexes.iter().rev()
                         {
-                            let Value::Integer(index) = index
-                            else
-                            {
-                                return Err(invalid("Invalid field index".to_string()));
-                            };
+                            let Value::Integer(index) = index else { unreachable!(); };
                             values[*index as usize] = Self::pop(&location, &mut stack)?;
                         }
-                        let value = Value::Struct(Rc::new(StructValue
-                            {
-                                definition,
-                                fields: values,
-                            }));
-                        let value = self.scope().types
-                            .coerce_value(value)
-                            .map_err(|message| invalid(format!("Type error: {}", message)))?;
+                        let mut value;
+                        if let Some(signature) = signature
+                        {
+                            let key = method_key(id, "new");
+                            let function = match snapshot
+                                {
+                                    Value::HashMap(methods) => methods
+                                        .get(&MapKey::String(key.clone())).and_then(|value|
+                                            if let Value::String(_, Executable::Function(f)) = value
+                                            { Some(f.clone()) } else { None }),
+                                    _ => None,
+                                }.or_else(|| self.scope().lexical_function(&key))
+                                .or_else(|| self.module_method(id, &key))
+                                .ok_or_else(|| invalid(
+                                    "Constructor factory is not available".into()))?;
+                            let args = signature.arguments(values).map_err(&invalid)?;
+                            let previous = self.last_result.take();
+                            let result = self.execute_function(&location,
+                                &format!("{}::new", definition.name), &function, &args);
+                            value = self.last_result.take().unwrap_or(Value::None);
+                            self.last_result = previous;
+                            result?;
+                        }
+                        else
+                        {
+                            value = Value::Struct(Rc::new(StructValue
+                                {
+                                    definition: definition.clone(), fields: values,
+                                    constructing: raw,
+                                }));
+                            if !raw { seal_constructed(&mut value); }
+                            value = self.scope().types.coerce(id, value)
+                                .map_err(|message| invalid(format!("Type error: {}", message)))?;
+                        }
                         Self::push(&mut stack, value);
                     },
 
@@ -1610,7 +1653,7 @@ impl Interpreter
                             };
                         indexes.reverse();
                         let mut updated = self.read_raw_variable(name, &location)?;
-                        Self::set_element(&location, &mut updated, &indexes, fields, value)?;
+                        self.set_element(&location, &mut updated, &indexes, fields, value)?;
                         let updated = self.scope().types
                             .coerce_value(updated)
                             .map_err(|message| InterpreterError
@@ -2354,7 +2397,13 @@ impl Interpreter
                         format!("Type error for receiver: {}", message)),
                 })?;
         }
-        Self::read_projection(location, root, &reference.indexes, &reference.fields)
+        let value = Self::read_projection(location, root, &reference.indexes, &reference.fields)?;
+        self.scope().types.validate_value(&value)
+            .map_err(|message| protocol_error(location, &format!("Type error: {}", message)))?;
+        if let Value::String(_, Executable::Method(method)) = &value
+            && let Some(property) = &method.receiver.property
+        { property.fresh.set(false); }
+        Ok(value)
     }
 
     pub(super) fn write_variable(&mut self, location: &Location, name: &str,
@@ -2379,7 +2428,8 @@ impl Interpreter
     {
         let invalid = |message| InterpreterError { location: location.clone(),
             what: ErrorWhat::InvalidOperand(message) };
-        let mut root = reference.root.borrow_mut();
+        let root = reference.root.borrow();
+        let root_type = root.type_id;
         if let Some(id) = Self::read_projection(location, root.value.clone(),
             &reference.indexes, &reference.fields).ok().and_then(|value| value.collection_type())
         {
@@ -2388,10 +2438,11 @@ impl Interpreter
                 .with_collection_type(id);
         }
         let mut updated = root.value.clone();
-        Self::set_element(location, &mut updated, &reference.indexes, &reference.fields, value)?;
+        drop(root);
+        self.set_element(location, &mut updated, &reference.indexes, &reference.fields, value)?;
         updated = self.scope().types.coerce_value(updated)
             .map_err(|message| invalid(format!("Type error: {}", message)))?;
-        if let Some(id) = root.type_id
+        if let Some(id) = root_type
         {
             updated = self.scope().types.coerce(id, updated)
                 .map_err(|message| invalid(format!("Type error for '{}': {}", name, message)))?;
@@ -2402,13 +2453,13 @@ impl Interpreter
                 &reference.indexes[..*depth], &reference.fields[..*depth])?;
             let value = self.scope().types.coerce(*id, value)
                 .map_err(|message| invalid(format!("Type error for receiver: {}", message)))?;
-            Self::set_element(location, &mut updated, &reference.indexes[..*depth],
+            self.set_element(location, &mut updated, &reference.indexes[..*depth],
                 &reference.fields[..*depth], value)?;
         }
         // Receiver promotion must also satisfy the original owner's constraints.
         self.scope().types.validate_value(&updated)
             .map_err(|message| invalid(format!("Type error: {}", message)))?;
-        if let Some(id) = root.type_id
+        if let Some(id) = root_type
         {
             self.scope().types.validate(id, &updated)
                 .map_err(|message| invalid(format!("Type error for '{}': {}", name, message)))?;
@@ -2420,7 +2471,25 @@ impl Interpreter
             self.scope().types.validate(*id, &value)
                 .map_err(|message| invalid(format!("Type error for receiver: {}", message)))?;
         }
-        root.value = updated;
+        if let Some(property) = &reference.property
+        {
+            let setter = property.setter.as_ref().ok_or_else(||
+                protocol_error(location, &format!("Property '{}' is read-only", property.name)))?;
+            let owner = self.read_reference(location, &property.getter.receiver)?;
+            let candidate = ValueReference::temporary(owner);
+            let setter = BoundMethod
+                {
+                    receiver: candidate.clone(), name: setter.name.clone(),
+                    definition: setter.definition.clone(), snapshot: setter.snapshot.clone(),
+                };
+            let previous = self.last_result.take();
+            let result = self.execute_method(location, &setter, &[updated.clone()]);
+            self.last_result = previous;
+            result?;
+            let owner = candidate.root.borrow().value.clone();
+            self.write_receiver(location, name, &property.getter.receiver, owner)?;
+        }
+        reference.root.borrow_mut().value = updated;
         Ok(())
     }
 
@@ -2530,6 +2599,7 @@ impl Interpreter
     pub(super) fn resolve_method(&self, value: &Value, receiver: ValueReference,
                       name: &str, snapshot: &Value) -> Option<BoundMethod>
     {
+        if name == "new" { return None; }
         let mut method_types = Vec::new();
         let mut underlying = value;
         while let Value::Named(item) = underlying
@@ -2588,6 +2658,26 @@ impl Interpreter
 
     pub(super) fn execute_method(&mut self, location: &Location, method: &BoundMethod,
                       arguments: &[Value]) -> InterpreterResult<()>
+    {
+        let property = method.receiver.property.clone();
+        if let Some(property) = &property
+            && !property.active.get() && !property.fresh.replace(false)
+        {
+            let previous = self.last_result.take();
+            let result = self.execute_method(location, &property.getter, &[]);
+            let value = self.last_result.take().unwrap_or(Value::None);
+            self.last_result = previous;
+            result?;
+            method.receiver.root.borrow_mut().value = value;
+        }
+        let active = property.as_ref().map(|property| property.active.replace(true));
+        let result = self.execute_method_body(location, method, arguments);
+        if let Some(property) = property { property.active.set(active.unwrap()); }
+        result
+    }
+
+    fn execute_method_body(&mut self, location: &Location, method: &BoundMethod,
+                           arguments: &[Value]) -> InterpreterResult<()>
     {
         if    let MethodDefinition::User(function) = &method.definition
            && is_conversion_method(&method.name)
@@ -2757,6 +2847,12 @@ impl Interpreter
         let return_type = function.return_type
             .map(|id| registry.specialize_receiver_type(id, value_type, key_type));
 
+        let factory = function.receiver_type.is_some()
+            && function.functions.borrow().function_name.as_ref()
+                .is_some_and(|name| name.ends_with(":new"));
+        if factory && self.active_factories.contains(&function.receiver_type.unwrap())
+        { return Err(protocol_error(location, "Recursive constructor call")); }
+
         let home = function.functions.borrow().scope.clone();
         if !self.scopes.contains_key(&home)
         {
@@ -2766,8 +2862,19 @@ impl Interpreter
         let caller_scope = replace(&mut self.current_scope, home);
         let caller = self.scope_mut().enter_function(function.functions.clone());
 
+        let origin = function.code.iter().find_map(|instruction|
+            instruction.location.as_ref().map(|location| location.origin.to_string()))
+            .unwrap_or_else(|| location.origin.to_string());
+        if factory { self.active_factories.push(function.receiver_type.unwrap()); }
+        let allowed = !self.active_factories.is_empty();
+        let previous_candidates = replace(&mut self.scope_mut().types.allow_candidates, allowed);
+        let owner = function.functions.borrow().protocol_owner;
+        self.protocol_context.push((owner, origin));
         let call_result = self.execute_instructions_with_arguments(
             &function.code, args, receiver, &parameter_types);
+        self.protocol_context.pop();
+        self.scope_mut().types.allow_candidates = previous_candidates;
+        if factory { self.active_factories.pop(); }
 
         self.scope_mut().exit_function(caller);
         self.current_scope = caller_scope;
@@ -2775,7 +2882,8 @@ impl Interpreter
         call_result?;
         if !self.halted && let Some(id) = return_type
         {
-            let value = self.last_result.take().unwrap_or(Value::None);
+            let mut value = self.last_result.take().unwrap_or(Value::None);
+            if factory || self.active_factories.is_empty() { seal_constructed(&mut value); }
             self.last_result = Some(self.scope().types.coerce(id, value).map_err(|message|
                 InterpreterError
                     {
@@ -3165,7 +3273,8 @@ impl Interpreter
                 Value::Integer(index) => usize::try_from(*index)
                     .ok()
                     .filter(|index| *index < fields.len()),
-                Value::String(name, _) => fields.iter().position(|field| field.name == *name),
+                Value::String(name, _) => fields.iter().position(|field|
+                    field.name == name.strip_prefix("::").unwrap_or(name)),
                 _ => None
             };
         index.ok_or_else(|| InterpreterError
@@ -3183,10 +3292,13 @@ impl Interpreter
         -> InterpreterResult<Value>
     {
         let Value::String(name, _) = field else { return Ok(field.clone()); };
+        let (raw, name) = name.strip_prefix("::")
+            .map_or((false, name.as_str()), |name| (true, name));
         if !name.starts_with('$') { return Ok(field.clone()); }
         let value = self.read_raw_variable(name, location)?;
         if matches!(value.underlying(), Value::String(_, _))
-        { return Ok(Value::from_string(value.as_text())); }
+        { return Ok(Value::from_string(if raw { format!("::{}", value.as_text()) }
+                else { value.as_text() })); }
         Err(InterpreterError { location: location.clone(),
             what: ErrorWhat::InvalidOperand(format!(
                 "Field name must be String, got {}", value.type_name())) })
@@ -3196,6 +3308,40 @@ impl Interpreter
                      value: Value, field: &Value, snapshot: &Value, bind: bool)
         -> InterpreterResult<(Value, ValueReference)>
     {
+        if let Value::Struct(item) = value.underlying()
+        {
+            let text = field.as_text();
+            let raw = text.starts_with("::");
+            let name = text.strip_prefix("::").unwrap_or(&text);
+            if !raw
+            {
+                if let Some(getter) = self.resolve_method(&value, reference.clone(),
+                    &format!("get_{}", name), snapshot)
+                {
+                    let previous = self.last_result.take();
+                    let result = self.execute_method(location, &getter, &[]);
+                    let value = self.last_result.take().unwrap_or(Value::None);
+                    self.last_result = previous;
+                    result?;
+                    let setter = self.resolve_method(&Value::Struct(item.clone()),
+                        reference.clone(), &format!("set_{}", name), snapshot).map(Rc::new);
+                    let mut projected = ValueReference::temporary(value.clone());
+                    projected.property = Some(Rc::new(PropertyReference
+                        {
+                            getter: Rc::new(getter), setter, name: name.into(),
+                            fresh: true.into(), active: false.into(),
+                        }));
+                    return Ok((value, projected));
+                }
+                if self.resolve_method(&value, reference.clone(),
+                    &format!("set_{}", name), snapshot).is_some()
+                { return Err(protocol_error(location, "Property is write-only")); }
+                if self.scope().types.properties.contains_key(&(item.definition.id, name.into()))
+                { return Err(protocol_error(location, "Property getter is private")); }
+            }
+            if let Ok(index) = Self::struct_field_index(location, item, field)
+            { self.check_private_field(location, item, index)?; }
+        }
         let enum_index =
             matches!(field, Value::String(name, _) if name == "index");
         let result = if matches!(field, Value::String(name, _) if name == "type")
@@ -3263,6 +3409,20 @@ impl Interpreter
         Ok((result, reference))
     }
 
+    fn check_private_field(&self, location: &Location, item: &StructValue, index: usize)
+        -> InterpreterResult<()>
+    {
+        let TypeKind::Struct(fields) = &item.definition.kind else { unreachable!(); };
+        if fields[index].public { return Ok(()); }
+        let permitted = self.protocol_context.last().is_some_and(|(owner, origin)|
+            *owner == Some(item.definition.id)
+                && item.definition.location.as_ref().is_some_and(|location|
+                    location.origin.as_ref() == origin));
+        if permitted { return Ok(()); }
+        Err(protocol_error(location, &format!("Field '{}.{}' is private",
+            item.definition.name, fields[index].name)))
+    }
+
     fn get_element(
         location: &Location, collection: &Value, index: &Value,
     ) -> InterpreterResult<Value>
@@ -3290,7 +3450,7 @@ impl Interpreter
         }
     }
 
-    fn set_element(location: &Location, collection: &mut Value,
+    fn set_element(&mut self, location: &Location, collection: &mut Value,
                     indexes: &[Value], fields: &[Value], value: Value) -> InterpreterResult<()>
     {
         let Some((index, rest)) = indexes.split_first() else
@@ -3302,8 +3462,49 @@ impl Interpreter
         {
             let (indexes, fields) = if matches!(fields.first(), Some(Value::None))
                 { (rest, &fields[1..]) } else { (indexes, fields) };
-            return Self::set_element(location, &mut Rc::make_mut(item).value,
+            return self.set_element(location, &mut Rc::make_mut(item).value,
                                       indexes, fields, value);
+        }
+        if matches!(fields.first(), Some(Value::Boolean(true)))
+            && matches!(collection, Value::Struct(_))
+        {
+            let name = index.as_text();
+            if !name.starts_with("::")
+            {
+                let reference = ValueReference::temporary(collection.clone());
+                let getter = self.resolve_method(collection, reference.clone(),
+                    &format!("get_{}", name), &Value::None);
+                let setter = self.resolve_method(collection, reference.clone(),
+                    &format!("set_{}", name), &Value::None);
+                if getter.is_some() || setter.is_some()
+                {
+                    let setter = setter.ok_or_else(||
+                        protocol_error(location, "Property is read-only"))?;
+                    let mut child = if rest.is_empty() { value.clone() }
+                        else
+                        {
+                            let getter = getter.ok_or_else(||
+                                protocol_error(location, "Property is write-only"))?;
+                            let previous = self.last_result.take();
+                            let result = self.execute_method(location, &getter, &[]);
+                            let child = self.last_result.take().unwrap_or(Value::None);
+                            self.last_result = previous;
+                            result?;
+                            child
+                        };
+                    if !rest.is_empty()
+                    { self.set_element(location, &mut child, rest, &fields[1..], value)?; }
+                    let previous = self.last_result.take();
+                    let result = self.execute_method(location, &setter, &[child]);
+                    self.last_result = previous;
+                    result?;
+                    *collection = reference.root.borrow().value.clone();
+                    return Ok(());
+                }
+                if let Value::Struct(item) = collection
+                    && self.scope().types.properties.contains_key(&(item.definition.id, name))
+                { return Err(protocol_error(location, "Property setter is private")); }
+            }
         }
         if matches!(fields.first(), Some(Value::Boolean(true)))
         {
@@ -3347,7 +3548,15 @@ impl Interpreter
                     });
             };
             let index = Self::struct_field_index(location, item, index)?;
-            return Self::set_element(
+            self.check_private_field(location, item, index)?;
+            let TypeKind::Struct(definitions) = &item.definition.kind else { unreachable!(); };
+            let value = if rest.is_empty()
+                { self.scope().types.coerce(definitions[index].type_id, value)
+                    .map_err(|message| protocol_error(location, &format!(
+                        "Type error: Field '{}.{}' (declared at {}): {}",
+                        item.definition.name, definitions[index].name,
+                        definitions[index].location, message)))? } else { value };
+            return self.set_element(
                 location,
                 &mut Rc::make_mut(item).fields[index],
                 rest,
@@ -3377,7 +3586,7 @@ impl Interpreter
                             });
                     }
                     let child = Rc::make_mut(values).get_mut(&key).unwrap();
-                    Self::set_element(location, child, rest, &fields[1..], value)
+                    self.set_element(location, child, rest, &fields[1..], value)
                 },
             Value::Array(values) =>
                 {
@@ -3391,7 +3600,7 @@ impl Interpreter
                             });
                     }
                     let index = Self::array_index(location, values, index)?;
-                    Self::set_element(
+                    self.set_element(
                         location,
                         &mut Rc::make_mut(values)[index],
                         rest,
@@ -3773,5 +3982,30 @@ impl Interpreter
         self.last_result = Some(Value::None);
 
         Ok(())
+    }
+}
+
+
+fn protocol_error(location: &Location, message: &str) -> InterpreterError
+{
+    InterpreterError { location: location.clone(), what: ErrorWhat::InvalidOperand(message.into()) }
+}
+
+fn seal_constructed(value: &mut Value)
+{
+    match value
+    {
+        Value::Struct(item) =>
+            {
+                let item = Rc::make_mut(item);
+                item.constructing = false;
+                for value in &mut item.fields { seal_constructed(value); }
+            },
+        Value::Named(item) => seal_constructed(&mut Rc::make_mut(item).value),
+        Value::Array(values) | Value::ArgumentExpansion(values) =>
+            for value in Rc::make_mut(values) { seal_constructed(value); },
+        Value::HashMap(values) =>
+            for value in Rc::make_mut(values).values_mut() { seal_constructed(value); },
+        _ => {},
     }
 }

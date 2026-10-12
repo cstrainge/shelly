@@ -1,7 +1,7 @@
 # CONVERT-289: field member
 check ["id": "CONVERT-289",
     "name": "field member",
-    "source": "enum E { A, B, C }; struct S { e: E }; let \$s = S(e: E::C); echo \$s.e.index S(e: E::B).e.index",
+    "source": "enum E { A, B, C }; struct S { pub e: E }; let \$s = S(e: E::C); echo \$s.e.index S(e: E::B).e.index",
     "mode": "code",
     "args": [],
     "stdout": "2 1\n",

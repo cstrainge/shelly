@@ -1,7 +1,7 @@
 # STRUCT-070: missing required untyped
 check ["id": "STRUCT-070",
     "name": "missing required untyped",
-    "source": "struct S { n }; echo S()",
+    "source": "struct S { pub n }; echo S()",
     "mode": "code",
     "args": [],
     "stdout": "",

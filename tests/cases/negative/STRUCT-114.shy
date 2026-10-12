@@ -1,7 +1,7 @@
 # STRUCT-114: runtime wrong map key write
 check ["id": "STRUCT-114",
     "name": "runtime wrong map key write",
-    "source": "struct S { n: [String: Number] }; let \$s = S(n: [:]); \$s.n[1] = 2",
+    "source": "struct S { pub n: [String: Number] }; let \$s = S(n: [:]); \$s.n[1] = 2",
     "mode": "code",
     "args": [],
     "stdout": "",

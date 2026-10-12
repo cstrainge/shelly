@@ -20,7 +20,7 @@ type_name_case "echo (Integer).name (Float).name (String).name (Type).name (any)
 type_name_case "echo (Integer).type.name [(Integer)][0].name [Integer].value_type.name [1].value_type.name" "Type Integer Integer Integer\n" ""
 type_name_case "let \$t: Type = Integer; let \$name: String = \$t.name; echo \$name \$name.type" "Integer String\n" ""
 type_name_case "fn name(\$t: Type): String { \$t.name }; echo (name (Integer)); fn dynamic(\$t: any): String { \$t.name }; echo (dynamic (Float))" "Integer\nFloat\n" ""
-type_name_case "type Count = Integer; type Callback = fn(): String; struct Item { name: String }; enum Color { Red }; echo (Count).name (Callback).name (Item).name (Color).name; echo Item(name: \"field\").name" "Count Callback Item Color\nfield\n" ""
+type_name_case "type Count = Integer; type Callback = fn(): String; struct Item { pub name: String }; enum Color { Red }; echo (Count).name (Callback).name (Item).name (Color).name; echo Item(name: \"field\").name" "Count Callback Item Color\nfield\n" ""
 type_name_case "let \$a: [Integer] = []; let \$h: [String: Float] = [:]; echo \$a.value_type.name \$h.key_type.name \$h.value_type.name" "Integer String Float\n" ""
 type_name_case "let \$a: [Integer] = []; let \$p = \$a.properties; echo \$p[\"value_type\"].name; let \$p = (Integer).properties; echo \$p[\"name\"] \$p[\"name\"].type" "Integer\nInteger String\n" ""
 type_name_case "let \$t = Integer; \$t.name = \"Other\"" "" "read-only"

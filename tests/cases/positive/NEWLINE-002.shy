@@ -1,7 +1,7 @@
 # NEWLINE-002: constructor gap '\n    '
 check ["id": "NEWLINE-002",
     "name": "constructor gap '\\n    '",
-    "source": "struct S { n: Number }; let \$s = S\n    (n: 42); echo \$s.n",
+    "source": "struct S { pub n: Number }; let \$s = S\n    (n: 42); echo \$s.n",
     "mode": "code",
     "args": [],
     "stdout": "42\n",

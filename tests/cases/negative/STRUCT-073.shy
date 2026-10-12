@@ -1,7 +1,7 @@
 # STRUCT-073: number is not string
 check ["id": "STRUCT-073",
     "name": "number is not string",
-    "source": "struct S { n: Number }; echo S(n: \"1\")",
+    "source": "struct S { pub n: Number }; echo S(n: \"1\")",
     "mode": "code",
     "args": [],
     "stdout": "",

@@ -1,7 +1,7 @@
 # STRUCT-136: missing type before newline
 check ["id": "STRUCT-136",
     "name": "missing type before newline",
-    "source": "struct S { n:\n }",
+    "source": "struct S { pub n:\n }",
     "mode": "code",
     "args": [],
     "stdout": "",

@@ -1,7 +1,7 @@
 # STRUCT-057: keyword fields
 check ["id": "STRUCT-057",
     "name": "keyword fields",
-    "source": "struct S { if, true, optional }; let \$s = S(if: 1, true: 2, optional: 3); echo \$s.if \$s.true \$s.optional",
+    "source": "struct S { pub if, pub true, pub optional }; let \$s = S(if: 1, true: 2, optional: 3); echo \$s.if \$s.true \$s.optional",
     "mode": "code",
     "args": [],
     "stdout": "1 2 3\n",

@@ -119,6 +119,14 @@ impl Interpreter
                     break;
                 }
             }
+            for ((owner, name), ty) in &registry.properties
+            {
+                if *owner == id
+                {
+                    descriptor.properties.insert(name.clone(),
+                        SymbolDescriptor::new(SymbolKind::Field, Some(ty.0)));
+                }
+            }
             types.push(descriptor);
         }
         snapshot.types = Arc::new(types);

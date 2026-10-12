@@ -1,7 +1,7 @@
 # STRUCT-133: legacy optional modifier
 check ["id": "STRUCT-133",
     "name": "legacy optional modifier",
-    "source": "struct S { n optional Number }",
+    "source": "struct S { pub n optional Number }",
     "mode": "code",
     "args": [],
     "stdout": "",

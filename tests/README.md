@@ -56,6 +56,13 @@ imports, colon-separated search paths, and ordinary/standard lookup separation.
 `native/bundled_std.shy` checks bundled imports through their public module names,
 without depending on whether a module uses a file or directory layout.
 
+`native/struct_protocols.shy` checks named factory arguments, return validation,
+private storage and constructors, child-module access, computed properties,
+raw/dynamic/interpolated member access, enum defaults, and pipeline construction.
+`repl/struct_protocols.shy` checks setter rollback, nested writeback, compiler
+contract rollback, and recovery after constructor recursion across submissions.
+Existing struct fixtures mark their publicly constructed storage with `pub`.
+
 ## Process case records
 
 `native/colon_arguments.shy` verifies attached colons in command and alias words,

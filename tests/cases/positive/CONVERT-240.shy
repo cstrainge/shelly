@@ -1,7 +1,7 @@
 # CONVERT-240: struct field conversion
 check ["id": "CONVERT-240",
     "name": "struct field conversion",
-    "source": "struct S { n: Integer }; echo S(n: Integer(\"42\")).n",
+    "source": "struct S { pub n: Integer }; echo S(n: Integer(\"42\")).n",
     "mode": "code",
     "args": [],
     "stdout": "42\n",

@@ -1,0 +1,23 @@
+check_repl ["id": "STRUCT-PROTOCOLS", "name": "Accessor writeback is atomic and compiler failures preserve contracts", "steps": [
+    ['struct Account { balance: Integer }; pub fn Account::new($initial: Integer): Account { Account(balance: $initial) }; pub fn Account::get_balance(): Integer { $self.::balance }; pub fn Account::set_balance($value: Integer) { $self.::balance = $value; if $value < 0 { let _ = 1 / 0 } }; let $a = Account(initial: 10)', "quiet", ""],
+    ['$a.balance = 20; echo $a.balance', "output", "20"],
+    ['$a.balance = -1', "error", "zero"],
+    ['echo $a.balance', "output", "20"],
+    ['let $field = "balance"; $a.$field = 30; echo "${a.$field}"', "output", "30"],
+    ['fn Account::set_balance($value: String) {}', "error", "must match exactly"],
+    ['$a.balance = 31; echo $a.balance', "output", "31"],
+    ['struct Basket { items: [Integer] }; let $gets = 0; let $sets = 0; fn Basket::new(): Basket { Basket(items: [1,2]) }; fn Basket::get_items(): [Integer] { $gets = $gets + 1; $self.::items }; fn Basket::set_items($value: [Integer]) { $sets = $sets + 1; $self.::items = $value; if $value[0] < 0 { let _ = 1 / 0 } }; let $b = Basket()', "quiet", ""],
+    ['$b.items[0] = 7; echo $gets $sets', "output", "1 1"],
+    ['echo $b.items...', "output", "7 2"],
+    ['$b.items[0] = -1', "error", "zero"],
+    ['echo $b.items...', "output", "7 2"],
+    ['let $field = "items"; $b.$field[1] = 8; echo $b.items...', "output", "7 8"],
+    ['fn Account::new($other: String): Account { Account(balance: 1) }', "error", "one constructor interface"],
+    ['echo Account(initial: 12).balance', "output", "12"],
+    ['struct Recursive { value: Integer }; fn Recursive::new(): Recursive { (Recursive::new) }; Recursive()', "error", "Recursive constructor call"],
+    ['echo $a.balance', "output", "31"],
+    ['struct Sorting { items: [Integer] }; fn Sorting::new(): Sorting { Sorting(items: [3,1,2]) }; fn Sorting::get_items(): [Integer] { $self.::items }; fn Sorting::set_items($v: [Integer]) { $self.::items = $v; if $v[0] == 1 { let _ = 1 / 0 } }; fn Array::order(): [Integer] { $self = $self.sort; $self }; let $s = Sorting()', "quiet", ""],
+    ['$s.items.order', "error", "zero"],
+    ['echo $s.items...', "output", "3 1 2"],
+    ['fn Sorting::set_items($v: [Integer]) { $self.::items = $v }; $s.items.order; echo $s.items...', "output", "1 2 3"]
+], "exit": 0]

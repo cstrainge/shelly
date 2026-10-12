@@ -1,7 +1,7 @@
 # STRUCT-069: unknown constructor field
 check ["id": "STRUCT-069",
     "name": "unknown constructor field",
-    "source": "struct S { n }; echo S(other: 1)",
+    "source": "struct S { pub n }; echo S(other: 1)",
     "mode": "code",
     "args": [],
     "stdout": "",

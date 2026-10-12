@@ -13,6 +13,18 @@ pub fn map_value(types: &TypeRegistry, target: TypeId, value: Value,
 {
     if let Some(converted) = factory(target, &value)? { return Ok(converted); }
     let definition = types.get(target);
+    if let TypeKind::Struct(fields) = &definition.kind
+        && let Value::HashMap(values) = value.underlying()
+    {
+        for field in fields.iter().filter(|field| !field.public
+            && !types.constructors.get(&target).is_some_and(|signature|
+                signature.parameters.iter().any(|parameter| parameter.name == field.name)))
+        {
+            if values.contains_key(&MapKey::String(field.name.clone()))
+            { return Err(format!("Field '{}.{}' is private", definition.name, field.name)); }
+        }
+    }
+    let definition = types.get(target);
     match &definition.kind
     {
         TypeKind::Optional(_) if matches!(value, Value::None) => Ok(Value::None),
@@ -34,18 +46,52 @@ pub fn map_value(types: &TypeRegistry, target: TypeId, value: Value,
                 let Value::HashMap(values) = value.underlying() else { unreachable!(); };
                 let mut remaining: HashMap<_, _> = values.iter().collect();
                 let mut mapped = Vec::new();
+                if let Some(signature) = types.constructors.get(&target)
+                {
+                    if !types.constructor_permissions.contains(&target)
+                    { return Err("Constructor is private to its module".into()); }
+                    for (index, parameter) in signature.parameters.iter().enumerate()
+                    {
+                        let key = MapKey::String(parameter.name.clone());
+                        let value = remaining.remove(&key).cloned();
+                        let value = match value
+                            {
+                                Some(value) => map_value(types, parameter.type_id, value, factory)?,
+                                None if parameter.optional => signature.defaults()[index].clone(),
+                                None => return Err(format!(
+                                    "Missing constructor parameter '{}'", parameter.name)),
+                            };
+                        mapped.push(value);
+                    }
+                    if !remaining.is_empty()
+                    { return Err("Unknown constructor parameters in decoded object".into()); }
+                    let inputs = Value::Struct(Rc::new(StructValue
+                        { definition, fields: mapped, constructing: true }));
+                    return factory(target, &inputs)?
+                        .ok_or_else(|| "Constructor factory is unavailable".into());
+                }
                 for field in fields
                 {
                     let key = MapKey::String(field.name.clone());
-                    let value = remaining.remove(&key).cloned().or_else(||
-                        field.optional.then_some(Value::None))
-                        .ok_or_else(|| format!("Missing field '{}.{}'",
-                            definition.name, field.name))?;
+                    let value = remaining.remove(&key).cloned();
+                    if !field.public
+                    {
+                        if types.validate(field.type_id, &Value::None).is_err()
+                        { return Err(format!("Private field '{}.{}' requires ::new",
+                            definition.name, field.name)); }
+                        mapped.push(Value::None);
+                        continue;
+                    }
+                    let value = value.or_else(|| field.optional.then_some(Value::None))
+                        .ok_or_else(|| format!(
+                            "Missing field '{}.{}'", definition.name, field.name))?;
                     mapped.push(map_value(types, field.type_id, value, factory)
                         .map_err(|error| format!("Field '{}': {}", field.name, error))?);
                 }
                 if !remaining.is_empty() { return Err("Unknown fields in decoded object".into()); }
-                Ok(Value::Struct(Rc::new(StructValue { definition, fields: mapped })))
+                let value = Value::Struct(Rc::new(StructValue
+                    { definition, fields: mapped, constructing: false }));
+                types.coerce(target, value)
             },
         TypeKind::Array(item) =>
             {

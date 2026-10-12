@@ -1,7 +1,7 @@
 # STRUCT-094: missing comma
 check ["id": "STRUCT-094",
     "name": "missing comma",
-    "source": "struct S { n: Number m: String }",
+    "source": "struct S { pub n: Number m: String }",
     "mode": "code",
     "args": [],
     "stdout": "",

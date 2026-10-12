@@ -1,7 +1,7 @@
 # CONVERT-048: matrix Struct to Boolean
 check ["id": "CONVERT-048",
     "name": "matrix Struct to Boolean",
-    "source": "struct S { n: Integer }; let \$v = S(n: 2); let \$converted: Boolean = Boolean(\$v); echo \$converted",
+    "source": "struct S { pub n: Integer }; let \$v = S(n: 2); let \$converted: Boolean = Boolean(\$v); echo \$converted",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

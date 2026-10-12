@@ -1,7 +1,7 @@
 # ANNOTATION-017: empty nominal containers
 check ["id": "ANNOTATION-017",
     "name": "empty nominal containers",
-    "source": "struct S { n: Number }; enum E { A }; let \$s: [S]; let \$e: [E: S]; echo \$s \$e",
+    "source": "struct S { pub n: Number }; enum E { A }; let \$s: [S]; let \$e: [E: S]; echo \$s \$e",
     "mode": "code",
     "args": [],
     "stdout": " [:]\n",

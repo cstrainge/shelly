@@ -1,7 +1,7 @@
 # NEWLINE-013: conditional branches
 check ["id": "NEWLINE-013",
     "name": "conditional branches",
-    "source": "struct S { n: Number }; let \$s = if true { S\n(n: 5) } else { S\n(n: 6) }; echo \$s.n",
+    "source": "struct S { pub n: Number }; let \$s = if true { S\n(n: 5) } else { S\n(n: 6) }; echo \$s.n",
     "mode": "code",
     "args": [],
     "stdout": "5\n",

@@ -1,7 +1,7 @@
 # CONVERT-132: matrix Struct to Number
 check ["id": "CONVERT-132",
     "name": "matrix Struct to Number",
-    "source": "struct S { n: Integer }; let \$v = S(n: 2); let \$converted: Number = Number(\$v); echo \$converted",
+    "source": "struct S { pub n: Integer }; let \$v = S(n: 2); let \$converted: Number = Number(\$v); echo \$converted",
     "mode": "code",
     "args": [],
     "stdout": "",

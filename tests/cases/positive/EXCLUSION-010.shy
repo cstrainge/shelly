@@ -2,7 +2,7 @@
 check [
     "id": "EXCLUSION-010",
     "name": "included method",
-    "source": "struct S { x: Integer }; [when true] fn S::twice(): Integer { \$self.x * 2 }; let \$s = S(x: 3); echo \$s.twice",
+    "source": "struct S { pub x: Integer }; [when true] fn S::twice(): Integer { \$self.x * 2 }; let \$s = S(x: 3); echo \$s.twice",
     "mode": "code",
     "args": [],
     "stdout": "6\n",

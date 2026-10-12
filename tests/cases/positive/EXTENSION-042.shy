@@ -1,7 +1,7 @@
 # EXTENSION-042: forward type and method
 check ["id": "EXTENSION-042",
     "name": "forward type and method",
-    "source": "let \$s = S(n: 3); echo \$s.read; fn S::read(): Integer { \$self.n }; struct S { n: Integer }",
+    "source": "let \$s = S(n: 3); echo \$s.read; fn S::read(): Integer { \$self.n }; struct S { pub n: Integer }",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

@@ -1,7 +1,7 @@
 # NEWLINE-029: unknown field
 check ["id": "NEWLINE-029",
     "name": "unknown field",
-    "source": "struct S { n: Number }; S\n(other: 1)",
+    "source": "struct S { pub n: Number }; S\n(other: 1)",
     "mode": "code",
     "args": [],
     "stdout": "",

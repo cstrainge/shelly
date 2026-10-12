@@ -1,6 +1,6 @@
-# STRUCT-068: enum is not constructor
+# STRUCT-068: enum without default factory cannot be constructed
 check ["id": "STRUCT-068",
-    "name": "enum is not constructor",
+    "name": "enum without default factory cannot be constructed",
     "source": "enum E { A }; echo E()",
     "mode": "code",
     "args": [],
@@ -8,6 +8,6 @@ check ["id": "STRUCT-068",
     "status": 1,
     "valid": false,
     "error": "Type error:",
-    "stderr_contains": ["not a struct"],
+    "stderr_contains": ["zero-argument ::new"],
     "stderr_excludes": ["Parser error:"],
     "stdout_excludes": []]

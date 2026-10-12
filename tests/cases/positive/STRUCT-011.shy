@@ -1,7 +1,7 @@
 # STRUCT-011: map any types
 check ["id": "STRUCT-011",
     "name": "map any types",
-    "source": "struct S { m: [any: any] }; echo S(m: [[1]: ()]).m",
+    "source": "struct S { pub m: [any: any] }; echo S(m: [[1]: ()]).m",
     "mode": "code",
     "args": [],
     "stdout": "[[1]: ()]\n",

@@ -256,7 +256,10 @@ fn parse_math_primary_inner(buffer: &mut TokenBuffer<'_, '_>)
                                 ConstructorStart::Fields =>
                                     AstExpressionKind::StructConstructor(
                                         Box::new(AstStructConstructor
-                                    { name, fields, type_id: None, field_indexes: Vec::new() })),
+                                    {
+                                raw: false, name, fields, type_id: None,
+                                field_indexes: Vec::new(),
+                            })),
                                 ConstructorStart::TypeConversion => unreachable!(),
                             };
                         let expression = AstExpression

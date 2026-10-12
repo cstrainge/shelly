@@ -1,7 +1,7 @@
 # BOOLCAST-139: typed struct field
 check ["id": "BOOLCAST-139",
     "name": "typed struct field",
-    "source": "struct S { flag: Boolean }; echo S(flag: Boolean(1)).flag",
+    "source": "struct S { pub flag: Boolean }; echo S(flag: Boolean(1)).flag",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

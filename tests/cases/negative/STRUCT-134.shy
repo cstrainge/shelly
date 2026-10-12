@@ -1,7 +1,7 @@
 # STRUCT-134: missing type before brace
 check ["id": "STRUCT-134",
     "name": "missing type before brace",
-    "source": "struct S { n: }",
+    "source": "struct S { pub n: }",
     "mode": "code",
     "args": [],
     "stdout": "",

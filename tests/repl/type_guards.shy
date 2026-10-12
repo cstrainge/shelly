@@ -24,7 +24,7 @@ check_repl ["id": "TYPE_GUARDS", "name": "Type identity, narrowing, and recovery
     ["echo (f 7) (f \"text\")", "output", "int text"],
     ["fn bad(\$v: Integer | String): Integer { match \$v.type { Integer => { 0 } _ => { \$v } } }", "error", "Expected Integer, got String"],
     ["echo (f \"ok\")", "output", "ok"],
-    ["struct Item { n: Integer }; let \$item: any = Item(n: 1)", "quiet", ""],
+    ["struct Item { pub n: Integer }; let \$item: any = Item(n: 1)", "quiet", ""],
     ["fn bad(\$v: any) { if \$v.type == Item && \$v.absent == 1 { () } }", "error", "Cannot access field 'absent' on Item"],
     ["if \$item.type == Item { echo \$item.n }", "output", "1"],
     ["type Count = Integer; fn broken(\$v: any) { if \$v.type == Integer { let \$s: String = \$v } }", "error", "Expected String, got Integer"],
@@ -38,6 +38,6 @@ check_repl ["id": "TYPE_GUARDS", "name": "Type identity, narrowing, and recovery
     ["echo (\$read)", "output", "7"],
     ["\$foo = \"s\"", "quiet", ""],
     ["echo (\$read)", "output", "0"],
-    ["struct A { a: Integer }; struct B { b: String }; let \$state: any = A(a: 1); fn change(): Boolean { \$state = B(b: \"new\"); true }", "quiet", ""],
+    ["struct A { pub a: Integer }; struct B { pub b: String }; let \$state: any = A(a: 1); fn change(): Boolean { \$state = B(b: \"new\"); true }", "quiet", ""],
     ["if \$state.type == A && (change) { echo \$state.b }", "output", "new"],
 ], "exit": 0]

@@ -1,7 +1,7 @@
 # STRUCT-027: map field missing read
 check ["id": "STRUCT-027",
     "name": "map field missing read",
-    "source": "struct S { m: [String: Number] }; echo S(m: [:]).m[\"absent\"]",
+    "source": "struct S { pub m: [String: Number] }; echo S(m: [:]).m[\"absent\"]",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

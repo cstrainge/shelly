@@ -1,7 +1,7 @@
 # NEWLINE-047: spaced named
 check ["id": "NEWLINE-047",
     "name": "spaced named",
-    "source": "struct S { n: optional Number }; echo S (n: 42).n",
+    "source": "struct S { pub n: optional Number }; echo S (n: 42).n",
     "mode": "code",
     "args": [],
     "stdout": "42\n",

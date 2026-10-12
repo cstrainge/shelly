@@ -1,7 +1,7 @@
 # NEWLINE-015: forward declaration
 check ["id": "NEWLINE-015",
     "name": "forward declaration",
-    "source": "let \$s = S\n(n: 7); struct S { n: Number }; echo \$s.n",
+    "source": "let \$s = S\n(n: 7); struct S { pub n: Number }; echo \$s.n",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

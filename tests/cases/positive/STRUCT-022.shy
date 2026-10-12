@@ -1,7 +1,7 @@
 # STRUCT-022: mixed nested update
 check ["id": "STRUCT-022",
     "name": "mixed nested update",
-    "source": "struct Child { n: Number }; struct Root { groups: [String: [Child]] }; let \$r = Root(groups: [\"x\": [Child(n: 1)]]); let \$copy = \$r; \$copy.groups[\"x\"][0].n = 2; echo \$r.groups[\"x\"][0].n \$copy.groups[\"x\"][0].n",
+    "source": "struct Child { pub n: Number }; struct Root { pub groups: [String: [Child]] }; let \$r = Root(groups: [\"x\": [Child(n: 1)]]); let \$copy = \$r; \$copy.groups[\"x\"][0].n = 2; echo \$r.groups[\"x\"][0].n \$copy.groups[\"x\"][0].n",
     "mode": "code",
     "args": [],
     "stdout": "1 2\n",

@@ -5,6 +5,7 @@ use crate::language::{ analysis::{ SemanticFact, SymbolDescriptor, SymbolKind, S
                                    TypeDescriptor, TypeTable },
                        ast::{ AstBlockStatement, AstExpression, AstExpressionKind,
                               AstFunctionStatement, AstStatement, AstTopLevel, AstType },
+                       data::conversion::is_conversion_method,
                        parser::{ EditorAnalysis, source::{ SyntaxFact, SyntaxRole } },
                        text::{ interpolation::interpolation_references,
                                location::Location, span::SourceSpan },
@@ -22,6 +23,8 @@ struct Classifier<'a>
     locations: BTreeMap<(usize, usize), usize>,
     depth: usize,
     methods: Vec<BTreeMap<(usize, String), SymbolDescriptor>>,
+    properties: Vec<BTreeMap<(usize, String), SymbolDescriptor>>,
+    factory: Option<usize>,
     regions: BTreeMap<usize, SourceSpan>,
     roles: BTreeMap<usize, SyntaxRole>,
     strings: BTreeMap<usize, usize>,
@@ -44,7 +47,8 @@ pub(super) fn classify(source: &str, analysis: &EditorAnalysis, statements: &Ast
         {
             source, analysis, snapshot, scopes: vec![BTreeMap::new()],
             types: TypeTable::new(snapshot.types.clone()), facts: BTreeMap::new(), depth: 0,
-            methods: vec![BTreeMap::new()], regions: region_spans(analysis),
+            methods: vec![BTreeMap::new()], properties: vec![BTreeMap::new()], factory: None,
+            regions: region_spans(analysis),
             roles: analysis.syntax.facts.iter().map(|fact| (fact.span.start, fact.role)).collect(),
             strings: analysis.lexical.strings.iter().enumerate()
                 .map(|(index, string)| (string.span.start, index)).collect(),
@@ -96,12 +100,14 @@ impl Classifier<'_>
     {
         self.scopes.push(BTreeMap::new());
         self.methods.push(BTreeMap::new());
+        self.properties.push(BTreeMap::new());
     }
 
     fn exit_scope(&mut self)
     {
         self.scopes.pop();
         self.methods.pop();
+        self.properties.pop();
     }
 
     fn bind(&mut self, name: &str, symbol: SymbolDescriptor)
@@ -178,9 +184,9 @@ impl Classifier<'_>
                 SyntaxRole::EnumVariantDeclaration =>
                     Some(SymbolDescriptor::new(SymbolKind::EnumVariant, None)),
                 SyntaxRole::Variable => self.symbol(raw),
-                SyntaxRole::Member if raw.starts_with(".$") =>
-                    Some(self.symbol(&raw[1..]).unwrap_or_else(||
-                        SymbolDescriptor::new(SymbolKind::Variable, None))),
+                SyntaxRole::Member if raw.starts_with(".$") || raw.starts_with(".::$") =>
+                    Some(self.symbol(raw.strip_prefix(".::").unwrap_or(&raw[1..]))
+                        .unwrap_or_else(|| SymbolDescriptor::new(SymbolKind::Variable, None))),
                 SyntaxRole::Name | SyntaxRole::CommandName | SyntaxRole::TypeName
                 | SyntaxRole::ImportName | SyntaxRole::ModuleName | SyntaxRole::PipeAnnotation =>
                     {
@@ -325,6 +331,24 @@ impl Classifier<'_>
                         if let Some(receiver) = function.receiver.as_ref()
                             .and_then(|name| self.type_name(name))
                         {
+                            let property = if let Some(name) = function.name.strip_prefix("get_")
+                                { Some((name, result, true)) }
+                                else if let Some(name) = function.name.strip_prefix("set_")
+                                {
+                                    let ty = function.parameters.get(1)
+                                        .and_then(|parameter| parameter.annotation.as_ref())
+                                        .and_then(|annotation| self.annotation(annotation));
+                                    Some((name, ty, false))
+                                }
+                                else { None };
+                            if let Some((name, ty, getter)) = property
+                            {
+                                let entry = self.properties.last_mut().unwrap()
+                                    .entry((receiver, name.into()));
+                                let symbol = SymbolDescriptor::new(SymbolKind::Field, ty);
+                                if getter { entry.insert_entry(symbol); }
+                                else { entry.or_insert(symbol); }
+                            }
                             self.methods.last_mut().unwrap()
                                 .insert((receiver, function.name.clone()),
                                 SymbolDescriptor { kind: SymbolKind::Method, ..symbol });
@@ -363,14 +387,20 @@ impl Classifier<'_>
         { self.mark(token.span, &SymbolDescriptor::new(SymbolKind::Method, None)); }
         if let Some(condition) = &function.condition { self.expression(condition, false); }
         self.enter_scope();
+        let previous_factory = self.factory;
+        let receiver_bound = function.receiver.is_some() && function.name != "new"
+            && !is_conversion_method(&function.name);
         if let Some(name) = &function.receiver
         {
-            self.bind("$self", SymbolDescriptor::new(SymbolKind::Variable, self.type_name(name)));
+            self.factory = if function.name == "new" { self.type_name(name) } else { None };
+            if receiver_bound
+            { self.bind("$self", SymbolDescriptor::new(
+                SymbolKind::Variable, self.type_name(name))); }
         }
         for parameter in &function.parameters
         {
             // The parser supplies an implicit receiver with the method's source location.
-            if parameter.name == "$self" { continue; }
+            if receiver_bound && parameter.name == "$self" { continue; }
             let ty = parameter.annotation.as_ref()
                 .and_then(|annotation| self.annotation(annotation));
             let ty = if parameter.variadic { Some(self.container("Array", ty, None)) } else { ty };
@@ -379,6 +409,7 @@ impl Classifier<'_>
             if let Some(token) = self.token(&parameter.location) { self.mark(token.span, &symbol); }
         }
         self.statements(&function.body);
+        self.factory = previous_factory;
         self.exit_scope();
     }
 
@@ -543,10 +574,14 @@ impl Classifier<'_>
                         .filter(|token| token.token_value_text() == *name).map(|token| token.span);
                     if let Some(span) = member
                     {
+                        let raw = name.starts_with("::");
+                        let name = name.strip_prefix("::").unwrap_or(name);
                         let symbol = if name.starts_with('$')
                             { Some(self.symbol(name).unwrap_or_else(||
                                 SymbolDescriptor::new(SymbolKind::Variable, None))) }
-                            else { info.type_id.and_then(|id| self.member(id, name, 0)) };
+                            else { info.type_id.and_then(|id|
+                                if raw { self.storage_member(id, name, 0) }
+                                else { self.member(id, name, 0) }) };
                         if let Some(symbol) = symbol
                         {
                             self.mark(span, &symbol);
@@ -583,14 +618,28 @@ impl Classifier<'_>
                 },
             AstExpressionKind::StructConstructor(item) =>
                 {
-                    info.type_id = self.type_name(&item.name);
+                    info.type_id = self.type_name(&item.name)
+                        .and_then(|id| self.constructor_result(id));
                     for (_, _, value) in &item.fields
                     { info.end = info.end.max(self.expression(value, false).end); }
                 },
             AstExpressionKind::EnumVariant(name, variant) =>
                 {
                     info.type_id = self.type_name(name);
-                    if    let Some(id) = info.type_id
+                    if let Some(id) = info.type_id
+                        && !self.types[id].variants.contains(variant)
+                        && let Some(method) = self.method(id, variant, 0)
+                    {
+                        if let Some(span) = span
+                        {
+                            let (_, spans) = self.qualified(span);
+                            self.mark_reference(&spans, &method);
+                            info.end = spans.last().map_or(info.end, |span| span.end);
+                        }
+                        info.type_id = method.return_type;
+                        info.result = method.return_type;
+                    }
+                    else if    let Some(id) = info.type_id
                             .filter(|id| self.types[*id].variants.contains(variant))
                        && let Some(span) = span
                     {
@@ -703,8 +752,10 @@ impl Classifier<'_>
                         }));
                 },
             AstExpressionKind::SpacedEmptyCall(name) =>
-                { info.type_id = self.symbol(name)
-                    .and_then(|symbol| symbol.return_type.or(symbol.type_id)); },
+                { info.type_id = self.symbol(name).and_then(|symbol|
+                    if symbol.kind == SymbolKind::Type
+                    { symbol.type_id.and_then(|id| self.constructor_result(id)) }
+                    else { symbol.return_type.or(symbol.type_id) }); },
         }
         info
     }
@@ -720,11 +771,42 @@ impl Classifier<'_>
         }
     }
 
-    fn member(&self, id: usize, name: &str, depth: usize) -> Option<SymbolDescriptor>
+    fn constructor_result(&self, id: usize) -> Option<usize>
+    {
+        if self.factory == Some(id) { return Some(id); }
+        match self.method(id, "new", 0)
+        {
+            Some(method) => method.return_type,
+            None => Some(id),
+        }
+    }
+
+    fn method(&self, id: usize, name: &str, depth: usize) -> Option<SymbolDescriptor>
+    {
+        if depth >= 64 { return None; }
+        let descriptor = self.types.get(id)?;
+        self.methods.iter().rev()
+            .find_map(|methods| methods.get(&(id, name.into())).cloned())
+            .or_else(|| descriptor.methods.get(name).cloned())
+            .or_else(|| descriptor.parent.and_then(|id| self.method(id, name, depth + 1)))
+    }
+
+    fn storage_member(&self, id: usize, name: &str, depth: usize) -> Option<SymbolDescriptor>
     {
         if depth >= 64 { return None; }
         let descriptor = self.types.get(id)?;
         descriptor.fields.get(name).cloned()
+            .or_else(|| descriptor.parent.and_then(|id| self.storage_member(id, name, depth + 1)))
+    }
+
+    fn member(&self, id: usize, name: &str, depth: usize) -> Option<SymbolDescriptor>
+    {
+        if depth >= 64 { return None; }
+        let descriptor = self.types.get(id)?;
+        self.properties.iter().rev()
+            .find_map(|properties| properties.get(&(id, name.into())).cloned())
+            .or_else(|| descriptor.properties.get(name).cloned())
+            .or_else(|| descriptor.fields.get(name).cloned())
             .or_else(|| self.methods.iter().rev()
                 .find_map(|methods| methods.get(&(id, name.into())).cloned()))
             .or_else(|| descriptor.methods.get(name).cloned())
@@ -774,12 +856,16 @@ impl Classifier<'_>
             {
                 let start = end;
                 end += 1 + name.len();
+                let raw = name.starts_with("::");
+                let name = name.strip_prefix("::").unwrap_or(name);
                 let dynamic = name.starts_with('$');
                 let symbol = if dynamic
                     { self.symbol(name).unwrap_or_else(||
                         SymbolDescriptor::new(SymbolKind::Variable, None)) }
                     else
-                    { receiver.and_then(|id| self.member(id, name, 0)).unwrap_or_else(||
+                    { receiver.and_then(|id|
+                        if raw { self.storage_member(id, name, 0) }
+                        else { self.member(id, name, 0) }).unwrap_or_else(||
                         SymbolDescriptor::new(SymbolKind::Field, None)) };
                 if let Some(span) = string.source_span(SourceSpan::new(start, end))
                 { self.mark(span, &symbol); }

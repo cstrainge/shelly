@@ -1,7 +1,7 @@
 # STRUCT-049: bare typed array alias
 check ["id": "STRUCT-049",
     "name": "bare typed array alias",
-    "source": "struct S { a: Array, m: HashMap }; echo S(a: [], m: [:])",
+    "source": "struct S { pub a: Array, pub m: HashMap }; echo S(a: [], m: [:])",
     "mode": "code",
     "args": [],
     "stdout": "S(a: [], m: [:])\n",

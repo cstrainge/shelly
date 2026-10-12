@@ -31,7 +31,7 @@ collection_case "echo BEFORE; let \$a: [[String, Integer]] = [[\"x\",1]]; for (\
 collection_case "echo BEFORE; let \$h = [1: \"x\"]; for (\$k,\$v) in \$h { let \$bad: Boolean = \$k }" "" "Expected Boolean, got Integer"
 collection_case "echo BEFORE; let \$h = [\"x\": 1]; for \$pair in \$h { let \$bad: Boolean = \$pair[1] }" "" "Expected Boolean, got Integer"
 collection_case "echo BEFORE; fn consume(\$h: [String: Integer]): Boolean { for (\$k,\$v) in \$h { return \$v }; false }" "" "Expected Boolean, got Integer"
-collection_case "echo BEFORE; struct Data { values: [Integer] }; let \$d = Data(values: [1]); for \$v in \$d.values { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
+collection_case "echo BEFORE; struct Data { pub values: [Integer] }; let \$d = Data(values: [1]); for \$v in \$d.values { let \$bad: Boolean = \$v }" "" "Expected Boolean, got Integer"
 collection_case "let \$h: [String: Float] = [\"x\": 1]; for (\$k,\$v) in \$h { echo \$k \$v }" "x 1.0\n" ""
 collection_case "let \$a = [1,true,\"x\"]; for \$v in \$a { echo \$v }" "1\ntrue\nx\n" ""
 collection_case "let \$a = [1,2.0]; for \$v in \$a { echo \$v }" "1\n2.0\n" ""

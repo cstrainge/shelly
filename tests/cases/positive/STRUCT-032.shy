@@ -1,7 +1,7 @@
 # STRUCT-032: integer key canonical equality
 check ["id": "STRUCT-032",
     "name": "integer key canonical equality",
-    "source": "struct S { m: [Integer: Number] }; echo S(m: [1.0: 42]).m[1]",
+    "source": "struct S { pub m: [Integer: Number] }; echo S(m: [1.0: 42]).m[1]",
     "mode": "code",
     "args": [],
     "stdout": "42\n",

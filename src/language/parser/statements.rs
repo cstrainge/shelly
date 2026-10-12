@@ -465,7 +465,7 @@ fn parse_function_body(buffer: &mut TokenBuffer<'_, '_>, location: Location,
             condition: None, parameters, return_annotation, return_type: None, body: code,
         };
     if    let Some(receiver) = &function.receiver
-       && !is_conversion_method(&function.name)
+       && !is_conversion_method(&function.name) && function.name != "new"
     {
         function.parameters.insert(0, AstParameter
             {
@@ -709,6 +709,7 @@ fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
     {
         while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
         if try_expect_token(buffer, TokenKind::BlockClose)?.is_some() { break; }
+        let public = try_expect_token(buffer, TokenKind::Public)?.is_some();
         let field = expect_field_label(buffer)?;
         let field_name = field.token_value_text();
         let mut optional = false;
@@ -737,7 +738,7 @@ fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
         }
         fields.push(AstFieldDeclaration
             {
-                name: field_name,
+                public, name: field_name,
                 annotation,
                 optional,
                 location: field.location,

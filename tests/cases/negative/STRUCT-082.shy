@@ -1,7 +1,7 @@
 # STRUCT-082: nominal field types
 check ["id": "STRUCT-082",
     "name": "nominal field types",
-    "source": "struct A {}; struct B {}; struct S { n: A }; echo S(n: B())",
+    "source": "struct A {}; struct B {}; struct S { pub n: A }; echo S(n: B())",
     "mode": "code",
     "args": [],
     "stdout": "",

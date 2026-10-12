@@ -1,7 +1,7 @@
 # STRUCT-078: wrong nested map key
 check ["id": "STRUCT-078",
     "name": "wrong nested map key",
-    "source": "struct S { n: [String: Number] }; echo S(n: [1: 2])",
+    "source": "struct S { pub n: [String: Number] }; echo S(n: [1: 2])",
     "mode": "code",
     "args": [],
     "stdout": "",

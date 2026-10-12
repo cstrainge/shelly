@@ -57,6 +57,7 @@ pub struct TypeDefinition
 #[derive(Debug)]
 pub struct FieldDefinition
 {
+    pub public: bool,
     pub name: String,
     pub type_id: TypeId,
     pub optional: bool,
@@ -68,7 +69,8 @@ pub struct FieldDefinition
 pub struct StructValue
 {
     pub definition: Rc<TypeDefinition>,
-    pub fields: Vec<Value>
+    pub fields: Vec<Value>,
+    pub constructing: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -109,6 +111,47 @@ impl Hash for TypeDefinition
     }
 }
 
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConstructorParameter
+{
+    pub name: String,
+    pub type_id: TypeId,
+    pub optional: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConstructorSignature
+{
+    pub parameters: Vec<ConstructorParameter>,
+    pub result: TypeId,
+    pub variadic: bool,
+}
+
+impl ConstructorSignature
+{
+    pub fn defaults(&self) -> Vec<Value>
+    {
+        self.parameters.iter().enumerate().map(|(index, _)|
+            if self.variadic && index + 1 == self.parameters.len()
+            { Value::from_array(Vec::new()) } else { Value::None }).collect()
+    }
+
+    pub fn arguments(&self, mut values: Vec<Value>) -> Result<Vec<Value>, String>
+    {
+        if self.variadic
+        {
+            let value = values.pop().unwrap();
+            match value.underlying()
+            {
+                Value::Array(items) | Value::ArgumentExpansion(items) =>
+                    values.extend(items.iter().cloned()),
+                _ => return Err("Named variadic constructor input must be an array".into()),
+            }
+        }
+        Ok(values)
+    }
+}
 
 // A value keeps its definition alive even after its lexical name goes out of scope.
 #[derive(Clone, Debug)]
@@ -176,7 +219,12 @@ pub struct TypeRegistry
     methods: HashMap<TypeId, HashMap<&'static str, Rc<BuiltinMethod>>>,
     extensions: HashSet<(TypeId, String)>,
     implied_conversions: HashSet<(TypeId, String)>,
-    pub names: HashMap<String, TypeId>
+    pub names: HashMap<String, TypeId>,
+    pub constructors: HashMap<TypeId, ConstructorSignature>,
+    pub constructor_permissions: HashSet<TypeId>,
+    pub properties: HashMap<(TypeId, String), TypeId>,
+    pub checking_factory: Option<TypeId>,
+    pub allow_candidates: bool,
 }
 
 
@@ -337,6 +385,18 @@ impl TypeRegistry
     pub fn import_extensions(&mut self, source: &Self, receiver: TypeId,
                              public: impl Fn(TypeId, &str) -> bool)
     {
+        if let Some(signature) = source.constructors.get(&receiver)
+        {
+            self.constructors.insert(receiver, signature.clone());
+            if public(receiver, "new") { self.constructor_permissions.insert(receiver); }
+            else { self.constructor_permissions.remove(&receiver); }
+        }
+        for ((id, name), ty) in &source.properties
+        {
+            // Keep private property contracts so inaccessible accessors cannot
+            // silently fall through to public backing storage.
+            if *id == receiver { self.properties.insert((*id, name.clone()), *ty); }
+        }
         self.extensions.extend(source.extensions.iter()
             .filter(|(id, name)| *id == receiver && public(*id, name)).cloned());
         self.implied_conversions.extend(source.implied_conversions.iter()
@@ -542,7 +602,9 @@ impl TypeRegistry
             methods: HashMap::new(),
             extensions: HashSet::new(),
             implied_conversions: HashSet::new(),
-            names: HashMap::new() };
+            names: HashMap::new(), constructors: HashMap::new(),
+            properties: HashMap::new(), checking_factory: None, allow_candidates: false,
+            constructor_permissions: HashSet::new() };
         for name in Self::BUILTIN_NAMES
         {
             registry.register_native(name.to_string(), TypeKind::Builtin, NativeVisibility::Visible);
@@ -857,12 +919,17 @@ impl TypeRegistry
                     Rc::make_mut(values).values = converted;
                 },
             (TypeKind::Struct(fields), Value::Struct(item)) if item.definition.id == id =>
+            {
+                let constructing = item.constructing;
                 for (field, value) in fields.iter().zip(&mut Rc::make_mut(item).fields)
                 {
+                    if    constructing && self.allow_candidates
+                       && matches!(value, Value::None) { continue; }
                     *value = self.coerce(field.type_id, value.clone()).map_err(|error|
                         format!("Field '{}.{}' (declared at {}): {}", definition.name,
                                 field.name, field.location, error))?;
-                },
+                }
+            },
             _ => {}
         }
         self.validate(id, &value)?;
@@ -930,6 +997,8 @@ impl TypeRegistry
                         {
                             for (field, value) in fields.iter().zip(&item.fields)
                             {
+                                if    item.constructing && self.allow_candidates
+                                   && matches!(value, Value::None) { continue; }
                                 self.validate(field.type_id, value).map_err(|error|
                                     format!("Field '{}.{}' (declared at {}): {}", definition.name,
                                             field.name, field.location, error))?;

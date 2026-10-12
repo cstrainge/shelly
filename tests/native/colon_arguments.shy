@@ -30,7 +30,7 @@ colon_case 'alias publish = npm run publish:marketplace; publish' "<run>\n<publi
 colon_case 'alias publish = npm let:false 01:02; publish' "<let:false>\n<01:02>\n"
 colon_case 'let $name = "test"; npm ${name}.shy:run' "<test.shy:run>\n"
 colon_case 'let $x:Integer = 7; fn f($n:Integer):Integer { $n }; echo (f $x)' "7\n"
-colon_case 'struct Box { n:Integer }; let $box = Box(n:7); echo $box.n' "7\n"
+colon_case 'struct Box { pub n:Integer }; let $box = Box(n:7); echo $box.n' "7\n"
 colon_case 'let $map = [key:7]; echo $map[key]; let $typed:[String:Integer]; echo $typed.value_type' "7\nInteger\n"
 colon_case 'fn add($a:Integer, $b:Integer):Integer { $a + $b }; let $map = [(add 1 2):7]; echo $map[3]' "7\n"
 colon_case 'let $out:Integer; /usr/bin/printf 7 json:| $out; echo $out' "7\n"

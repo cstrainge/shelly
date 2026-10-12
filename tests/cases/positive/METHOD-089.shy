@@ -1,7 +1,7 @@
 # METHOD-089: struct field preserved
 check ["id": "METHOD-089",
     "name": "struct field preserved",
-    "source": "struct S { sort: Integer, count: Integer }; echo S(sort: 2, count: 4).sort",
+    "source": "struct S { pub sort: Integer, pub count: Integer }; echo S(sort: 2, count: 4).sort",
     "mode": "code",
     "args": [],
     "stdout": "2\n",

@@ -1,7 +1,7 @@
 # METHOD-090: method on struct array field
 check ["id": "METHOD-090",
     "name": "method on struct array field",
-    "source": "struct S { values: [Integer] }; let \$s = S(values: [2, 1]); echo \$s.values.sort... S(values: []).values.count",
+    "source": "struct S { pub values: [Integer] }; let \$s = S(values: [2, 1]); echo \$s.values.sort... S(values: []).values.count",
     "mode": "code",
     "args": [],
     "stdout": "1 2 0\n",

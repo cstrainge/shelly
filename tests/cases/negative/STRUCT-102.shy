@@ -1,7 +1,7 @@
 # STRUCT-102: constructor positional
 check ["id": "STRUCT-102",
     "name": "constructor positional",
-    "source": "struct S { n }; echo S(1)",
+    "source": "struct S { pub n }; echo S(1)",
     "mode": "code",
     "args": [],
     "stdout": "",

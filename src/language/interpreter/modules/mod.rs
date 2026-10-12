@@ -254,14 +254,20 @@ impl Interpreter
         let root = self.variable_binding(name)?;
         if let Some(reference) = &root.borrow().reference { return Some(reference.clone()); }
         Some(ValueReference
-            { root, indexes: Vec::new(), fields: Vec::new(), constraints: Vec::new() })
+            {
+                root, indexes: Vec::new(), fields: Vec::new(), constraints: Vec::new(),
+                property: None,
+            })
     }
 
     pub(super) fn module_method(&self, id: TypeId, key: &str) -> Option<FunctionRef>
     {
         let home = self.type_scopes.get(&id)?;
         let scope = self.scopes.get(home)?;
-        if *home != self.current_scope && !scope.exports.contains(key) { return None; }
+        let child = key.ends_with(":new")
+            && self.module_sources.get(home).zip(self.module_sources.get(&self.current_scope))
+                .is_some_and(|(parent, child)| parent.contains_child(child));
+        if *home != self.current_scope && !scope.exports.contains(key) && !child { return None; }
         scope.base_function(key)
     }
 
@@ -738,8 +744,12 @@ impl Interpreter
                 let prefix = format!("{}{}::", prefix, name);
                 let mut members = module.exports.clone();
                 if local && scope.parent_namespaces.contains(name)
-                { members.extend(module.types.names.keys().filter(|name|
-                    !name.contains("::")).cloned()); }
+                {
+                    members.extend(module.types.names.keys().filter(|name|
+                        !name.contains("::")).cloned());
+                    members.extend(module.types.constructors.keys()
+                        .map(|id| method_key(*id, "new")));
+                }
                 for name in &members
                 {
                     if name.starts_with("\0method:")
@@ -796,7 +806,8 @@ impl Interpreter
             for key in &source.exports
             {
                 if    key.starts_with("\0method:")
-                   && is_conversion_method(key.rsplit(':').next().unwrap())
+                   && (is_conversion_method(key.rsplit(':').next().unwrap())
+                       || key.ends_with(":new"))
                    && let Some(function) = source.base_function(key)
                    && function.receiver_type == Some(*id)
                 {
@@ -808,7 +819,12 @@ impl Interpreter
         let extensions: Vec<_> = names.values().filter_map(|id|
             {
                 let source = self.scopes.get(self.type_scopes.get(id)?)?;
-                Some((*id, source.types.clone(), source.exports.clone()))
+                let mut exports = source.exports.clone();
+                if self.type_scopes.get(id).and_then(|home| self.module_sources.get(home))
+                    .zip(self.module_sources.get(&self.current_scope))
+                    .is_some_and(|(parent, child)| parent.contains_child(child))
+                { exports.insert(method_key(*id, "new")); }
+                Some((*id, source.types.clone(), exports))
             }).collect();
         let native_factories: Vec<_> = self.scope().native_functions.keys()
             .filter(|name| name.contains("::")).cloned().collect();

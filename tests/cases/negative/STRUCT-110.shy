@@ -1,7 +1,7 @@
 # STRUCT-110: temporary field assignment
 check ["id": "STRUCT-110",
     "name": "temporary field assignment",
-    "source": "struct S { n }; S(n: 1).n = 2",
+    "source": "struct S { pub n }; S(n: 1).n = 2",
     "mode": "code",
     "args": [],
     "stdout": "",

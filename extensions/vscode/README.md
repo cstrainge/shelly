@@ -81,6 +81,20 @@ braces stay outside structural bracket coloring. These forms require a Shelly
 binary built with member interpolation and dynamic member support; rebuild it and
 run **Shelly: Restart Language Server** after updating the shell.
 
+Private storage declarations, `pub` fields, named `Type::new` factories, and enum
+default constructors use the shared parser. Getter/setter properties highlight as
+properties using their advertised type, including computed properties and chained
+methods such as `$account.balance.trim`. Raw access `$self.::balance` uses the
+backing field's type; `$self.::$name` and `${self.::$name}` highlight the accessor
+as a variable. Constructors have no implicit `$self`. A nullable factory result
+is left uncertain during editing instead of assuming a valid struct. Constructor
+visibility, property signatures, and return validity are enforced when Shelly
+compiles or runs the program; editor diagnostics currently cover syntax only.
+
+These changes require a Shelly executable built from the updated language sources.
+Point `shelly-shell.serverPath` at that build and run **Shelly: Restart Language
+Server**. Updating the extension alone does not update its server executable.
+
 Invalid syntax gets diagnostics;
 unfinished input gets hints. Clearing or closing a document clears its diagnostics.
 

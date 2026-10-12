@@ -37,7 +37,7 @@ fn semantic_absent($report: any, $raw: String): Boolean
 let $actual: String = "untouched"
 fn snapshot_function($x: Integer): String { "never called" }
 alias snapshot_alias = echo
-struct SnapshotBox { title: String }
+struct SnapshotBox { pub title: String }
 let $box = SnapshotBox(title: "title")
 let $typed_items: [SnapshotBox] = []
 let $typed_map: [Integer: SnapshotBox] = [:]
@@ -120,7 +120,7 @@ require (semantic_has $report "\$" "Variable" "Integer") "pipeline input type mi
 
 # Imported interfaces are copied from loaded scopes, including public extensions.
 let $fixture = $args[0]
-printf "%s" "pub struct Exposed { name: String }; pub fn exported(): String { \"ok\" }; fn private_fn(): String { \"secret\" }; pub fn String::imported_method(): String { \"ok\" }; fn String::private_method(): String { \"secret\" }; pub let \$value: String = \"ok\"" -> "${fixture}/semantic_api.shy"
+printf "%s" "pub struct Exposed { pub name: String }; pub fn exported(): String { \"ok\" }; fn private_fn(): String { \"secret\" }; pub fn String::imported_method(): String { \"ok\" }; fn String::private_method(): String { \"secret\" }; pub let \$value: String = \"ok\"" -> "${fixture}/semantic_api.shy"
 let $code = "import semantic_api; visible `__semantic_source; echo (__semantic_source 'semantic_api::exported; semantic_api::private_fn; let \$x: semantic_api::Exposed; echo \$x.name \"x\".imported_method \"x\".private_method \$semantic_api::value' [])"
 let $reply = run_process [`$shelly, "-m", "-c", $code] [
     "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin", "SHELLY_STD_PATH": ""],
@@ -147,3 +147,45 @@ let $members = semantic_report 'struct Person { name: String }; let $p = Person(
 require (semantic_has $members ".name" "Field" "String") "interpolated field type was lost"
 require (semantic_has $members '.$field' "Variable" "String") "dynamic accessor binding was lost"
 require (semantic_has $members '.$unknown' "Variable" ()) "unknown dynamic accessor is not a variable"
+
+let $raw_members = semantic_report 'struct Person { name: String }; let $p: Person; let $field = "name"; echo $p.::name $p.::$field "${p.::name} ${p.::$field}"; $p.::$field = "Grace"'
+require (semantic_has $raw_members ".::name" "Field" "String") "raw field type was lost"
+require (semantic_has $raw_members '.::$field' "Variable" "String") "raw dynamic accessor binding was lost"
+let $prefix = ""
+for $character in 'echo $p.::name $p.::$field "${p.::name} ${p.::$field}"'.chars
+{ $prefix = $prefix + $character; let _ = semantic_report $prefix }
+
+# Properties advertise their accessor type, while raw access keeps the storage type.
+let $protocol = semantic_report 'struct Foo { value: Integer, pub label: String }; pub fn Foo::new($initial: Integer): Foo { Foo(value: $initial, label: "ok") }; pub fn Foo::get_value(): String { String($self.::value) }; pub fn Foo::set_value($value: String) { $self.::value = Integer($value) }; pub fn Foo::get_caption(): String { $self.label }; let $f = Foo(initial: 42); echo $f.value.trim $f.::value $f.caption.trim "${f.value.trim} ${f.::value}"; Foo::new 3'
+require (semantic_has $protocol ".value" "Field" "String") "property kept its backing type"
+require (semantic_has $protocol ".::value" "Field" "Integer") "raw access lost its storage type"
+require (semantic_has $protocol ".caption" "Field" "String") "computed property type missing"
+require (semantic_has $protocol ".trim" "Method" ()) "property result method missing"
+require (semantic_has $protocol "new" "Method" ()) "factory reference is not a method"
+
+let $setter = semantic_report 'struct Foo {}; fn Foo::set_caption($v: String) {}; let $x = Foo(); echo $x.caption.trim'
+require (semantic_has $setter ".caption" "Field" "String") "setter-only property type missing"
+let $nullable = semantic_report 'struct Foo {}; fn Foo::new(): Foo | () { () }; let $x = Foo(); echo $x.type; let $y = Foo ()'
+require (semantic_has $nullable '$x' "Variable" ()) "nullable factory inferred a definite struct"
+require (semantic_has $nullable '$y' "Variable" ()) "spaced nullable factory inferred a definite struct"
+let $factory = semantic_report 'struct Foo { value: Integer }; fn Foo::new(): Foo | () { let $raw = Foo(); echo $raw.value; $raw }; enum Mode { Ready }; fn Mode::new(): Mode { Mode::Ready }; let $m = Mode(); echo $m.index'
+require (semantic_has $factory '$raw' "Variable" "Foo") "raw candidate lost its nominal type"
+require (semantic_has $factory ".index" "Field" "Integer") "enum default lost its result type"
+let $no_self = semantic_report 'struct Foo { value: Integer }; fn Foo::new(): Foo { echo $self; Foo(value: 1) }'
+require (semantic_absent $no_self '$self') "factory gained an implicit receiver"
+
+# Registered snapshots must retain property types without executing accessors.
+struct Reflected { stored: Integer }
+fn Reflected::new(): Reflected { Reflected(stored: 7) }
+let $accessor_runs = 0
+fn Reflected::get_stored(): String
+{ $accessor_runs = $accessor_runs + 1; String($self.::stored) }
+let $reflected = Reflected()
+let $snapshot = semantic_report 'echo $reflected.stored.trim $reflected.::stored'
+require (semantic_has $snapshot ".stored" "Field" "String") "snapshot property type missing"
+require (semantic_has $snapshot ".::stored" "Field" "Integer") "snapshot raw type missing"
+require ($accessor_runs == 0) "semantic analysis executed a getter"
+
+let $prefix = ""
+for $character in 'struct Foo { pub label: String }; pub fn Foo::new($initial: String): Foo { Foo(label: $initial) }; fn Foo::get_text(): String { $self.label }; echo Foo(initial: "ok").text.trim'.chars
+{ $prefix = $prefix + $character; let _ = semantic_report $prefix }

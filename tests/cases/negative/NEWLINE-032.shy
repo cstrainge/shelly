@@ -1,7 +1,7 @@
 # NEWLINE-032: unclosed constructor
 check ["id": "NEWLINE-032",
     "name": "unclosed constructor",
-    "source": "struct S { n: Number }; S\n(n: 1",
+    "source": "struct S { pub n: Number }; S\n(n: 1",
     "mode": "code",
     "args": [],
     "stdout": "",

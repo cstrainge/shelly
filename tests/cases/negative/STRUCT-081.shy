@@ -1,7 +1,7 @@
 # STRUCT-081: array of optionals still array
 check ["id": "STRUCT-081",
     "name": "array of optionals still array",
-    "source": "struct S { n: [optional Number] }; echo S(n: ())",
+    "source": "struct S { pub n: [optional Number] }; echo S(n: ())",
     "mode": "code",
     "args": [],
     "stdout": "",

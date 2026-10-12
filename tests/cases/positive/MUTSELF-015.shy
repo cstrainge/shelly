@@ -1,7 +1,7 @@
 # MUTSELF-015: struct stored reference
 check ["id": "MUTSELF-015",
     "name": "struct stored reference",
-    "source": "fn Integer::inc() { \$self = \$self + 1 }; struct S { n: Integer }; let \$v = S(n: 1);let \$r = `\$v.n.inc; \$r; \$r; echo \$v.n",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; struct S { pub n: Integer }; let \$v = S(n: 1);let \$r = `\$v.n.inc; \$r; \$r; echo \$v.n",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

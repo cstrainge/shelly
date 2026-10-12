@@ -1,5 +1,5 @@
 check_repl ["id": "DYNAMIC-MEMBERS", "name": "Dynamic fields across REPL submissions", "steps": [
-    ['struct Person { name: String, age: Integer }; let $p = Person(name: "Ada", age: 36); let $field = "age"', "quiet", ""],
+    ['struct Person { pub name: String, pub age: Integer }; let $p = Person(name: "Ada", age: 36); let $field = "age"', "quiet", ""],
     ['$p.$field = 37; echo "${p.name}: ${p.$field}"', "output", "Ada: 37"],
     ['$field = "name"; $p.$field = "Grace"; echo $p.name', "output", "Grace"],
     ['$field = "age"; $p.$field = "wrong"', "error", "Expected Integer"],

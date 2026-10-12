@@ -146,8 +146,9 @@ fn method_snapshot(block: &FunctionBlockRef, name: &str) -> Value
 {
     if name.starts_with('$') || name == "properties"
     { return method_snapshot_matching(block, |key| key.starts_with("\0method:")); }
-    let suffix = format!(":{}", name);
-    method_snapshot_matching(block, |key| key.starts_with("\0method:") && key.ends_with(&suffix))
+    let suffixes = [format!(":{}", name), format!(":get_{}", name), format!(":set_{}", name)];
+    method_snapshot_matching(block, |key| key.starts_with("\0method:")
+        && suffixes.iter().any(|suffix| key.ends_with(suffix)))
 }
 
 fn method_snapshot_matching(block: &FunctionBlockRef, matches: impl Fn(&str) -> bool) -> Value
@@ -302,10 +303,12 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                                         .map(|index| Value::Integer(*index as i64))
                                         .collect(),
                                 ),
+                                method_snapshot(function_block, "$constructor"),
+                                Value::Boolean(item.raw),
                             ])),
                     });
             },
-        AstExpressionKind::Field(object, name, index) =>
+        AstExpressionKind::Field(object, name, _) =>
             {
                 compile_receiver(instructions, function_block, object)?;
                 instructions.push(Instruction
@@ -314,9 +317,7 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                         code: if mode == ExpressionMode::BindMethod { Code::BindField }
                               else { Code::GetField },
                         operand: Some(Value::from_array(vec![
-                                index.map_or_else(
-                                    || Value::from_string(name.clone()),
-                                    |index| Value::Integer(index as i64)),
+                                Value::from_string(name.clone()),
                                 method_snapshot(function_block, name),
                             ])),
                     });
@@ -817,7 +818,7 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
     // functions from enum variants. Apply the usual call rule only in value positions.
     let qualified_call = mode == ExpressionMode::Value
         && matches!(&expression.kind, AstExpressionKind::Symbol(symbol)
-            if symbol.name.contains("::"));
+            if symbol.name.contains("::") || symbol.name.starts_with("\0method:"));
     instructions.push(Instruction
         {
             location: Some(expression.location.clone()),
@@ -1050,7 +1051,8 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>,
             AstAccess::Field(name) => instructions.push(Instruction
                 {
                     location: Some(set_statement.location.clone()),
-                    code: if name.starts_with('$') { Code::ResolveFieldName } else { Code::Push },
+                    code: if name.strip_prefix("::").unwrap_or(name).starts_with('$')
+                        { Code::ResolveFieldName } else { Code::Push },
                     operand: Some(Value::from_string(name.clone())),
                 })
         }
@@ -1246,6 +1248,7 @@ fn compile_function(parent_block: &FunctionBlockRef, function_statement: &AstFun
             scope: parent_block.borrow().scope.clone(),
             parent: Some(parent_block.clone()),
             function_name: None,
+            protocol_owner: parent_block.borrow().protocol_owner,
             declared_functions: parent_block.borrow().declared_functions.clone(),
             builtins: parent_block.borrow().builtins.clone(),
             functions: parent_block.borrow().functions.clone(),
@@ -1255,6 +1258,8 @@ fn compile_function(parent_block: &FunctionBlockRef, function_statement: &AstFun
             scope: parent_block.borrow().scope.clone(),
             parent: Some(captured.clone()),
             function_name: binding.clone(),
+            protocol_owner: function_statement.receiver_type
+                .or(parent_block.borrow().protocol_owner),
             declared_functions: Default::default(),
             builtins: parent_block.borrow().builtins.clone(),
             functions: HashMap::new()
@@ -2093,6 +2098,7 @@ pub fn compile_ast(registry: &mut TypeRegistry,
             scope: function_block.borrow().scope.clone(),
             parent: function_block.borrow().parent.clone(),
             function_name: function_block.borrow().function_name.clone(),
+            protocol_owner: function_block.borrow().protocol_owner,
             declared_functions: function_block.borrow().declared_functions.clone(),
             builtins: function_block.borrow().builtins.clone(),
             functions: function_block.borrow().functions.clone(),

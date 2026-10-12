@@ -1,7 +1,7 @@
 # STRUCT-099: missing map value type
 check ["id": "STRUCT-099",
     "name": "missing map value type",
-    "source": "struct S { n: [String:] }",
+    "source": "struct S { pub n: [String:] }",
     "mode": "code",
     "args": [],
     "stdout": "",

@@ -27,6 +27,7 @@ fn text(value: &str, escaped: &[usize], bound: &HashSet<String>, free: &mut Hash
     {
         for (index, part) in reference.name.split('.').enumerate()
         {
+            let part = part.strip_prefix("::").unwrap_or(part);
             if index == 0 || part.starts_with('$') { name(part, bound, free); }
         }
     }
@@ -52,8 +53,9 @@ fn statements(items: &AstTopLevel, parent: &HashSet<String>, free: &mut HashSet<
                         match access
                         {
                             AstAccess::Index(index) => expression(index, &bound, free),
-                            AstAccess::Field(field) if field.starts_with('$') =>
-                                name(field, &bound, free),
+                            AstAccess::Field(field)
+                                if field.strip_prefix("::").unwrap_or(field).starts_with('$') =>
+                                name(field.strip_prefix("::").unwrap_or(field), &bound, free),
                             _ => {},
                         }
                     }
@@ -151,6 +153,7 @@ fn expression(item: &AstExpression, bound: &HashSet<String>, free: &mut HashSet<
         AstExpressionKind::Field(item, field, _) =>
             {
                 expression(item, bound, free);
+                let field = field.strip_prefix("::").unwrap_or(field);
                 if field.starts_with('$') { name(field, bound, free); }
             },
         AstExpressionKind::Splat(item)

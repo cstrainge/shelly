@@ -1,0 +1,93 @@
+# Struct construction, property access, and module privacy use the same contracts.
+let $fixture = $args[0]
+fn protocol_case($source: String, $expected: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $expected) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "struct protocol mismatch" }
+}
+protocol_case 'struct Foo { value: Integer }; pub fn Foo::new($init_val: Integer, $test_value: Integer | ()): Foo { let $x = Foo(); $x.::value = $init_val; $x }; pub fn Foo::get_value(): Integer { $self.::value }; let $x = Foo(init_val: 42); echo $x.value "${x.value}"; let $name = "value"; echo $x.$name' "42 42\n42\n" ""
+protocol_case 'struct Foo { value: Integer }; fn Foo::new($n: Integer): Foo { Foo(value: $n) }; fn Foo::get_value(): String { String($self.::value) }; fn Foo::set_value($v: String) { $self.::value = Integer($v) }; let $x = Foo(n: 3); $x.value = "8"; echo $x.value; let $name = "value"; $x.$name = "9"; echo "${x.$name}"' "8\n9\n" ""
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo { Foo(value: 4) }; fn Foo::get_double(): Integer { $self.value * 2 }; echo Foo().double' "8\n" ""
+protocol_case 'struct Foo { value: Integer | () }; let $x = Foo(); fn Foo::read(): Integer | () { $self.value }; echo ($x.read)' "()\n" ""
+protocol_case 'struct Foo { value: Integer }; let $x = Foo()' "" "Missing required field"
+protocol_case 'struct Foo { value: Integer | () }; let $x = Foo(value: 1)' "" "private"
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo { Foo() }; let $x = Foo()' "" "Expected Integer"
+protocol_case 'struct Foo { pub value: Integer }; fn Foo::new(): Foo | () { () }; let $x: Foo = Foo()' "" "optional Foo"
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo | () { () }; let $x: Foo | () = Foo(); echo ($x == ())' "true\n" ""
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo | () { Foo(value: 7) }; fn get(): Foo | () { let $x = Foo(); if $x == () { return () }; let $y: Foo = $x; $y }; fn Foo::get_value(): Integer { $self.::value }; echo (get).value' "7\n" ""
+protocol_case 'struct Foo { pub value: Integer }; fn Foo::new($init: Integer): Foo { Foo(value: $init) }; let $x = Foo()' "" "Missing constructor parameter"
+protocol_case 'struct Foo { pub value: Integer }; fn Foo::new($init: Integer): Foo { Foo(value: $init) }; let $x = Foo(value: 3)' "" "Unknown constructor parameter"
+protocol_case 'struct Foo { pub value: Integer }; fn Foo::new($init: Integer): Foo { Foo(value: $init) }; let $x = Foo(init: "bad")' "" "Expected Integer"
+protocol_case 'struct Foo { pub value: Integer }; fn Foo::new($init: Integer): Foo { Foo(value: $init) }; let $x = Foo(init: 1, init: 2)' "" "Duplicate constructor parameter"
+protocol_case 'struct Foo { pub value: Integer }; fn Foo::get_value(): Integer | () { $self.::value }; fn Foo::set_value($v: Integer) { $self.::value = $v }' "" "must match exactly"
+protocol_case 'struct Foo { pub value: Integer }; fn Foo::get_value($v: Integer): Integer { $v }' "" "invalid parameter list"
+protocol_case 'struct Foo { pub value: Integer }; fn Foo::set_value($v: Integer): Integer { $v }' "" "Setters must return"
+protocol_case 'enum State { Ready, Busy }; pub fn State::new(): State { State::Busy }; let $x: State = State(); echo $x ($x.type == State); let $t = State; echo ($t == State)' "State::Busy true\ntrue\n" ""
+protocol_case 'enum State { Ready }; fn State::new(): State | () { () }' "" "Enum ::new"
+protocol_case 'enum State { Ready }; fn State::new($v: Integer): State { State::Ready }' "" "Enum ::new"
+protocol_case 'enum State { Ready }; fn State::get_value(): Integer { 1 }' "" "do not support"
+protocol_case 'enum State { Ready }; State()' "" "requires a zero-argument"
+protocol_case 'struct Foo { value: Integer }; fn Foo::new($init: Integer): Foo { Foo(value: $init) }; fn Foo::get_value(): Integer { $self.::value }; let $x: [Foo]; printf "init\\n42\\n" csv:|:Foo $x; echo $x[0].value' "42\n" ""
+protocol_case 'struct Foo { value: Integer }; fn Foo::new($init: Integer): Foo | () { if $init == 0 { return () }; Foo(value: $init) }; fn Foo::get_value(): Integer { $self.::value }; let $x: [Foo | ()]; printf "init\\n0\\n42\\n" csv:|:Foo $x; echo ($x[0] == ()) $x[1].value' "true 42\n" ""
+protocol_case 'struct Foo { value: Integer }; fn Foo::new($init: Integer): Foo { Foo(value: $init) }; let $x: [Foo]; printf "value\\n42\\n" csv:|:Foo $x' "" "private"
+printf "%s" 'pub struct Foo { value: Integer }; fn Foo::new($init: Integer): Foo { Foo(value: $init) }; pub fn make($init: Integer): Foo { Foo(init: $init) }; pub fn Foo::get_value(): Integer { $self.::value }' -> "${fixture}/secret.shy"
+protocol_case 'import secret; let $x = secret::make 21; echo $x.value' "21\n" ""
+protocol_case 'import secret; let $x = secret::Foo(init: 21)' "" "Constructor is private"
+protocol_case 'import secret; let $x = secret::Foo()' "" "Constructor is private"
+protocol_case 'import secret; secret::Foo::new 21' "" "Constructor is private"
+protocol_case 'import secret; let $x: [secret::Foo]; printf "init\\n21\\n" csv:|:secret::Foo $x' "" "Constructor is private"
+protocol_case 'import secret; fn secret::Foo::steal(): Integer { $self.::value }; let $x = secret::make 21; echo ($x.steal)' "" "private"
+protocol_case 'import secret; fn secret::Foo::new($init: Integer): secret::Foo { secret::Foo(value: $init) }' "" "defining module"
+mkdir "${fixture}/secret"
+printf "%s" 'import super; pub fn make_child(): super::Foo { super::Foo(init: 12) }' -> "${fixture}/secret/child.shy"
+protocol_case 'import secret::child; let $x = secret::child::make_child; echo $x.value' "12\n" ""
+protocol_case 'struct Foo { value: Integer }; pub fn Foo::new($value: Integer): Foo { Foo(value: $value) }; fn Foo::get_value(): Integer { $self.::value }; let $x: [Foo]; printf "value\\n8\\n" csv:|:Foo $x; echo $x[0].value' "8\n" ""
+protocol_case 'struct Foo { value: Integer }; fn Foo::new($first: Integer, $second: Integer | ()): Foo { Foo(value: $first) }; fn Foo::get_value(): Integer { $self.::value }; echo Foo(second: (), first: 7).value' "7\n" ""
+protocol_case 'struct Foo { value: Integer }; fn Foo::new($values: Integer...): Foo { Foo(value: $values.count) }; fn Foo::get_value(): Integer { $self.::value }; echo Foo(values: [1,2,3]).value Foo().value' "3 0\n" ""
+
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo { Foo(value: 4) }; fn Foo::get_value(): String { $self.::value }' "" "Expected String"
+protocol_case 'struct Foo { value: Integer }; fn Foo::new($init: Integer): Foo { Foo(value: $init) }; let $bad: String = "bad"; Foo(init: $bad)' "" "Expected Integer"
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo { Foo(value: 4) }; fn Foo::read(): Integer { let $name = "value"; let $f = fn(): Integer { $self.::$name }; $f }; echo (Foo().read)' "4\n" ""
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo { Foo(value: 4) }; fn Foo::read(): String { "${self.::value}" }; echo (Foo().read)' "4\n" ""
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo { Foo(value: 4) }; fn Foo::read(): Integer { let $name = Foo(); $self.::$name }; echo (Foo().read)' "" "Field name must be String"
+protocol_case 'struct Foo { value: Integer }; fn helper(): Foo { Foo() }; fn Foo::new(): Foo { helper }; Foo()' "" "Recursive constructor call"
+printf "%s" 'pub struct Hidden { pub value: Integer }; fn Hidden::get_value(): Integer { $self.::value }; fn Hidden::set_value($v: Integer) { $self.::value = $v }; pub fn make(): Hidden { Hidden(value: 3) }' -> "${fixture}/hidden.shy"
+protocol_case 'import hidden; let $x = hidden::make; echo $x.value' "" "private"
+protocol_case 'import hidden; let $x = hidden::make; $x.value = 4' "" "private"
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo { Foo(value: 4) }; fn Foo::get_double(): Integer { $self.value * 2 }; let $p = Foo().properties; echo ($p["double"]) ($p["value"] == ())' "8 true\n" ""
+protocol_case 'import hidden; let $p = (hidden::make).properties; echo ($p["value"] == ())' "true\n" ""
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo { fn raw(): Foo { Foo(value: 7) }; raw }; fn Foo::get_value(): Integer { $self.::value }; echo Foo().value' "7\n" ""
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo { Foo(value: 4) }; fn Foo::edit(): Integer { let $name = "value"; let $f = fn() { $self.::$name = 8 }; $f; $self.::value }; echo (Foo().edit)' "8\n" ""
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo { Foo(value: 4) }; fn Foo::get_value(): Integer { $self.::value }; let $x = Foo(); $x.value = 5' "" "read-only"
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo { Foo(value: 4) }; fn Foo::set_value($v: Integer) { $self.::value = $v }; let $x = Foo(); $x.value = 5; echo $x.value' "" "write-only"
+protocol_case 'struct Foo { value: Integer | () }; fn Foo::new(): Foo { Foo() }; fn Foo::get_value(): Integer | () { $self.::value }; fn Foo::set_value($v: Integer | ()) { $self.::value = $v }; let $x = Foo(); $x.value = 7; echo $x.value; $x.value = (); echo ($x.value == ())' "7\ntrue\n" ""
+protocol_case 'struct Inner { value: Integer }; fn Inner::new($seed: Integer): Inner { Inner(value: $seed) }; fn Inner::get_value(): Integer { $self.::value }; struct Outer { inner: Inner }; fn Outer::new($nested: Inner): Outer { Outer(inner: $nested) }; fn Outer::get_inner(): Inner { $self.::inner }; let $out = Outer(nested: Inner(seed: 0)); printf "%s" "{\\"nested\\":{\\"seed\\":3}}" json:|:Outer $out; echo $out.inner.value' "3\n" ""
+protocol_case 'struct Foo { value: Integer }; fn Foo::new($init: Integer): Foo | () { () }; let $out: [Foo]; printf "init\\n1\\n" csv:|:Foo $out' "" "Expected Foo"
+protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo { let $bad = Foo(); let $good = Foo(value: 2); $good }; fn Foo::get_value(): Integer { $self.::value }; echo Foo().value' "2\n" ""
+printf "%s" 'import secret; pub let $HiddenType = secret::Foo; pub fn make(): secret::Foo { secret::make 16 }' -> "${fixture}/reexport.shy"
+protocol_case 'import reexport; let $x = reexport::make; echo $x.value' "16\n" ""
+protocol_case 'import secret; fn secret::Foo::read($other: secret::Foo): Integer { $other.value }; let $x = secret::make 21; echo ($x.read $x)' "21\n" ""
+printf "%s" 'pub import secret::{ Foo, make }' -> "${fixture}/bridge.shy"
+protocol_case 'import bridge; let $x = bridge::make 17; echo $x.value' "17\n" ""
+protocol_case 'import bridge; let $x = bridge::Foo(init: 17)' "" "Constructor is private"
+printf "%s" 'pub struct Foo { value: Integer }; pub fn Foo::new($init: Integer): Foo { Foo(value: $init) }; pub fn Foo::get_value(): Integer { $self.::value }' -> "${fixture}/open.shy"
+printf "%s" 'pub import open::{ Foo }' -> "${fixture}/open_bridge.shy"
+protocol_case 'import open_bridge; echo open_bridge::Foo(init: 18).value' "18\n" ""
+protocol_case 'struct Basket { items: [Integer] }; let $gets = 0; let $sets = 0; fn Basket::new(): Basket { Basket(items: [3,1,2]) }; fn Basket::get_items(): [Integer] { $gets = $gets + 1; $self.::items }; fn Basket::set_items($v: [Integer]) { $sets = $sets + 1; $self.::items = $v }; fn Array::order(): [Integer] { $self = $self.sort; $self }; let $b = Basket(); $b.items.order; echo $gets $sets; echo $b.items...' "1 1\n1 2 3\n" ""
+protocol_case 'struct Basket { items: [Integer] }; fn Basket::new(): Basket { Basket(items: [3,1,2]) }; fn Basket::get_items(): [Integer] { $self.::items }; fn Basket::set_items($v: [Integer]) { $self.::items = $v }; fn Array::order(): [Integer] { $self = $self.sort; $self }; let $b = Basket(); let $sort = `$b.items.order; $b.items = [8,6,7]; $sort; echo $b.items...; $b.items = [5,4]; $sort; echo $b.items...' "6 7 8\n4 5\n" ""
+protocol_case 'struct Basket { items: [Integer] }; fn Basket::new(): Basket { Basket(items: [3,1,2]) }; fn Basket::get_items(): [Integer] { $self.::items }; fn Array::order(): [Integer] { $self = $self.sort; $self }; let $b = Basket(); $b.items.order' "" "read-only"
+protocol_case 'struct Inner { items: [Integer] }; fn Inner::new(): Inner { Inner(items: [3,1,2]) }; fn Inner::get_items(): [Integer] { $self.::items }; fn Inner::set_items($v: [Integer]) { $self.::items = $v }; struct Outer { child: Inner }; fn Outer::new($child: Inner): Outer { Outer(child: $child) }; fn Outer::get_child(): Inner { $self.::child }; fn Outer::set_child($v: Inner) { $self.::child = $v }; fn Array::order(): [Integer] { $self = $self.sort; $self }; let $o = Outer(child: Inner()); $o.child.items.order; echo $o.child.items...' "1 2 3\n" ""

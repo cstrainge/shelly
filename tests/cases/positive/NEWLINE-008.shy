@@ -1,7 +1,7 @@
 # NEWLINE-008: nested constructors
 check ["id": "NEWLINE-008",
     "name": "nested constructors",
-    "source": "struct S { n: Number }; struct Box { s: S }; echo Box\n(s: S\n(n: 7)).s.n",
+    "source": "struct S { pub n: Number }; struct Box { pub s: S }; echo Box\n(s: S\n(n: 7)).s.n",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

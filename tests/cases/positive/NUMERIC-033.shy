@@ -2,7 +2,7 @@
 check [
     "id": "NUMERIC-033",
     "name": "struct method assignment",
-    "source": "struct S { x: Float }; fn S::change() { \$self.x = 9 }; let \$s = S(x: 7); \$s.change; echo (\$s.x / 2)",
+    "source": "struct S { pub x: Float }; fn S::change() { \$self.x = 9 }; let \$s = S(x: 7); \$s.change; echo (\$s.x / 2)",
     "mode": "code",
     "args": [],
     "stdout": "4.5\n",

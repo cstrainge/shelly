@@ -58,6 +58,7 @@ impl Scope
     pub fn new(natives: impl IntoIterator<Item = Rc<NativeFunction>>,
                scope: String, mut types: TypeRegistry, color_mode: TtyColorMode) -> Self
     {
+        types.allow_candidates = false;
         let native_functions: HashMap<_, _> = natives.into_iter()
             .filter(|item| item.visibility != NativeVisibility::Hidden)
             .map(|item| (item.name.to_string(), item)).collect();
@@ -143,6 +144,7 @@ impl Scope
                         scope,
                         parent: None,
                         function_name: None,
+                        protocol_owner: None,
                         declared_functions: HashSet::new(),
                         builtins: Rc::new(builtins),
                         functions: HashMap::new(),

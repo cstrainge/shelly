@@ -14,7 +14,7 @@ pub let $value: Integer = 7
 pub let export $ENV_PUBLIC = "public"
 pub type Count = Integer
 pub type Callback = fn(): Integer
-pub struct Item { n: Integer }
+pub struct Item { pub n: Integer }
 pub enum Flag { Ready, Done }
 fn Item::secret(): Integer { $self.n + 100 }
 pub fn Item::read(): Integer { $self.secret }
@@ -24,7 +24,7 @@ pub fn Item::next_item(): Integer | ()
     $self.n = $self.n - 1
     $self.n
 }
-pub struct PrivateIterator { n: Integer }
+pub struct PrivateIterator { pub n: Integer }
 fn PrivateIterator::next_item(): Integer | () { () }
 pub fn private_loop() { for $n in PrivateIterator(n: 1) {}; echo internal }
 pub fn exposed(): Integer { hidden }

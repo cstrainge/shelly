@@ -1,7 +1,7 @@
 # STRUCT-072: missing required typed
 check ["id": "STRUCT-072",
     "name": "missing required typed",
-    "source": "struct S { n: Number }; echo S()",
+    "source": "struct S { pub n: Number }; echo S()",
     "mode": "code",
     "args": [],
     "stdout": "",

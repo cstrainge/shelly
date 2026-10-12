@@ -1,7 +1,7 @@
 # NEWLINE-027: invalid field type
 check ["id": "NEWLINE-027",
     "name": "invalid field type",
-    "source": "struct S { n: Number }; S\n(n: \"bad\")",
+    "source": "struct S { pub n: Number }; S\n(n: \"bad\")",
     "mode": "code",
     "args": [],
     "stdout": "",

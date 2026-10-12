@@ -64,6 +64,7 @@ pub fn interpolation_references(text: &str, escaped_dollars: &[usize])
         {
             for (index, part) in name.split('.').enumerate()
             {
+                let part = if index == 0 { part } else { part.strip_prefix("::").unwrap_or(part) };
                 let part = if index == 0 || part.starts_with('$')
                     { part.strip_prefix('$').unwrap_or(part) } else { part };
                 if    part.is_empty()

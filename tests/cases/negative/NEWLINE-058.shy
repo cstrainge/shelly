@@ -1,7 +1,7 @@
 # NEWLINE-058: required spaced empty
 check ["id": "NEWLINE-058",
     "name": "required spaced empty",
-    "source": "struct S { n: Number }; S ()",
+    "source": "struct S { pub n: Number }; S ()",
     "mode": "code",
     "args": [],
     "stdout": "",

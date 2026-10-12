@@ -517,6 +517,7 @@ pub enum AstType
 
 pub struct AstFieldDeclaration
 {
+    pub public: bool,
     pub name: String,
     pub annotation: AstType,
     pub optional: bool,
@@ -543,6 +544,7 @@ pub struct AstTypeDeclaration
 
 pub struct AstStructConstructor
 {
+    pub raw: bool,
     pub name: String,
     pub fields: Vec<(String, Location, AstExpression)>,
     pub type_id: Option<TypeId>,

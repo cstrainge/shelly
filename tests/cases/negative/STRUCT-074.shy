@@ -1,7 +1,7 @@
 # STRUCT-074: number is not bool
 check ["id": "STRUCT-074",
     "name": "number is not bool",
-    "source": "struct S { n: Number }; echo S(n: true)",
+    "source": "struct S { pub n: Number }; echo S(n: true)",
     "mode": "code",
     "args": [],
     "stdout": "",

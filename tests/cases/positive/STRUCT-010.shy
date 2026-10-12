@@ -1,7 +1,7 @@
 # STRUCT-010: typed maps
 check ["id": "STRUCT-010",
     "name": "typed maps",
-    "source": "struct S { m: [String: Number] }; let \$s = S(m: [\"one\": 1]); echo \$s.m[\"one\"]",
+    "source": "struct S { pub m: [String: Number] }; let \$s = S(m: [\"one\": 1]); echo \$s.m[\"one\"]",
     "mode": "code",
     "args": [],
     "stdout": "1\n",

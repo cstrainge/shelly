@@ -29,7 +29,7 @@ check_repl ["id": "ANONYMOUS_FUNCTIONS", "name": "Live closures and recovery acr
     ["fn describe(): String { \"old\" }; let \$version = fn (): String { describe }", "quiet", ""],
     ["fn describe(): String { \"new\" }", "quiet", ""],
     ["echo (\$version) (describe)", "output", "old new"],
-    ["struct Counter { n: Integer }; fn Counter::callback(): fn(): Integer { fn (): Integer { \$self.n = \$self.n + 1; \$self.n } }; let \$c = Counter(n: 1); let \$method = \$c.callback", "quiet", ""],
+    ["struct Counter { pub n: Integer }; fn Counter::callback(): fn(): Integer { fn (): Integer { \$self.n = \$self.n + 1; \$self.n } }; let \$c = Counter(n: 1); let \$method = \$c.callback", "quiet", ""],
     ["echo (\$method) \$c.n", "output", "2 2"],
     ["\$c = Counter(n: 10)", "quiet", ""],
     ["echo (\$method) \$c.n", "output", "11 11"],

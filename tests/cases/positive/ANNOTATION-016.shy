@@ -1,7 +1,7 @@
 # ANNOTATION-016: optional nominal default
 check ["id": "ANNOTATION-016",
     "name": "optional nominal default",
-    "source": "struct S { n: Number }; enum E { A }; let \$s: optional S; let \$e: optional E; echo \$s \$e",
+    "source": "struct S { pub n: Number }; enum E { A }; let \$s: optional S; let \$e: optional E; echo \$s \$e",
     "mode": "code",
     "args": [],
     "stdout": "() ()\n",

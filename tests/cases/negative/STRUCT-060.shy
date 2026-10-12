@@ -1,7 +1,7 @@
 # STRUCT-060: array field does not coerce expansions
 check ["id": "STRUCT-060",
     "name": "array field does not coerce expansions",
-    "source": "struct S { x: [Number] }; let \$a = [1, 2]; echo S(x: \$a...)",
+    "source": "struct S { pub x: [Number] }; let \$a = [1, 2]; echo S(x: \$a...)",
     "mode": "code",
     "args": [],
     "stdout": "",

@@ -1,7 +1,7 @@
 let $fixture = $args[0]
-printf "%s" "pub struct Item { n: Integer }; pub fn Item::next_item(): Integer | () { if \$self.n == 0 { return () }; \$self.n = \$self.n - 1; \$self.n }; pub fn make(): Item { Item(n: 2) }" -> "${fixture}/custom.shy"
+printf "%s" "pub struct Item { pub n: Integer }; pub fn Item::next_item(): Integer | () { if \$self.n == 0 { return () }; \$self.n = \$self.n - 1; \$self.n }; pub fn make(): Item { Item(n: 2) }" -> "${fixture}/custom.shy"
 check_repl ["id": "ITERATOR", "name": "ITERATOR", "steps": [
-    ["struct Counter { n: Integer }; let \$counter = Counter(n: 2)", "quiet", ""],
+    ["struct Counter { pub n: Integer }; let \$counter = Counter(n: 2)", "quiet", ""],
     ["fn Counter::next_item(): Integer | () { if \$self.n == 0 { return () }; \$self.n = \$self.n - 1; \$self.n }", "quiet", ""],
     ["for \$x in \$counter { echo \$x }; echo \$counter.n", "output", "1\n0\n2"],
     ["fn consume(\$c: Counter) { for \$x in \$c { echo \$x } }", "quiet", ""],

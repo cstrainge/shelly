@@ -1,7 +1,7 @@
 # BOOLCAST-161: shadowed struct positional
 check ["id": "BOOLCAST-161",
     "name": "shadowed struct positional",
-    "source": "struct Boolean { value: Number }; echo Boolean(1)",
+    "source": "struct Boolean { pub value: Number }; echo Boolean(1)",
     "mode": "code",
     "args": [],
     "stdout": "",

@@ -6,7 +6,8 @@ use crate::language::{ ast::{ AstImportStatement, AstStatement, AstTopLevel, Ast
                        data::{ methods::method_key, types::TypeId },
                        interpreter::{ Interpreter, InterpreterResult,
                                       modules::{ ModuleSource, PendingModule, module_error } },
-                       text::location::Location };
+                       text::location::Location,
+                       typecheck::check_protocol };
 
 
 fn copy_import(import: &AstImportStatement) -> AstImportStatement
@@ -170,7 +171,7 @@ impl Interpreter
         let Some(mut types) = pending.types.take() else { return Ok(()); };
         pending.preparing = true;
         let imports: Vec<_> = pending.imports.iter().map(copy_import).collect();
-        let body = pending.body.take().unwrap_or_default();
+        let mut body = pending.body.take().unwrap_or_default();
         let methods = pending.methods.clone();
         let source = self.module_sources[key].clone();
         let caller = replace(&mut self.current_scope, key.to_string());
@@ -193,6 +194,22 @@ impl Interpreter
                         AstStatement::TypeDeclaration(item) =>
                             annotation_names(&item.annotation, &mut needed),
                         _ => {},
+                    }
+                }
+                for statement in &body
+                {
+                    if let AstStatement::FunctionDefinition(function) = statement
+                        && function.receiver.is_some()
+                        && (function.name == "new" || function.name.starts_with("get_")
+                            || function.name.starts_with("set_"))
+                    {
+                        for parameter in &function.parameters
+                        {
+                            if let Some(annotation) = &parameter.annotation
+                            { annotation_names(annotation, &mut needed); }
+                        }
+                        if let Some(annotation) = &function.return_annotation
+                        { annotation_names(annotation, &mut needed); }
                     }
                 }
                 needed.retain(|name| !declared.contains(name)
@@ -225,6 +242,18 @@ impl Interpreter
                     {
                         let name = method_key(factory.receiver_type.unwrap(), &factory.name);
                         if public { self.scope_mut().exports.insert(name); }
+                    }
+                }
+                let names = self.scope().types.names.clone();
+                for statement in &mut body
+                {
+                    if let AstStatement::FunctionDefinition(function) = statement
+                        && let Some(receiver) = &function.receiver
+                        && let Some(id) = names.get(receiver)
+                    {
+                        function.receiver_type = Some(*id);
+                        check_protocol(&mut self.scope_mut().types, function, &names)
+                            .map_err(|error| module_error(&function.location, error.to_string()))?;
                     }
                 }
                 for (receiver, name, public) in methods

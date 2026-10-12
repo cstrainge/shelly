@@ -1,7 +1,7 @@
 # STRUCT-113: runtime wrong nested array write
 check ["id": "STRUCT-113",
     "name": "runtime wrong nested array write",
-    "source": "struct S { n: [Number] }; let \$s = S(n: [1]); \$s.n[0] = \"x\"",
+    "source": "struct S { pub n: [Number] }; let \$s = S(n: [1]); \$s.n[0] = \"x\"",
     "mode": "code",
     "args": [],
     "stdout": "",

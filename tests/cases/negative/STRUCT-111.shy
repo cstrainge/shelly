@@ -1,7 +1,7 @@
 # STRUCT-111: runtime numeric mismatch
 check ["id": "STRUCT-111",
     "name": "runtime numeric mismatch",
-    "source": "struct S { n: Number }; let \$n = \"x\"; echo S(n: \$n)",
+    "source": "struct S { pub n: Number }; let \$n = \"x\"; echo S(n: \$n)",
     "mode": "code",
     "args": [],
     "stdout": "",

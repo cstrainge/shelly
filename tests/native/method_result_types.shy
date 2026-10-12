@@ -35,7 +35,7 @@ signature_case "fn Array::probe(\$n: Integer): Float { Float(\$n) }; fn wrap(\$a
 signature_case "fn Array::probe(\$n: Integer): Float { Float(\$n) }; fn wrap(\$a: Array): Integer { return (\$a.probe 1) }" "" "Expected Integer, got Float"
 signature_case "fn Array::probe(\$n: Integer): Integer { \$n }; fn wrap(\$a: Array): Float { \$a.probe 2 }; echo (wrap [])" "2.0\n" ""
 signature_case "type Items = [Integer]; fn Array::probe(): Float { 1.0 }; fn wrap(\$a: Items): Integer { \$a.probe }" "" "Expected Integer, got Float"
-signature_case "struct Item { probe: Integer }; fn wrap(\$a: Item): Integer { \$a.probe }; echo (wrap Item(probe: 4))" "4\n" ""
+signature_case "struct Item { pub probe: Integer }; fn wrap(\$a: Item): Integer { \$a.probe }; echo (wrap Item(probe: 4))" "4\n" ""
 signature_case "fn Number::probe(): Float { 1.0 }; fn Integer::probe(): Integer { 2 }; fn wrap(\$a: Integer): Integer { \$a.probe }; echo (wrap 3)" "2\n" ""
 signature_case "fn any::probe(): Float { 1.0 }; fn Array::probe(): Integer { 2 }; fn wrap(\$a: Array): Integer { \$a.probe }; echo (wrap [])" "2\n" ""
 signature_case "fn Array::probe(): Integer { 1 }; fn old(\$a: Array): Integer { \$a.probe }; fn Array::probe(): String { \"new\" }; echo (old []) [].probe" "1 new\n" ""

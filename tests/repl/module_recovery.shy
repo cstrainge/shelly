@@ -1,6 +1,6 @@
 # MODULE-RECOVERY
 let $module_fixture = $args[0]
-printf "%s" "pub let \$value = 7; pub struct Point { x: Integer }; pub fn ping() { \$value }" -> "${module_fixture}/foo.shy"
+printf "%s" "pub let \$value = 7; pub struct Point { pub x: Integer }; pub fn ping() { \$value }" -> "${module_fixture}/foo.shy"
 printf "%s" "pub struct Broken {}; pub let \$value = 1 / 0" -> "${module_fixture}/bad.shy"
 check_repl ["id": "MODULE-RECOVERY", "name": "MODULE-RECOVERY",
     "steps": [

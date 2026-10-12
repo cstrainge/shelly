@@ -1,7 +1,7 @@
 # NEWLINE-014: arithmetic postfix
 check ["id": "NEWLINE-014",
     "name": "arithmetic postfix",
-    "source": "struct S { n: Number }; echo S\n(n: 6).n + 1",
+    "source": "struct S { pub n: Number }; echo S\n(n: 6).n + 1",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

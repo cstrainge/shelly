@@ -1,7 +1,7 @@
 # NEWLINE-046: spaced empty nested
 check ["id": "NEWLINE-046",
     "name": "spaced empty nested",
-    "source": "struct E {}; struct S { e: E }; echo S (e: E ()).e",
+    "source": "struct E {}; struct S { pub e: E }; echo S (e: E ()).e",
     "mode": "code",
     "args": [],
     "stdout": "E()\n",

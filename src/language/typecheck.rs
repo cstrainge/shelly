@@ -9,6 +9,8 @@ use crate::language::{ ast::*,
                                         EnumVariant,
                                         FieldDefinition,
                                         StructValue,
+                                        ConstructorParameter,
+                                        ConstructorSignature,
                                         TypeId,
                                         TypeKind,
                                         TypeRegistry },
@@ -29,6 +31,15 @@ fn error(location: &Location, message: String) -> CompileError
 
 // Resolve declarations first, then propagate binding and collection item types.
 pub fn check_ast(registry: &mut TypeRegistry, ast: &mut AstTopLevel,
+                 variables: &ScopedVariables, functions: &FunctionBlockRef) -> CompileResult<()>
+{
+    let saved = registry.clone();
+    let result = check_ast_inner(registry, ast, variables, functions);
+    if result.is_err() { *registry = saved; }
+    result
+}
+
+fn check_ast_inner(registry: &mut TypeRegistry, ast: &mut AstTopLevel,
                  variables: &ScopedVariables, functions: &FunctionBlockRef) -> CompileResult<()>
 {
     let names = check_scope(registry, ast, &registry.names.clone(), true)?;
@@ -158,8 +169,11 @@ fn check_scope(
                         {
                             type_id = registry.intern(TypeKind::Optional(type_id));
                         }
-                        fields.push(FieldDefinition { name: field.name.clone(), type_id,
-                            optional: field.optional, location: field.location.clone() });
+                        fields.push(FieldDefinition
+                            {
+                                public: field.public, name: field.name.clone(), type_id,
+                                optional: field.optional, location: field.location.clone(),
+                            });
                     }
                     registry.finish(names[&declaration.name], TypeKind::Struct(fields));
                 },
@@ -235,6 +249,12 @@ fn check_scope(
             function.receiver_type = Some(id);
             registry.declare_extension(id, &function.name);
         }
+    }
+
+    for statement in ast.iter_mut()
+    {
+        if let AstStatement::FunctionDefinition(function) = statement
+        { check_protocol(registry, function, &names)?; }
     }
 
     for statement in ast.iter_mut()
@@ -363,7 +383,7 @@ fn check_function(registry: &mut TypeRegistry, function: &mut AstFunctionStateme
                 ));
             }
         }
-        if optional_seen && !parameter.optional && !parameter.variadic
+        if optional_seen && !parameter.optional && !parameter.variadic && function.name != "new"
         {
             return Err(error(
                 &parameter.location,
@@ -405,7 +425,12 @@ fn check_function(registry: &mut TypeRegistry, function: &mut AstFunctionStateme
         { return Err(error(&function.location,
             "next_item must declare a return type T | ()".into())); }
     }
-    check_scope(registry, &mut function.body, names, false)?;
+    let previous = registry.checking_factory;
+    registry.checking_factory = if function.name == "new" { function.receiver_type }
+        else if function.receiver_type.is_none() { previous } else { None };
+    let result = check_scope(registry, &mut function.body, names, false);
+    registry.checking_factory = previous;
+    result?;
     Ok(())
 }
 
@@ -588,7 +613,7 @@ fn check_expression(
                 expression.kind =
                     AstExpressionKind::StructConstructor(Box::new(AstStructConstructor
                         {
-                            name: name.clone(),
+                            raw: false, name: name.clone(),
                             fields: Vec::new(),
                             type_id: None,
                             field_indexes: Vec::new(),
@@ -606,20 +631,64 @@ fn check_expression(
                         format!("{} conversion requires exactly one positional value",
                                 definition.name)));
                 }
-                let TypeKind::Struct(fields) = &definition.kind
-                else
+                constructor.raw = registry.checking_factory == Some(id);
+                if matches!(definition.kind, TypeKind::Enum(_))
                 {
-                    return Err(error(
-                        &expression.location,
-                        format!("Type '{}' is not a struct", constructor.name),
-                    ));
-                };
+                    if !constructor.fields.is_empty() || !registry.constructors.contains_key(&id)
+                    { return Err(error(&expression.location,
+                        "Enum construction requires a zero-argument ::new factory".into())); }
+                    if constructor.raw
+                    { return Err(error(&expression.location,
+                        "Use an explicit enum variant inside its ::new factory".into())); }
+                    if !registry.constructor_permissions.contains(&id)
+                    { return Err(error(&expression.location,
+                        "Constructor is private to its module".into())); }
+                    constructor.type_id = Some(id);
+                    return Ok(());
+                }
+                let TypeKind::Struct(fields) = &definition.kind
+                else { return Err(error(&expression.location,
+                    format!("Type '{}' is not a struct", constructor.name))); };
+                if !constructor.raw && registry.constructors.contains_key(&id)
+                {
+                    if !registry.constructor_permissions.contains(&id)
+                    { return Err(error(&expression.location,
+                        "Constructor is private to its module".into())); }
+                    let signature = registry.constructors[&id].clone();
+                    let mut supplied = HashSet::new();
+                    constructor.field_indexes.clear();
+                    for (name, location, value) in &mut constructor.fields
+                    {
+                        let index = signature.parameters.iter().position(|parameter|
+                            parameter.name == *name).ok_or_else(|| error(location,
+                                format!("Unknown constructor parameter '{}.{}'",
+                                    constructor.name, name)))?;
+                        if !supplied.insert(index)
+                        { return Err(error(location,
+                            format!("Duplicate constructor parameter '{}'", name))); }
+                        check_expression(registry, value, names)?;
+                        check_known_value(registry, signature.parameters[index].type_id, value)
+                            .map_err(|message| error(location, message))?;
+                        constructor.field_indexes.push(index);
+                    }
+                    for (index, parameter) in signature.parameters.iter().enumerate()
+                    {
+                        if !parameter.optional && !supplied.contains(&index)
+                        { return Err(error(&expression.location,
+                            format!("Missing constructor parameter '{}'", parameter.name))); }
+                    }
+                    constructor.type_id = Some(id);
+                    return Ok(());
+                }
                 let mut supplied = HashSet::new();
                 for (name, location, value) in &mut constructor.fields
                 {
                     let index = fields.iter().position(|field| field.name == *name)
                         .ok_or_else(|| error(location,
                         format!("Unknown field '{}.{}'", constructor.name, name)))?;
+                    if !fields[index].public && !constructor.raw
+                    { return Err(error(location, format!("Field '{}.{}' is private",
+                        constructor.name, name))); }
                     if !supplied.insert(index)
                     {
                         return Err(error(
@@ -636,7 +705,9 @@ fn check_expression(
                 }
                 for (index, field) in fields.iter().enumerate()
                 {
-                    if !field.optional && !supplied.contains(&index)
+                    if !supplied.contains(&index) && !constructor.raw
+                        && !field.optional
+                        && (field.public || registry.validate(field.type_id, &Value::None).is_err())
                     {
                         return Err(error(
                             &expression.location,
@@ -652,10 +723,12 @@ fn check_expression(
         AstExpressionKind::Field(object, name, index) =>
             {
                 check_expression(registry, object, names)?;
-                if name == "type" || name.starts_with('$') { return Ok(()); }
+                if name == "type" || name.starts_with('$') || name.starts_with("::")
+                { return Ok(()); }
                 if let Some(id) = known_type(registry, object)
                 {
-                    if registry.method(id, name).is_some() { return Ok(()); }
+                    if registry.properties.contains_key(&(id, name.clone()))
+                        || registry.method(id, name).is_some() { return Ok(()); }
                     let definition = registry.get(registry.underlying_type(id));
                     if registry.collection_member_type(id, name).is_some() { return Ok(()); }
                     if matches!(definition.kind, TypeKind::Enum(_)) && name == "index"
@@ -686,8 +759,14 @@ fn check_expression(
         AstExpressionKind::EnumVariant(name, variant) =>
             {
                 let qualified = format!("{}::{}", name, variant);
+                if variant == "new" && let Some(id) = names.get(name)
+                    && registry.constructors.contains_key(id)
+                    && !registry.constructor_permissions.contains(id)
+                { return Err(error(&expression.location,
+                    "Constructor is private to its module".into())); }
                 if    let Some(id) = names.get(name)
-                   && registry.has_callable_conversion(*id, variant)
+                   && (registry.has_callable_conversion(*id, variant)
+                        || variant == "new" && registry.constructors.contains_key(id))
                 {
                     expression.kind = AstExpressionKind::Symbol(AstSymbol
                         { name: method_key(*id, variant) });
@@ -879,7 +958,9 @@ fn known_type(registry: &TypeRegistry, expression: &AstExpression) -> Option<Typ
         AstExpressionKind::HashMap(_) => registry.builtin_id("HashMap"),
         AstExpressionKind::Symbol(symbol) if symbol.is_glob() =>
             registry.builtin_id("ArgumentExpansion"),
-        AstExpressionKind::StructConstructor(item) => item.type_id,
+        AstExpressionKind::StructConstructor(item) => item.type_id.map(|id|
+            if item.raw { id }
+            else { registry.constructors.get(&id).map_or(id, |signature| signature.result) }),
         AstExpressionKind::TypeConversion(_, _, type_id, _) => *type_id,
         AstExpressionKind::Literal(AstLiteral
         {
@@ -898,6 +979,16 @@ fn known_type(registry: &TypeRegistry, expression: &AstExpression) -> Option<Typ
             {
                 if name == "type" { return registry.builtin_id("Type"); }
                 let id = known_type(registry, object)?;
+                if let Some(name) = name.strip_prefix("::")
+                {
+                    let definition = registry.get(registry.underlying_type(id));
+                    return if let TypeKind::Struct(fields) = &definition.kind
+                        { fields.iter().find(|field| field.name == name)
+                            .map(|field| field.type_id) }
+                        else { None };
+                }
+                if let Some(ty) = registry.properties.get(&(id, name.clone()))
+                { return Some(*ty); }
                 if registry.collection_member_type(id, name).is_some()
                 { return registry.builtin_id("Type"); }
                 let definition = registry.get(registry.underlying_type(id));
@@ -971,12 +1062,15 @@ fn constant_value(registry: &TypeRegistry, expression: &AstExpression) -> Option
             },
         AstExpressionKind::StructConstructor(item) =>
             {
-                let definition = registry.get(item.type_id?);
+                let id = item.type_id?;
+                if registry.constructors.contains_key(&id) || item.raw { return None; }
+                let definition = registry.get(id);
                 let TypeKind::Struct(fields) = &definition.kind else { return None; };
                 let mut values = vec![Value::None; fields.len()];
                 for ((_, _, expression), index) in item.fields.iter().zip(&item.field_indexes)
                 { values[*index] = constant_value(registry, expression)?; }
-                Some(Value::Struct(Rc::new(StructValue { definition, fields: values })))
+                Some(Value::Struct(Rc::new(StructValue
+                    { definition, fields: values, constructing: false })))
             },
         _ => None
     }
@@ -1267,6 +1361,17 @@ fn condition_bindings(registry: &TypeRegistry, expression: &AstExpression,
                 { forget_inferred(&mut selected); }
                 let subject = type_subject(left).zip(type_value(right, &selected))
                     .or_else(|| type_subject(right).zip(type_value(left, &selected)));
+                let subject = subject.or_else(||
+                    {
+                        let pair = [
+                            (left.as_ref(), right.as_ref()), (right.as_ref(), left.as_ref()),
+                        ];
+                        pair.into_iter().find_map(|(value, other)|
+                            if let AstExpressionKind::Variable(variable) = &ungroup(value).kind
+                                && matches!(constant_value(registry, other), Some(Value::None))
+                            { Some((variable.name.as_str(), registry.builtin_id("None").unwrap())) }
+                            else { None })
+                    });
                 if let Some((name, id)) = subject
                 {
                     refine_type(registry, &mut selected, name, id,
@@ -1652,12 +1757,14 @@ fn check_binding_expression(
         source_type.set(declared_conversion_source(registry, value, bindings));
     }
     if let AstExpressionKind::Field(value, name, _) = &expression.kind
-        && name != "type" && !name.starts_with('$') && refined_receiver(value, bindings)
+        && name != "type" && !name.starts_with('$') && !name.starts_with("::")
+        && refined_receiver(value, bindings)
         && let Some(id) = binding_type(registry, value, bindings)
     {
         let definition = registry.get(registry.underlying_type(id));
         if    !matches!(definition.kind, TypeKind::Optional(_) | TypeKind::Union(_))
            && definition.name != "any"
+           && !registry.properties.contains_key(&(id, name.clone()))
            && registry.method(id, name).is_none()
            && !registry.has_extension(id, name)
            && registry.collection_member_type(id, name).is_none()
@@ -1690,6 +1797,8 @@ fn check_binding_expression(
                 || refined_receiver(expression, bindings)
                 || registry.validate(actual, &Value::from_string(String::new())).is_err())
            && !(if returns_call_data(registry, expression, bindings)
+                    || matches!(ungroup(expression).kind, AstExpressionKind::StructConstructor(_))
+                    || optional_constructor_result(registry, actual)
                 { accepts_results(registry, id, actual) }
                 else { registry.may_assign(id, actual) })
         {
@@ -1724,6 +1833,9 @@ fn check_binding_expression(
                            && matches!(registry.get(registry.underlying_type(item)).kind,
                                 TypeKind::Struct(_))
                         { input = Some(item); }
+                        if let Some(id) = input
+                            && let Some(signature) = registry.constructors.get(&id)
+                        { input = Some(signature.result); }
                         current.insert("$".into(), Binding::declared(input));
                     }
                     if index + 1 == pipeline.stages.len()
@@ -1863,10 +1975,24 @@ fn check_binding_expression(
         AstExpressionKind::StructConstructor(item) =>
             {
                 let mut current = bindings.clone();
-                for (_, _, value) in &item.fields
+                for (name, _, value) in &item.fields
                 {
+                    let expected = item.type_id.and_then(|id|
+                        {
+                            if !item.raw && let Some(signature) = registry.constructors.get(&id)
+                            {
+                                return signature.parameters.iter().find(|parameter|
+                                    parameter.name.trim_start_matches('$') == name)
+                                    .map(|parameter| parameter.type_id);
+                            }
+                            let definition = registry.get(id);
+                            if let TypeKind::Struct(fields) = &definition.kind
+                            { fields.iter().find(|field| field.name == *name)
+                                .map(|field| field.type_id) }
+                            else { None }
+                        });
                     current.methods = check_binding_expression(
-                        registry, value, &current, return_type, None)?;
+                        registry, value, &current, return_type, expected)?;
                     if expression_may_mutate(registry, value, &current)
                     { forget_inferred(&mut current); }
                 }
@@ -1909,7 +2035,7 @@ fn check_binding_expression(
         AstExpressionKind::Field(value, name, _) =>
             {
                 methods = check_binding_expression(registry, value, bindings, return_type, None)?;
-                if name.starts_with('$')
+                if name.strip_prefix("::").unwrap_or(name).starts_with('$')
                 {
                     if expression_may_mutate(registry, value, bindings)
                     {
@@ -1978,6 +2104,16 @@ fn declared_conversion_source(registry: &TypeRegistry, expression: &AstExpressio
         AstExpressionKind::Field(object, name, _) =>
             {
                 let id = binding_type(registry, object, bindings)?;
+                if let Some(name) = name.strip_prefix("::")
+                {
+                    let definition = registry.get(registry.underlying_type(id));
+                    return if let TypeKind::Struct(fields) = &definition.kind
+                        { fields.iter().find(|field| field.name == name)
+                            .map(|field| field.type_id) }
+                        else { None };
+                }
+                if let Some(ty) = registry.properties.get(&(id, name.clone()))
+                { return Some(*ty); }
                 if registry.collection_member_type(id, name).is_some()
                 { return registry.builtin_id("Type"); }
                 let definition = registry.get(registry.underlying_type(id));
@@ -2091,6 +2227,16 @@ fn binding_type_inner(
             {
                 if name == "type" { return registry.builtin_id("Type"); }
                 let id = binding_type(registry, object, bindings)?;
+                if let Some(name) = name.strip_prefix("::")
+                {
+                    let definition = registry.get(registry.underlying_type(id));
+                    return if let TypeKind::Struct(fields) = &definition.kind
+                        { fields.iter().find(|field| field.name == name)
+                            .map(|field| field.type_id) }
+                        else { None };
+                }
+                if let Some(ty) = registry.properties.get(&(id, name.clone()))
+                { return Some(*ty); }
                 if registry.collection_member_type(id, name).is_some()
                 { return registry.builtin_id("Type"); }
                 let definition = registry.get(registry.underlying_type(id));
@@ -2241,8 +2387,9 @@ fn expression_may_mutate(registry: &TypeRegistry, expression: &AstExpression,
         AstExpressionKind::Array(values) => values.iter().any(mutates),
         AstExpressionKind::HashMap(entries) => entries.iter().any(|(key, value)|
             mutates(key) || mutates(value)),
-        AstExpressionKind::StructConstructor(item) => item.fields.iter()
-            .any(|(_, _, value)| mutates(value)),
+        AstExpressionKind::StructConstructor(item) =>
+            (!item.raw && item.type_id.is_some_and(|id| registry.constructors.contains_key(&id)))
+                || item.fields.iter().any(|(_, _, value)| mutates(value)),
         AstExpressionKind::MathExpression(_, left, right)
         | AstExpressionKind::BooleanExpression(_, left, right)
         | AstExpressionKind::Index(left, right) => mutates(left) || mutates(right),
@@ -2256,6 +2403,7 @@ fn expression_may_mutate(registry: &TypeRegistry, expression: &AstExpression,
 fn check_field_name(registry: &TypeRegistry, name: &str, bindings: &Bindings,
                     location: &Location) -> CompileResult<()>
 {
+    let name = name.strip_prefix("::").unwrap_or(name);
     if !name.starts_with('$') { return Ok(()); }
     if let Some(id) = bindings.get(name).and_then(|binding| binding.type_id())
     {
@@ -2315,4 +2463,91 @@ fn interpolated_members(expression: &AstExpression) -> Vec<AstExpression>
                 }
                 member
             }).collect()
+}
+
+
+pub(crate) fn check_protocol(registry: &mut TypeRegistry, function: &mut AstFunctionStatement,
+                  names: &Names) -> CompileResult<()>
+{
+    let Some(id) = function.receiver_type else { return Ok(()); };
+    let definition = registry.get(id);
+    if function.name != "new" && !function.name.starts_with("get_")
+        && !function.name.starts_with("set_") { return Ok(()); }
+    if !matches!(definition.kind, TypeKind::Struct(_) | TypeKind::Enum(_))
+    { return Err(error(&function.location,
+        "Struct/enum protocols require their owning type".into())); }
+    for parameter in &mut function.parameters
+    {
+        if let Some(annotation) = &parameter.annotation
+        { parameter.type_id = Some(resolve_type(
+            registry, annotation, names, &parameter.location)?); }
+    }
+    if let Some(annotation) = &function.return_annotation
+    { function.return_type = Some(resolve_type(registry, annotation, names, &function.location)?); }
+    if function.name == "new"
+    {
+        if definition.location.as_ref().is_some_and(|location|
+            location.origin != function.location.origin)
+        { return Err(error(&function.location,
+            "Constructor must be declared in the type's defining module".into())); }
+        let result = function.return_type.ok_or_else(|| error(&function.location,
+            "::new must declare its result type".into()))?;
+        let nullable = registry.intern(TypeKind::Optional(id));
+        if result != id && result != nullable
+        { return Err(error(&function.location,
+            "::new must return its own type or that type | ()".into())); }
+        if matches!(definition.kind, TypeKind::Enum(_))
+            && (!function.parameters.is_empty() || result != id)
+        { return Err(error(&function.location,
+            "Enum ::new must take no arguments and return its enum".into())); }
+        let parameters = function.parameters.iter().map(|parameter|
+            ConstructorParameter
+                {
+                    name: parameter.name.trim_start_matches('$').into(),
+                    type_id: parameter.type_id
+                        .unwrap_or_else(|| registry.builtin_id("any").unwrap()),
+                    optional: parameter.optional || parameter.variadic
+                        || parameter.type_id.is_some_and(|id|
+                            matches!(registry.get(id).kind, TypeKind::Optional(_))),
+                }).collect();
+        let signature = ConstructorSignature { parameters, result,
+            variadic: function.parameters.last().is_some_and(|parameter| parameter.variadic) };
+        if registry.constructors.get(&id).is_some_and(|previous| *previous != signature)
+        { return Err(error(&function.location, "A type has one constructor interface".into())); }
+        registry.constructors.insert(id, signature);
+        registry.constructor_permissions.insert(id);
+        return Ok(());
+    }
+    if !matches!(definition.kind, TypeKind::Struct(_))
+    { return Err(error(&function.location, "Enums do not support getters/setters".into())); }
+    let getter = function.name.starts_with("get_");
+    if !getter && function.return_type.is_none()
+    { function.return_type = registry.builtin_id("None"); }
+    let property = &function.name[4..];
+    if property.is_empty() || function.parameters.len() != if getter { 1 } else { 2 }
+        || function.parameters.iter().any(|p| p.variadic)
+    { return Err(error(&function.location,
+        "Getter/setter protocol has an invalid parameter list".into())); }
+    let ty = if getter { function.return_type } else { function.parameters[1].type_id }
+        .ok_or_else(|| error(&function.location,
+            "Getter/setter property type must be declared".into()))?;
+    if !getter && function.return_type.is_some_and(|ty| Some(ty) != registry.builtin_id("None"))
+    { return Err(error(&function.location, "Setters must return ()".into())); }
+    let key = (id, property.to_string());
+    if registry.properties.get(&key).is_some_and(|previous| *previous != ty)
+    { return Err(error(&function.location,
+        "Getter and setter property types must match exactly".into())); }
+    registry.properties.insert(key, ty);
+    Ok(())
+}
+
+
+fn optional_constructor_result(registry: &TypeRegistry, id: TypeId) -> bool
+{
+    match &registry.get(id).kind
+    {
+        TypeKind::Optional(inner) => registry.constructors.contains_key(inner),
+        TypeKind::Union(items) => items.iter().any(|id| optional_constructor_result(registry, *id)),
+        _ => false,
+    }
 }

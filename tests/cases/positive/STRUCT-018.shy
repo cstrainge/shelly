@@ -1,7 +1,7 @@
 # STRUCT-018: nested annotations
 check ["id": "STRUCT-018",
     "name": "nested annotations",
-    "source": "struct S { groups: [String: [optional Number]], m: optional [String: any] }; echo S(groups: [\"g\": [1, (), 2.5]]).groups[\"g\"]...",
+    "source": "struct S { pub groups: [String: [optional Number]], pub m: optional [String: any] }; echo S(groups: [\"g\": [1, (), 2.5]]).groups[\"g\"]...",
     "mode": "code",
     "args": [],
     "stdout": "1 () 2.5\n",

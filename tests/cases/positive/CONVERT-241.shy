@@ -1,7 +1,7 @@
 # CONVERT-241: shadowed struct constructor
 check ["id": "CONVERT-241",
     "name": "shadowed struct constructor",
-    "source": "struct Integer { value: String }; echo Integer(value: \"x\").value",
+    "source": "struct Integer { pub value: String }; echo Integer(value: \"x\").value",
     "mode": "code",
     "args": [],
     "stdout": "x\n",

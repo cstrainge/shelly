@@ -1,7 +1,7 @@
 # MUTSELF-017: nested immediate
 check ["id": "MUTSELF-017",
     "name": "nested immediate",
-    "source": "fn Integer::inc() { \$self = \$self + 1 }; struct S { a: [HashMap] }; let \$v = S(a: [[\"k\": 1]]);\$v.a[0][\"k\"].inc; echo \$v.a[0][\"k\"]",
+    "source": "fn Integer::inc() { \$self = \$self + 1 }; struct S { pub a: [HashMap] }; let \$v = S(a: [[\"k\": 1]]);\$v.a[0][\"k\"].inc; echo \$v.a[0][\"k\"]",
     "mode": "code",
     "args": [],
     "stdout": "2\n",

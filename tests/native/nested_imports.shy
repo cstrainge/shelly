@@ -1,7 +1,7 @@
 # Nested paths and init.shy packages preserve module interfaces and identities.
 let $fixture = $args[0]
 mkdir -p "${fixture}/tools" "${fixture}/package" "${fixture}/cyclic" "${fixture}/empty" "${fixture}/Ω" "${fixture}/first/tier/item" "${fixture}/second/tier" "${fixture}/std/prelude" "${fixture}/std/tools" "${fixture}/broken"
-let $api = 'pub let $value: Integer = 7; pub type Count = Integer; pub struct Box { n: Integer }; pub enum Choice { Ready }; pub fn read(): Integer { $value }; pub alias show = read; fn hidden(): Integer { 99 }; pub fn String::nested_tag(): String { "tag:" + $self }'
+let $api = 'pub let $value: Integer = 7; pub type Count = Integer; pub struct Box { pub n: Integer }; pub enum Choice { Ready }; pub fn read(): Integer { $value }; pub alias show = read; fn hidden(): Integer { 99 }; pub fn String::nested_tag(): String { "tag:" + $self }'
 printf "%s" $api -> "${fixture}/tools/number.shy"
 printf "%s" $api -> "${fixture}/package/leaf.shy"
 printf "%s" 'pub import leaf::{ read, $value, Count, Box, Choice, show }; echo package-once' -> "${fixture}/package/init.shy"

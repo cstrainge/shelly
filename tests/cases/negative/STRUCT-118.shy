@@ -1,7 +1,7 @@
 # STRUCT-118: runtime field on none
 check ["id": "STRUCT-118",
     "name": "runtime field on none",
-    "source": "struct S { next: optional S }; let \$s = S(); echo \$s.next.next",
+    "source": "struct S { pub next: optional S }; let \$s = S(); echo \$s.next.next",
     "mode": "code",
     "args": [],
     "stdout": "",

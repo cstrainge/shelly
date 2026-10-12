@@ -93,7 +93,7 @@ Conversion annotations belong to the boundary, not to command arguments:
 let $message = ["message": "hello"]
 $message |:json external_command
 
-struct ApiResponse { message: String }
+struct ApiResponse { pub message: String }
 let $response = ApiResponse(message: "")
 let $status = external_command json:|:ApiResponse $response
 
@@ -716,7 +716,7 @@ echo $scores.key_type $scores.value_type # String Float
 ```
 
 Every value provides `.properties`, returning a `[String: any]` hash. Structs
-contribute their fields; other values, including arrays and hashes, contribute a
+contribute their public storage fields; other values, including arrays and hashes, contribute a
 `"value"` entry containing the value itself. Every result includes `"type"`, and
 enum values also include `"index"`.
 Collection results also include their `"value_type"`, and hashes include `"key_type"`.
@@ -724,10 +724,13 @@ Collection results also include their `"value_type"`, and hashes include `"key_t
 Available methods appear as bound function references. Collecting properties
 does not execute them. Field values are snapshots, while method references keep
 their live receiver and the method version selected when the hash was created.
-Struct fields take precedence over methods with the same name. Imported objects
+Ordinary public storage fields take precedence over methods with the same name.
+Properties declared with getters appear under their property names as bound getter
+references; collecting the hash does not execute a getter. Private storage and
+inaccessible accessors are omitted. Setter-only properties have no readable entry. Imported objects
 expose only methods available under the normal module visibility rules.
 `next_item` is included for iterable values; calling it advances the receiver.
-Receiver-free `from_*` conversion factories are not object methods and are excluded.
+Receiver-free `from_*` conversion factories and `new` constructors are excluded.
 
 ```shy
 let $properties = 5.properties
@@ -756,7 +759,7 @@ An implicit, typed `$self` parameter receives the value before the explicit
 parameters. Do not declare `$self` in the parameter list.
 
 ```text
-struct Item { quantity: Integer }
+struct Item { pub quantity: Integer }
 
 fn Item::add($amount: Integer): Item
 {
@@ -1043,22 +1046,36 @@ the entire submitted AST, including unused functions and skipped branches, befor
 bytecode generation. A parsing, checking, or compilation failure does not publish
 new types or functions. A runtime failure occurs after declarations are committed.
 
+An enum can define one default constructor, with no parameters and a nonnullable
+return type:
+
+```shy
+pub fn Color::new(): Color { Color::Green }
+let $color: Color = Color()
+```
+
+Bare `Color` remains the type object. Inside the factory, return an explicit
+variant rather than calling `Color()` again. Enums do not support getters or setters.
+Constructor visibility follows the same module rules as struct constructors.
+
 ## Structs
 
 Structs declare bare field names without `$`. A type annotation follows a colon:
-`name: Type`. Omitting the annotation makes the field accept any value:
+`name: Type`. Storage fields are private by default; `pub name: Type` makes a
+field directly accessible and constructible. Omitting the annotation makes the
+field accept any value:
 
 ```text
 enum Status { Ready, Busy }
 
 struct Item
 {
-    quantity: Number,
-    state: Status,
-    children: [Item],
-    labels: [String: String],
-    next: optional Item,
-    payload: any,
+    pub quantity: Number,
+    pub state: Status,
+    pub children: [Item],
+    pub labels: [String: String],
+    pub next: optional Item,
+    pub payload: any,
 }
 
 let $item = Item(
@@ -1122,11 +1139,93 @@ maps satisfy their respective element constraints. Map-key constraints follow
 key equality: `1` and `1.0` denote the same key. This applies recursively to
 collection keys; struct keys retain a typed snapshot of their original fields.
 
-Every nonoptional field must be supplied, including untyped fields. Optional
-fields may be omitted or supplied explicitly. Unknown and duplicate fields are
+Without a `::new` factory, every nonoptional public field must be supplied,
+including untyped fields. Optional public fields may be omitted or supplied explicitly.
+Private fields must accept `()` when no factory is defined; they start as `()`.
+A required private field needs a factory to initialize it. Unknown and duplicate fields are
 errors. Supplied expressions evaluate once, left to right in source order; fields
 are stored and displayed in declaration order. Empty structs are allowed:
 `struct Empty {}` and `Empty()`.
+
+### Constructors and properties
+
+A `Type::new` factory replaces the public-field construction interface. All of its
+parameters are supplied by name, in any order. Nullable parameters may be omitted
+and receive `()`. There is no automatically supplied candidate argument.
+
+```shy
+struct Account
+{
+    balance: Integer
+}
+
+pub fn Account::new($initial: Integer, $label: String | ()): Account
+{
+    let $account = Account()
+    $account.::balance = $initial
+    $account
+}
+
+pub fn Account::get_balance(): Integer { $self.::balance }
+pub fn Account::set_balance($value: Integer) { $self.::balance = $value }
+
+let $account = Account(initial: 42)
+$account.balance = 50
+echo $account.balance                 # 50
+```
+
+Inside its own factory, `Account(...)` creates raw storage without calling `new`
+again. It can accept private storage fields, or leave fields temporarily unset.
+The factory may fill them through assignments. Every successful returned struct
+is checked for complete, correctly typed storage before it reaches the caller.
+An indirect or explicit recursive factory call is rejected.
+
+A struct factory returns its own type or its own type `| ()`. A fallible factory's
+result cannot initialize a nonnullable variable until the failure case is handled:
+
+```shy
+fn Account::new($initial: Integer, $label: String | ()): Account | ()
+{
+    if $initial < 0 { return () }
+    Account(balance: $initial)
+}
+
+let $maybe: Account | () = Account(initial: 42)
+if $maybe == () { return () }
+let $account: Account = $maybe
+```
+
+These examples are separate declarations: a type has one constructor interface.
+A later redefinition must preserve that interface. Other ordinary functions can
+provide additional construction APIs. A non-`pub` constructor is available only
+within its defining module and its children. The module can export the type and
+ordinary functions returning it while preventing callers from constructing it
+directly. This restriction also applies to direct `Type::new` calls and pipelines.
+
+Getters use `get_name()` and declare the property's type. Setters use
+`set_name($value: Type)` and return `()`. When both exist, the getter's return type
+and setter's value type must match exactly, including nullability. The property
+may be computed or use backing storage of a different type. Getter-only properties
+are read-only; setter-only properties are write-only. Accessor visibility follows
+normal method visibility.
+
+Ordinary `$self.field` uses the property protocol. `$self.::field` explicitly
+selects backing storage. Private storage is accessible only in the owning type's
+methods defined in its defining module, including their lexical closures. Raw
+access does not grant additional permission. Dynamic raw access `$self.::$name`
+and raw interpolation `${self.::field}` follow the same rule.
+
+Nested assignments call each getter and setter once, writing back from the inner
+value to the outer receiver. Mutating methods on getter-produced values also write
+back through the setter. Saved method references refresh the property value on
+later calls while retaining the selected accessor versions. A failed setter preserves
+the original receiver storage; effects on other values are not rolled back.
+
+Pipelines use the same construction interface. Without a factory, incoming records
+can supply public fields only. With a factory, record keys name factory parameters;
+a parameter may explicitly advertise a name matching private storage. `new` is
+called and its returned storage validated. Fallible factories require destinations
+that accept `()`. Explicit `from_*` conversion functions remain alternative APIs.
 
 Read and update members with `$item.field`, including mixed paths such as
 `$item.groups["name"][0].field`. An assignment must start with a variable.
@@ -1149,7 +1248,7 @@ accessor types are rejected during type checking; dynamic values are checked at
 runtime. `${item.$name}` also works inside interpolated strings.
 
 ```shy
-struct Person { name: String, age: Integer }
+struct Person { pub name: String, pub age: Integer }
 let $p = Person(name: "Ada", age: 36)
 let $name = "age"
 $p.$name = 37
@@ -1687,7 +1786,7 @@ echo (foo 3) + 1            # 6145
 Parameters and return values can also be annotated:
 
 ```text
-struct Item { value: Number }
+struct Item { pub value: Number }
 
 fn make_item($value: Number): Item
 {
@@ -2143,7 +2242,7 @@ items from other iterators. Duplicate binding names are errors.
 whose declared return type is `T | ()`:
 
 ```shy
-struct Counter { remaining: Integer }
+struct Counter { pub remaining: Integer }
 
 fn Counter::next_item(): Integer | ()
 {
@@ -2218,7 +2317,7 @@ Fixed-length array annotations describe each position's type, making structured
 yields explicit:
 
 ```shy
-struct Pairs { remaining: Integer }
+struct Pairs { pub remaining: Integer }
 
 fn Pairs::next_item(): [Integer, String] | ()
 {
@@ -2512,7 +2611,7 @@ fn increment(): Integer { $state = $state + 1; $state }
 pub fn next(): Integer { increment }
 pub let $label: String = "counter"
 pub type Count = Integer
-pub struct Snapshot { count: Count }
+pub struct Snapshot { pub count: Count }
 pub enum Status { Ready, Done }
 pub fn Snapshot::read(): Count { $self.count }
 pub alias advance = increment
@@ -2583,7 +2682,7 @@ than whichever script happened to import the child.
 
 ```shy
 # collections/array/init.shy
-struct State { count: Integer }             # Private to the module family.
+struct State { pub count: Integer }             # Private to the module family.
 pub import operations::{ make_state }
 
 # collections/array/operations.shy

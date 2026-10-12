@@ -32,6 +32,7 @@ pub struct BuiltinMethod
     pub body: MethodBody,
 }
 
+#[derive(Clone)]
 pub enum MethodDefinition
 {
     Builtin(Rc<BuiltinMethod>),

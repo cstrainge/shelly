@@ -1,7 +1,7 @@
 # STRUCT-056: untyped nested member
 check ["id": "STRUCT-056",
     "name": "untyped nested member",
-    "source": "struct Node { n: Number }; struct Box { item }; echo Box(item: Node(n: 42)).item.n",
+    "source": "struct Node { pub n: Number }; struct Box { pub item }; echo Box(item: Node(n: 42)).item.n",
     "mode": "code",
     "args": [],
     "stdout": "42\n",

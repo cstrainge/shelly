@@ -2,7 +2,7 @@
 check [
     "id": "NUMERIC-044",
     "name": "no Float field narrowing",
-    "source": "struct S { x: Integer }; let \$s = S(x: 7.0)",
+    "source": "struct S { pub x: Integer }; let \$s = S(x: 7.0)",
     "mode": "code",
     "args": [],
     "stdout": "",

@@ -1,7 +1,7 @@
 # STRUCT-046: local type escapes
 check ["id": "STRUCT-046",
     "name": "local type escapes",
-    "source": "fn f() { struct Local { n: Number }; Local(n: 7) }; let \$s = f; echo \$s.n ((f) == \$s)",
+    "source": "fn f() { struct Local { pub n: Number }; Local(n: 7) }; let \$s = f; echo \$s.n ((f) == \$s)",
     "mode": "code",
     "args": [],
     "stdout": "7 true\n",

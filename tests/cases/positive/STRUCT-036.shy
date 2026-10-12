@@ -1,7 +1,7 @@
 # STRUCT-036: function argument and return
 check ["id": "STRUCT-036",
     "name": "function argument and return",
-    "source": "struct S { n: Number, text: String, extra: optional }; fn f(\$s) { return \$s }; echo (f S(n: 1, text: \"x\")).n",
+    "source": "struct S { pub n: Number, pub text: String, pub extra: optional }; fn f(\$s) { return \$s }; echo (f S(n: 1, text: \"x\")).n",
     "mode": "code",
     "args": [],
     "stdout": "1\n",

@@ -1,7 +1,7 @@
 # STRUCT-088: skipped branch checked
 check ["id": "STRUCT-088",
     "name": "skipped branch checked",
-    "source": "if false { struct S { n: Missing } }",
+    "source": "if false { struct S { pub n: Missing } }",
     "mode": "code",
     "args": [],
     "stdout": "",

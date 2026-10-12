@@ -1,7 +1,7 @@
 # STRUCT-085: required mutual cycle
 check ["id": "STRUCT-085",
     "name": "required mutual cycle",
-    "source": "struct A { b: B }; struct B { a: A }",
+    "source": "struct A { pub b: B }; struct B { pub a: A }",
     "mode": "code",
     "args": [],
     "stdout": "",

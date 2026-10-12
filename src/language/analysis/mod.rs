@@ -52,6 +52,7 @@ pub struct TypeDescriptor
     pub item: Option<usize>,
     pub key: Option<usize>,
     pub fields: BTreeMap<String, SymbolDescriptor>,
+    pub properties: BTreeMap<String, SymbolDescriptor>,
     pub variants: BTreeSet<String>,
     pub methods: BTreeMap<String, SymbolDescriptor>,
     pub call_result: Option<usize>,

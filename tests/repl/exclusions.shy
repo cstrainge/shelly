@@ -1,7 +1,7 @@
 check_repl ["id": "EXCLUSION-REPL", "name": "pre-load exclusion state and recovery",
     "steps": [
         ["let \$enabled = true; let \$checks = 0; fn choose() { \$checks = \$checks + 1; \$enabled }", "quiet", ""],
-        ["[when \$enabled] fn gadget() { 7 }; [when \$enabled] { let \$value = 9; struct S { x: Integer } }", "quiet", ""],
+        ["[when \$enabled] fn gadget() { 7 }; [when \$enabled] { let \$value = 9; struct S { pub x: Integer } }", "quiet", ""],
         ["echo (gadget) \$value S(x: 3)", "output", "7 9 S(x: 3)"],
         ["let \$enabled = false; [when \$enabled] fn old_environment() { 5 }", "quiet", ""],
         ["echo (old_environment) \$enabled", "output", "5 false"],

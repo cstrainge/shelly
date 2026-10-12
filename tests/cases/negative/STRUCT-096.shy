@@ -1,7 +1,7 @@
 # STRUCT-096: invalid field name
 check ["id": "STRUCT-096",
     "name": "invalid field name",
-    "source": "struct S { some-name: Number }",
+    "source": "struct S { pub some-name: Number }",
     "mode": "code",
     "args": [],
     "stdout": "",

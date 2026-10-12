@@ -793,6 +793,14 @@ impl<'a> Tokenizer<'a>
             {
                 return Ok(Some(dot));
             }
+            let raw = self.input.peek_next() == Some(':');
+            if raw
+            {
+                self.input.next();
+                if self.input.next() != Some(':')
+                { return Err(TokenizerError { location: dot.location,
+                    message: "Backing access requires '.::field'".into() }); }
+            }
             let dynamic = self.input.peek_next() == Some('$');
             if dynamic { self.input.next(); }
             let mut name = String::new();
@@ -814,6 +822,7 @@ impl<'a> Tokenizer<'a>
                 name.insert(0, '$');
                 self.qualified_variable_tail(&mut name)?;
             }
+            if raw { name.insert_str(0, "::"); }
             return Ok(Some(Token
                 {
                     location: dot.location,

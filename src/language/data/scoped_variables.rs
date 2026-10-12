@@ -1,8 +1,8 @@
 
-use std::{ cell::{ Ref, RefCell, RefMut }, collections::{ HashMap, VecDeque },
+use std::{ cell::{ Cell, Ref, RefCell, RefMut }, collections::{ HashMap, VecDeque },
            env::vars, rc::Rc };
 
-use crate::language::data::{ value::Value, types::TypeId };
+use crate::language::data::{ methods::BoundMethod, value::Value, types::TypeId };
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum ValueVisibility
@@ -32,6 +32,18 @@ pub struct ValueReference
     // true selects a data field, false an index; None projects a named payload.
     pub fields: Vec<Value>,
     pub constraints: Vec<(usize, TypeId)>,
+    pub property: Option<Rc<PropertyReference>>,
+}
+
+// A getter projection keeps its evaluated value for one operation and writes
+// changes back through the original owner's setter. Saved methods refresh it.
+pub struct PropertyReference
+{
+    pub getter: Rc<BoundMethod>,
+    pub setter: Option<Rc<BoundMethod>>,
+    pub name: String,
+    pub fresh: Cell<bool>,
+    pub active: Cell<bool>,
 }
 
 impl ValueReference
@@ -50,6 +62,7 @@ impl ValueReference
                 indexes: Vec::new(),
                 fields: Vec::new(),
                 constraints: Vec::new(),
+                property: None,
             }
     }
 }
@@ -204,6 +217,7 @@ impl ScopedVariables
                         indexes: Vec::new(),
                         fields: Vec::new(),
                         constraints: Vec::new(),
+                        property: None,
                     });
             }
         }

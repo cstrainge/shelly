@@ -1,7 +1,7 @@
 # STRUCT-086: type before effects
 check ["id": "STRUCT-086",
     "name": "type before effects",
-    "source": "echo \"must not run\"; struct S { n: Number }; echo S(n: \"x\")",
+    "source": "echo \"must not run\"; struct S { pub n: Number }; echo S(n: \"x\")",
     "mode": "code",
     "args": [],
     "stdout": "",

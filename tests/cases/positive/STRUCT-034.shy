@@ -1,7 +1,7 @@
 # STRUCT-034: typed struct keys
 check ["id": "STRUCT-034",
     "name": "typed struct keys",
-    "source": "struct K { n: Number }; struct S { m: [K: String] }; echo S(m: [K(n: 1): \"ok\"]).m[K(n: 1.0)]",
+    "source": "struct K { pub n: Number }; struct S { pub m: [K: String] }; echo S(m: [K(n: 1): \"ok\"]).m[K(n: 1.0)]",
     "mode": "code",
     "args": [],
     "stdout": "ok\n",

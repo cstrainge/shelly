@@ -1,7 +1,7 @@
 # STRUCT-104: constructor missing value
 check ["id": "STRUCT-104",
     "name": "constructor missing value",
-    "source": "struct S { n }; echo S(n:)",
+    "source": "struct S { pub n }; echo S(n:)",
     "mode": "code",
     "args": [],
     "stdout": "",

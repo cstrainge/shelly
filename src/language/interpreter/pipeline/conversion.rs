@@ -252,6 +252,24 @@ impl Interpreter
         let types = self.scope().types.clone();
         map_value(&types, target, value, &mut |target, value|
             {
+                if let Value::Struct(candidate) = value
+                    && candidate.constructing
+                    && let Some(signature) = types.constructors.get(&target)
+                {
+                    let factory = self.pipeline_type_factory(boundary, target, "new")
+                        .or_else(|| self.module_method(target, &method_key(target, "new"))
+                            .map(|function| Value::String(
+                                "new".into(), Executable::Function(function))))
+                        .ok_or_else(|| "Constructor factory is unavailable".to_string())?;
+                    if !types.constructor_permissions.contains(&target)
+                    { return Err("Constructor is private to its module".into()); }
+                    let arguments = signature.arguments(candidate.fields.clone())?;
+                    self.last_result = None;
+                    self.execute_value(&boundary.location, factory, arguments)
+                        .map_err(|error| error.to_string())?;
+                    let value = self.last_result.take().unwrap_or(Value::None);
+                    return types.coerce(signature.result, value).map(Some);
+                }
                 let source = types.inferred_value_type(value);
                 let method = types.conversion_method_name(source);
                 let Some(factory) = self.pipeline_type_factory(boundary, target, &method)

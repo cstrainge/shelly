@@ -2,7 +2,7 @@
 check [
     "id": "STRUCT-075",
     "name": "Float field promotes Integer",
-    "source": "struct S { n: Float }; echo (S(n: 7).n / 2)",
+    "source": "struct S { pub n: Float }; echo (S(n: 7).n / 2)",
     "mode": "code",
     "args": [],
     "stdout": "3.5\n",
