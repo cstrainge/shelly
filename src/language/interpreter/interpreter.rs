@@ -307,6 +307,15 @@ impl Interpreter
                rc_file: RcFile,
                script_args: Vec<String>) -> Self
     {
+        let mut interpreter = Self::registered(color_mode);
+        interpreter.initialize_startup(startup, interactive, color_mode, tab_width,
+                                       rc_file, script_args);
+        interpreter
+    }
+
+    // Registration alone is safe for tooling; startup can execute scripts and is separate.
+    pub(super) fn registered(color_mode: TtyColorMode) -> Self
+    {
         let mut bodies: HashMap<&'static str, BuiltIn<'static>> = HashMap::from([
                 (
                     "cd",
@@ -467,7 +476,7 @@ impl Interpreter
                 )
             ]);
 
-        let mut new_self = Self
+        Self
             {
                 scopes: HashMap::from([
                         (MAIN_SCOPE.to_string(), Scope::new(native_functions.values().cloned(),
@@ -492,16 +501,7 @@ impl Interpreter
                 last_result: None,
                 exit_code: 0,
                 halted: false
-            };
-
-        new_self.initialize_startup(startup,
-                                    interactive,
-                                    color_mode,
-                                    tab_width,
-                                    rc_file,
-                                    script_args);
-
-        new_self
+            }
     }
 
     /**

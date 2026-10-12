@@ -1,0 +1,205 @@
+{
+    "name": "shelly-shell",
+    "displayName": "Shelly Shell",
+    "description": "Parser-driven language support for the Shelly shell and scripting language.",
+    "version": "0.1.1",
+    "publisher": "cstrainge",
+    "license": "MIT",
+    "author": "Chloë Strainge",
+    "icon": "Shelly.png",
+    "homepage": "https://github.com/cstrainge/shelly#readme",
+    "bugs": {
+        "url": "https://github.com/cstrainge/shelly/issues"
+    },
+    "keywords": [
+        "shelly",
+        "shell",
+        "shy",
+        "language",
+        "semantic highlighting"
+    ],
+    "galleryBanner": {
+        "color": "#151a21",
+        "theme": "dark"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/cstrainge/shelly.git",
+        "directory": "extensions/vscode"
+    },
+    "engines": {
+        "vscode": "^1.140.0",
+        "node": ">=22"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "extensionKind": [
+        "workspace"
+    ],
+    "capabilities": {
+        "untrustedWorkspaces": {
+            "supported": "limited",
+            "description": "Source analysis is available without executing documents. Trust is required to select a server executable through workspace settings.",
+            "restrictedConfigurations": [
+                "shelly-shell.serverPath"
+            ]
+        },
+        "virtualWorkspaces": false
+    },
+    "main": "./out/extension.js",
+    "contributes": {
+        "languages": [
+            {
+                "id": "shelly",
+                "aliases": [
+                    "Shelly",
+                    "shelly"
+                ],
+                "extensions": [
+                    ".shy"
+                ],
+                "firstLine": "^#!.*\\bshelly\\b",
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "commands": [
+            {
+                "command": "shelly-shell.restartServer",
+                "title": "Shelly: Restart Language Server"
+            }
+        ],
+        "configuration": {
+            "title": "Shelly",
+            "properties": {
+                "shelly-shell.bracketColorization": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Color nested brackets using Shelly's language-server tokens and the current theme's bracket palette. Strings and comments are excluded."
+                },
+                "shelly-shell.serverPath": {
+                    "type": "string",
+                    "default": "shelly",
+                    "scope": "machine-overridable",
+                    "description": "Path to a Shelly executable supporting --language-server. A bare name is resolved through PATH. Restart the server after changing this setting."
+                },
+                "shelly-shell.trace.server": {
+                    "type": "string",
+                    "enum": [
+                        "off",
+                        "messages",
+                        "verbose"
+                    ],
+                    "default": "off",
+                    "description": "Trace language-server communication in the Shelly output channel."
+                }
+            }
+        },
+        "configurationDefaults": {
+            "[shelly]": {
+                "editor.semanticHighlighting.enabled": true,
+                "editor.bracketPairColorization.enabled": false,
+                "editor.guides.bracketPairs": false
+            }
+        },
+        "semanticTokenTypes": [
+            {
+                "id": "shellyBuiltin",
+                "superType": "function",
+                "description": "A native Shelly function."
+            },
+            {
+                "id": "shellyAlias",
+                "superType": "function",
+                "description": "A command alias."
+            },
+            {
+                "id": "shellyCommand",
+                "superType": "function",
+                "description": "An external or unresolved command name."
+            },
+            {
+                "id": "shellyArgument",
+                "superType": "string",
+                "description": "An ordinary command argument."
+            },
+            {
+                "id": "shellyLiteral",
+                "superType": "keyword",
+                "description": "A Boolean, enum variant, or discard."
+            },
+            {
+                "id": "shellyDelimiter",
+                "superType": "operator",
+                "description": "A bracket or separator."
+            },
+            {
+                "id": "shellyFormat",
+                "superType": "namespace",
+                "description": "A pipeline conversion descriptor."
+            },
+            {
+                "id": "shellyEscape",
+                "superType": "string",
+                "description": "An escape within a string."
+            },
+            {
+                "id": "shellyError",
+                "description": "An invalid source span."
+            }
+        ],
+        "semanticTokenScopes": [
+            {
+                "language": "shelly",
+                "scopes": {
+                    "shellyBuiltin": [
+                        "support.function"
+                    ],
+                    "shellyAlias": [
+                        "entity.name.function"
+                    ],
+                    "shellyCommand": [
+                        "entity.name.function"
+                    ],
+                    "shellyArgument": [
+                        "string.unquoted"
+                    ],
+                    "shellyLiteral": [
+                        "constant.language"
+                    ],
+                    "shellyDelimiter": [
+                        "punctuation"
+                    ],
+                    "shellyFormat": [
+                        "entity.name.namespace"
+                    ],
+                    "shellyEscape": [
+                        "constant.character.escape"
+                    ],
+                    "shellyError": [
+                        "invalid.illegal"
+                    ]
+                }
+            }
+        ]
+    },
+    "scripts": {
+        "check": "tsc -p . --noEmit",
+        "test": "../../target/debug/shelly -m test.shy",
+        "compile": "npm run check && node build.mjs",
+        "watch": "npm run check && node build.mjs --watch",
+        "vscode:prepublish": "npm run compile",
+        "package": "vsce package --no-dependencies --out shelly-shell.vsix",
+        "publish:marketplace": "vsce publish --packagePath shelly-shell.vsix"
+    },
+    "dependencies": {
+        "vscode-languageclient": "10.1.2"
+    },
+    "devDependencies": {
+        "@types/node": "26.6.5",
+        "@types/vscode": "1.140.0",
+        "@vscode/vsce": "4.0.0",
+        "esbuild": "0.28.2",
+        "typescript": "7.0.2"
+    }
+}

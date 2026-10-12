@@ -1379,6 +1379,55 @@ pub fn parse_command_arguments(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<
 }
 
 
+/**
+ * Colons inside an attached bare argument are text, as in npm script names or
+ * host:port. Type and collection parsers keep their delimiter rules, and a colon
+ * before a pipe still belongs to the conversion boundary.
+ */
+pub(super) fn parse_colon_word(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<Token>>
+{
+    fn bare_word(token: &Token) -> bool
+    {
+        match &token.value
+        {
+            TokenValue::Symbol(_) => token.kind == TokenKind::Symbol,
+            TokenValue::Literal(TokenLiteral::Integer(..) | TokenLiteral::Float(..)
+                | TokenLiteral::Boolean(..)) => true,
+            TokenValue::None => valid_type_name(&token.token_value_text()),
+            _ => false,
+        }
+    }
+
+    let mut lookahead = Lookahead::new(buffer);
+    let Some(mut word) = lookahead.buffer.next()? else { return Ok(None); };
+    if !bare_word(&word) { return Ok(None); }
+    lookahead.buffer.annotate_word(word.span);
+    let mut text = word.token_value_text();
+    let mut joined = false;
+    loop
+    {
+        let mut tail = Lookahead::new(&mut *lookahead.buffer);
+        let Some(colon) = try_expect_token(tail.buffer, TokenKind::TypeDelimiter)?
+            else { break; };
+        if colon.span.start != word.span.end { break; }
+        let Some(part) = tail.buffer.next()? else { break; };
+        if !bare_word(&part) || part.span.start != colon.span.end { break; }
+        tail.buffer.annotate_word(colon.span);
+        tail.buffer.annotate_word(part.span);
+        text.push(':');
+        text.push_str(&part.token_value_text());
+        word.span.end = part.span.end;
+        joined = true;
+        tail.commit();
+    }
+    if !joined { return Ok(None); }
+    word.kind = TokenKind::Symbol;
+    word.value = TokenValue::Symbol(text);
+    lookahead.commit();
+    Ok(Some(word))
+}
+
+
 fn parse_arguments_before_block(buffer: &mut TokenBuffer<'_, '_>,
                                 stop_at_block: bool, stop_at_colon: bool)
     -> ParseResult<Vec<AstExpression>>
@@ -1425,6 +1474,15 @@ fn parse_arguments_before_block_inner(buffer: &mut TokenBuffer<'_, '_>,
                     _ => token
                 }
             };
+
+        if !stop_at_colon && let Some(word) = parse_colon_word(buffer)?
+        {
+            let text = word.token_value_text();
+            let flag = if text.contains('$') { AstStringFlag::Interpolated(Vec::new()) }
+                else { AstStringFlag::NonInterpolated };
+            parameter_expressions.push(new_ast_symbol(word.location, text, Some(flag)));
+            continue;
+        }
 
         // The lookahead rewound this token so the full expression can consume it.
         let expression = parse_expression(buffer)?.ok_or_else(|| ParserError

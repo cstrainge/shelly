@@ -16,6 +16,7 @@ use crate::language::{ ast::*,
                                                 parse_value_expression,
                                                 parse_condition_expression,
                                                 parse_command_arguments,
+                                                parse_colon_word,
                                                 expect_type_name,
                                                 expect_field_label,
                                                 parse_indexes,
@@ -190,6 +191,15 @@ fn parse_alias_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
 
     loop
     {
+        if let Some(word) = buffer.with_context(SyntaxContext::Argument, parse_colon_word)?
+        {
+            let text = word.token_value_text();
+            arguments.push(AstAliasArgument
+                {
+                    expand_path: text.starts_with('~'), value: Value::from_string(text),
+                });
+            continue;
+        }
         let mut lookahead = Lookahead::new(buffer);
         let Some(token) = lookahead.buffer.with_context(SyntaxContext::Argument,
             |buffer| buffer.next())? else { break; };

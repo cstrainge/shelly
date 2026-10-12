@@ -1,0 +1,37 @@
+{
+    "folders": [{ "path": "../.." }],
+    "settings": { "shelly-shell.serverPath": "./target/debug/shelly" },
+    "tasks": {
+        "version": "2.0.0",
+        "tasks": [{
+            "label": "Build Shelly",
+            "type": "process",
+            "command": "cargo",
+            "args": ["build", "--locked"],
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": "$rustc"
+        }, {
+            "label": "Build Shelly extension",
+            "type": "process",
+            "command": "npm",
+            "args": ["run", "compile"],
+            "dependsOn": "Build Shelly",
+            "options": { "cwd": "${workspaceFolder}/extensions/vscode" },
+            "problemMatcher": "$tsc"
+        }]
+    },
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [{
+            "name": "Shelly extension",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "${workspaceFolder}/extensions/vscode/shelly-shell.code-workspace",
+                "--extensionDevelopmentPath=${workspaceFolder}/extensions/vscode"
+            ],
+            "outFiles": ["${workspaceFolder}/extensions/vscode/out/**/*.js"],
+            "preLaunchTask": "Build Shelly extension"
+        }]
+    }
+}

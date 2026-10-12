@@ -1,7 +1,8 @@
 
 use std::{ collections::{ BTreeMap, BTreeSet }, ops::{ Index, IndexMut }, sync::Arc };
 
-use crate::language::{ parser::{ EditorAnalysis, editor::analyze_editor_tree },
+use crate::language::{ parser::{ EditorAnalysis,
+                                 editor::{ analyze_editor_tree, analyze_editor_tree_with_limits } },
                        text::span::SourceSpan };
 
 mod semantic;
@@ -135,6 +136,16 @@ pub struct SemanticAnalysis
 pub fn analyze_semantics(source: &str, snapshot: &SymbolSnapshot) -> SemanticAnalysis
 {
     let (analysis, statements) = analyze_editor_tree(source);
+    let (facts, types) = semantic::classify(source, &analysis, &statements, snapshot);
+    SemanticAnalysis { source: analysis, facts, types }
+}
+
+
+// Whole-file frontends can use a larger work budget without changing REPL limits.
+pub fn analyze_semantics_with_limits(source: &str, snapshot: &SymbolSnapshot,
+                                    max_bytes: usize, max_steps: usize) -> SemanticAnalysis
+{
+    let (analysis, statements) = analyze_editor_tree_with_limits(source, max_bytes, max_steps);
     let (facts, types) = semantic::classify(source, &analysis, &statements, snapshot);
     SemanticAnalysis { source: analysis, facts, types }
 }

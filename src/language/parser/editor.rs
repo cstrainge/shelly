@@ -90,11 +90,19 @@ pub fn analyze_editor(source: &str) -> EditorAnalysis
 // Recovered trees stay inside tooling and are never passed to compilation.
 pub(crate) fn analyze_editor_tree(source: &str) -> (EditorAnalysis, AstTopLevel)
 {
-    let mut end = source.len().min(MAX_EDITOR_BYTES);
+    analyze_editor_tree_with_limits(source, MAX_EDITOR_BYTES, MAX_EDITOR_STEPS)
+}
+
+
+pub(crate) fn analyze_editor_tree_with_limits(source: &str, max_bytes: usize, max_steps: usize)
+    -> (EditorAnalysis, AstTopLevel)
+{
+    let mut end = source.len().min(max_bytes);
     while !source.is_char_boundary(end) { end -= 1; }
     let mut input = SimpleBuffer::new("<editor>", &source[..end], None);
     let mut tokenizer = Tokenizer::for_editor(&mut input);
     let mut buffer = TokenBuffer::for_editor(&mut tokenizer);
+    if let Some(editor) = &mut buffer.editor { editor.steps = max_steps; }
     let mut statements = Vec::new();
     while !buffer.editor_exhausted()
     {

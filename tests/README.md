@@ -40,8 +40,17 @@ color-mode adaptation, settings, and incomplete input. `repl/syntax_highlighting
 checks actual Reedline styling, configuration refresh, and Unicode/multiline edits.
 `repl/prompt_refresh.shy` uses a deliberately long PATH to catch executable scans
 that block startup or prompt refresh.
+`native/language_server.shy` drives the real LSP stdio mode and checks framing,
+startup isolation, document versions, semantic tokens, Unicode positions,
+diagnostics, whole-file analysis limits, and delimiter exclusion inside strings
+and comments. The VS Code extension's `test.shy` runs Shelly assertions against
+Node editor fixtures; run `npm test` from `extensions/vscode` after building the
+debug binary and installing the extension's development dependencies.
 
 ## Process case records
+
+`native/colon_arguments.shy` verifies attached colons in command and alias words,
+argument counts, source metadata, and preservation of type and pipeline delimiters.
 
 Every process case calls `check` with an explicit record:
 

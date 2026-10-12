@@ -18,6 +18,7 @@ use crate::{ language::{ interpreter::{ Interpreter, Startup, Interactive, RcFil
 
 mod language;
 mod runtime;
+mod server;
 
 #[derive(Parser, Debug)]
 #[command(name = env!("CARGO_BIN_NAME"),
@@ -25,6 +26,11 @@ mod runtime;
           about = "The Shelly interactive shell and scripting language.")]
 struct CommandArguments
 {
+    /// Serve editor language features over the Language Server Protocol on stdio.
+    #[arg(long, conflicts_with_all = ["interactive", "login", "code", "stdin_code",
+                                     "rcfile", "script_arguments"])]
+    language_server: bool,
+
     /// Force interactive mode.
     #[arg(short = 'i', conflicts_with_all = ["stdin_code"])]
     interactive: bool,
@@ -271,6 +277,19 @@ fn main() -> RuntimeResult<ExitCode>
     if let Some(tab_width) = args.tab_width && tab_width == 0
     {
         return Err(RuntimeError::InvalidTabWidth);
+    }
+
+    if args.language_server
+    {
+        return Ok(match server::run()
+            {
+                Ok(code) => code,
+                Err(error) =>
+                    {
+                        eprintln!("Language server error: {error}");
+                        ExitCode::FAILURE
+                    },
+            });
     }
 
     let color_mode = determine_color_mode(&args);

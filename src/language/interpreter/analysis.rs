@@ -9,6 +9,26 @@ use crate::runtime::{ color::TtyColorMode, highlighting::{ SyntaxSettings, SYNTA
 
 impl Interpreter
 {
+    /**
+     * Build the native baseline without profiles, the prelude, getters, or user code.
+     * The server keeps only this owned snapshot, not an interpreter.
+     */
+    pub fn server_snapshot() -> SymbolSnapshot
+    {
+        let mut snapshot = Self::registered(TtyColorMode::TtyMonochrome).symbol_snapshot();
+        for (name, type_name) in [
+                ("$OS", "String"), ("$os", "String"), ("$args", "Array"),
+                ("$shelly", "String"), ("$interactive", "Boolean"), ("$login", "Boolean"),
+                ("$version", "String"), ("$build_date", "String"), ("$build_time", "String"),
+            ]
+        {
+            let type_id = snapshot.symbols.get(type_name).and_then(|symbol| symbol.type_id);
+            snapshot.symbols.insert(name.into(),
+                SymbolDescriptor::new(SymbolKind::Variable, type_id));
+        }
+        snapshot
+    }
+
     // Read configuration bindings directly; refreshing the editor cannot call getters.
     pub fn syntax_settings(&self) -> SyntaxSettings
     {

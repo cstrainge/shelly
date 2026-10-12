@@ -1,0 +1,12 @@
+src/**
+tests/**
+test.shy
+.gitignore
+node_modules/**
+**/*.map
+tsconfig.json
+build.mjs
+package-lock.json
+shelly-shell.code-workspace
+*.vsix
+PUBLISHING.md
