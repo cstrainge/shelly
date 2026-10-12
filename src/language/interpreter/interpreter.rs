@@ -39,7 +39,8 @@ use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
                                  types::{ StructValue, TypeId, TypeKind, TypeRegistry } },
                          parser::{ ParserError, parse_text },
                          tokenizer::Tokenizer,
-                         text::{ buffer::Buffer, location::Location, read_buffer::ReadBuffer },
+                         text::{ interpolation::interpolation_references, buffer::Buffer,
+                                 location::Location, read_buffer::ReadBuffer },
                          interpreter::{ Alias, iteration::Iteration,
                                         scope::Scope, modules::Prelude,
                                         redirection::{ Redirection, Output, configure } } },
@@ -399,6 +400,9 @@ impl Interpreter
             NativeVisibility::Hidden, Rc::new(Interpreter::handle_syntax_spans)));
         native_functions.insert("__editor_source", NativeFunction::new("__editor_source",
             NativeVisibility::Hidden, Rc::new(Interpreter::handle_editor_source)));
+
+        native_functions.insert("__semantic_source", NativeFunction::new("__semantic_source",
+            NativeVisibility::Hidden, Rc::new(Interpreter::handle_semantic_source)));
 
         let special_vars: SpecialVars = HashMap::from([
                 (
@@ -3414,89 +3418,22 @@ impl Interpreter
             };
 
         let mut interpolated = String::with_capacity(text.len());
-        let mut characters = text.char_indices().peekable();
-
-        while let Some((offset, character)) = characters.next()
+        let mut offset = 0;
+        for reference in interpolation_references(text, escaped_dollars)
         {
-            if character != '$' || escaped_dollars.binary_search(&offset).is_ok()
-            {
-                interpolated.push(character);
-                continue;
-            }
-
-            let mut variable_name = String::from("$");
-
-            if characters.peek().is_some_and(|(_, character)| *character == '{')
-            {
-                characters.next();
-                let mut closed = false;
-
-                for (_, character) in characters.by_ref()
-                {
-                    if character == '}'
-                    {
-                        closed = true;
-                        break;
-                    }
-
-                    variable_name.push(character);
-                }
-
-                if !closed || variable_name.len() == 1
-                {
-                    return Err(invalid_operand(
-                        "Expected a variable name and closing '}' in string interpolation."
-                            .to_string()));
-                }
-            }
-            else
-            {
-                // Braces delimit names explicitly; bare names end at punctuation.
-                while let Some(&(_, character)) = characters.peek()
-                {
-                    if character == ':'
-                    {
-                        let mut probe = characters.clone();
-                        probe.next();
-                        if probe.next().is_some_and(|(_, c)| c == ':')
-                            && probe.peek().is_some_and(|(_, c)| c.is_alphanumeric() || *c == '_')
-                        {
-                            characters.next();
-                            characters.next();
-                            variable_name.push_str("::");
-                            continue;
-                        }
-                    }
-                    if !character.is_alphanumeric() && character != '_'
-                    {
-                        break;
-                    }
-
-                    variable_name.push(character);
-                    characters.next();
-                }
-
-                if variable_name.len() == 1
-                {
-                    interpolated.push('$');
-                    continue;
-                }
-            }
-
-            if variable_name.contains('=')
-            {
-                return Err(invalid_operand(
-                    "Invalid variable name: '=' is not allowed.".to_string()));
-            }
-
-            let value = self.read_raw_variable(&variable_name, &location)?;
+            interpolated.push_str(&text[offset..reference.span.start]);
+            if let Some(message) = reference.error
+            { return Err(invalid_operand(message.to_string())); }
+            let value = self.read_raw_variable(&reference.name, &location)?;
             let value = if display_paths { self.eval_value_paths_to(value) } else { value };
 
             // Append values directly so their contents are not interpolated again.
             let text = value.as_text();
             let text = if escape_glob { self.eval_path_from(&text) } else { text };
             interpolated.push_str(&if escape_glob { Pattern::escape(&text) } else { text });
+            offset = reference.span.end;
         }
+        interpolated.push_str(&text[offset..]);
 
         Ok(interpolated)
     }

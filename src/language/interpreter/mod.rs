@@ -12,6 +12,7 @@ mod visibility;
 mod properties;
 mod collection_types;
 mod source;
+mod analysis;
 
 pub use crate::language::interpreter::interpreter::*;
 pub use crate::language::interpreter::scope::Alias;

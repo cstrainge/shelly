@@ -278,6 +278,21 @@ impl Scope
         }
     }
 
+    // Enumerate names without resolving or invoking their bodies.
+    pub fn function_names(&self) -> HashSet<String>
+    {
+        let mut names: HashSet<String> = self.base_function_block.borrow().functions.keys()
+            .cloned().collect();
+        let mut block = self.current_function_block.clone();
+        while let Some(current) = block
+        {
+            let current = current.borrow();
+            names.extend(current.functions.keys().cloned());
+            block = current.parent.clone();
+        }
+        names
+    }
+
     pub fn in_function(&self) -> bool
     {
         self.current_function_block.is_some()

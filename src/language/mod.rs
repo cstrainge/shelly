@@ -10,3 +10,4 @@ pub mod interpreter;
 pub mod typecheck;
 pub mod exclusions;
 pub mod native;
+pub mod analysis;

@@ -32,6 +32,9 @@ roles and contexts, nested lookahead rollback, and strict parsing parity.
 `native/editor_analysis.shy` uses the hidden `__editor_source` bridge to check
 partial literals and statements, recovery boundaries, source preservation,
 strict rejection, and analysis limits.
+`native/semantic_analysis.shy` checks read-only symbol snapshots, provisional
+local scopes, receiver methods, imported exports, and string references through
+the hidden `__semantic_source` bridge.
 
 ## Process case records
 

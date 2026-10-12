@@ -1,7 +1,8 @@
 
 use std::io::{ BufReader, Cursor };
 
-use crate::language::{ data::{ map_key::MapKey, value::Value },
+use crate::language::{ analysis::{ analyze_semantics, SemanticAnalysis, SymbolSnapshot },
+                       data::{ map_key::MapKey, value::Value },
                        interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult },
                        parser::{ analyze_editor, EditorAnalysis, parse_text, parse_with_metadata,
                                  source::SyntaxMetadata },
@@ -131,6 +132,51 @@ fn inspect_syntax(source: &str, buffer: &mut dyn Buffer, metadata: bool) -> Valu
 
 impl Interpreter
 {
+    pub(super) fn handle_semantic_source(&mut self, location: &Location, args: &[Value])
+        -> InterpreterResult<()>
+    {
+        let [Value::String(source, _), Value::Array(commands)] = args else
+        {
+            return Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::ArgumentMismatch(
+                        "__semantic_source expects a String and an array of Strings".into()),
+                });
+        };
+        fn require_send_sync<T: Send + Sync>() {}
+        require_send_sync::<SymbolSnapshot>();
+        require_send_sync::<SemanticAnalysis>();
+        let count = self.scope().types.definition_count();
+        let mut snapshot = self.symbol_snapshot();
+        for command in commands.iter()
+        {
+            let Value::String(command, _) = command else
+            {
+                return Err(InterpreterError
+                    {
+                        location: location.clone(),
+                        what: ErrorWhat::ArgumentMismatch("External names must be Strings".into()),
+                    });
+            };
+            snapshot.external_commands.insert(command.clone());
+        }
+        let analysis = analyze_semantics(source, &snapshot);
+        let facts = analysis.facts.iter().map(|fact| record([
+                ("span", span_value(fact.span, source)),
+                ("kind", Value::from_string(format!("{:?}", fact.kind))),
+                ("type", fact.type_id.and_then(|id| analysis.types.get(id))
+                    .map_or(Value::None, |ty| Value::from_string(ty.name.clone()))),
+            ])).collect();
+        self.last_result = Some(record([
+                ("facts", Value::from_array(facts)),
+                ("types_before", Value::Integer(count as i64)),
+                ("types_after", Value::Integer(self.scope().types.definition_count() as i64)),
+                ("diagnostics", Value::Integer(analysis.source.diagnostics.len() as i64)),
+            ]));
+        Ok(())
+    }
+
     pub(super) fn handle_editor_source(&mut self, location: &Location, args: &[Value])
         -> InterpreterResult<()>
     {

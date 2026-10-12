@@ -1,5 +1,5 @@
 
-use crate::language::{ ast::AstStatement,
+use crate::language::{ ast::{ AstStatement, AstTopLevel },
                        parser::{ results::{ ParserErrorKind, ParseResult },
                                  source::{ SyntaxFact, SyntaxMetadata },
                                  statements::parse_statement },
@@ -83,16 +83,24 @@ impl EditorParser
  */
 pub fn analyze_editor(source: &str) -> EditorAnalysis
 {
+    analyze_editor_tree(source).0
+}
+
+
+// Recovered trees stay inside tooling and are never passed to compilation.
+pub(crate) fn analyze_editor_tree(source: &str) -> (EditorAnalysis, AstTopLevel)
+{
     let mut end = source.len().min(MAX_EDITOR_BYTES);
     while !source.is_char_boundary(end) { end -= 1; }
     let mut input = SimpleBuffer::new("<editor>", &source[..end], None);
     let mut tokenizer = Tokenizer::for_editor(&mut input);
     let mut buffer = TokenBuffer::for_editor(&mut tokenizer);
+    let mut statements = Vec::new();
     while !buffer.editor_exhausted()
     {
         match parse_statement(&mut buffer)
         {
-            Ok(Some(_)) => {},
+            Ok(Some(statement)) => statements.push(statement),
             Ok(None) | Err(_) => break,
         }
     }
@@ -148,12 +156,12 @@ pub fn analyze_editor(source: &str) -> EditorAnalysis
         }
     }
     regions.sort_by_key(|region| (region.span.start, region.span.end));
-    EditorAnalysis
+    (EditorAnalysis
         {
             tokens: tokenizer.editor_tokens().to_vec(),
             lexical: tokenizer.metadata().cloned().unwrap_or_default(),
             syntax, diagnostics, regions, unparsed,
-        }
+        }, statements)
 }
 
 

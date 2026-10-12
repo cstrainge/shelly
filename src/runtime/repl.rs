@@ -1,6 +1,6 @@
 
 use std::{ borrow::Cow,
-           collections::{ BTreeMap, VecDeque },
+           collections::{ BTreeMap, BTreeSet, VecDeque },
            sync::{ Arc, atomic::{ AtomicBool, Ordering } },
            process::ExitCode,
            path::{ Path, PathBuf },
@@ -33,7 +33,8 @@ use reedline::{ Color,
 
 use rustix::process::geteuid;
 
-use crate::{ language::{ interpreter::{ Interpreter, Interactive, RcFile, Startup },
+use crate::{ language::{ analysis::SymbolSnapshot,
+                         interpreter::{ Interpreter, Interactive, RcFile, Startup },
                          text::buffer::SimpleBuffer },
              runtime::{ color::TtyColorMode, result::RuntimeResult, signals::take_interrupt,
                         history::{ self, ReplHistory, DEFAULT_LIMIT } },
@@ -111,7 +112,7 @@ impl Prompt for ShellyPrompt
 #[derive(Clone)]
 struct ShellyCompleter
 {
-    search_path: Vec<PathBuf>,
+    symbols: Arc<SymbolSnapshot>,
     home: Option<PathBuf>,
     variables: Vec<String>
 }
@@ -279,6 +280,25 @@ fn completion_text(path: &str, directory: bool) -> String
 }
 
 
+// Build once before editing; analysis never scans PATH on a keystroke.
+fn command_inventory(search_path: &str) -> BTreeSet<String>
+{
+    let mut names = BTreeSet::new();
+    for directory in split_paths(search_path)
+    {
+        let directory = if directory.as_os_str().is_empty() { Path::new(".") }
+            else { directory.as_path() };
+        let Ok(entries) = read_dir(directory) else { continue; };
+        for entry in entries.flatten()
+        {
+            let Ok(name) = entry.file_name().into_string() else { continue; };
+            if is_executable(&entry.path()) { names.insert(name); }
+        }
+    }
+    names
+}
+
+
 fn is_executable(path: &Path) -> bool
 {
     let Ok(metadata) = path.metadata() else { return false; };
@@ -329,25 +349,9 @@ impl Completer for ShellyCompleter
 
         if command && !word.contains('/')
         {
-            for directory in &self.search_path
+            for name in &self.symbols.external_commands
             {
-                let directory = if directory.as_os_str().is_empty()
-                {
-                    Path::new(".")
-                }
-                else
-                {
-                    directory
-                };
-                let Ok(entries) = read_dir(directory) else { continue; };
-                for entry in entries.flatten()
-                {
-                    let Ok(name) = entry.file_name().into_string() else { continue; };
-                    if name.starts_with(&word) && is_executable(&entry.path())
-                    {
-                        matches.insert(name, false);
-                    }
-                }
+                if name.starts_with(&word) { matches.insert(name.clone(), false); }
             }
         }
 
@@ -633,9 +637,11 @@ impl Repl
             let search_path = self.interpreter.evaluate_path_variable("$PATH").unwrap_or_default();
             let home = self.interpreter.evaluate_path_variable("$HOME").ok()
                 .filter(|home| !home.is_empty()).map(PathBuf::from).or_else(home_dir);
+            let mut symbols = self.interpreter.symbol_snapshot();
+            symbols.external_commands = command_inventory(&search_path);
             let completer = ShellyCompleter
                 {
-                    search_path: split_paths(&search_path).collect(),
+                    symbols: Arc::new(symbols),
                     home,
                     variables: self.interpreter.variable_names()
                 };

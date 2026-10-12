@@ -442,6 +442,21 @@ impl TypeRegistry
         names
     }
 
+    // Tooling needs the registered signature, without specializing iterator results.
+    pub fn registered_method(&self, receiver: TypeId, name: &str) -> Option<Rc<BuiltinMethod>>
+    {
+        let definition = self.get(receiver);
+        if let TypeKind::Named(inner) = definition.kind
+        { return self.registered_method(inner, name); }
+        let receiver = match definition.kind
+            {
+                TypeKind::Array(_) | TypeKind::FixedArray(_) => self.builtin_id("Array")?,
+                TypeKind::Map(_, _) => self.builtin_id("HashMap")?,
+                _ => receiver,
+            };
+        self.methods.get(&receiver)?.get(name).cloned()
+    }
+
     pub fn direct_method(&self, receiver: TypeId, name: &str) -> Option<Rc<BuiltinMethod>>
     {
         let definition = self.get(receiver);

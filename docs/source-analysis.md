@@ -30,8 +30,8 @@ On a lexical error, strict tokenization still stops and reports its existing
 diagnostic. Metadata already understood is retained, including an unfinished
 string's decoded prefix and absent closing delimiter. The span of that string
 covers the input consumed before failure, including a malformed escape.
-The editor analysis described below adds recovery. Semantic classification
-and interpolation-reference classification remain separate work.
+The editor analysis described below adds recovery. The semantic layer can
+then classify known symbols and references inside interpolated strings.
 
 The Shelly test suite exercises this API through a hidden inspection bridge in
 the interpreter. That bridge serializes lexical facts only and is not part of
@@ -120,3 +120,59 @@ The editor tests walk every prefix of representative declarations and pipelines,
 compare complete input with strict parsing, verify source reconstruction on
 malformed text, and assert that later commands retain their argument context.
 The syntax and source-span tests continue to validate strict mode separately.
+
+
+## Read-only semantic information
+
+`Interpreter::symbol_snapshot` copies currently visible names, nominal type
+identities, field types, method signatures, module exports, aliases, and native
+functions into an owned `SymbolSnapshot`. Both the snapshot and semantic analysis
+result are `Send + Sync`; the snapshot
+contains no interpreter, `Rc`, value, executable body, live receiver, or getter.
+Hidden registrations stay hidden. Qualified names follow loaded module exports;
+private extensions from other modules remain unavailable.
+
+Snapshot creation does not read special-variable getters or call type inference.
+Even iterator signature lookup uses the registered signature, avoiding the normal
+lookup path that can intern specialized `next_item` result types. Unknown binding
+types remain unknown rather than reading a referenced value through a getter.
+
+`analyze_semantics(source, snapshot)` returns editor metadata plus sorted semantic
+facts for variables, types, functions, methods, builtins, aliases, known external
+commands, fields, enum variants, and module namespaces. Semantic spans refer to
+original UTF-8 bytes and supplement grammar facts; they do not change the input.
+Unknown names keep their syntax roles without a speculative semantic error.
+
+The existing editor parser supplies a private recovered tree for a read-only
+walk. Functions, parameters, local types, fields, aliases, and bindings in that
+tree are prospective: they are never registered. Scope boundaries and declaration
+order control local references. Annotations and simple understood initializers
+can identify receiver types, including typed collections and iterator elements.
+Unknown unions, dependent types, and computed results stay conservative. This
+is not compilation, flow analysis, or validation of a program's types. Registered
+type descriptors are shared through an immutable `Arc`; each editing pass adds
+its own local descriptors instead of cloning every registered field and method.
+
+String references use the same pure name scanner as execution. Decoded spans map
+back through `StringSource` to their original spelling, preserving Unicode,
+escapes, and multiline indentation. Escaped dollars and noninterpolated strings
+are excluded. Incomplete braced references can still receive variable styling.
+
+Analysis never evaluates conditions, calls functions or conversion methods,
+expands aliases, loads modules, reads files, invokes programs, or changes the
+interpreter. Imports can consult exports already present in the snapshot, but
+cannot discover an unloaded module. The parser's source and work limits still
+apply, and the semantic walk caps expression depth at 64 for long operator
+chains. Indexed span and region lookups avoid repeatedly scanning whole buffers.
+
+Before each REPL prompt, completion builds an executable-name inventory from
+PATH and shares it in the symbol snapshot. Completion reuses that inventory
+while editing, and future highlighting can consume it without probing PATH on
+keystrokes. Configuration and visible symbols are refreshed after each command.
+This phase exposes analysis only; Reedline styling and color configuration are
+separate integration work. A future language server can reuse these descriptors
+and translate their byte spans to client positions.
+
+`native/semantic_analysis.shy` uses the hidden `__semantic_source` inspection
+bridge to verify semantic spans, visibility, provisional scopes, imports,
+interpolation, incomplete input, and analysis without execution or type interning.

@@ -1,0 +1,139 @@
+# Semantic analysis consumes a snapshot; nothing in the inspected text is evaluated.
+visible `__semantic_source
+
+fn semantic_report($source: String): any
+{
+    let $report = __semantic_source $source ["echo", "git", "printf", "cd"]
+    require ($report == (__semantic_source $source ["echo", "git", "printf", "cd"])) "semantic analysis is not deterministic"
+    require ($report["types_before"] == $report["types_after"]) "semantic analysis interned a type"
+    let $end = 0
+    for $fact in $report["facts"]
+    {
+        require (($fact["span"]["start"] >= $end) &&
+            ($fact["span"]["end"] > $fact["span"]["start"]) &&
+            ($fact["span"]["raw"] != ())) "semantic spans overlap or leave UTF-8 boundaries"
+        $end = $fact["span"]["end"]
+    }
+    $report
+}
+
+fn semantic_has($report: any, $raw: String, $kind: String, $type: String | ()): Boolean
+{
+    for $fact in $report["facts"]
+    {
+        if ($fact["span"]["raw"] == $raw) && ($fact["kind"] == $kind) &&
+            ($fact["type"] == $type) { return true }
+    }
+    false
+}
+
+fn semantic_absent($report: any, $raw: String): Boolean
+{
+    for $fact in $report["facts"]
+    { if $fact["span"]["raw"] == $raw { return false } }
+    true
+}
+
+let $actual: String = "untouched"
+fn snapshot_function($x: Integer): String { "never called" }
+alias snapshot_alias = echo
+struct SnapshotBox { title: String }
+let $box = SnapshotBox(title: "title")
+let $typed_items: [SnapshotBox] = []
+let $typed_map: [Integer: SnapshotBox] = [:]
+fn SnapshotBox::describe(): String { "not called" }
+let $report = semantic_report "cd /; snapshot_function 1; snapshot_alias; git diff; echo let String snapshot_function; echo \$actual.trim \$box.title \$box.describe \$pid; MissingType(1); __source_spans x"
+require (semantic_has $report "cd" "Builtin" ()) "native function classification"
+require (semantic_has $report "snapshot_function" "Function" ()) "script function classification"
+require (semantic_has $report "snapshot_alias" "Alias" ()) "alias classification"
+require (semantic_has $report "git" "ExternalCommand" ()) "cached external classification"
+require (semantic_absent $report "diff") "external argument was treated as an executable"
+require (semantic_absent $report "let") "keyword argument was classified semantically"
+require (semantic_absent $report "String") "type word argument was treated as a type expression"
+require (semantic_has $report ".trim" "Method" ()) "native receiver method classification"
+require (semantic_has $report ".describe" "Method" ()) "script receiver method classification"
+require (semantic_has $report ".title" "Field" "String") "struct field classification"
+require (semantic_has $report "\$pid" "Variable" ()) "special variable was read or omitted"
+require (semantic_absent $report "MissingType") "unknown conversion target invented"
+require (semantic_absent $report "__source_spans") "hidden native registration was exposed"
+require ($actual == "untouched") "snapshot changed a live binding"
+
+$report = semantic_report "::cd /; ::snapshot_function 1; cd /"
+require (semantic_has $report "cd" "ExternalCommand" ()) "outer call did not bypass builtin"
+require (semantic_absent $report "::") "outer operator was colored as a command"
+require (semantic_absent $report "snapshot_function") "outer call used script definition"
+
+# Provisional definitions and lexical bindings are source information, not registrations.
+$report = semantic_report "type LocalCount = Integer; struct LocalBox { text: String }; enum LocalMood { Good }; fn later(\$s: String): String { let \$inner = \$s.trim; \$inner.trim }; let \$local: LocalBox = LocalBox(text: \"hi\"); echo \$local.text LocalMood::Good; later \"x\"; echo \$inner"
+require (semantic_has $report "LocalCount" "Type" "LocalCount") "local nominal type missing"
+require (semantic_has $report "LocalBox" "Type" "LocalBox") "local struct type missing"
+require (semantic_has $report "later" "Function" ()) "local function missing"
+require (semantic_has $report "\$s" "Variable" "String") "parameter type not retained"
+require (semantic_has $report "\$inner" "Variable" "String") "local initializer type not inferred"
+require (semantic_has $report ".text" "Field" "String") "local receiver field missing"
+require (semantic_has $report "Good" "EnumVariant" "LocalMood") "local enum reference missing"
+let $inner_count = 0
+for $fact in $report["facts"] { if $fact["span"]["raw"] == "\$inner" { $inner_count = $inner_count + 1 } }
+require ($inner_count == 2) "function-local binding leaked outside its body"
+$report = semantic_report "echo \$local LocalBox later LocalMood LocalCount"
+require (semantic_absent $report "\$local") "analysis registered a prospective variable"
+require (semantic_absent $report "LocalBox") "analysis registered a prospective type"
+
+$report = semantic_report "fn Array::local_method(): Integer { 1 }; let \$items: [Integer] = []; echo \$items.reverse \$items.local_method; for \$s in [\"a\"] { echo \$s.trim }"
+require (semantic_has $report "local_method" "Method" ()) "method declaration classification"
+require (semantic_has $report ".local_method" "Method" ()) "prospective collection extension missing"
+require (semantic_has $report ".reverse" "Method" ()) "collection builtin missing"
+require (semantic_has $report "\$s" "Variable" "String") "iteration element type lost"
+$report = semantic_report "fn outer() { fn String::private_local(): String { \"x\" }; \"x\".private_local }; echo \"x\".private_local"
+let $method_count = 0
+for $fact in $report["facts"] { if $fact["span"]["raw"] == ".private_local" { $method_count = $method_count + 1 } }
+require ($method_count == 1) "lexical method leaked out of its function"
+
+# Type values and typed-empty collections retain their distinct meanings.
+$report = semantic_report "echo (Integer).name [Integer].value_type [String: Integer].key_type \$typed_items.value_type \$typed_map.key_type; fn Array::new_local(): Integer { 1 }; echo \$typed_items.new_local; for \$n in 0..3 { echo \$n }; let \$callback = fn (): String { \"x\" }; (\$callback).trim"
+require (semantic_has $report ".name" "Field" "String") "represented type name property lost"
+require (semantic_has $report ".value_type" "Field" "Type") "collection value type property lost"
+require (semantic_has $report ".key_type" "Field" "Type") "collection key type property lost"
+require (semantic_has $report ".new_local" "Method" ()) "registered collection missed provisional method"
+require (semantic_has $report "\$n" "Variable" "Integer") "range iteration type lost"
+$report = semantic_report "echo '\$actual' 1.value_type"
+require (semantic_absent $report "\$actual") "single-quoted reference was interpolated"
+require (semantic_absent $report ".value_type") "scalar invented a collection property"
+
+# References include Unicode, escaped source mappings, multiline strings, and partial braces.
+$report = semantic_report "let \$猫: String = \"hi\"; echo \"é \$猫 \${actual} \\\$actual\""
+require (semantic_has $report "\$猫" "Variable" "String") "Unicode reference missing"
+require (semantic_has $report "\${actual}" "Variable" "String") "braced string reference missing"
+require (semantic_absent $report "\$actual") "escaped dollar was interpolated"
+$report = semantic_report "echo \"*\n  \$actual\n  \${actual}\n  \""
+require (semantic_has $report "\$actual" "Variable" "String") "multiline reference missing"
+$report = semantic_report "echo \"\${actual"
+require (semantic_has $report "\${actual" "Variable" "String") "unfinished braced reference lost"
+require ($report["diagnostics"] > 0) "incomplete string became valid"
+
+# Analysis does not execute commands, import modules, resolve conditions, or write variables.
+let $before = $pwd
+$report = semantic_report "\$actual = \"changed\"; cd /; exit 9; import nonexistent when (exit 8); [when (exit 7)] fn dangerous(): String { \"x\" }; dangerous"
+require (($actual == "untouched") && ($pwd == $before)) "analysis executed inspected statements"
+$report = semantic_report "let \$rows = [1, 2]; \$rows | (\$ + 1) | \$actual"
+require (semantic_has $report "\$" "Variable" "Integer") "pipeline input type missing"
+
+# Imported interfaces are copied from loaded scopes, including public extensions.
+let $fixture = $args[0]
+printf "%s" "pub struct Exposed { name: String }; pub fn exported(): String { \"ok\" }; fn private_fn(): String { \"secret\" }; pub fn String::imported_method(): String { \"ok\" }; fn String::private_method(): String { \"secret\" }; pub let \$value: String = \"ok\"" -> "${fixture}/semantic_api.shy"
+let $code = "import semantic_api; visible `__semantic_source; echo (__semantic_source 'semantic_api::exported; semantic_api::private_fn; let \$x: semantic_api::Exposed; echo \$x.name \"x\".imported_method \"x\".private_method \$semantic_api::value' [])"
+let $reply = run_process [`$shelly, "-m", "-c", $code] [
+    "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin", "SHELLY_STD_PATH": ""],
+    "stdin_file": "/dev/null", "stdout_file": "${fixture}/out", "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+let $out: String
+let $err: String
+"${fixture}/out" -> $out
+"${fixture}/err" -> $err
+require (($reply["exit_code"] == 0) && ($err == "") && (!$reply["timed_out"])) "module semantic inspection failed"
+require (($out.contains "exported") && ($out.contains ".imported_method") &&
+    (!($out.contains "private_fn")) && (!($out.contains ".private_method"))) "module privacy or imported method classification"
+
+# Every editing prefix stays safe, deterministic, and span-preserving.
+let $prefix = ""
+for $character in "fn callback(\$value: String): String { \"hi \${value}\".trim }; [1,2] | (\$ + 1)".chars
+{ $prefix = $prefix + $character; let _ = semantic_report $prefix }
