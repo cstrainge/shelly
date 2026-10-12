@@ -2917,6 +2917,18 @@ cargo build --locked --release --target-dir target/test-validation
 
 This does not replace `target/release/shelly`.
 
+## VS Code
+
+The [Shelly extension](extensions/vscode/README.md) lives in `extensions/vscode/`
+and has the Marketplace ID `cstrainge.shelly-shell`. It uses
+`shelly --language-server` for highlighting and syntax diagnostics, with the
+same parser and source analysis as the REPL. VS Code themes choose the colors;
+there is no separate highlighting grammar.
+
+The server never executes startup files or document code. Configure
+`shelly-shell.serverPath` to a build supporting the server mode. See the extension
+README for local packaging, installation, and remote/WSL setup.
+
 ## Direction
 
 The aim is to keep the immediacy of a shell while giving larger scripts a clear

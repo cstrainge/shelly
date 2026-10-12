@@ -1,0 +1,180 @@
+# Drive the real stdio server with LSP frames; no interpreter code may run in that process.
+let $fixture = $args[0]
+
+fn frame_text($body: String): String
+{
+    $body | cat -> "${fixture}/body"
+    let $length: String
+    let $result = run_process ["wc", "-c"] ["stdin_file": "${fixture}/body"] -> $length
+    require ($result["exit_code"] == 0) "could not measure UTF-8 frame"
+    $length = $length.trim
+    "Content-Length: ${length}\r\n\r\n${body}"
+}
+
+fn frame($message: any): String { frame_text (String::from_json $message) }
+
+fn request($id: any, $method: String, $params: any): String
+{ frame ["jsonrpc": "2.0", "id": $id, "method": $method, "params": $params] }
+
+fn notification($method: String, $params: any): String
+{ frame ["jsonrpc": "2.0", "method": $method, "params": $params] }
+
+fn run_server($input: String): any
+{
+    $input | cat -> "${fixture}/input"
+    let $reply = run_process [`$shelly, "--language-server"] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "${fixture}/lsp-std", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "${fixture}/input", "stdout_file": "${fixture}/output",
+        "stderr_file": "${fixture}/error", "timeout_ms": 5000]
+    require ((!$reply["timed_out"]) && ($reply["signal"] == ()) && ($reply["error"] == ())) "server did not finish"
+    $reply
+}
+
+fn has_key($value: HashMap, $name: String): Boolean
+{
+    for ($key, _) in $value { if $key == $name { return true } }
+    false
+}
+
+fn response_for($messages: Array, $id: any): any
+{
+    for $message in $messages
+    { if (has_key $message "id") && ($message["id"] == $id) { return $message } }
+    fail "missing server response"
+}
+
+fn token_at($data: Array, $line: Integer, $column: Integer, $length: Integer, $kind: Integer): Boolean
+{
+    let $current_line = 0
+    let $current_column = 0
+    require ($data.count % 5 == 0) "bad semantic token encoding"
+    for $index in 0..$data.count
+    {
+        if $index % 5 != 0 { continue }
+        $current_line = $current_line + $data[$index]
+        $current_column = if $data[$index] == 0
+            { $current_column + $data[$index + 1] } else { $data[$index + 1] }
+        require ($data[$index + 2] > 0) "empty semantic token"
+        if ($current_line == $line) && ($current_column == $column) &&
+            ($data[$index + 2] == $length) && ($data[$index + 3] == $kind) { return true }
+    }
+    false
+}
+
+# If normal startup happens, this deliberately noisy prelude will corrupt the wire stream.
+mkdir "${fixture}/lsp-std"
+printf "%s" "echo BAD_PRELUDE; touch startup-executed; exit 91" -> "${fixture}/lsp-std/prelude.shy"
+printf "%s" "echo BAD_RC; touch startup-executed; exit 92" -> "${fixture}/.shelly_init.shy"
+
+let $uri = "file:///never-read.shy"
+let $source = "echo let\r\nlet \$猫: String = \"💜 \${猫}\"\r\nfn local(\$n: Integer): Integer { \$n + 1 }\r\necho \$猫.trim; local 3\nimport nonexistent when (exit 9)\necho SHOULD_NOT_RUN; touch document-executed; exit 8"
+let $input = request 0 "textDocument/semanticTokens/full" [:]
+$input = $input + (request 1 "initialize" ["capabilities": [:]])
+$input = $input + (notification "initialized" [:])
+$input = $input + (request 2 "unknown/request" [:])
+$input = $input + (notification "textDocument/didOpen" ["textDocument": [
+    "uri": $uri, "languageId": "shelly", "version": 1, "text": $source]])
+$input = $input + (request "tokens" "textDocument/semanticTokens/full" ["textDocument": ["uri": $uri]])
+$input = $input + (notification "textDocument/didChange" ["textDocument": ["uri": $uri, "version": 2],
+    "contentChanges": [["text": "let \$x ="]]])
+$input = $input + (notification "textDocument/didChange" ["textDocument": ["uri": $uri, "version": 1],
+    "contentChanges": [["text": "echo \"\\xZZ\""]]])
+$input = $input + (request 3 "textDocument/semanticTokens/full" ["textDocument": ["uri": $uri]])
+$input = $input + (notification "textDocument/didChange" ["textDocument": ["uri": $uri, "version": 3],
+    "contentChanges": [["text": "echo \"\\xZZ\""]]])
+$input = $input + (notification "textDocument/didChange" ["textDocument": ["uri": $uri, "version": 4],
+    "contentChanges": [["text": ""]]])
+$input = $input + (request 4 "textDocument/semanticTokens/full" ["textDocument": ["uri": $uri]])
+$input = $input + (notification "textDocument/didClose" ["textDocument": ["uri": $uri]])
+$input = $input + (request 5 "textDocument/semanticTokens/full" ["textDocument": ["uri": $uri]])
+$input = $input + (frame_text "{")
+$input = $input + (request 6 "shutdown" ())
+$input = $input + (request 7 "textDocument/semanticTokens/full" ["textDocument": ["uri": $uri]])
+$input = $input + (notification "exit" ())
+require ((run_server $input)["exit_code"] == 0) "normal LSP lifecycle failed"
+let $output: String
+let $error: String
+"${fixture}/output" -> $output
+"${fixture}/error" -> $error
+require ($error == "") "server emitted startup or execution errors"
+require (!(test -e "${fixture}/startup-executed")) "server executed startup code"
+require (!(test -e "${fixture}/document-executed")) "server executed document code"
+
+let $messages = []
+let $chunks = $output.split "Content-Length: "
+require ($chunks[0] == "") "nonprotocol stdout"
+for $index in 1..$chunks.count
+{
+    let $parts = $chunks[$index].split "\r\n\r\n"
+    require ($parts.count == 2) "bad response framing"
+    require ($parts[1].chars.count == Integer($parts[0])) "response Content-Length is wrong"
+    $messages = [$messages..., (json::from_string $parts[1])]
+}
+require ((response_for $messages 0)["error"]["code"] == -32002) "request before initialize accepted"
+require ((response_for $messages 2)["error"]["code"] == -32601) "unknown request not rejected"
+let $initialize = (response_for $messages 1)["result"]
+require ($initialize["serverInfo"]["name"] == "shelly-shell") "wrong internal server name"
+require ($initialize["capabilities"]["positionEncoding"] == "utf-16") "wrong position encoding"
+require ($initialize["capabilities"]["textDocumentSync"]["change"] == 1) "wrong sync mode"
+let $legend = $initialize["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"]
+let $data = (response_for $messages "tokens")["result"]["data"]
+require (($legend[1] == "keyword") && ($legend[9] == "shellyArgument")) "legend mismatch"
+require (token_at $data 0 5 3 9) "let command argument was colored as a keyword"
+require (token_at $data 1 0 3 1) "declaration keyword missing"
+require (token_at $data 1 4 2 2) "Unicode variable span wrong"
+require (token_at $data 1 21 4 2) "supplementary Unicode or interpolation span wrong"
+require (token_at $data 3 7 5 5) "native receiver method missing"
+require (token_at $data 3 14 5 4) "local function reference missing"
+require ((response_for $messages 3)["result"]["resultId"] == "2") "stale document version accepted"
+require ((response_for $messages 4)["result"]["data"] == []) "empty document retained tokens"
+require ((response_for $messages 5)["error"]["code"] == -32602) "closed document retained tokens"
+require ((response_for $messages ())["error"]["code"] == -32700) "malformed JSON not rejected"
+require ((response_for $messages 6)["result"] == ()) "shutdown response wrong"
+require ((response_for $messages 7)["error"]["code"] == -32600) "request after shutdown accepted"
+let $publications = []
+for $message in $messages
+{ if (has_key $message "method") { $publications = [$publications..., $message["params"]] } }
+require ($publications.count == 5) "stale edit published diagnostics"
+require ($publications[0]["diagnostics"] == []) "valid document rejected"
+require ($publications[1]["diagnostics"][0]["severity"] == 4) "incomplete input is not a hint"
+require ($publications[2]["diagnostics"][0]["severity"] == 1) "invalid escape is not an error"
+require (($publications[3]["diagnostics"] == []) && ($publications[4]["diagnostics"] == [])) "diagnostics not cleared"
+
+require ((run_server (notification "exit" ()))["exit_code"] == 1) "premature exit succeeded"
+require ((run_server "")["exit_code"] == 1) "disconnect without shutdown succeeded"
+for $input in ["Content-Length: 2\r\nContent-Length: 2\r\n\r\n{}",
+    "Content-Length: 20000000\r\n\r\n", "Content-Length: 9\r\n\r\n{}", "bad\r\n\r\n"]
+{ require ((run_server $input)["exit_code"] == 1) "damaged frame not rejected" }
+
+# Whole files get a larger budget than REPL input, while still bounding editor work.
+let $prefix = " "
+for _ in 0..17 { $prefix = $prefix + $prefix }
+for $limited in [false, true]
+{
+    if $limited { for _ in 0..3 { $prefix = $prefix + $prefix } }
+    let $source = "${prefix}let \$tail = 7"
+    let $input = request 1 "initialize" ["capabilities": [:]]
+    $input = $input + (notification "textDocument/didOpen" ["textDocument": [
+        "uri": $uri, "languageId": "shelly", "version": 1, "text": $source]])
+    $input = $input + (request 2 "textDocument/semanticTokens/full" ["textDocument": ["uri": $uri]])
+    $input = $input + (request 3 "shutdown" ()) + (notification "exit" ())
+    require ((run_server $input)["exit_code"] == 0) "large-document session failed"
+    "${fixture}/output" -> $output
+    let $messages = []
+    let $chunks = $output.split "Content-Length: "
+    for $index in 1..$chunks.count
+    { $messages = [$messages..., (json::from_string ($chunks[$index].split "\r\n\r\n")[1])] }
+    let $diagnostics = $messages[1]["params"]["diagnostics"]
+    let $data = (response_for $messages 2)["result"]["data"]
+    if $limited
+    {
+        require ($diagnostics[0]["severity"] == 2) "source limit did not produce a warning"
+        require ($data == []) "source beyond the limit was analyzed"
+    }
+    else
+    {
+        require ($diagnostics == []) "REPL source budget used for a whole file"
+        require (token_at $data 0 131072 3 1) "whole-file tail lost highlighting"
+    }
+}

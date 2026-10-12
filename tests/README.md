@@ -40,6 +40,9 @@ color-mode adaptation, settings, and incomplete input. `repl/syntax_highlighting
 checks actual Reedline styling, configuration refresh, and Unicode/multiline edits.
 `repl/prompt_refresh.shy` uses a deliberately long PATH to catch executable scans
 that block startup or prompt refresh.
+`native/language_server.shy` drives the real LSP stdio mode and checks framing,
+startup isolation, document versions, semantic tokens, Unicode positions,
+diagnostics, and whole-file analysis limits.
 
 ## Process case records
 

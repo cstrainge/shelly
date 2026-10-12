@@ -28,3 +28,8 @@ AGENTS.md
 
 audit/
 temp/
+
+# VS Code extension build and package output.
+/extensions/vscode/node_modules/
+/extensions/vscode/out/
+/extensions/vscode/*.vsix

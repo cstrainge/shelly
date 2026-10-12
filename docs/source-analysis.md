@@ -212,3 +212,34 @@ symbol refresh, editing without evaluation, Unicode cursor movement, multiline
 submission, and monochrome output. `repl/prompt_refresh.shy` guards prompt latency
 with a long PATH. The existing interactive suite continues to
 cover completion, history, terminal capabilities, cancellation, and recovery.
+
+
+## Language server
+
+`src/server/` is a peer of the language and runtime modules. `shelly --language-server`
+dispatches there before shell initialization, with stdin/stdout reserved for framed
+JSON-RPC. Native registration is separated from startup so the server can obtain
+an owned baseline `SymbolSnapshot` without executing the prelude, profiles, or RC.
+Document analysis has no interpreter and never follows imports or reads source files.
+
+The initial server supports initialization, full document synchronization,
+`textDocument/semanticTokens/full`, published syntax diagnostics, shutdown, and exit.
+Each document version caches its token data and diagnostics; older updates are
+ignored. The negotiated position encoding is UTF-16. Source boundaries are converted
+in a single pass, and tokens are split at line endings so Unicode and CRLF retain
+their original positions. The token legend maps all understood lexical, grammar,
+and semantic categories, including custom categories for commands and arguments.
+No colors are sent and no TextMate grammar participates.
+
+Whole-file analysis uses `analyze_semantics_with_limits` with a 1 MiB source limit
+and 640,000 parser reads. REPL limits remain unchanged, and both frontends retain
+the same 64-level nesting bound. Invalid syntax is an error, incomplete input a
+hint, and exhausted budgets a warning. Unknown names stay conservative. Workspace
+and standard-library indexing, completion, and navigation remain separate work.
+The server currently processes messages serially; cancellation notifications do
+not interrupt an in-progress bounded analysis.
+
+`native/language_server.shy` tests the real wire protocol, native baseline, startup
+isolation, document lifecycle, UTF-16 spans, stale versions, malformed frames,
+diagnostic clearing, and whole-file budgets. The thin TypeScript client lives in
+`extensions/vscode/`, with the internal name `shelly-shell`.
