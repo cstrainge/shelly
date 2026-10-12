@@ -1,7 +1,10 @@
 
-use std::io::{ BufReader, Cursor };
+use std::{ io::{ BufReader, Cursor }, sync::Arc };
 
-use crate::language::{ analysis::{ analyze_semantics, SemanticAnalysis, SymbolSnapshot },
+use reedline::Highlighter;
+
+use crate::language::{ analysis::{ analyze_semantics, SemanticAnalysis, SymbolSnapshot,
+                                   highlight::highlight_spans },
                        data::{ map_key::MapKey, value::Value },
                        interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult },
                        parser::{ analyze_editor, EditorAnalysis, parse_text, parse_with_metadata,
@@ -9,6 +12,7 @@ use crate::language::{ analysis::{ analyze_semantics, SemanticAnalysis, SymbolSn
                        text::{ buffer::{ Buffer, SimpleBuffer }, location::Location,
                                read_buffer::ReadBuffer, span::SourceSpan },
                        tokenizer::Tokenizer };
+use crate::runtime::{ color::TtyColorMode, highlighting::ShellyHighlighter };
 
 
 fn record<const N: usize>(fields: [(&str, Value); N]) -> Value
@@ -132,6 +136,66 @@ fn inspect_syntax(source: &str, buffer: &mut dyn Buffer, metadata: bool) -> Valu
 
 impl Interpreter
 {
+    pub(super) fn handle_highlight_source(&mut self, location: &Location, args: &[Value])
+        -> InterpreterResult<()>
+    {
+        let [Value::String(source, _), Value::String(mode, _), Value::Array(commands)] = args else
+        {
+            return Err(InterpreterError
+                {
+                    location: location.clone(),
+                    what: ErrorWhat::ArgumentMismatch(
+                        "__highlight_source expects source, color mode, and command names".into()),
+                });
+        };
+        let mode = match mode.as_str()
+            {
+                "mono" => TtyColorMode::TtyMonochrome,
+                "basic" => TtyColorMode::TtyBasic,
+                "256" => TtyColorMode::Tty256,
+                "truecolor" => TtyColorMode::TtyTrueColor,
+                _ => return Err(InterpreterError
+                    {
+                        location: location.clone(),
+                        what: ErrorWhat::ArgumentMismatch("Unknown highlighting color mode".into()),
+                    }),
+            };
+        let before = self.scope().types.definition_count();
+        let mut snapshot = self.symbol_snapshot();
+        for command in commands.iter()
+        {
+            let Value::String(command, _) = command else
+            {
+                return Err(InterpreterError
+                    {
+                        location: location.clone(),
+                        what: ErrorWhat::ArgumentMismatch("External names must be Strings".into()),
+                    });
+            };
+            snapshot.external_commands.insert(command.clone());
+        }
+        let analysis = analyze_semantics(source, &snapshot);
+        let kinds = highlight_spans(source, &analysis).iter().map(|span| record([
+                ("span", span_value(span.span, source)),
+                ("kind", Value::from_string(format!("{:?}", span.kind))),
+            ])).collect();
+        let highlighter = ShellyHighlighter::new(Arc::new(snapshot), self.syntax_settings_for(mode));
+        let styled = highlighter.highlight(source, 0);
+        let repeated = highlighter.highlight(source, source.len());
+        let parts = styled.buffer.iter().map(|(style, text)| record([
+                ("text", Value::from_string(text.clone())),
+                ("color", Value::from_string(format!("{:?}", style.foreground))),
+                ("ansi", Value::from_string(style.paint(text).to_string())),
+            ])).collect();
+        self.last_result = Some(record([
+                ("parts", Value::from_array(parts)), ("kinds", Value::from_array(kinds)),
+                ("stable", Value::Boolean(styled.buffer == repeated.buffer)),
+                ("types_before", Value::Integer(before as i64)),
+                ("types_after", Value::Integer(self.scope().types.definition_count() as i64)),
+            ]));
+        Ok(())
+    }
+
     pub(super) fn handle_semantic_source(&mut self, location: &Location, args: &[Value])
         -> InterpreterResult<()>
     {

@@ -1,0 +1,107 @@
+# Assert raw colors from Reedline, then commit edited source to verify its contents.
+fn syntax_edit($terminal: Terminal, $keys: String): String
+{
+    terminal_write $terminal $keys
+    let $raw = ""
+    for _ in 0..50
+    {
+        let $reply = terminal_read $terminal 100
+        require (!$reply["eof"]) "highlighting executed pending input or closed the editor"
+        $raw = $raw + $reply["text"]
+        if $reply["timed_out"] { return $raw }
+    }
+    fail "syntax editor did not settle"
+}
+
+let $terminal = open_terminal [`$shelly, "--norc", "-b"] [
+    "cwd": $args[0], "env": ["HOME": $args[0], "PATH": "/usr/bin:/bin",
+        "TERM": "xterm-256color", "COLORTERM": "truecolor", "LANG": "C.UTF-8"],
+    "rows": 40, "columns": 140]
+let _ = drain $terminal
+let $paste_start = "\x1b[200~"
+let $paste_end = "\x1b[201~"
+let $raw = syntax_edit $terminal "${paste_start}let \$pending = 7${paste_end}"
+require ($raw.contains "\x1b[38;2;177;120;255mlet") "default keyword color missing"
+require ($raw.contains "\x1b[38;2;255;205;110m7") "default number color missing"
+terminal_write $terminal "\x03"
+let _ = drain $terminal
+let $reply = submit $terminal "echo \$pending"
+require (repl_matches "error" "not found" $reply["output"]) "highlighting created pending variable"
+
+let $raw = syntax_edit $terminal "${paste_start}echo let${paste_end}"
+require ($raw.contains "\x1b[38;2;215;222;233mlet") "keyword-shaped argument color missing"
+require (!($raw.contains "\x1b[38;2;177;120;255mlet")) "command argument colored as keyword"
+terminal_write $terminal "\x03"
+let _ = drain $terminal
+
+# A color assignment and the enable switch take effect before the next editing buffer.
+let _ = submit $terminal "\$syntax_color_keyword = \"\\x1b[31m\""
+let $raw = syntax_edit $terminal "${paste_start}let \$pending = 7${paste_end}"
+require ($raw.contains "\x1b[31mlet") "updated keyword color not applied"
+terminal_write $terminal "\x03"
+let _ = drain $terminal
+let _ = submit $terminal "\$repl_syntax = false"
+let $raw = syntax_edit $terminal "${paste_start}let \$pending = 7${paste_end}"
+require (!($raw.contains "\x1b[31mlet")) "highlighting did not disable"
+require ((strip_ansi $raw).contains "let \$pending = 7") "disabled styling changed source"
+terminal_write $terminal "\x03"
+let _ = drain $terminal
+let _ = submit $terminal "\$repl_syntax = true"
+let $raw = syntax_edit $terminal "${paste_start}let \$pending = 7${paste_end}"
+require ($raw.contains "\x1b[31mlet") "highlighting did not re-enable"
+terminal_write $terminal "\x03"
+let _ = drain $terminal
+
+# Definitions become known after submission; inspecting a command never calls it.
+let _ = submit $terminal "fn styled_function(): String { echo SHOULD_NOT_RUN; \"yes\" }"
+let $raw = syntax_edit $terminal "${paste_start}styled_function${paste_end}"
+require ($raw.contains "\x1b[38;2;110;175;255mstyled_function") "new function snapshot missing"
+require (!((strip_ansi $raw).contains "SHOULD_NOT_RUN")) "highlighting called function"
+terminal_write $terminal "\x03"
+let _ = drain $terminal
+let $raw = syntax_edit $terminal "${paste_start}echo \"hi \${missing_value}\"${paste_end}"
+require ($raw.contains "\x1b[38;2;255;205;110m\${missing_value}") "string variable styling missing"
+require (!((strip_ansi $raw).contains "Error processing text:")) "interpolation was evaluated"
+terminal_write $terminal "\x03"
+let _ = drain $terminal
+
+# Unicode cursor editing and multiline submission preserve the original language buffer.
+let _ = syntax_edit $terminal "${paste_start}let \$unicode: String = \"é猫\"${paste_end}\x1b[D\x1b[D好"
+terminal_write $terminal "\r"
+let $reply = drain $terminal
+require (repl_matches "quiet" "" $reply["output"]) "highlighted Unicode edit failed"
+let $reply = submit $terminal "echo \$unicode"
+require (repl_matches "output" "é好猫" $reply["output"]) "highlighting damaged Unicode cursor edit"
+let _ = syntax_edit $terminal "\x1b[13;5u${paste_start}let \$multiline = [1,${paste_end}\r2]"
+terminal_write $terminal "\x1b[13;5u"
+let $reply = drain $terminal
+require (repl_matches "quiet" "" $reply["output"]) "highlighted multiline submit failed"
+let $reply = submit $terminal "echo \$multiline..."
+require (repl_matches "output" "1 2" $reply["output"]) "highlighting damaged multiline source"
+terminal_write $terminal "\x04"
+let _ = drain $terminal
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "syntax session failed"
+
+# Explicit monochrome suppresses syntax styles even with true-color configuration.
+let $terminal = open_terminal [`$shelly, "--norc", "-m", "-b"] [
+    "cwd": $args[0], "env": ["HOME": $args[0], "PATH": "/usr/bin:/bin",
+        "TERM": "xterm-256color", "COLORTERM": "truecolor", "LANG": "C.UTF-8"],
+    "rows": 40, "columns": 140]
+let _ = drain $terminal
+let $raw = syntax_edit $terminal "${paste_start}let \$mono = 7${paste_end}"
+let $chunks = ($raw.replace "\x1b[0m" "").split "\x1b["
+for $index in 1..$chunks.count
+{
+    for $character in $chunks[$index].chars
+    {
+        if ("@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~".contains $character)
+        { require ($character != "m") "monochrome emitted syntax styles"; break }
+    }
+}
+terminal_write $terminal "\x03"
+let _ = drain $terminal
+terminal_write $terminal "\x04"
+let _ = drain $terminal
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "monochrome syntax session failed"

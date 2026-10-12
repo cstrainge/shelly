@@ -9,3 +9,4 @@ pub mod repl;
 pub mod process;
 pub mod signals;
 pub mod history;
+pub mod highlighting;

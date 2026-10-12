@@ -1,0 +1,127 @@
+# Exercise the actual Reedline highlighter, with explicit color modes and cached names.
+visible `__highlight_source
+
+fn highlight_report($source: String, $mode: String): any
+{
+    let $report = __highlight_source $source $mode ["echo", "git", "printf"]
+    require $report["stable"] "cursor movement changed highlighting"
+    require ($report["types_before"] == $report["types_after"]) "highlighting interned a type"
+    let $restored = ""
+    for $part in $report["parts"] { $restored = $restored + $part["text"] }
+    require ($restored == $source) "highlighting changed source bytes"
+    let $offset = 0
+    let $restored = ""
+    for $span in $report["kinds"]
+    {
+        require (($span["span"]["start"] == $offset) &&
+            ($span["span"]["end"] > $offset)) "highlight spans overlap or leave gaps"
+        $offset = $span["span"]["end"]
+        $restored = $restored + $span["span"]["raw"]
+    }
+    require ($restored == $source) "classification changed source bytes"
+    $report
+}
+
+fn highlight_has($report: any, $text: String, $kind: String): Boolean
+{
+    for $span in $report["kinds"]
+    { if ($span["span"]["raw"] == $text) && ($span["kind"] == $kind) { return true } }
+    false
+}
+
+fn part_color($report: any, $text: String): String
+{
+    for $part in $report["parts"]
+    { if $part["text"] == $text { return $part["color"] } }
+    "not found"
+}
+
+fn assert_plain($report: any)
+{
+    for $part in $report["parts"]
+    {
+        require ($part["color"] == "None") "disabled highlighting emitted a foreground"
+        require ($part["ansi"] == $part["text"]) "disabled highlighting emitted ANSI"
+    }
+}
+
+let $source = "\tlet \$猫: Integer = 7; echo let \"é \\n猫 \${猫}\" # 💜\n"
+let $report = highlight_report $source "truecolor"
+require (highlight_has $report "let" "Keyword") "declaration keyword not colored"
+require (highlight_has $report "let" "Argument") "command word argument colored as keyword"
+require (highlight_has $report "\$猫" "Variable") "Unicode declaration not colored"
+require (highlight_has $report "Integer" "Type") "annotation type not colored"
+require (highlight_has $report "7" "Number") "numeric literal not colored"
+require (highlight_has $report "\\n" "Escape") "escape span not colored"
+require (highlight_has $report "\${猫}" "Variable") "string reference not colored"
+require (highlight_has $report "# 💜" "Comment") "comment not colored"
+
+fn colored_function(): String { "not executed" }
+alias colored_alias = echo
+$report = highlight_report "colored_function; colored_alias; cd /; git diff; let \$s: String = \"x\"; echo \$s.trim" "truecolor"
+require (highlight_has $report "colored_function" "Function") "function category missing"
+require (highlight_has $report "colored_alias" "Alias") "alias category missing"
+require (highlight_has $report "cd" "Builtin") "builtin category missing"
+require (highlight_has $report "git" "Command") "external command category missing"
+require (highlight_has $report "diff" "Argument") "external argument category missing"
+require (highlight_has $report ".trim" "Method") "receiver method category missing"
+
+# Incomplete source keeps understood colors; invalid spans get the error color.
+for $source in ["", "echo \"é猫", "let \$x: Integer =", "fn f(\$x: String) { echo \$x", "echo \$x.", "[1,2] |"]
+{ let _ = highlight_report $source "truecolor" }
+$report = highlight_report "echo \"é猫" "truecolor"
+require (highlight_has $report "\"é猫" "String") "partial string lost coloring"
+$report = highlight_report "echo \"\\xZZ\"; echo let" "truecolor"
+require (highlight_has $report "\\x" "Error") "invalid escape was not colored"
+require (highlight_has $report "let" "Argument") "recovery lost following argument context"
+
+# Configuration updates apply to the next snapshot, and only foreground controls are accepted.
+$syntax_color_keyword = "\x1b[38;2;1;2;3m"
+$report = highlight_report "let \$x = 1" "truecolor"
+require ((part_color $report "let") == "Some(Rgb(1, 2, 3))") "custom RGB color ignored"
+$report = highlight_report "let \$x = 1" "256"
+let $color = part_color $report "let"
+require (($color.starts_with "Some(Fixed(") && (!($color.contains "Rgb"))) "RGB not adapted to 256 colors"
+$report = highlight_report "let \$x = 1" "basic"
+$color = part_color $report "let"
+require ((!($color.contains "Rgb")) && (!($color.contains "Fixed"))) "extended color leaked to basic mode"
+$syntax_color_keyword = "\x1b[38;5;208m"
+$report = highlight_report "let \$x = 1" "256"
+require ((part_color $report "let") == "Some(Fixed(208))") "fixed color ignored"
+$syntax_color_keyword = "\x1b[31m"
+$report = highlight_report "let \$x = 1" "truecolor"
+require ((part_color $report "let") == "Some(Red)") "basic foreground ignored"
+$syntax_color_keyword = ""
+$report = highlight_report "let \$x = 1" "truecolor"
+require ((part_color $report "let") == "None") "empty category color not disabled"
+$syntax_color_keyword = "\x1b[39m"
+$report = highlight_report "let \$x = 1" "truecolor"
+require ((part_color $report "let") == "None") "default foreground not accepted"
+for $color in ["bad", "\x1b[48;2;1;2;3m", "\x1b[1;31m", "\x1b[38;2;999;2;3m", "\x1b[31mINJECT", "\x1b]52;c;SGVsbG8=\x07"]
+{
+    $syntax_color_keyword = $color
+    $report = highlight_report "let \$x = 1" "truecolor"
+    require ((part_color $report "let") == "Some(Rgb(177, 120, 255))") "unsafe color not ignored"
+}
+$syntax_color_keyword = "\x1b[31m"
+assert_plain (highlight_report $source "mono")
+$repl_syntax = false
+for $mode in ["basic", "256", "truecolor", "mono"]
+{ assert_plain (highlight_report $source $mode) }
+$repl_syntax = true
+require ((part_color (highlight_report "let \$x = 1" "truecolor") "let") == "Some(Red)") "highlighting did not re-enable"
+
+# Styling is read-only, including code inside conditions and quoted references.
+let $kept = "same"
+let $before = $pwd
+let _ = highlight_report "\$kept = \"changed\"; cd /; exit 9; import nonexistent; [when (exit 1)] { fn bad() {} }; echo \"\${pid}\"" "truecolor"
+require (($kept == "same") && ($pwd == $before)) "highlighting executed source"
+let $prefix = ""
+for $character in "fn f(\$v: Integer): String { \"é \${v}\" }; [1,2] | (\$ + 1)".chars
+{ $prefix = $prefix + $character; let _ = highlight_report $prefix "truecolor" }
+
+# Preserve the untouched suffix after the analysis budget, including a Unicode boundary.
+let $large = ""
+for _ in 0..16385 { $large = $large + "    " }
+$large = "${large}猫"
+let _ = highlight_report $large "truecolor"

@@ -1,7 +1,7 @@
 
 use std::{ cell::RefCell, collections::{ HashMap, HashSet }, rc::Rc };
 
-use crate::runtime::color::TtyColorMode;
+use crate::runtime::{ color::TtyColorMode, highlighting::SYNTAX_COLORS };
 use crate::language::{ ast::AstTopLevel,
                        native::{ NativeFunction, NativeVisibility },
                        bytecode::{ FunctionBlock, FunctionBlockRef, FunctionRef, Instruction },
@@ -73,6 +73,23 @@ impl Scope
                 {
                     value,
                     type_id: Some(type_id),
+                    exported: ValueVisibility::Private,
+                    reference: None,
+                });
+        }
+        let _ = variables.create("$repl_syntax".into(), ScopedValue
+            {
+                value: Value::Boolean(true),
+                type_id: Some(types.native_types["Boolean"].id),
+                exported: ValueVisibility::Private,
+                reference: None,
+            });
+        for &(_, name, color) in SYNTAX_COLORS
+        {
+            let _ = variables.create(name.into(), ScopedValue
+                {
+                    value: Value::from_string(color.into()),
+                    type_id: Some(types.native_types["String"].id),
                     exported: ValueVisibility::Private,
                     reference: None,
                 });

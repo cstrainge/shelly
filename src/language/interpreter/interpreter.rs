@@ -404,6 +404,9 @@ impl Interpreter
         native_functions.insert("__semantic_source", NativeFunction::new("__semantic_source",
             NativeVisibility::Hidden, Rc::new(Interpreter::handle_semantic_source)));
 
+        native_functions.insert("__highlight_source", NativeFunction::new("__highlight_source",
+            NativeVisibility::Hidden, Rc::new(Interpreter::handle_highlight_source)));
+
         let special_vars: SpecialVars = HashMap::from([
                 (
                     "$SHELLY_STD_FOUND",

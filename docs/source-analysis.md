@@ -165,14 +165,50 @@ cannot discover an unloaded module. The parser's source and work limits still
 apply, and the semantic walk caps expression depth at 64 for long operator
 chains. Indexed span and region lookups avoid repeatedly scanning whole buffers.
 
-Before each REPL prompt, completion builds an executable-name inventory from
-PATH and shares it in the symbol snapshot. Completion reuses that inventory
-while editing, and future highlighting can consume it without probing PATH on
-keystrokes. Configuration and visible symbols are refreshed after each command.
-This phase exposes analysis only; Reedline styling and color configuration are
-separate integration work. A future language server can reuse these descriptors
-and translate their byte spans to client positions.
+Executable names discovered by explicit completion requests are cached and copied
+into the next symbol snapshot. Prompt refresh and highlighting never walk PATH
+or inspect every executable. Completion retains its normal filesystem discovery,
+checking executability only for names matching the requested prefix. The cache
+is cleared when PATH or cwd changes. Uncached command names retain their grammar
+role; source analysis does not need to prove that an executable exists to style
+its command position. Configuration and visible symbols refresh after each
+command. A future language server can reuse these descriptors and translate
+their byte spans to client positions.
 
 `native/semantic_analysis.shy` uses the hidden `__semantic_source` inspection
 bridge to verify semantic spans, visibility, provisional scopes, imports,
 interpolation, incomplete input, and analysis without execution or type interning.
+
+
+## Frontend classifications and Reedline rendering
+
+`highlight_spans` combines lexical facts, grammar roles, string escapes, semantic
+references, and invalid diagnostics into disjoint `HighlightSpan` values. Each
+span has a frontend-independent `HighlightKind`. A sweep over fact boundaries
+handles overlaps without allocating a style entry for every input byte. Original
+whitespace is retained; the suffix beyond the editor budget remains plain.
+Incomplete diagnostics do not turn normal unfinished input into error styling.
+
+`ShellyHighlighter` implements Reedline's `Highlighter` using a frozen
+`SymbolSnapshot` and `SyntaxSettings`. It emits `StyledText` slices of the original
+buffer; decoded strings are never used for rendering. A mutex-protected cache
+reuses classifications when only the cursor or a menu changes. Changed input
+uses the existing bounded editor analysis. No interpreter reference, environment
+query, filesystem lookup, module loader, or execution hook enters this path.
+
+Before editing, the REPL refreshes the snapshot and reads the configuration's
+stored bindings directly, without getters. `$repl_syntax` and the
+`$syntax_color_*` variables are typed defaults in each scope. Foreground color
+strings are parsed into `Color` values; raw configuration never reaches terminal
+output. Empty/default colors disable a category, malformed sequences fall back
+to defaults, and colors adapt to the established terminal mode. Monochrome and
+disabled highlighting return plain text without running source analysis.
+
+`native/highlighting.shy` checks the actual highlighter through the hidden
+`__highlight_source` bridge, including byte reconstruction, cache stability,
+all color modes, configuration validation, incomplete input, and source budgets.
+`repl/syntax_highlighting.shy` checks raw PTY styling, live configuration and
+symbol refresh, editing without evaluation, Unicode cursor movement, multiline
+submission, and monochrome output. `repl/prompt_refresh.shy` guards prompt latency
+with a long PATH. The existing interactive suite continues to
+cover completion, history, terminal capabilities, cancellation, and recovery.

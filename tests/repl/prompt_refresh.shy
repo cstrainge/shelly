@@ -1,0 +1,44 @@
+# A long PATH must not trigger executable discovery at startup or between prompts.
+# Repeating a real directory makes an eager scan expensive on Linux and macOS too.
+let $path = ""
+for _ in 0..1000 { $path = "${path}/usr/bin:" }
+let $terminal = open_terminal [`$shelly, "--norc", "-m", "-b"] [
+    "cwd": $args[0], "env": ["HOME": $args[0], "PATH": $path,
+        "SHELLY_STD_PATH": "bundled", "TERM": "xterm-256color", "LANG": "C.UTF-8"],
+    "rows": 40, "columns": 140]
+
+fn fast_prompt($terminal: Terminal)
+{
+    let $raw = ""
+    for _ in 0..20
+    {
+        let $reply = terminal_read $terminal 50
+        require (!$reply["eof"]) "prompt performance session exited"
+        $raw = $raw + $reply["text"]
+        if ($raw.contains "\x1b[6n")
+        {
+            terminal_write $terminal "\x1b[1;1R"
+            $raw = $raw.replace "\x1b[6n" ""
+        }
+        if ($raw.contains "\x1b[c")
+        {
+            terminal_write $terminal "\x1b[?1;2c"
+            $raw = $raw.replace "\x1b[c" ""
+        }
+        let $output = strip_ansi $raw
+        if ($output.ends_with "\n$ ") || ($output.ends_with "\n# ") { return }
+    }
+    echo $raw
+    fail "prompt refresh enumerated PATH or exceeded one second"
+}
+
+fast_prompt $terminal
+for _ in 0..3
+{
+    terminal_write $terminal "\x1b[200~let _ = ()\x1b[201~\r"
+    fast_prompt $terminal
+}
+terminal_write $terminal "\x04"
+let _ = drain $terminal
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "prompt refresh session failed"

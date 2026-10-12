@@ -4,10 +4,32 @@ use std::{ collections::HashSet, sync::Arc };
 use crate::language::{ analysis::{ SymbolDescriptor, SymbolKind, SymbolSnapshot, TypeDescriptor },
                        data::{ methods::method_key, types::{ TypeId, TypeKind }, value::Value },
                        interpreter::Interpreter };
+use crate::runtime::{ color::TtyColorMode, highlighting::{ SyntaxSettings, SYNTAX_COLORS } };
 
 
 impl Interpreter
 {
+    // Read configuration bindings directly; refreshing the editor cannot call getters.
+    pub fn syntax_settings(&self) -> SyntaxSettings
+    {
+        self.syntax_settings_for(self.color_mode)
+    }
+
+    pub(super) fn syntax_settings_for(&self, mode: TtyColorMode) -> SyntaxSettings
+    {
+        let mut settings = SyntaxSettings::new(mode);
+        if    let Some(binding) = self.scope().variables.get("$repl_syntax")
+           && let Value::Boolean(enabled) = binding.value.underlying()
+        { settings.enabled = *enabled; }
+        for &(kind, name, _) in SYNTAX_COLORS
+        {
+            if    let Some(binding) = self.scope().variables.get(name)
+               && let Value::String(color, _) = binding.value.underlying()
+            { settings.set_color(kind, color); }
+        }
+        settings
+    }
+
     /**
      * Copy already registered information for tooling. In particular, value_type and
      * inferred_value_type may intern types, so this path must not call either one.

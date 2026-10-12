@@ -5,6 +5,7 @@ use crate::language::{ parser::{ EditorAnalysis, editor::analyze_editor_tree },
                        text::span::SourceSpan };
 
 mod semantic;
+pub mod highlight;
 
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

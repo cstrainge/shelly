@@ -35,6 +35,11 @@ strict rejection, and analysis limits.
 `native/semantic_analysis.shy` checks read-only symbol snapshots, provisional
 local scopes, receiver methods, imported exports, and string references through
 the hidden `__semantic_source` bridge.
+`native/highlighting.shy` checks source-preserving rendering, category colors,
+color-mode adaptation, settings, and incomplete input. `repl/syntax_highlighting.shy`
+checks actual Reedline styling, configuration refresh, and Unicode/multiline edits.
+`repl/prompt_refresh.shy` uses a deliberately long PATH to catch executable scans
+that block startup or prompt refresh.
 
 ## Process case records
 

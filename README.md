@@ -189,6 +189,56 @@ Leave with `exit` or Ctrl+D. Tab completes a unique name or common prefix; a
 second Tab opens the completion menu. Arrow keys navigate an open menu.
 Ctrl+Enter and Shift+Enter require a terminal that reports those key combinations.
 
+REPL syntax highlighting is enabled by default. It uses the tokenizer, parser,
+and a read-only snapshot of known symbols, including references inside interpolated
+strings. `echo let` colors `let` as an argument; a declaration's `let` is a keyword.
+Unfinished input keeps the colors that can be understood. Highlighting never
+executes commands, loads modules, or evaluates variables and conditions.
+
+Configure highlighting in a profile, init file, or directly in the REPL:
+
+```shy
+$repl_syntax = true
+$syntax_color_keyword = "\x1b[38;2;177;120;255m"
+$syntax_color_variable = "\x1b[33m"
+$syntax_color_command = $widget_color
+$syntax_color_comment = ""  # Use the terminal's normal foreground for comments.
+```
+
+`$repl_syntax` is a `Boolean`; the color variables are `String` values. Settings
+refresh before each prompt, so changes apply to the next editing buffer. Each
+color accepts one foreground ANSI sequence: basic `30`–`37` or `90`–`97`,
+`38;5;n` for a palette index, or `38;2;r;g;b` for RGB. Empty strings, `39`, and `0`
+select an unstyled foreground. Unsupported sequences use the category's default;
+background colors, text attributes, and arbitrary terminal commands are ignored.
+RGB colors adapt to 256-color and basic terminals. Monochrome (`-m`, `NO_COLOR`,
+or a monochrome terminal) suppresses syntax styling even when it is enabled.
+
+Defaults follow the logo's violet, cyan, blue, mint, and warm highlights:
+
+| Variable | Used for | Default RGB |
+| --- | --- | --- |
+| `$syntax_color_comment` | Comments | 125, 137, 156 |
+| `$syntax_color_keyword` | Language keywords | 177, 120, 255 |
+| `$syntax_color_variable` | Variables, parameters, string references | 255, 205, 110 |
+| `$syntax_color_type` | Types and type declarations | 88, 235, 200 |
+| `$syntax_color_function` | Script functions and declarations | 110, 175, 255 |
+| `$syntax_color_method` | Known methods | 118, 206, 255 |
+| `$syntax_color_builtin` | Visible native functions | 156, 157, 255 |
+| `$syntax_color_alias` | Aliases | 202, 160, 255 |
+| `$syntax_color_command` | External or unresolved command names | 49, 216, 224 |
+| `$syntax_color_argument` | Ordinary command arguments | 215, 222, 233 |
+| `$syntax_color_string` | Quoted strings | 108, 226, 191 |
+| `$syntax_color_number` | Integer and Float literals | 255, 205, 110 |
+| `$syntax_color_literal` | Booleans, enum variants, discards | 205, 153, 255 |
+| `$syntax_color_operator` | Operators, pipes, redirections | 86, 205, 225 |
+| `$syntax_color_delimiter` | Brackets, commas, statement separators | 174, 184, 200 |
+| `$syntax_color_field` | Fields and unresolved members | 151, 199, 255 |
+| `$syntax_color_module` | Module names | 131, 160, 255 |
+| `$syntax_color_format` | Pipeline conversion descriptors | 49, 216, 224 |
+| `$syntax_color_escape` | String escapes | 255, 169, 130 |
+| `$syntax_color_error` | Invalid input spans | 255, 112, 142 |
+
 Interactive command history is restored from `~/.shelly_history.jsonl`. Up/Down
 browse saved commands, including complete multiline submissions. History stores
 source text; loading it never executes the commands. Submitted commands are saved
