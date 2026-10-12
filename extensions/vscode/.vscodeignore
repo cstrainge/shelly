@@ -1,4 +1,6 @@
 src/**
+tests/**
+test.shy
 .gitignore
 node_modules/**
 **/*.map

@@ -1,0 +1,59 @@
+# Colon-bearing shell words stay one argument; structured delimiters keep their grammar.
+let $fixture = $args[0]
+printf "%s\n%s\n" "#!${shelly}" '/usr/bin/printf "<%s>\\n" $args...' -> "${fixture}/bin/npm"
+chmod +x "${fixture}/bin/npm"
+
+fn colon_case($source: String, $expected: String)
+{
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "${fixture}/bin:/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "LANG": "C.UTF-8"],
+        "stdout_file": "${fixture}/out", "stderr_file": "${fixture}/err",
+        "stdin_file": "/dev/null", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    if ($reply["exit_code"] != 0) || ($reply["error"] != ()) || ($out != $expected) || ($err != "")
+    { echo $source $reply $out $err; fail "colon argument mismatch" }
+}
+
+colon_case 'npm run publish:marketplace' "<run>\n<publish:marketplace>\n"
+colon_case 'npm run "publish:marketplace"' "<run>\n<publish:marketplace>\n"
+colon_case 'npm publish:marketplace:test host:22 01:02 let:false' "<publish:marketplace:test>\n<host:22>\n<01:02>\n<let:false>\n"
+colon_case 'npm arg:value host:/tmp/file https://example.com:8080/a' "<arg:value>\n<host:/tmp/file>\n<https://example.com:8080/a>\n"
+colon_case 'npm é:猫 a:b c:d' "<é:猫>\n<a:b>\n<c:d>\n"
+colon_case 'npm publish : marketplace' "<publish>\n<:>\n<marketplace>\n"
+colon_case 'fn count($args: any...): Integer { $args.count }; echo (count a:b:c host:22)' "2\n"
+colon_case 'fn identity($value: String): String { $value }; echo (identity publish:marketplace)' "publish:marketplace\n"
+colon_case 'alias publish = npm run publish:marketplace; publish' "<run>\n<publish:marketplace>\n"
+colon_case 'alias publish = npm let:false 01:02; publish' "<let:false>\n<01:02>\n"
+colon_case 'let $name = "test"; npm ${name}.shy:run' "<test.shy:run>\n"
+colon_case 'let $x:Integer = 7; fn f($n:Integer):Integer { $n }; echo (f $x)' "7\n"
+colon_case 'struct Box { n:Integer }; let $box = Box(n:7); echo $box.n' "7\n"
+colon_case 'let $map = [key:7]; echo $map[key]; let $typed:[String:Integer]; echo $typed.value_type' "7\nInteger\n"
+colon_case 'fn add($a:Integer, $b:Integer):Integer { $a + $b }; let $map = [(add 1 2):7]; echo $map[3]' "7\n"
+colon_case 'let $out:Integer; /usr/bin/printf 7 json:| $out; echo $out' "7\n"
+colon_case 'let $out:[[String]]; /usr/bin/printf "a,b\\n" csv:| $out; echo $out[0]...' "a b\n"
+colon_case '[["a", "b"]] |:csv /bin/cat' "a,b\n"
+
+# Metadata stays transactional and uses the original token spans, including each colon.
+visible `__syntax_spans
+visible `__highlight_source
+let $source = "npm run publish:marketplace:test"
+let $report = __syntax_spans $source false true
+let $stream = __syntax_spans $source true true
+require ($report == $stream) "colon argument metadata differs for streamed input"
+require ($report["error"] == ()) "colon argument parse failed"
+let $previous = 0
+for $fact in $report["facts"]
+{
+    require ($fact["span"]["start"] >= $previous) "joined argument facts overlap"
+    $previous = $fact["span"]["end"]
+    if $fact["span"]["raw"] != "npm" { require ($fact["role"] == "Argument") "colon word lost argument context" }
+}
+let $colors = __highlight_source $source "truecolor" []
+let $found = false
+for $span in $colors["kinds"]
+{ if ($span["span"]["raw"] == "publish:marketplace:test") && ($span["kind"] == "Argument") { $found = true } }
+require $found "colon word highlighting differs from argument parsing"

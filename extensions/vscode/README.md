@@ -1,10 +1,18 @@
-# Shelly for VS Code
+# Shelly Shell for VS Code
 
 The extension's internal name is `shelly-shell`, matching the Rust package.
 It recognizes `.shy` files and Shelly shebangs, starts `shelly --language-server`,
 and displays semantic highlighting and syntax diagnostics. The server uses the
 same tokenizer, parser, and semantic classifications as the REPL. There is no
 separate TextMate grammar. Your VS Code theme chooses the colors.
+
+Nested brackets cycle through the theme's first three bracket colors using the
+server's delimiter tokens, so brackets in string and comment text retain their
+string or comment color.
+VS Code's built-in bracket coloring is disabled for Shelly because it cannot use
+semantic tokens to exclude that text. Set `shelly-shell.bracketColorization` to
+`false` to disable Shelly's bracket coloring. Bracket colors clear on edits until
+fresh tokens arrive; split editors share the same document results.
 
 Requires VS Code 1.140 or later and a Shelly build supporting `--language-server`
 (introduced in the shell's 0.5.2 source). The extension does not bundle the shell.
@@ -18,6 +26,7 @@ Build Shelly from the repository root with `cargo build --locked`. Then:
 ```sh
 cd extensions/vscode
 npm ci
+npm test
 npm run package
 code --install-extension shelly-shell.vsix
 ```
@@ -49,6 +58,10 @@ or replaced in this setting with the current debug binary.
 Packaging uses Node.js 22 or later. See
 [publishing instructions](https://github.com/cstrainge/shelly/blob/main/extensions/vscode/PUBLISHING.md)
 for preparing a Marketplace release.
+
+`npm test` runs Shelly assertions against editor fixtures for bracket nesting,
+string/comment exclusion, Unicode positions, split editors, edits, settings,
+and cleanup. Build the repository's debug Shelly binary first.
 
 For development, open `shelly-shell.code-workspace`, build Shelly, and press F5.
 The workspace launches an Extension Development Host using the debug binary.

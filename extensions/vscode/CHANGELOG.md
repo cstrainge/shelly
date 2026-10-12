@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+- Color bracket nesting from server-classified delimiters using the theme's bracket palette.
+- Exclude string and comment text; clear stale bracket colors on edits and server restarts.
+- Configure bracket coloring with `shelly-shell.bracketColorization`.
+- Use the Marketplace display name Shelly Shell and declare Node.js 22 for packaging.
+
 ## 0.1.0
 
 - Recognize Shelly `.shy` files and shebangs.

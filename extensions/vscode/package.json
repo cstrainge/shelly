@@ -1,8 +1,8 @@
 {
     "name": "shelly-shell",
-    "displayName": "Shelly",
+    "displayName": "Shelly Shell",
     "description": "Parser-driven language support for the Shelly shell and scripting language.",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "publisher": "cstrainge",
     "license": "MIT",
     "author": "Chloë Strainge",
@@ -28,7 +28,8 @@
         "directory": "extensions/vscode"
     },
     "engines": {
-        "vscode": "^1.140.0"
+        "vscode": "^1.140.0",
+        "node": ">=22"
     },
     "categories": [
         "Programming Languages"
@@ -71,6 +72,11 @@
         "configuration": {
             "title": "Shelly",
             "properties": {
+                "shelly-shell.bracketColorization": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Color nested brackets using Shelly's language-server tokens and the current theme's bracket palette. Strings and comments are excluded."
+                },
                 "shelly-shell.serverPath": {
                     "type": "string",
                     "default": "shelly",
@@ -91,7 +97,9 @@
         },
         "configurationDefaults": {
             "[shelly]": {
-                "editor.semanticHighlighting.enabled": true
+                "editor.semanticHighlighting.enabled": true,
+                "editor.bracketPairColorization.enabled": false,
+                "editor.guides.bracketPairs": false
             }
         },
         "semanticTokenTypes": [
@@ -177,6 +185,7 @@
     },
     "scripts": {
         "check": "tsc -p . --noEmit",
+        "test": "../../target/debug/shelly -m test.shy",
         "compile": "npm run check && node build.mjs",
         "watch": "npm run check && node build.mjs --watch",
         "vscode:prepublish": "npm run compile",

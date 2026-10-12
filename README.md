@@ -401,6 +401,12 @@ statements; `#` starts a comment. A backslash followed by a newline continues a
 logical source line, including inside arithmetic and return expressions. Put spaces
 around binary arithmetic operators; braces may touch the expressions they enclose.
 
+Attached colons in bare command arguments remain part of the word: for example,
+`npm run publish:marketplace` passes `publish:marketplace` as one argument. The
+same applies to alias arguments and words such as `host:22`. Quoting the word is
+also valid. Type annotations, collection separators, and annotated pipe boundaries
+retain their syntax.
+
 Declare variables with `let`, reference them with `$name` or `${name}`, and assign
 an existing variable with `$name = expression`:
 

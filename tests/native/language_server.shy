@@ -69,6 +69,7 @@ printf "%s" "echo BAD_RC; touch startup-executed; exit 92" -> "${fixture}/.shell
 
 let $uri = "file:///never-read.shy"
 let $source = "echo let\r\nlet \$猫: String = \"💜 \${猫}\"\r\nfn local(\$n: Integer): Integer { \$n + 1 }\r\necho \$猫.trim; local 3\nimport nonexistent when (exit 9)\necho SHOULD_NOT_RUN; touch document-executed; exit 8"
+$source = $source + "\n# [] ({})\necho \"[]({})\"\necho [1, [2]]"
 let $input = request 0 "textDocument/semanticTokens/full" [:]
 $input = $input + (request 1 "initialize" ["capabilities": [:]])
 $input = $input + (notification "initialized" [:])
@@ -126,6 +127,11 @@ require (token_at $data 1 4 2 2) "Unicode variable span wrong"
 require (token_at $data 1 21 4 2) "supplementary Unicode or interpolation span wrong"
 require (token_at $data 3 7 5 5) "native receiver method missing"
 require (token_at $data 3 14 5 4) "local function reference missing"
+require (token_at $data 6 0 9 0) "comment brackets lost their comment classification"
+require (token_at $data 7 5 8 10) "string brackets lost their string classification"
+require (token_at $data 8 5 1 14) "outer array bracket is not a delimiter"
+require (token_at $data 8 9 1 14) "nested array bracket is not a delimiter"
+require (token_at $data 8 11 2 14) "adjacent closing brackets are not delimiters"
 require ((response_for $messages 3)["result"]["resultId"] == "2") "stale document version accepted"
 require ((response_for $messages 4)["result"]["data"] == []) "empty document retained tokens"
 require ((response_for $messages 5)["error"]["code"] == -32602) "closed document retained tokens"

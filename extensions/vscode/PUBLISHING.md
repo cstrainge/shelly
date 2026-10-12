@@ -1,7 +1,8 @@
 # Publishing shelly-shell
 
 Publisher: `cstrainge`, matching Strange Forth. Extension ID:
-`cstrainge.shelly-shell`. The first extension version is `0.1.0`.
+`cstrainge.shelly-shell`. Marketplace display name: **Shelly Shell**.
+The current extension version is `0.1.1`.
 
 The package includes the bundled client, Shelly icon, README, changelog, and MIT
 license. It requires a separately installed Shelly executable supporting
@@ -25,7 +26,7 @@ When ready to publish the reviewed package:
 
 ```sh
 npm exec vsce -- login cstrainge
-npm run publish:marketplace
+npm run "publish:marketplace"
 ```
 
 `login` prompts for your existing token locally. A usable token needs Marketplace
