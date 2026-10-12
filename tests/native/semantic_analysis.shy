@@ -137,3 +137,8 @@ require (($out.contains "exported") && ($out.contains ".imported_method") &&
 let $prefix = ""
 for $character in "fn callback(\$value: String): String { \"hi \${value}\".trim }; [1,2] | (\$ + 1)".chars
 { $prefix = $prefix + $character; let _ = semantic_report $prefix }
+
+# Dynamic member prefixes and interpolation stay read-only during editing.
+let $prefix = ""
+for $character in 'echo $p.$field.child "${p.name} ${p.$field}"'.chars
+{ $prefix = $prefix + $character; let _ = semantic_report $prefix }

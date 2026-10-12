@@ -14,7 +14,7 @@ use crate::{ runtime::color::TtyColorMode,
 
 impl Interpreter
 {
-    pub fn default_prompt(&self) -> String
+    pub fn default_prompt(&mut self) -> String
     {
         let cwd = self.evaluate_variable("$pwd").unwrap_or_else(|_|
             current_dir().unwrap_or_else(|_| ".".into()).display().to_string());

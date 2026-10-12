@@ -1,7 +1,8 @@
 
 use std::collections::HashSet;
 
-use crate::language::{ ast::*, data::value::Value };
+use crate::language::{ ast::*, data::value::Value,
+                       text::interpolation::interpolation_references };
 
 pub fn free_variables(function: &AstFunctionStatement) -> Vec<String>
 {
@@ -22,40 +23,12 @@ fn name(value: &str, bound: &HashSet<String>, free: &mut HashSet<String>)
 
 fn text(value: &str, escaped: &[usize], bound: &HashSet<String>, free: &mut HashSet<String>)
 {
-    let mut chars = value.char_indices().peekable();
-    while let Some((offset, character)) = chars.next()
+    for reference in interpolation_references(value, escaped)
     {
-        if character != '$' || escaped.contains(&offset) { continue; }
-        let mut variable = "$".to_string();
-        if chars.peek().is_some_and(|(_, c)| *c == '{')
+        for (index, part) in reference.name.split('.').enumerate()
         {
-            chars.next();
-            for (_, c) in chars.by_ref()
-            {
-                if c == '}' { break; }
-                variable.push(c);
-            }
+            if index == 0 || part.starts_with('$') { name(part, bound, free); }
         }
-        else
-        {
-            while let Some(&(_, c)) = chars.peek()
-            {
-                if c == ':'
-                {
-                    let mut probe = chars.clone();
-                    probe.next();
-                    if probe.next().is_some_and(|(_, c)| c == ':')
-                        && probe.peek().is_some_and(|(_, c)| c.is_alphanumeric() || *c == '_')
-                    {
-                        chars.next(); chars.next(); variable.push_str("::");
-                        continue;
-                    }
-                }
-                if !c.is_alphanumeric() && c != '_' { break; }
-                chars.next(); variable.push(c);
-            }
-        }
-        if variable.len() > 1 { name(&variable, bound, free); }
     }
 }
 
@@ -76,7 +49,13 @@ fn statements(items: &AstTopLevel, parent: &HashSet<String>, free: &mut HashSet<
                     name(&item.identifier, &bound, free);
                     for access in &item.indexes
                     {
-                        if let AstAccess::Index(index) = access { expression(index, &bound, free); }
+                        match access
+                        {
+                            AstAccess::Index(index) => expression(index, &bound, free),
+                            AstAccess::Field(field) if field.starts_with('$') =>
+                                name(field, &bound, free),
+                            _ => {},
+                        }
                     }
                     expression(&item.expression, &bound, free);
                 },
@@ -169,7 +148,12 @@ fn expression(item: &AstExpression, bound: &HashSet<String>, free: &mut HashSet<
         AstExpressionKind::Index(a, b) | AstExpressionKind::MathExpression(_, a, b)
         | AstExpressionKind::BooleanExpression(_, a, b) =>
             { expression(a, bound, free); expression(b, bound, free); },
-        AstExpressionKind::Field(item, _, _) | AstExpressionKind::Splat(item)
+        AstExpressionKind::Field(item, field, _) =>
+            {
+                expression(item, bound, free);
+                if field.starts_with('$') { name(field, bound, free); }
+            },
+        AstExpressionKind::Splat(item)
         | AstExpressionKind::Grouped(item) | AstExpressionKind::ExecutableReference(item)
         | AstExpressionKind::TryExecute(item) | AstExpressionKind::MathNegate(item)
         | AstExpressionKind::BooleanNot(item) | AstExpressionKind::TypeConversion(_, item, _, _) =>

@@ -540,12 +540,15 @@ impl Classifier<'_>
                         .filter(|token| token.token_value_text() == *name).map(|token| token.span);
                     if let Some(span) = member
                     {
-                        let symbol = info.type_id.and_then(|id| self.member(id, name, 0));
+                        let symbol = if name.starts_with('$') { self.symbol(name) }
+                            else { info.type_id.and_then(|id| self.member(id, name, 0)) };
                         if let Some(symbol) = symbol
                         {
                             self.mark(span, &symbol);
-                            info.type_id = symbol.type_id.or(symbol.return_type);
-                            info.result = symbol.return_type;
+                            info.type_id = if name.starts_with('$') { None }
+                                else { symbol.type_id.or(symbol.return_type) };
+                            info.result = if name.starts_with('$') { None }
+                                else { symbol.return_type };
                         }
                         else { info.type_id = None; info.result = None; }
                         info.end = span.end;
@@ -749,7 +752,8 @@ impl Classifier<'_>
         {
             if let Some(span) = string.source_span(reference.span)
             {
-                let symbol = self.symbol(&reference.name)
+                let root = reference.name.split('.').next().unwrap();
+                let symbol = self.symbol(root)
                     .unwrap_or_else(|| SymbolDescriptor::new(SymbolKind::Variable, None));
                 self.mark(span, &symbol);
             }

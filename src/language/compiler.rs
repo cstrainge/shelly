@@ -144,7 +144,7 @@ fn function_binding(function: &AstFunctionStatement) -> String
 // mask outer versions and resolve through the frozen function scope at execution time.
 fn method_snapshot(block: &FunctionBlockRef, name: &str) -> Value
 {
-    if name == "properties"
+    if name.starts_with('$') || name == "properties"
     { return method_snapshot_matching(block, |key| key.starts_with("\0method:")); }
     let suffix = format!(":{}", name);
     method_snapshot_matching(block, |key| key.starts_with("\0method:") && key.ends_with(&suffix))
@@ -1047,8 +1047,12 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>,
                             operand: None,
                         });
                 },
-            AstAccess::Field(name) => instructions.push(Instruction { location: None,
-                code: Code::Push, operand: Some(Value::from_string(name.clone())) })
+            AstAccess::Field(name) => instructions.push(Instruction
+                {
+                    location: Some(set_statement.location.clone()),
+                    code: if name.starts_with('$') { Code::ResolveFieldName } else { Code::Push },
+                    operand: Some(Value::from_string(name.clone())),
+                })
         }
     }
     compile_expression(instructions, function_block, &set_statement.expression)?;
@@ -1389,6 +1393,7 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     | Code::MakeHashMap
                     | Code::MakeStruct
                     | Code::GetField
+                    | Code::ResolveFieldName
                     | Code::BindField
                     | Code::ReferenceVariable
                     | Code::ReferenceValue

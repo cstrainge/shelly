@@ -793,6 +793,8 @@ impl<'a> Tokenizer<'a>
             {
                 return Ok(Some(dot));
             }
+            let dynamic = self.input.peek_next() == Some('$');
+            if dynamic { self.input.next(); }
             let mut name = String::new();
             while    let Some(c) = self.input.peek_next()
                   && (c.is_alphanumeric() || c == '_')
@@ -806,6 +808,11 @@ impl<'a> Tokenizer<'a>
                 { self.editor_start_at(dot.location.clone(), dot.span.start, TokenKind::Invalid); }
                 return Err(TokenizerError { location: dot.location,
                     message: "Expected a field name after '.'.".to_string() });
+            }
+            if dynamic
+            {
+                name.insert(0, '$');
+                self.qualified_variable_tail(&mut name)?;
             }
             return Ok(Some(Token
                 {

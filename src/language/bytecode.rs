@@ -50,9 +50,11 @@ pub enum Code
     MakeHashMap,
     // Operand is [type ID, field indexes in evaluation order].
     MakeStruct,
-    // Operand is [checked field index or dynamic name, visible method versions].
+    // Operand is [checked field index, literal name, or $variable name; visible method versions].
     // Consume a receiver reference; read data or invoke a method without explicit arguments.
     GetField,
+    // Resolve and validate a dynamic String field name before an assignment's RHS.
+    ResolveFieldName,
     // Receiver references use a separate VM stack and never become language values.
     ReferenceVariable,
     ReferenceValue,

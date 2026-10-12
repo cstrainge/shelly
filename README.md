@@ -605,8 +605,8 @@ Indexed executable strings follow the same call rules as executable variables:
 `$commands[0] 3` calls with an argument; `$commands[0]` invokes a marked executable
 in statement position. As a command argument it passes the reference unchanged;
 use `echo ($commands[0])` to call it and pass the result. Indexing is expression
-syntax; quoted string interpolation still supports variable names rather than
-arbitrary expressions.
+syntax; quoted string interpolation supports variable names and member paths,
+rather than arbitrary expressions.
 
 An array cannot be a command. A standalone `$a` or `$a[0]` whose value is an array
 and is discarded reports `Cannot execute an array as a command`; explicit calls
@@ -1131,8 +1131,24 @@ optional-chaining syntax is not implemented.
 
 Member syntax preserves word interpolation: `$item.field` accesses a field,
 `${name}.txt` concatenates text, and `(${item}).field` accesses a field using a
-braced variable. String interpolation still accepts variable names rather than
-member expressions. Literal paths such as `file.txt` retain their meaning.
+braced variable. Inside double-quoted strings, `${item.field}` resolves a member;
+nested paths such as `${item.child.name}` work too. Literal paths such as `file.txt`
+retain their meaning.
+
+A dynamic member `$item.$name` reads the field name from a String variable. It uses
+normal member resolution, including properties and methods, and supports nested
+access, indexing, method references, and assignment. Writes enforce the same field
+and containing-value type constraints as literal member access. Known non-String
+accessor types are rejected during type checking; dynamic values are checked at
+runtime. `${item.$name}` also works inside interpolated strings.
+
+```shy
+struct Person { name: String, age: Integer }
+let $p = Person(name: "Ada", age: 36)
+let $name = "age"
+$p.$name = 37
+echo "${p.name}: ${p.$name}" # Ada: 37
+```
 
 Structs have value semantics and share reference-counted storage. Assignment,
 function calls, and collection insertion preserve their type; writes copy shared
@@ -1506,7 +1522,8 @@ a string. Equality does not coerce one into the other.
 
 ## Strings and paths
 
-Double-quoted strings interpolate `$name` and `${name}`. Single-quoted strings
+Double-quoted strings interpolate `$name`, `${name}`, and braced member paths
+such as `${p.name}` and `${p.$name}`. Single-quoted strings
 keep variable references literal. Missing variables are errors. Both quote forms
 process backslash escapes, including `\n`, `\r`, `\t`, hexadecimal `\x41`, octal
 `\o101`, and decimal `\065` (the last three produce `A`). Use `\$` inside double

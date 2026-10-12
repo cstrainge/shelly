@@ -60,6 +60,7 @@ pub enum AstExpressionKind
     SpacedEmptyCall(String),
     EnumVariant(String, String),
     StructConstructor(Box<AstStructConstructor>),
+    // A field name beginning with '$' resolves a String variable at runtime.
     Field(Box<AstExpression>, String, Option<usize>),
     Variable(AstSymbol),
     VariableSplat(AstSymbol),
@@ -551,6 +552,7 @@ pub struct AstStructConstructor
 pub enum AstAccess
 {
     Index(AstExpression),
+    // As with expression fields, '$' marks a dynamic String variable name.
     Field(String)
 }
 

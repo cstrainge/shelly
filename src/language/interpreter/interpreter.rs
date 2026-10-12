@@ -1542,70 +1542,11 @@ impl Interpreter
                                     "Missing field operand".to_string()) });
                         };
                         let field = &operands[0];
-                        let enum_index =
-                            matches!(field, Value::String(name, _) if name == "index");
-                        let result = if matches!(field, Value::String(name, _) if name == "type")
-                            {
-                                let result = Value::Type(self.scope().types.get(
-                                    self.scope().types.value_type(&value)));
-                                reference = ValueReference::temporary(result.clone());
-                                result
-                            }
-                            else if let Value::Enum(item) = value.underlying() && enum_index
-                            {
-                                reference.indexes.push(field.clone());
-                                reference.fields.push(Value::Boolean(true));
-                                Value::Integer(item.variant as i64)
-                            }
-                            else if let Value::Type(item) = value.underlying()
-                                && field.as_text() == "name"
-                            {
-                                reference.indexes.push(field.clone());
-                                reference.fields.push(Value::Boolean(true));
-                                Value::from_string(item.name.clone())
-                            }
-                            else if let Value::Struct(item) = value.underlying()
-                                && let Ok(index) = Self::struct_field_index(&location, item, field)
-                            {
-                                reference.indexes.push(field.clone());
-                                reference.fields.push(Value::Boolean(true));
-                                item.fields[index].clone()
-                            }
-                            else if let Some(result) = self.collection_property(
-                                &location, &reference, &value, &field.as_text())
-                            {
-                                reference = ValueReference::temporary(result.clone());
-                                result
-                            }
-                            else if let Value::String(name, _) = field
-                                && let Some(method) = self.resolve_method(
-                                    &value, reference.clone(), name, &operands[1])
-                            {
-                                if matches!(instruction.code, Code::BindField)
-                                {
-                                    Value::String(format!("{}.{}", value.type_name(), name),
-                                        Executable::Method(Rc::new(method)))
-                                }
-                                else
-                                {
-                                    // Receiver and field operations preserve last_result.
-                                    let previous = self.last_result.take();
-                                    let result = self.execute_method(&location, &method, &[]);
-                                    let value = self.last_result.take().unwrap_or(Value::None);
-                                    self.last_result = previous;
-                                    result?;
-                                    reference = ValueReference::temporary(value.clone());
-                                    value
-                                }
-                            }
-                            else
-                            {
-                                if let Value::Struct(item) = &value
-                                { Self::struct_field_index(&location, item, field)?; }
-                                return Err(InterpreterError { location: location.clone(),
-                                    what: ErrorWhat::InvalidOperand(format!(
-                                        "Cannot access a field on {}", value.type_name())) });
-                            };
+                        let field = self.resolve_field_name(&location, field)?;
+                        let (result, resolved) = self.resolve_field(
+                            &location, reference, value, &field, &operands[1],
+                            matches!(instruction.code, Code::BindField))?;
+                        reference = resolved;
                         if matches!(instruction.code, Code::ReferenceField)
                         { references.push(reference); }
                         else { Self::push(&mut stack, result); }
@@ -1617,6 +1558,13 @@ impl Interpreter
                         let collection = Self::pop(&location, &mut stack)?;
                         let value = Self::get_element(&location, &collection, &index)?;
                         Self::push(&mut stack, value);
+                    },
+
+                Code::ResolveFieldName =>
+                    {
+                        let field = instruction.operand.as_ref().expect("Missing field name");
+                        let field = self.resolve_field_name(&location, field)?;
+                        Self::push(&mut stack, field);
                     },
 
                 Code::SetElement =>
@@ -2242,7 +2190,7 @@ impl Interpreter
         names
     }
 
-    pub fn evaluate_variable(&self, name: &str) -> InterpreterResult<String>
+    pub fn evaluate_variable(&mut self, name: &str) -> InterpreterResult<String>
     {
         if self.variable_binding(name).is_none() && !self.special_vars.contains_key(name)
         {
@@ -3220,6 +3168,90 @@ impl Interpreter
             })
     }
 
+    fn resolve_field_name(&self, location: &Location, field: &Value)
+        -> InterpreterResult<Value>
+    {
+        let Value::String(name, _) = field else { return Ok(field.clone()); };
+        if !name.starts_with('$') { return Ok(field.clone()); }
+        let value = self.read_raw_variable(name, location)?;
+        if matches!(value.underlying(), Value::String(_, _))
+        { return Ok(Value::from_string(value.as_text())); }
+        Err(InterpreterError { location: location.clone(),
+            what: ErrorWhat::InvalidOperand(format!(
+                "Field name must be String, got {}", value.type_name())) })
+    }
+
+    fn resolve_field(&mut self, location: &Location, mut reference: ValueReference,
+                     value: Value, field: &Value, snapshot: &Value, bind: bool)
+        -> InterpreterResult<(Value, ValueReference)>
+    {
+        let enum_index =
+            matches!(field, Value::String(name, _) if name == "index");
+        let result = if matches!(field, Value::String(name, _) if name == "type")
+            {
+                let result = Value::Type(self.scope().types.get(
+                    self.scope().types.value_type(&value)));
+                reference = ValueReference::temporary(result.clone());
+                result
+            }
+            else if let Value::Enum(item) = value.underlying() && enum_index
+            {
+                reference.indexes.push(field.clone());
+                reference.fields.push(Value::Boolean(true));
+                Value::Integer(item.variant as i64)
+            }
+            else if let Value::Type(item) = value.underlying()
+                && field.as_text() == "name"
+            {
+                reference.indexes.push(field.clone());
+                reference.fields.push(Value::Boolean(true));
+                Value::from_string(item.name.clone())
+            }
+            else if let Value::Struct(item) = value.underlying()
+                && let Ok(index) = Self::struct_field_index(location, item, field)
+            {
+                reference.indexes.push(field.clone());
+                reference.fields.push(Value::Boolean(true));
+                item.fields[index].clone()
+            }
+            else if let Some(result) = self.collection_property(
+                location, &reference, &value, &field.as_text())
+            {
+                reference = ValueReference::temporary(result.clone());
+                result
+            }
+            else if let Value::String(name, _) = field
+                && let Some(method) = self.resolve_method(
+                    &value, reference.clone(), name, snapshot)
+            {
+                if bind
+                {
+                    Value::String(format!("{}.{}", value.type_name(), name),
+                        Executable::Method(Rc::new(method)))
+                }
+                else
+                {
+                    // Receiver and field operations preserve last_result.
+                    let previous = self.last_result.take();
+                    let result = self.execute_method(location, &method, &[]);
+                    let value = self.last_result.take().unwrap_or(Value::None);
+                    self.last_result = previous;
+                    result?;
+                    reference = ValueReference::temporary(value.clone());
+                    value
+                }
+            }
+            else
+            {
+                if let Value::Struct(item) = &value
+                { Self::struct_field_index(location, item, field)?; }
+                return Err(InterpreterError { location: location.clone(),
+                    what: ErrorWhat::InvalidOperand(format!(
+                        "Cannot access a field on {}", value.type_name())) });
+            };
+        Ok((result, reference))
+    }
+
     fn get_element(
         location: &Location, collection: &Value, index: &Value,
     ) -> InterpreterResult<Value>
@@ -3264,6 +3296,11 @@ impl Interpreter
         }
         if matches!(fields.first(), Some(Value::Boolean(true)))
         {
+            if matches!(index, Value::String(name, _) if name == "type")
+            {
+                return Err(InterpreterError { location: location.clone(),
+                    what: ErrorWhat::InvalidOperand("The .type property is read-only".into()) });
+            }
             if    matches!(collection, Value::Type(_))
                && matches!(index, Value::String(name, _) if name == "name")
             {
@@ -3377,7 +3414,7 @@ impl Interpreter
     }
 
     fn handle_string_interpolation(
-        &self, location: &Location, stack: &mut VecDeque<Value>, escaped_dollars: &[usize],
+        &mut self, location: &Location, stack: &mut VecDeque<Value>, escaped_dollars: &[usize],
         escape_glob: bool,
     ) -> InterpreterResult<()>
     {
@@ -3404,13 +3441,13 @@ impl Interpreter
         Ok(())
     }
 
-    pub(super) fn interpolate_string(&self, location: &Location, text: &str)
+    pub(super) fn interpolate_string(&mut self, location: &Location, text: &str)
         -> InterpreterResult<String>
     {
         self.interpolate_string_at(location, text, &[], true, false)
     }
 
-    fn interpolate_string_at(&self, location: &Location, text: &str,
+    fn interpolate_string_at(&mut self, location: &Location, text: &str,
                              escaped_dollars: &[usize], display_paths: bool,
                              escape_glob: bool) -> InterpreterResult<String>
     {
@@ -3427,7 +3464,18 @@ impl Interpreter
             interpolated.push_str(&text[offset..reference.span.start]);
             if let Some(message) = reference.error
             { return Err(invalid_operand(message.to_string())); }
-            let value = self.read_raw_variable(&reference.name, &location)?;
+            let mut parts = reference.name.split('.');
+            let name = parts.next().unwrap();
+            let mut value = self.read_raw_variable(name, location)?;
+            let mut receiver = self.variable_reference(name)
+                .unwrap_or_else(|| ValueReference::temporary(value.clone()));
+            for name in parts
+            {
+                let field = self.resolve_field_name(location, &Value::from_string(name.into()))?;
+                (value, receiver) = self.resolve_field(
+                    location, receiver, self.eval_value_paths_to(value), &field,
+                    &Value::None, false)?;
+            }
             let value = if display_paths { self.eval_value_paths_to(value) } else { value };
 
             // Append values directly so their contents are not interpolated again.

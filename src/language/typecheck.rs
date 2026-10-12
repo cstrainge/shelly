@@ -16,7 +16,7 @@ use crate::language::{ ast::*,
                                conversion::is_conversion_method,
                                methods::method_key,
                                map_key::MapKey },
-                       text::location::Location };
+                       text::{ location::Location, interpolation::interpolation_references } };
 
 type Names = HashMap<String, TypeId>;
 type MethodResults = HashMap<String, MethodResult>;
@@ -652,7 +652,7 @@ fn check_expression(
         AstExpressionKind::Field(object, name, index) =>
             {
                 check_expression(registry, object, names)?;
-                if name == "type" { return Ok(()); }
+                if name == "type" || name.starts_with('$') { return Ok(()); }
                 if let Some(id) = known_type(registry, object)
                 {
                     if registry.method(id, name).is_some() { return Ok(()); }
@@ -1336,6 +1336,8 @@ fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bind
                 {
                     for access in &item.indexes
                     {
+                        if let AstAccess::Field(name) = access
+                        { check_field_name(registry, name, &bindings, &item.location)?; }
                         if let AstAccess::Index(index) = access
                         {
                             if expression_may_mutate(registry, index, &bindings)
@@ -1632,13 +1634,25 @@ fn check_binding_expression(
     return_type: Option<TypeId>, expected: Option<TypeId>,
 ) -> CompileResult<MethodResults>
 {
+    let members = interpolated_members(expression);
+    if !members.is_empty()
+    {
+        let mut current = bindings.clone();
+        for member in members
+        {
+            current.methods = check_binding_expression(
+                registry, &member, &current, return_type, None)?;
+            if expression_may_mutate(registry, &member, &current)
+            { forget_inferred(&mut current); }
+        }
+    }
     if let AstExpressionKind::TypeConversion(_, value, _, source_type) = &expression.kind
     {
         // The source is evaluated before the factory can mutate caller bindings.
         source_type.set(declared_conversion_source(registry, value, bindings));
     }
     if let AstExpressionKind::Field(value, name, _) = &expression.kind
-        && name != "type" && refined_receiver(value, bindings)
+        && name != "type" && !name.starts_with('$') && refined_receiver(value, bindings)
         && let Some(id) = binding_type(registry, value, bindings)
     {
         let definition = registry.get(registry.underlying_type(id));
@@ -1892,8 +1906,20 @@ fn check_binding_expression(
                 methods = check_binding_expression(
                     registry, right, &right_bindings, return_type, None)?;
             },
-        AstExpressionKind::Field(value, _, _) =>
-            methods = check_binding_expression(registry, value, bindings, return_type, None)?,
+        AstExpressionKind::Field(value, name, _) =>
+            {
+                methods = check_binding_expression(registry, value, bindings, return_type, None)?;
+                if name.starts_with('$')
+                {
+                    if expression_may_mutate(registry, value, bindings)
+                    {
+                        let mut current = bindings.clone();
+                        forget_inferred(&mut current);
+                        check_field_name(registry, name, &current, &expression.location)?;
+                    }
+                    else { check_field_name(registry, name, bindings, &expression.location)?; }
+                }
+            },
         AstExpressionKind::MathExpression(_, left, right)
         | AstExpressionKind::Index(left, right) =>
             {
@@ -2168,6 +2194,9 @@ fn iterator_item_type(registry: &TypeRegistry, expression: &AstExpression,
 fn expression_may_mutate(registry: &TypeRegistry, expression: &AstExpression,
                           bindings: &Bindings) -> bool
 {
+    if interpolated_members(expression).iter()
+        .any(|member| expression_may_mutate(registry, member, bindings))
+    { return true; }
     let mutates = |item: &AstExpression| expression_may_mutate(registry, item, bindings);
     match &expression.kind
     {
@@ -2221,4 +2250,69 @@ fn expression_may_mutate(registry: &TypeRegistry, expression: &AstExpression,
             start.iter().chain(end).any(|value| mutates(value)),
         _ => false,
     }
+}
+
+
+fn check_field_name(registry: &TypeRegistry, name: &str, bindings: &Bindings,
+                    location: &Location) -> CompileResult<()>
+{
+    if !name.starts_with('$') { return Ok(()); }
+    if let Some(id) = bindings.get(name).and_then(|binding| binding.type_id())
+    {
+        let definition = registry.get(registry.underlying_type(id));
+        if !field_name_can_be_string(registry, id)
+        {
+            return Err(error(location, format!(
+                "Field name must be String, got {}", definition.name)));
+        }
+    }
+    Ok(())
+}
+
+
+fn field_name_can_be_string(registry: &TypeRegistry, id: TypeId) -> bool
+{
+    let definition = registry.get(registry.underlying_type(id));
+    match &definition.kind
+    {
+        TypeKind::Optional(inner) => field_name_can_be_string(registry, *inner),
+        TypeKind::Union(items) => items.iter().any(|id| field_name_can_be_string(registry, *id)),
+        _ => definition.name == "String" || definition.name == "any",
+    }
+}
+
+
+fn interpolated_members(expression: &AstExpression) -> Vec<AstExpression>
+{
+    let Some(AstStringFlag::Interpolated(escaped)) = &expression.string_flag
+    else { return Vec::new(); };
+    let text = match &expression.kind
+        {
+            AstExpressionKind::Literal(item) => match &item.value
+                { Value::String(text, _) => Some(text.as_str()), _ => None },
+            AstExpressionKind::Symbol(item) => Some(item.name.as_str()),
+            _ => None,
+        };
+    let Some(text) = text else { return Vec::new(); };
+    interpolation_references(text, escaped).into_iter()
+        .filter(|reference| reference.error.is_none() && reference.name.contains('.'))
+        .map(|reference|
+            {
+                let mut parts = reference.name.split('.');
+                let mut member = AstExpression
+                    {
+                        location: expression.location.clone(), string_flag: None,
+                        kind: AstExpressionKind::Variable(AstSymbol
+                            { name: parts.next().unwrap().into() }),
+                    };
+                for name in parts
+                {
+                    member = AstExpression
+                        {
+                            location: expression.location.clone(), string_flag: None,
+                            kind: AstExpressionKind::Field(Box::new(member), name.into(), None),
+                        };
+                }
+                member
+            }).collect()
 }

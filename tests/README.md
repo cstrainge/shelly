@@ -104,6 +104,9 @@ These tests deliberately run failing children and assert that they fail correctl
 `native/array_reverse.shy` and `repl/array_reverse.shy` check nonmutating reversal,
 empty and mixed arrays, nested copies, named arrays, callable elements, argument
 expansions, property references, retained method versions, and argument rejection.
+`native/dynamic_members.shy` and `repl/dynamic_members.shy` check braced member
+interpolation, dynamic String accessor names, nested typed writes, method references,
+closure captures, read-only properties, and REPL state after rejected accesses.
 `native/method_result_types.shy` and `repl/method_result_types.shy` check declared
 method results, forward definitions, nullable and numeric unions, widening,
 typed writes, imported extensions, lexical overrides, retained versions, and

@@ -1,0 +1,55 @@
+# Literal interpolation and dynamic members share normal field resolution and writes.
+let $fixture = $args[0]
+fn member_case($source: String, $expected: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $expected) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "dynamic members mismatch" }
+}
+member_case 'struct Person { name: String, age: Integer }; let $p = Person(name: "Ada", age: 36); let $field = "age"; echo "${p.name}: ${p.$field}"; $p.$field = 37; echo $p.age; $field = "name"; $p.$field = "Grace"; echo "${p.name}"' "Ada: 36\n37\nGrace\n" ""
+member_case 'struct Leaf { n: Integer }; struct Tree { child: Leaf, items: [Leaf] }; let $t = Tree(child: Leaf(n: 1), items: [Leaf(n: 2)]); let $child = "child"; let $n = "n"; let $items = "items"; $t.$child.$n = 3; $t.$items[0].$n = 4; echo "${t.child.n} ${t.$child.$n}" $t.items[0].n ($t).$child.n' "3 3 4 3\n" ""
+member_case 'struct Box { n: Integer }; fn Box::bump($step: Integer): Integer { $self.n = $self.n + $step; $self.n }; let $b = Box(n: 1); let $field = "bump"; echo ($b.$field 2) $b.n; let $saved = `$b.$field; echo ($saved 3) $b.n' "3 3\n6 6\n" ""
+member_case 'struct Box { n: Integer }; fn Box::bump(): Integer { $self.n = $self.n + 1; $self.n }; let $b = Box(n: 1); echo "${b.bump} ${b.n}" $b.n; let $field = "bump"; echo "${b.$field}" $b.n' "2 2 2\n3 3\n" ""
+member_case 'struct Box { n: Integer }; fn make(): fn(): String { let $b = Box(n: 7); let $field = "n"; fn(): String { $b.$field = $b.$field + 1; "${b.$field}" } }; let $f = (make); echo ($f) ($f)' "8 9\n" ""
+member_case 'let $a: [Integer] = [3, 1, 2]; let $field = "sort"; echo $a.$field...; $field = "count"; echo "${a.$field}"; $field = "value_type"; echo ($a.$field == Integer); $field = "type"; echo ($a.$field == $a.type)' "1 2 3\n3\ntrue\ntrue\n" ""
+member_case 'enum State { Ready, Done }; let $s = State::Done; let $field = "index"; echo $s.$field "${s.index}"; let $t = Integer; $field = "name"; echo $t.$field "${t.name}"' "1 1\nInteger Integer\n" ""
+member_case 'struct Box { cb: fn(): String }; let $b = Box(cb: fn(): String { "ok" }); let $field = "cb"; echo ($b.$field); $b.$field = fn(): String { "new" }; echo ($b.cb)' "ok\nnew\n" ""
+member_case 'struct Box { n: Integer }; let $b = Box(n: 1); let $copy = $b; let $field = "n"; $b.$field = 2; echo $copy.n $b.n' "1 2\n" ""
+member_case 'struct Box { n: Integer }; let $b = Box(n: 1); let $field = "missing"; echo $b.$field' "" "Unknown field"
+member_case 'struct Box { n: Integer }; let $b = Box(n: 1); echo "${b.missing}"' "" "Unknown field"
+member_case 'struct Box { n: Integer }; let $b = Box(n: 1); let $field = "n"; $b.$field = "wrong"' "" "Expected Integer"
+member_case 'struct Box { n: Integer }; let $b = Box(n: 1); let $field = Box(n: 2); echo $b.$field' "" "Field name must be String"
+member_case 'struct Box { n: Integer }; let $b = Box(n: 1); let $field = 3; $b.$field = 2' "" "Field name must be String"
+member_case 'struct Box { n: Integer }; let $b = Box(n: 1); let $field = false; echo "${b.$field}"' "" "Field name must be String"
+member_case 'struct Box { n: Integer }; fn read($b: Box, $field: any) { echo $b.$field }; read Box(n: 1) Box(n: 2)' "" "Field name must be String"
+member_case 'struct Box { n: Integer }; let $b = Box(n: 1); let $field = "type"; $b.$field = Integer' "" "read-only"
+member_case 'enum State { Ready }; let $s = State::Ready; let $field = "index"; $s.$field = 2' "" "read-only"
+member_case 'let $t = Integer; let $field = "name"; $t.$field = "Changed"' "" "read-only"
+member_case 'let $a: [Integer] = []; let $field = "value_type"; $a.$field = String' "" "read-only"
+member_case 'struct Box { n: Integer }; let $b = Box(n: 1); echo "${b..n}"' "" "Expected a variable and field names"
+member_case 'struct Box { n: Integer }; let $b = Box(n: 1); echo $b.$missing' "" "not found"
+member_case 'struct Box { text: String }; let $b = Box(text: "\\$literal"); echo "${b.text}" "\\${b.text}"' "\$literal \${b.text}\n" ""
+member_case 'struct Box { n: Integer }; type Field = String; let $b = Box(n: 1); let $field: Field = "n"; $b.$field = 2; echo $b.$field' "2\n" ""
+member_case 'struct Box { n: Integer }; fn read($b: Box, $field: String | Integer) { echo $b.$field }; read Box(n: 1) 2' "" "Field name must be String"
+member_case 'struct Box { n: Integer }; fn read($b: Box, $field: Integer | Boolean) { echo $b.$field }; read Box(n: 1) 2' "" "Field name must be String"
+member_case 'struct Box { n: Integer }; let $b = Box(n: 1); let $field: any = Box(n: 2); fn rhs(): Integer { echo "should not run"; 2 }; $b.$field = (rhs)' "" "Field name must be String"
+printf "%s" 'pub let $field: String = "n"' -> "${fixture}/member_names.shy"
+member_case 'import member_names; struct Box { n: Integer }; let $b = Box(n: 1); $b.$member_names::field = 2; echo $b.$member_names::field "${b.$member_names::field}"' "2 2\n" ""
+member_case 'struct Box { n: Integer }; let $b = Box(n: 1); let $field = 2; fn Box::prepare(): String { $field = "n"; "ready" }; echo "${b.prepare} ${b.$field}"' "ready 1\n" ""
+member_case 'struct Box { n: Integer }; let $b = Box(n: 1); let $x = 1; fn Box::prepare(): String { $x = "text"; "ready" }; echo "${b.prepare}"; echo ($x.contains "ex")' "ready\ntrue\n" ""
+member_case 'struct Box { n: Integer }; fn Box::read(): String { "old" }; let $b = Box(n: 1); let $field = "read"; let $saved = `$b.$field; fn label(): String { "${b.read}" }; fn Box::read(): String { "new" }; echo ($saved) (label) ($b.$field)' "old old new\n" ""
+member_case 'struct Box { n: Integer }; let $field = Box(n: 0); fn make(): Box { $field = "n"; Box(n: 8) }; echo (make).$field' "8\n" ""
+member_case 'struct Box { n: Integer }; let $field = Box(n: 0); fn Box::prepare(): Box { $field = "n"; $self }; let $b = Box(n: 9); echo "${b.prepare.$field}"' "9\n" ""

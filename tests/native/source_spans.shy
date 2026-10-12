@@ -154,3 +154,8 @@ for ($source, $message) in [
     "${fixture}/source.err" -> $error
     require ($error.contains $message) "wrong source bridge diagnostic"
 }
+
+# Dynamic members preserve source spans through both string and streaming buffers.
+let $source = 'echo $p.$field.child $p.$module::field[0] "${p.name} ${p.$field}"'
+let $report = inspect_source $source
+reconstruct $source $report

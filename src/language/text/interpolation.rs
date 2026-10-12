@@ -60,6 +60,19 @@ pub fn interpolation_references(text: &str, escaped_dollars: &[usize])
             }
             if name.len() == 1 { continue; }
         }
+        if error.is_none() && name.contains('.')
+        {
+            for (index, part) in name.split('.').enumerate()
+            {
+                let part = if index == 0 || part.starts_with('$')
+                    { part.strip_prefix('$').unwrap_or(part) } else { part };
+                if    part.is_empty()
+                   || part.chars().next().is_some_and(|c| c.is_numeric())
+                   || !part.split("::").all(|segment| !segment.is_empty()
+                        && segment.chars().all(|c| c.is_alphanumeric() || c == '_'))
+                { error = Some("Expected a variable and field names in string interpolation."); }
+            }
+        }
         if error.is_none() && name.contains('=')
         { error = Some("Invalid variable name: '=' is not allowed."); }
         let end = characters.peek().map_or(text.len(), |(offset, _)| *offset);
