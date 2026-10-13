@@ -615,6 +615,14 @@ impl Interpreter
         native_functions.insert("__get_env", NativeFunction::new(
             "__get_env", NativeVisibility::Hidden, Rc::new(Interpreter::handle_get_env)));
         native_functions.insert(
+            "__test",
+            NativeFunction::new(
+                "__test",
+                NativeVisibility::Hidden,
+                Rc::new(Interpreter::handle_test),
+            ),
+        );
+        native_functions.insert(
             "__report_error",
             NativeFunction::new(
                 "__report_error",

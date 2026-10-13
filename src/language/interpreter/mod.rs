@@ -5,6 +5,7 @@ mod collection_types;
 mod conversions;
 mod environment;
 mod exceptions;
+mod file_test;
 mod interpreter;
 mod io;
 mod iteration;

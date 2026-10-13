@@ -5,6 +5,7 @@
 visible `__report_error
 visible `__env
 visible `__get_env
+visible `__test
 pub visible "VariableVisibility"
 pub visible "VariableInfo"
 
@@ -441,25 +442,38 @@ pub fn path()
 
 pub fn dir_exists($path: String): Boolean
 {
-    Boolean(test -d $path)
+    __test "-d" $path
 }
 
 
 pub fn file_exists($path: String): Boolean
 {
-    Boolean(test -f $path)
+    __test "-f" $path
 }
 
 
 pub fn is_pipe(): Boolean
 {
-    Boolean(test -p 1)
+    __test "-p" 1
 }
 
 
 pub fn is_tty(): Boolean
 {
-    Boolean(test -t 1)
+    __test "-t" 1
+}
+
+
+pub fn is_color(): Boolean
+{
+    if (is_tty) && !(is_pipe)
+    {
+        $tty_color_mode != TtyColorMode::TtyMonochrome
+    }
+    else
+    {
+        false
+    }
 }
 
 
@@ -472,10 +486,4 @@ pub fn Boolean::from_exec_result($result: ExecResult): Boolean
 pub fn Boolean::to_exec_result(): ExecResult
 {
     if $self { ExecResult(0) } else { ExecResult(1) }
-}
-
-
-pub fn is_color(): Boolean
-{
-    $tty_color_mode != TtyColorMode::TtyMonochrome
 }
