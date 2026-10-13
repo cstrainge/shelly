@@ -1,7 +1,7 @@
 # EXTENSION-090: README first and fallback
 check ["id": "EXTENSION-090",
     "name": "README first and fallback",
-    "source": "fn Array::first(\$fallback: optional any): any { if \$self.count == 0 { \$fallback } else { \$self[0] } }; echo [4, 5].first; echo ([].first \"empty\")",
+    "source": "fn Array::first(\$fallback: any | ()): any { if \$self.count == 0 { \$fallback } else { \$self[0] } }; echo [4, 5].first; echo ([].first \"empty\")",
     "mode": "code",
     "args": [],
     "stdout": "4\nempty\n",

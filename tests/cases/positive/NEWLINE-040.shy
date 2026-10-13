@@ -1,7 +1,7 @@
 # NEWLINE-040: spaced empty postfix
 check ["id": "NEWLINE-040",
     "name": "spaced empty postfix",
-    "source": "struct S { pub n: optional Number }; echo S ().n",
+    "source": "struct S { pub n: Number | () }; echo S ().n",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

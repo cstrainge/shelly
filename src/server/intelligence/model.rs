@@ -79,7 +79,6 @@ pub(super) fn annotation(ty: &AstType) -> String
             .map(annotation).collect::<Vec<_>>().join(", ")),
         AstType::Map(key, item) => format!("[{}: {}]", annotation(key), annotation(item)),
         AstType::Union(items) => items.iter().map(annotation).collect::<Vec<_>>().join(" | "),
-        AstType::Optional(item) => format!("{} | ()", annotation(item)),
         AstType::Function(args, result) => format!("fn({}): {}", args.iter()
             .map(annotation).collect::<Vec<_>>().join(", "), annotation(result)),
     }

@@ -6,9 +6,9 @@ import std::net::http
 pub struct Page
 {
     pub items: Array,
-    pub next: optional std::net::http::Request,
-    pub cursor: optional String,
-    pub metadata: optional any,
+    pub next: std::net::http::Request | (),
+    pub cursor: String | (),
+    pub metadata: any | (),
 }
 pub error struct PaginationError { pub message: String }
 pub type Error = PaginationError | std::net::http::Error
@@ -18,12 +18,12 @@ pub type Reader = std::stream::Reader
 struct Pager
 {
     client: std::net::http::Client,
-    request: optional std::net::http::Request,
+    request: std::net::http::Request | (),
     decode: Decoder,
     remaining: Integer,
     count: Integer,
     seen: [String: Boolean],
-    cursor: optional String,
+    cursor: String | (),
 }
 fn Pager::new($client: std::net::http::Client, $first: std::net::http::Request,
               $decode: Decoder, $max_pages: Integer): Pager | PaginationError
@@ -33,7 +33,7 @@ fn Pager::new($client: std::net::http::Client, $first: std::net::http::Request,
     Pager(client: $client, request: $first, decode: $decode,
         remaining: $max_pages, count: 0, seen: [:])
 }
-fn Pager::next(): optional Page | ErrorValue
+fn Pager::next(): Page | () | ErrorValue
 {
     if $self.::request == () { return () }
     if $self.::remaining == 0 { return PaginationError(message: "Pagination page limit exceeded") }
@@ -71,12 +71,12 @@ fn Pager::next(): optional Page | ErrorValue
 fn Pager::get_count(): Integer { $self.::count }
 
 pub fn pages($client: std::net::http::Client, $first: std::net::http::Request,
-             $decode: Decoder, $max_pages: optional Integer): Reader | ErrorValue
+             $decode: Decoder, $max_pages: Integer | ()): Reader | ErrorValue
 {
     let $pager = Pager(client: $client, first: $first, decode: $decode,
         max_pages: (if $max_pages == () { 1000 } else { $max_pages }))
     std::stream::Reader(
-        next: fn (): optional Page | ErrorValue { $pager.next },
+        next: fn (): Page | () | ErrorValue { $pager.next },
         result: fn (): Integer { $pager.count },
     )
 }
@@ -85,7 +85,7 @@ pub fn items($pages: Reader): Reader | ErrorValue
     let $items = []
     let $offset = 0
     std::stream::Reader(
-        next: fn (): optional std::stream::Item | ErrorValue
+        next: fn (): std::stream::Item | () | ErrorValue
         {
             loop
             {

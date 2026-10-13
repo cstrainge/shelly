@@ -1,7 +1,7 @@
 # STRUCT-004: untyped and any
 check ["id": "STRUCT-004",
     "name": "untyped and any",
-    "source": "struct S { pub x, pub y: any, pub z: optional, pub w: optional any }; echo S(x: (), y: [1]).z",
+    "source": "struct S { pub x, pub y: any, pub z: any | (), pub w: any | () }; echo S(x: (), y: [1]).z",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

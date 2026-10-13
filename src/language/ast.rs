@@ -528,8 +528,7 @@ pub enum AstType
     Array(Box<AstType>),
     FixedArray(Vec<AstType>),
     Map(Box<AstType>, Box<AstType>),
-    Union(Vec<AstType>),
-    Optional(Box<AstType>)
+    Union(Vec<AstType>)
 }
 
 pub struct AstFieldDeclaration
@@ -537,7 +536,6 @@ pub struct AstFieldDeclaration
     pub public: bool,
     pub name: String,
     pub annotation: AstType,
-    pub optional: bool,
     pub location: Location
 }
 

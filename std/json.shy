@@ -23,9 +23,9 @@ pub enum Kind { Null, Boolean, Number, String, Array, Object }
 
 pub struct StructOptions
 {
-    pub rename_fields: optional [String: String],
-    pub omit_null_fields: optional [String],
-    pub unknown_fields: optional UnknownFields,
+    pub rename_fields: [String: String] | (),
+    pub omit_null_fields: [String] | (),
+    pub unknown_fields: UnknownFields | (),
 }
 
 pub fn enum_codec($target: Type, $names: HashMap): Codec | Error
@@ -33,58 +33,58 @@ pub fn enum_codec($target: Type, $names: HashMap): Codec | Error
     __json "enum_codec" $target $names
 }
 
-pub fn struct_codec($target: Type, $options: optional StructOptions): Codec | Error
+pub fn struct_codec($target: Type, $options: StructOptions | ()): Codec | Error
 {
     __json "struct_codec" $target $options
 }
 
 pub struct ParseOptions
 {
-    pub number_mode: optional NumberMode,
-    pub duplicate_names: optional DuplicateNames,
-    pub max_bytes: optional Integer,
-    pub max_depth: optional Integer,
-    pub max_scalar: optional Integer,
-    pub max_members: optional Integer,
+    pub number_mode: NumberMode | (),
+    pub duplicate_names: DuplicateNames | (),
+    pub max_bytes: Integer | (),
+    pub max_depth: Integer | (),
+    pub max_scalar: Integer | (),
+    pub max_members: Integer | (),
 }
 
 pub struct MappingOptions
 {
-    pub unknown_fields: optional UnknownFields,
-    pub max_depth: optional Integer,
-    pub max_members: optional Integer,
+    pub unknown_fields: UnknownFields | (),
+    pub max_depth: Integer | (),
+    pub max_members: Integer | (),
 }
 
 pub struct EncodeOptions
 {
-    pub pretty: optional Boolean,
-    pub max_bytes: optional Integer,
-    pub max_depth: optional Integer,
-    pub max_scalar: optional Integer,
-    pub max_members: optional Integer,
+    pub pretty: Boolean | (),
+    pub max_bytes: Integer | (),
+    pub max_depth: Integer | (),
+    pub max_scalar: Integer | (),
+    pub max_members: Integer | (),
 }
 
-pub fn parse($text: String, $options: optional ParseOptions): Document | Error
+pub fn parse($text: String, $options: ParseOptions | ()): Document | Error
 {
     __json "parse" $text $options
 }
 
-pub fn decode($text: String, $options: optional ParseOptions): any | Error
+pub fn decode($text: String, $options: ParseOptions | ()): any | Error
 {
     __json "decode" $text $options
 }
 
-pub fn wrap($value: any, $options: optional EncodeOptions): Document | Error
+pub fn wrap($value: any, $options: EncodeOptions | ()): Document | Error
 {
     __json "wrap" $value $options
 }
 
-pub fn encode($value: any, $options: optional EncodeOptions): String | Error
+pub fn encode($value: any, $options: EncodeOptions | ()): String | Error
 {
     __json "encode" $value $options
 }
 
-pub fn read($reader: std::io::Reader, $options: optional ParseOptions): Document | Error | std::io::Error
+pub fn read($reader: std::io::Reader, $options: ParseOptions | ()): Document | Error | std::io::Error
 {
     let $maximum = if $options == () { 16777216 }
         else if $options.max_bytes == () { 16777216 } else { $options.max_bytes }
@@ -92,28 +92,28 @@ pub fn read($reader: std::io::Reader, $options: optional ParseOptions): Document
     parse $text $options
 }
 
-pub fn write($value: any, $writer: std::io::Writer, $options: optional EncodeOptions): Integer | Error | std::io::Error
+pub fn write($value: any, $writer: std::io::Writer, $options: EncodeOptions | ()): Integer | Error | std::io::Error
 {
     let $text = encode $value $options
     $writer.write std::io::Bytes($text)
 }
 
-pub fn array_source($items: any, $options: optional EncodeOptions): std::io::ByteSource | Error | std::io::Error
+pub fn array_source($items: any, $options: EncodeOptions | ()): std::io::ByteSource | Error | std::io::Error
 {
     __json_source "array" $items $options
 }
 
-pub fn lines_source($items: any, $options: optional EncodeOptions): std::io::ByteSource | Error | std::io::Error
+pub fn lines_source($items: any, $options: EncodeOptions | ()): std::io::ByteSource | Error | std::io::Error
 {
     __json_source "lines" $items $options
 }
 
-pub fn convert($value: any, $target: Type, $options: optional MappingOptions): any | ErrorValue
+pub fn convert($value: any, $target: Type, $options: MappingOptions | ()): any | ErrorValue
 {
     __json "convert" $value $target $options
 }
 
-pub fn decode_as($text: String, $target: Type, $options: optional MappingOptions): any | ErrorValue
+pub fn decode_as($text: String, $target: Type, $options: MappingOptions | ()): any | ErrorValue
 {
     let $document = parse $text
     convert $document $target $options
@@ -154,21 +154,21 @@ pub fn Document::get_kind(): Kind | Error
 
 pub fn Document::get_value(): any | Error { __json "value" $self }
 pub fn Document::at($pointer: String): Document | Error { __json "at" $self $pointer }
-pub fn Document::find($pointer: String): optional Document | Error { __json "find" $self $pointer }
+pub fn Document::find($pointer: String): Document | () | Error { __json "find" $self $pointer }
 pub fn Document::has($pointer: String): Boolean | Error { __json "has" $self $pointer }
-pub fn Document::require_string($pointer: optional String): String | Error
+pub fn Document::require_string($pointer: String | ()): String | Error
 {
     __json "require_string" $self $pointer
 }
-pub fn Document::require_boolean($pointer: optional String): Boolean | Error
+pub fn Document::require_boolean($pointer: String | ()): Boolean | Error
 {
     __json "require_boolean" $self $pointer
 }
-pub fn Document::require_integer($pointer: optional String): Integer | Error
+pub fn Document::require_integer($pointer: String | ()): Integer | Error
 {
     __json "require_integer" $self $pointer
 }
-pub fn Document::array_items($pointer: optional String): [Document] | Error
+pub fn Document::array_items($pointer: String | ()): [Document] | Error
 {
     __json "array_items" $self $pointer
 }
@@ -178,17 +178,17 @@ pub fn Document::detach(): Document | Error { __json "detach" $self }
 pub fn Document::to_json(): Document { $self }
 
 import std::stream
-pub fn encode_line($value: any, $options: optional EncodeOptions): String | Error
+pub fn encode_line($value: any, $options: EncodeOptions | ()): String | Error
 {
     if $options != () && $options.pretty == true
     { return ValidationError(message: "JSON Lines requires compact encoding", path: "", line: 0, column: 0) }
     (encode $value $options) + "\n"
 }
-pub fn read_lines($reader: std::io::Reader, $options: optional ParseOptions): std::stream::Reader | ErrorValue
+pub fn read_lines($reader: std::io::Reader, $options: ParseOptions | ()): std::stream::Reader | ErrorValue
 {
     let $lines = std::io::lines $reader 1048576
     std::stream::Reader(
-        next: fn (): optional Document | Error | std::io::Error
+        next: fn (): Document | () | Error | std::io::Error
         {
             let $line = $lines.next_item
             if $line == () { return () }
@@ -201,15 +201,15 @@ pub fn read_lines($reader: std::io::Reader, $options: optional ParseOptions): st
 visible `__json_reader
 visible "__JsonArrayReader"
 type ArrayReader = __JsonArrayReader
-fn ArrayReader::next_item(): optional Document | Error | std::io::Error
+fn ArrayReader::next_item(): Document | () | Error | std::io::Error
 { __json_reader "next" $self }
 fn ArrayReader::close(): () | std::io::Error { __json_reader "close" $self }
-pub fn read_array($reader: std::io::Reader, $pointer: optional String,
-                  $options: optional ParseOptions): std::stream::Reader | ErrorValue
+pub fn read_array($reader: std::io::Reader, $pointer: String | (),
+                  $options: ParseOptions | ()): std::stream::Reader | ErrorValue
 {
     let $array: ArrayReader = __json_reader "array" $reader $pointer $options
     std::stream::Reader(
-        next: fn (): optional Document | Error | std::io::Error { $array.next_item },
+        next: fn (): Document | () | Error | std::io::Error { $array.next_item },
         close: fn (): () | std::io::Error { $array.close },
     )
 }
@@ -217,8 +217,8 @@ pub fn read_array($reader: std::io::Reader, $pointer: optional String,
 visible `__json_bind
 visible `__json_apply
 visible `__stream
-pub fn std::stream::Reader::read_as($target: Type, $options: optional MappingOptions,
-                                   $boxed: optional Boolean): std::stream::Reader | ErrorValue
+pub fn std::stream::Reader::read_as($target: Type, $options: MappingOptions | (),
+                                   $boxed: Boolean | ()): std::stream::Reader | ErrorValue
 {
     if $boxed != true && (__json "accepts_null" $target)
     { return MappingError(message: "Target accepts null; select boxed mapping", path: "", line: 0, column: 0) }
@@ -247,12 +247,12 @@ pub enum DecodeState { NeedInput, End }
 pub struct Decoder
 {
     input: std::io::Bytes,
-    options: optional ParseOptions,
+    options: ParseOptions | (),
     finished: Boolean,
     delivered: Boolean,
-    document: optional Document,
+    document: Document | (),
 }
-pub fn Decoder::new($options: optional ParseOptions): Decoder | std::io::Error
+pub fn Decoder::new($options: ParseOptions | ()): Decoder | std::io::Error
 { Decoder(input: std::io::Bytes(""), options: $options, finished: false, delivered: false) }
 pub fn Decoder::feed($bytes: std::io::Bytes): () | Error | std::io::Error
 {
@@ -280,13 +280,13 @@ pub fn Decoder::poll(): Document | DecodeState
     let $document: any = $self.::document
     $document
 }
-pub fn read_sequence($reader: std::io::Reader, $options: optional ParseOptions): std::stream::Reader | ErrorValue
+pub fn read_sequence($reader: std::io::Reader, $options: ParseOptions | ()): std::stream::Reader | ErrorValue
 {
     let $maximum = if $options == () || $options.max_bytes == () { 1048576 } else { $options.max_bytes }
     let $records = std::io::records $reader 30 $maximum
     let $started = false
     std::stream::Reader(
-        next: fn (): optional Document | ErrorValue
+        next: fn (): Document | () | ErrorValue
         {
             if !$started
             {
@@ -306,7 +306,7 @@ pub fn read_sequence($reader: std::io::Reader, $options: optional ParseOptions):
         close: fn (): () | std::io::Error { $records.close },
     )
 }
-pub fn encode_sequence($value: any, $options: optional EncodeOptions): String | Error
+pub fn encode_sequence($value: any, $options: EncodeOptions | ()): String | Error
 { "\x1e" + (encode $value $options) + "\n" }
 
 pub enum EventKind { StartObject, EndObject, StartArray, EndArray, Member, Value }
@@ -314,8 +314,8 @@ pub struct Event
 {
     pub kind: EventKind,
     pub path: String,
-    pub name: optional String,
-    pub value: optional Document,
+    pub name: String | (),
+    pub value: Document | (),
 }
 struct EventWork
 {
@@ -330,7 +330,7 @@ pub fn events($document: Document): std::stream::Reader | ErrorValue
     let $work = [EventWork(value:$document, path:"", started:false, offset:0)]
     let $pending = ()
     std::stream::Reader(
-        next: fn (): optional Event | ErrorValue
+        next: fn (): Event | () | ErrorValue
         {
             loop
             {
@@ -378,5 +378,5 @@ pub fn events($document: Document): std::stream::Reader | ErrorValue
 pub fn Document::get_count(): Integer | Error { __json "count" $self }
 pub fn Document::member_at($index: Integer): [String, Document] | Error { __json "member_at" $self $index }
 
-pub fn Document::require_float($pointer: optional String): Float | Error
+pub fn Document::require_float($pointer: String | ()): Float | Error
 { __json "require_float" $self $pointer }

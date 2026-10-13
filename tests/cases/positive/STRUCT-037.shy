@@ -1,7 +1,7 @@
 # STRUCT-037: function copy mutation
 check ["id": "STRUCT-037",
     "name": "function copy mutation",
-    "source": "struct S { pub n: Number, pub text: String, pub extra: optional }; fn f(\$s) { \$s.n = 9; return \$s }; let \$s = S(n: 1, text: \"x\"); let \$b = f \$s; echo \$s.n \$b.n",
+    "source": "struct S { pub n: Number, pub text: String, pub extra: any | () }; fn f(\$s) { \$s.n = 9; return \$s }; let \$s = S(n: 1, text: \"x\"); let \$b = f \$s; echo \$s.n \$b.n",
     "mode": "code",
     "args": [],
     "stdout": "1 9\n",

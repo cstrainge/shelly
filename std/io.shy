@@ -39,11 +39,11 @@ pub fn decode_base64($value: String): Bytes | Error { __bytes "from_base64" $val
 pub fn memory_reader($value: Bytes): Reader | Error { __io "memory_reader" $value }
 pub fn open_reader($path: String): Reader | Error { __io "open_reader" $path }
 pub fn open_writer($path: String): Writer | Error { __io "open_writer" $path }
-pub fn Reader::read($max_bytes: optional Integer): optional Bytes | Error
+pub fn Reader::read($max_bytes: Integer | ()): Bytes | () | Error
 {
     __io "read" $self $max_bytes
 }
-pub fn Reader::next_item(): optional Bytes | Error { $self.read 65536 }
+pub fn Reader::next_item(): Bytes | () | Error { $self.read 65536 }
 pub fn Reader::close(): () | Error { __io_close $self }
 pub fn Writer::write($bytes: Bytes): Integer | Error { __io "write" $self $bytes }
 pub fn Writer::flush(): () | Error { __io "flush" $self }
@@ -55,7 +55,7 @@ pub fn read_file($path: String): ByteSource | Error
     let $reader = open_reader $path
     __io "byte_source" $reader true
 }
-pub fn ByteSource::next_item(): optional Bytes | Error
+pub fn ByteSource::next_item(): Bytes | () | Error
 {
     let $reader: Reader = __io "source_reader" $self
     let $chunk = $reader.read 65536
@@ -71,7 +71,7 @@ pub fn write_file($path: String): ByteSink | Error
 }
 pub fn ByteSink::close(): () | Error { __io_close $self }
 
-pub fn Reader::read_all($max_bytes: optional Integer): Bytes | Error
+pub fn Reader::read_all($max_bytes: Integer | ()): Bytes | Error
 {
     let $maximum = if $max_bytes == () { 16777216 } else { $max_bytes }
     if ($maximum < 1) || ($maximum > 67108864)
@@ -118,14 +118,14 @@ fn read_exact_leased($reader: Reader, $count: Integer): Bytes | Error
     $result
 }
 
-pub fn read_bytes($path: String, $max_bytes: optional Integer): Bytes | Error
+pub fn read_bytes($path: String, $max_bytes: Integer | ()): Bytes | Error
 {
     let $reader = open_reader $path
     try { return $reader.read_all $max_bytes }
     finally { $reader.close }
 }
 
-pub fn read_text($path: String, $max_bytes: optional Integer): String | Error
+pub fn read_text($path: String, $max_bytes: Integer | ()): String | Error
 {
     String(read_bytes $path $max_bytes)
 }
@@ -160,13 +160,13 @@ pub fn copy($reader: Reader, $writer: Writer): Integer | Error
 
 visible "__io_Lines"
 pub type Lines = __io_Lines
-pub fn lines($reader: Reader, $max_bytes: optional Integer, $universal: optional Boolean): Lines | Error
+pub fn lines($reader: Reader, $max_bytes: Integer | (), $universal: Boolean | ()): Lines | Error
 {
     __io "lines" $reader $max_bytes $universal
 }
-pub fn Lines::next_item(): optional String | Error
+pub fn Lines::next_item(): String | () | Error
 {
-    let $bytes: optional Bytes = __io "read_line" $self
+    let $bytes: Bytes | () = __io "read_line" $self
     if $bytes == () { return () }
     String($bytes)
 }
@@ -183,6 +183,6 @@ pub error struct ShortReadError
 }
 
 # Binary records keep UTF-8 conversion separate from framing.
-pub fn records($reader: Reader, $separator: Integer, $max_bytes: optional Integer): Lines | Error
+pub fn records($reader: Reader, $separator: Integer, $max_bytes: Integer | ()): Lines | Error
 { __io "records" $reader $max_bytes $separator }
-pub fn Lines::next_bytes(): optional Bytes | Error { __io "read_line" $self }
+pub fn Lines::next_bytes(): Bytes | () | Error { __io "read_line" $self }

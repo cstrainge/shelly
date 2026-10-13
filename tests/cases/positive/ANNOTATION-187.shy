@@ -1,7 +1,7 @@
 # ANNOTATION-187: optional recursive call
 check ["id": "ANNOTATION-187",
     "name": "optional recursive call",
-    "source": "fn f(\$n: Number, \$x: optional Number): Number { if \$n == 0 { return 7 }; f (\$n - 1) }; echo (f 5)",
+    "source": "fn f(\$n: Number, \$x: Number | ()): Number { if \$n == 0 { return 7 }; f (\$n - 1) }; echo (f 5)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

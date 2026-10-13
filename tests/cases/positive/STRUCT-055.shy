@@ -1,7 +1,7 @@
 # STRUCT-055: optional annotation nested container
 check ["id": "STRUCT-055",
     "name": "optional annotation nested container",
-    "source": "struct S { pub a: [optional Number] }; echo S(a: [(), 1]).a...",
+    "source": "struct S { pub a: [Number | ()] }; echo S(a: [(), 1]).a...",
     "mode": "code",
     "args": [],
     "stdout": "() 1\n",

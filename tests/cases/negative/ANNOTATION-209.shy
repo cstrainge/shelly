@@ -1,7 +1,7 @@
 # ANNOTATION-209: optional wrong explicit type
 check ["id": "ANNOTATION-209",
     "name": "optional wrong explicit type",
-    "source": "fn f(\$a: optional Number) {}; f \"bad\"",
+    "source": "fn f(\$a: Number | ()) {}; f \"bad\"",
     "mode": "code",
     "args": [],
     "stdout": "",

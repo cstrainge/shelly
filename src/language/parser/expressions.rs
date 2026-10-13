@@ -651,15 +651,10 @@ fn parse_type_atom(
         name = element.to_string();
         *variadic = true;
     }
-    if !valid_type_name(&name) || name == "optional" && *variadic
+    if !valid_type_name(&name)
     {
         return Err(ParserError { location: Some(token.location),
             kind: ParserErrorKind::InvalidType("Expected a type name.".to_string()) });
-    }
-    if name == "optional"
-    {
-        buffer.annotate(token.span, SyntaxRole::Keyword);
-        return Ok(AstType::Optional(Box::new(parse_type_inner(buffer, allow_variadic, variadic)?)));
     }
     while try_expect_token(buffer, TokenKind::Scope)?.is_some()
     {

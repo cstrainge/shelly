@@ -83,7 +83,7 @@ receiver_annotation_case "import annotations; let \$h: [String: Integer] = [:]; 
 receiver_annotation_case "import annotations; let \$a: [Integer] = [1]; echo \"unreachable\"; let \$v: String = \$a.head" "" "Compile error"
 receiver_annotation_case "fn Array::accept(\$v: \$self.value_type): \$self.value_type { \$v }; let \$a: [Integer] = []; let \$p = \$a.properties; let \$f: fn(Integer): Integer = \$p[\"accept\"]; echo (\$f 3)" "3\n" ""
 receiver_annotation_case "fn Array::apply(\$f: fn(\$self.value_type): \$self.value_type): \$self.value_type { \$f \$self[0] }; let \$a: [Integer] = [1]; echo \"unreachable\"; \$a.apply fn(\$x: String): String { \$x }" "" "Compile error"
-receiver_annotation_case "fn Array::accept(\$v: optional \$self.value_type): optional \$self.value_type { \$v }; let \$a: [Float] = []; echo (\$a.accept) (\$a.accept 1)" "() 1.0\n" ""
+receiver_annotation_case "fn Array::accept(\$v: \$self.value_type | ()): \$self.value_type | () { \$v }; let \$a: [Float] = []; echo (\$a.accept) (\$a.accept 1)" "() 1.0\n" ""
 receiver_annotation_case "fn Array::accept(\$v: \$self.value_type | String): \$self.value_type | String { \$v }; let \$a: [Float] = []; echo (\$a.accept \"s\") (\$a.accept 1)" "s 1.0\n" ""
 receiver_annotation_case "fn Array::push_many(\$v: \$self.value_type...) { \$self = [\$v...,\$self...] }; let \$a: [Integer] = []; \$a.push_many; echo \$a.count" "0\n" ""
 receiver_annotation_case "fn Array::accept(\$v: \$self.value_type): \$self.value_type { \$v }; let \$a: [Integer | String] = []; echo (\$a.accept true)" "" "Compile error"

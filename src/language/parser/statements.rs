@@ -889,35 +889,15 @@ fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
         let public = try_expect_token(buffer, TokenKind::Public)?.is_some();
         let field = expect_field_label(buffer)?;
         let field_name = field.token_value_text();
-        let mut optional = false;
         let mut annotation = AstType::Named("any".to_string());
         if try_expect_token(buffer, TokenKind::TypeDelimiter)?.is_some()
         {
-            optional =
-                {
-                    let mut peek = Lookahead::new(buffer);
-                    if peek.buffer.next()?.is_some_and(|token|
-                        {
-                            let optional = token.kind == TokenKind::Symbol
-                                && token.token_value_text() == "optional";
-                            if optional { peek.buffer.annotate(token.span, SyntaxRole::Keyword); }
-                            optional
-                        })
-                    { peek.commit(); true } else { false }
-                };
-            let has_type =
-                {
-                    let peek = Lookahead::new(buffer);
-                    peek.buffer.next()?.is_some_and(|token| !matches!(token.kind,
-                        TokenKind::Comma | TokenKind::BlockClose | TokenKind::LineBreak))
-                };
-            if !optional || has_type { annotation = parse_type(buffer)?; }
+            annotation = parse_type(buffer)?;
         }
         fields.push(AstFieldDeclaration
             {
                 public, name: field_name,
                 annotation,
-                optional,
                 location: field.location,
             });
         while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}

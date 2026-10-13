@@ -6,7 +6,7 @@ check_repl ["id": "METHOD-RESULT-TYPES", "name": "Scoped method result signature
     ["echo (old []) [].probe", "output", "2 1.5"],
     ["fn good(\$a: Array): Float { \$a.probe }; echo (good [])", "output", "1.5"],
     ["fn Array::probe(): Number | () { () }", "quiet", ""],
-    ["fn bad(\$a: Array): Integer { \$a.probe }", "error", "Expected Integer, got optional Number"],
+    ["fn bad(\$a: Array): Integer { \$a.probe }", "error", "Expected Integer, got Number | ()"],
     ["fn optional(\$a: Array): Number | () { \$a.probe }; echo (optional [])", "output", "()"],
     ["fn Array::probe(): String { \"new\" }; fn bad(\$a: Array): Integer { \$a.probe }", "error", "Expected Integer, got String"],
     ["echo [].probe (old []) (good [])", "output", "() 2 1.5"],

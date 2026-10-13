@@ -1,7 +1,7 @@
 # ANNOTATION-184: optional nominal
 check ["id": "ANNOTATION-184",
     "name": "optional nominal",
-    "source": "struct S {}; fn f(\$x: optional S): optional S { return \$x }; echo (f) (f S())",
+    "source": "struct S {}; fn f(\$x: S | ()): S | () { return \$x }; echo (f) (f S())",
     "mode": "code",
     "args": [],
     "stdout": "() S()\n",

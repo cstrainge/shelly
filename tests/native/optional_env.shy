@@ -60,5 +60,5 @@ for $library in ["bundled", "${suite}/std"]
 }
 
 # Imported functions read their own module's exports, rather than the prelude or importer.
-printf "%s" 'let export $SHELLY_ENV_PRESENT = "module"; pub fn read(): optional String { optional_env "SHELLY_ENV_PRESENT" }; pub fn change() { $SHELLY_ENV_PRESENT = "changed" }' -> "${fixture}/env_module.shy"
+printf "%s" 'let export $SHELLY_ENV_PRESENT = "module"; pub fn read(): String | () { optional_env "SHELLY_ENV_PRESENT" }; pub fn change() { $SHELLY_ENV_PRESENT = "changed" }' -> "${fixture}/env_module.shy"
 env_case 'import env_module; ensure ((env_module::read) == "module"); env_module::change; ensure ((env_module::read) == "changed"); ensure ((optional_env "SHELLY_ENV_PRESENT") == "initial")' "" "bundled"

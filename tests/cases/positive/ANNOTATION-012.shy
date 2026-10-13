@@ -1,7 +1,7 @@
-# ANNOTATION-012: default optional Number
+# ANNOTATION-012: default Number | ()
 check ["id": "ANNOTATION-012",
-    "name": "default optional Number",
-    "source": "let \$x: optional Number; echo \"\$x\"",
+    "name": "default Number | ()",
+    "source": "let \$x: Number | (); echo \"\$x\"",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

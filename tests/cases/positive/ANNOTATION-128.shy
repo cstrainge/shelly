@@ -1,7 +1,7 @@
 # ANNOTATION-128: optional empty function
 check ["id": "ANNOTATION-128",
     "name": "optional empty function",
-    "source": "fn f(): optional Number {}; echo (f)",
+    "source": "fn f(): Number | () {}; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

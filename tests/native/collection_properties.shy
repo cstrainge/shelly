@@ -32,7 +32,7 @@ collection_property_case "let \$a = [1]; echo \$a.value_type; \$a[0] = \"s\"; ec
 collection_property_case "let \$a: [Float] = []; let \$p = \$a.properties; echo \$p[\"value_type\"] (\$p[\"value_type\"].type == Type); let \$h: [String: Integer] = [:]; let \$p = \$h.properties; echo \$p[\"key_type\"] \$p[\"value_type\"]" "Float true\nString Integer\n" ""
 collection_property_case "let \$a = [1]; let \$saved = `\$a.properties; let \$p = (\$saved); \$a = [\"s\"]; echo \$p[\"value_type\"] (\$saved)[\"value_type\"]" "Integer String\n" ""
 collection_property_case "let \$a: [Float] | [String] = [1]; echo \$a.value_type; let \$b: [Float] | [String] = []; echo \$b.value_type" "Float\nany\n" ""
-collection_property_case "let \$a: optional [Float] = []; echo \$a.value_type" "Float\n" ""
+collection_property_case "let \$a: [Float] | () = []; echo \$a.value_type" "Float\n" ""
 collection_property_case "let \$t: Type = [1].value_type; echo (\$t == Integer); fn item(\$a: Array): Type { \$a.value_type }; echo (item [1])" "true\nInteger\n" ""
 collection_property_case "struct Item { pub value_type: String, pub key_type: Integer }; let \$a = Item(value_type:\"field\",key_type:9); echo \$a.value_type \$a.key_type" "field 9\n" ""
 collection_property_case "fn any::value_type(): String { \"scalar\" }; echo (1).value_type [1].value_type" "scalar Integer\n" ""

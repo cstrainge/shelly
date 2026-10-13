@@ -101,7 +101,7 @@ fn check_scope(
                 AstStatement::TypeDeclaration(item) => (&item.name, &item.location),
                 _ => continue
             };
-        if matches!(name.as_str(), "any" | "optional")
+        if name == "any"
         { return Err(error(location, format!("'{}' is reserved in type annotations", name))); }
         if let Some(previous) = declarations.insert(name, location)
         {
@@ -168,16 +168,14 @@ fn check_scope(
                                 ),
                             ));
                         }
-                        let mut type_id =
+                        let type_id =
                             resolve_type(registry, &field.annotation, &names, &field.location)?;
-                        if field.optional
-                        {
-                            type_id = registry.intern(TypeKind::Optional(type_id));
-                        }
                         fields.push(FieldDefinition
                             {
                                 public: field.public, name: field.name.clone(), type_id,
-                                optional: field.optional, location: field.location.clone(),
+                                optional: matches!(registry.get(type_id).kind,
+                                                   TypeKind::Optional(_)),
+                                location: field.location.clone(),
                             });
                     }
                     registry.finish(names[&declaration.name], TypeKind::Struct(fields));
@@ -1187,8 +1185,6 @@ fn resolve_method_type(
             AstType::FixedArray(items) => TypeKind::FixedArray(items.iter()
                 .map(|item| resolve_method_type(registry, item, names, location, receiver))
                 .collect::<CompileResult<Vec<_>>>()?),
-            AstType::Optional(inner) =>
-                TypeKind::Optional(resolve_method_type(registry, inner, names, location, receiver)?),
             AstType::Union(members) =>
                 {
                     let members = members.iter()

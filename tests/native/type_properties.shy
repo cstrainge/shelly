@@ -36,8 +36,8 @@ type_properties_case 'fn Number::tag(): String { "number" }; type Count = Intege
 type_properties_case 'enum State { Ready, Done }; let $p = State.properties; echo $p["type"] $p["index"] $p["Ready"] $p["Done"]' "State Integer State::Ready State::Done\n" ""
 
 # Receiver-dependent signatures retain the collection's declared member types.
-type_properties_case 'type Items = [Integer]; fn Array::head(): $self.value_type | () { () }; let $p = Items.properties; echo $p["value_type"] $p["next_item"] $p["head"]' "Integer fn(): optional Integer fn(): optional Integer\n" ""
-type_properties_case 'type Table = [String: Float]; let $p = Table.properties; echo $p["key_type"] $p["value_type"] $p["next_item"]' "String Float fn(): optional [String, Float]\n" ""
+type_properties_case 'type Items = [Integer]; fn Array::head(): $self.value_type | () { () }; let $p = Items.properties; echo $p["value_type"] $p["next_item"] $p["head"]' "Integer fn(): Integer | () fn(): Integer | ()\n" ""
+type_properties_case 'type Table = [String: Float]; let $p = Table.properties; echo $p["key_type"] $p["value_type"] $p["next_item"]' "String Float fn(): [String, Float] | ()\n" ""
 type_properties_case 'let $p = String.properties; echo $p["contains"] $p["trim"]' "fn(any): Boolean fn(): String\n" ""
 type_properties_case 'type Décompte = Integer; echo Décompte.name; let $p = Décompte.properties; echo $p["type"]' "Décompte\nDécompte\n" ""
 type_properties_case 'fn Boolean::from_exec_result($result: ExecResult): Boolean { if $result { true } else { false } }; fn Boolean::to_exec_result(): ExecResult { ExecResult(0) }; let $p = Boolean.properties; echo $p["from_exec_result"] $p["to_exec_result"]; let $v = true; echo ($v.properties["from_exec_result"] == ())' "fn(ExecResult): Boolean fn(): ExecResult\ntrue\n" ""

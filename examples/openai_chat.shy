@@ -46,7 +46,7 @@ struct Options
 {
     pub api_key: String,
     pub model: String,
-    pub base_url: optional String,
+    pub base_url: String | (),
     pub help: Boolean,
 }
 
@@ -133,11 +133,11 @@ struct Chat
     client: Client,
     pub model: String,
     pub messages: [Message],
-    pub instructions: optional String,
+    pub instructions: String | (),
     pub streaming: Boolean,
-    pub pending: optional String,
+    pub pending: String | (),
     pub models: [String],
-    pub usage: optional Usage,
+    pub usage: Usage | (),
 }
 
 fn Chat::new($client: Client, $model: String): Chat

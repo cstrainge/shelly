@@ -1,7 +1,7 @@
 # STRUCT-080: optional rejects wrong type
 check ["id": "STRUCT-080",
     "name": "optional rejects wrong type",
-    "source": "struct S { pub n: optional Number }; echo S(n: \"x\")",
+    "source": "struct S { pub n: Number | () }; echo S(n: \"x\")",
     "mode": "code",
     "args": [],
     "stdout": "",

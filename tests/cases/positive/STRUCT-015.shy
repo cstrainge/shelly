@@ -1,7 +1,7 @@
 # STRUCT-015: mutually recursive optional
 check ["id": "STRUCT-015",
     "name": "mutually recursive optional",
-    "source": "struct A { pub b: B }; struct B { pub a: optional A }; echo A(b: B()).b.a",
+    "source": "struct A { pub b: B }; struct B { pub a: A | () }; echo A(b: B()).b.a",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

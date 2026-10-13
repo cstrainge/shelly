@@ -68,6 +68,10 @@ conversion hooks, collection and pipeline items, interpolation, imports, reflect
 and rejected calls. `repl/union_methods.shy` checks retained interfaces and live,
 versioned method references across separate submissions.
 
+`native/unit_unions.shy` checks `T | ()` defaults for variables, fields and parameters,
+nested collections, function references, type names, and rejected legacy modifiers.
+`repl/unit_unions.shy` checks these defaults and recovery after obsolete syntax across submissions.
+
 `native/type_properties.shy` checks bare type receivers, represented interfaces,
 field, method, and factory signature metadata, imported visibility, and reflection without
 constructing instances or running user code. The properties REPL tests retain

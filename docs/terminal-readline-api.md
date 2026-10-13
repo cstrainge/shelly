@@ -59,25 +59,25 @@ They use Shelly's existing syntax, function prototypes, conversion protocols and
 pub enum EditMode { Emacs, Vi }
 
 pub fn Editor::new(
-    $prompt: optional String | Prompt,
-    $history: optional History,
-    $complete: optional Complete,
-    $validate: optional Validate,
-    $highlight: optional Highlight,
-    $edit_mode: optional EditMode,
-    $limits: optional Limits
+    $prompt: String | () | Prompt,
+    $history: History | (),
+    $complete: Complete | (),
+    $validate: Validate | (),
+    $highlight: Highlight | (),
+    $edit_mode: EditMode | (),
+    $limits: Limits | ()
 ): Editor | Error
 
-pub fn Editor::read($options: optional ReadOptions): optional String | Error
-pub fn Editor::read_event($options: optional ReadOptions): ReadEvent | Error
-pub fn Editor::lines($options: optional ReadOptions): std::stream::Reader | Error
+pub fn Editor::read($options: ReadOptions | ()): String | () | Error
+pub fn Editor::read_event($options: ReadOptions | ()): ReadEvent | Error
+pub fn Editor::lines($options: ReadOptions | ()): std::stream::Reader | Error
 pub fn Editor::remember($text: String): () | Error
 pub fn Editor::flush_history(): () | Error
 pub fn Editor::get_history_status(): HistoryStatus
 pub fn Editor::get_draft(): String
 pub fn Editor::close(): () | Error
 
-pub fn read($prompt: optional String | Prompt): optional String | Error
+pub fn read($prompt: String | () | Prompt): String | () | Error
 ```
 
 `Editor` is an opaque shared handle. Copies are aliases, not separate editors. Its defaults
@@ -95,9 +95,9 @@ Prompt changes and prefilled input use `ReadOptions`:
 ```shy
 pub struct ReadOptions
 {
-    pub prompt: optional String | Prompt,
-    pub initial: optional String,
-    pub cursor: optional Integer,
+    pub prompt: String | () | Prompt,
+    pub initial: String | (),
+    pub cursor: Integer | (),
 }
 ```
 
@@ -175,8 +175,8 @@ pub type PromptFn = fn(): String | Text
 
 pub fn Prompt::new(
     $left: String | Text | PromptFn,
-    $right: optional String | Text | PromptFn,
-    $continuation: optional String | Text | PromptFn
+    $right: String | () | Text | PromptFn,
+    $continuation: String | () | Text | PromptFn
 ): Prompt | Error
 
 pub fn Prompt::from_string($text: String): Prompt | Error
@@ -258,10 +258,10 @@ pub type Complete = fn(Edit): [String | Completion]
 pub fn words($values: [String]): Complete | Error
 pub fn Completion::new(
     $value: String,
-    $replace: optional Span,
-    $display: optional String,
-    $description: optional String,
-    $append_space: optional Boolean
+    $replace: Span | (),
+    $display: String | (),
+    $description: String | (),
+    $append_space: Boolean | ()
 ): Completion | Error
 ```
 
@@ -307,13 +307,13 @@ pub enum ValidationKind { Ready, More, Reject }
 pub struct Validation
 {
     pub kind: ValidationKind,
-    pub message: optional String,
-    pub span: optional Span,
+    pub message: String | (),
+    pub span: Span | (),
 }
 pub type Validate = fn(Edit): Validation
 pub fn ready(): Validation
 pub fn more(): Validation
-pub fn reject($message: String, $span: optional Span): Validation | Error
+pub fn reject($message: String, $span: Span | ()): Validation | Error
 
 pub struct HighlightSpan { pub span: Span, pub style: Style }
 pub type Highlight = fn(Edit): [HighlightSpan]
@@ -396,7 +396,7 @@ pub error struct TerminalError
 {
     pub what: TerminalFailure,
     pub message: String,
-    pub code: optional Integer,
+    pub code: Integer | (),
 }
 pub enum TerminalFailure { NotTerminal, NotForeground, Read, Restore, Unsupported }
 pub error struct ConfigError { pub message: String }
@@ -405,7 +405,7 @@ pub error struct ClosedError { pub message: String }
 pub error struct CancelledError { pub message: String }
 pub error struct LimitError { pub message: String }
 pub error struct CallbackError { pub hook: String, pub message: String }
-pub error struct HistoryError { pub path: String, pub message: String, pub code: optional Integer }
+pub error struct HistoryError { pub path: String, pub message: String, pub code: Integer | () }
 pub type Error = TerminalError | ConfigError | BusyError | ClosedError | CancelledError | LimitError | CallbackError | HistoryError
 ```
 
@@ -428,10 +428,10 @@ pub enum HistoryRecord { Submitted, Manual }
 pub enum HistoryFailure { Memory, Raise }
 pub struct History
 {
-    pub path: optional String,
-    pub limit: optional Integer,
-    pub record: optional HistoryRecord,
-    pub failure: optional HistoryFailure,
+    pub path: String | (),
+    pub limit: Integer | (),
+    pub record: HistoryRecord | (),
+    pub failure: HistoryFailure | (),
 }
 ```
 
@@ -583,7 +583,7 @@ script or adding source evaluation is outside this wrapper design.
 ## Limits and delivery
 
 The configurable fields are `max_input_bytes`, `max_completions`, `max_completion_bytes`,
-`max_highlight_spans`, `callback_timeout_ms` and `callback_instructions`, all optional Integers
+`max_highlight_spans`, `callback_timeout_ms` and `callback_instructions`, all Integers | ()
 on the immutable Limits configuration. Omitted fields take defaults; invalid values raise
 ConfigError. Their ceilings are 1 MiB, 10,000, 4 MiB, 16,384, 100 ms and 250,000 instructions,
 respectively; zero is invalid. Prompt and registry limits are fixed in this initial wrapper.

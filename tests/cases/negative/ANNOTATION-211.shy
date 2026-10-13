@@ -1,7 +1,7 @@
 # ANNOTATION-211: optional too many
 check ["id": "ANNOTATION-211",
     "name": "optional too many",
-    "source": "fn f(\$a: optional Number) {}; f 1 2",
+    "source": "fn f(\$a: Number | ()) {}; f 1 2",
     "mode": "code",
     "args": [],
     "stdout": "",

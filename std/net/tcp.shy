@@ -39,5 +39,5 @@ pub fn Connection::shutdown_write(): () | Error { $self.writer.shutdown_write }
 import std::stream
 pub fn connections($listener: Listener): std::stream::Reader | ErrorValue
 {
-    std::stream::Reader(next: fn (): optional Connection | Error { $listener.accept })
+    std::stream::Reader(next: fn (): Connection | () | Error { $listener.accept })
 }

@@ -1,7 +1,7 @@
 # ANNOTATION-203: required after optional
 check ["id": "ANNOTATION-203",
     "name": "required after optional",
-    "source": "fn f(\$a: optional Number, \$b: Number) {}",
+    "source": "fn f(\$a: Number | (), \$b: Number) {}",
     "mode": "code",
     "args": [],
     "stdout": "",

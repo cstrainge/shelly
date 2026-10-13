@@ -26,7 +26,7 @@ protocol_case 'struct Foo { value: Integer | () }; let $x = Foo(); fn Foo::read(
 protocol_case 'struct Foo { value: Integer }; let $x = Foo()' "" "Missing required field"
 protocol_case 'struct Foo { value: Integer | () }; let $x = Foo(value: 1)' "" "private"
 protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo { Foo() }; let $x = Foo()' "" "Expected Integer"
-protocol_case 'struct Foo { pub value: Integer }; fn Foo::new(): Foo | () { () }; let $x: Foo = Foo()' "" "optional Foo"
+protocol_case 'struct Foo { pub value: Integer }; fn Foo::new(): Foo | () { () }; let $x: Foo = Foo()' "" "Foo | ()"
 protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo | () { () }; let $x: Foo | () = Foo(); echo ($x == ())' "true\n" ""
 protocol_case 'struct Foo { value: Integer }; fn Foo::new(): Foo | () { Foo(value: 7) }; fn get(): Foo | () { let $x = Foo(); if $x == () { return () }; let $y: Foo = $x; $y }; fn Foo::get_value(): Integer { $self.::value }; echo (get).value' "7\n" ""
 protocol_case 'struct Foo { pub value: Integer }; fn Foo::new($init: Integer): Foo { Foo(value: $init) }; let $x = Foo()' "" "Missing constructor parameter"

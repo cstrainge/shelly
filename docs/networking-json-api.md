@@ -96,8 +96,8 @@ pub error struct ApiError
 {
     pub status: Integer,
     pub message: String,
-    pub request_id: optional String,
-    pub response: optional std::json::Document,
+    pub request_id: String | (),
+    pub response: std::json::Document | (),
 }
 
 pub type Error = ApiError | std::net::http::Error | std::json::Error | std::stream::Error
@@ -519,8 +519,8 @@ Readers and writers have the following conceptual operations:
 | Reader.read_text(limit_bytes) | Strict decoded text within a finite limit |
 | Writer.write_some(bytes) | Number of bytes written |
 | Writer.write_all(bytes) | Complete write count |
-| Writer.flush | () |
-| close | (); idempotent release of the resource |
+| Writer.flush \| () |
+| close \| (); idempotent release of the resource |
 | io::copy(reader, writer, options?) | Transfer count |
 
 Each fallible operation additionally returns its marked io::Error group. max_bytes must be
@@ -670,7 +670,7 @@ result computes the completion value after next first returns (); close releases
 | --- | --- | --- | --- |
 | Open | Run one next callback | NotFinished | Cancel active wait, then close callback |
 | Finishing | Busy; no competing callback | Busy | Cancel finishing, then release |
-| Exhausted | () | Cached success | () after already completed release |
+| Exhausted \| () | Cached success \| () after already completed release |
 | Failed | Repropagate stored failure | Repropagate stored failure | Only new release failure, never replay original |
 | Cancelled | CancelledError | CancelledError | Idempotent () after release |
 
@@ -1168,9 +1168,9 @@ pub struct Request
 {
     pub model: String,
     pub input: String | [Message],
-    pub instructions: optional String,
-    pub max_output_tokens: optional Integer,
-    pub store: optional Boolean,
+    pub instructions: String | (),
+    pub max_output_tokens: Integer | (),
+    pub store: Boolean | (),
 }
 
 pub fn Request::json_codec(): std::json::Codec
@@ -1191,15 +1191,15 @@ struct Envelope
 {
     pub id: String,
     pub status: String,
-    pub usage: optional Usage,
+    pub usage: Usage | (),
 }
 
 pub struct Response
 {
     pub id: String,
     pub status: String,
-    pub usage: optional Usage,
-    pub request_id: optional String,
+    pub usage: Usage | (),
+    pub request_id: String | (),
     pub raw: std::json::Document,
 }
 
@@ -1226,7 +1226,7 @@ pub error struct ApiError
 {
     pub status: Integer,
     pub message: String,
-    pub request_id: optional String,
+    pub request_id: String | (),
     pub response: std::json::Document,
 }
 
@@ -1234,8 +1234,8 @@ pub error struct ResponseError
 {
     pub what: ResponseFailure,
     pub message: String,
-    pub request_id: optional String,
-    pub response: optional std::json::Document,
+    pub request_id: String | (),
+    pub response: std::json::Document | (),
 }
 
 pub type Error = ApiError | ResponseError | std::net::http::Error | std::json::Error | std::net::sse::Error | std::stream::Error
@@ -1252,8 +1252,8 @@ pub fn String::from_response_error($error: ResponseError): String
 
 # Return the marked value to transfer it to the caller's success-only context.
 fn response_failure($what: ResponseFailure, $message: String,
-                    $request_id: optional String,
-                    $document: optional std::json::Document): ResponseError
+                    $request_id: String | (),
+                    $document: std::json::Document | ()): ResponseError
 {
     ResponseError(
         what: $what,
@@ -1329,7 +1329,7 @@ pub struct Client
     model: String,
 }
 
-pub fn Client::new($api_key: String, $model: String, $base_url: optional String): Client | Error
+pub fn Client::new($api_key: String, $model: String, $base_url: String | ()): Client | Error
 {
     Client(
         transport: std::net::http::Client(
@@ -1351,7 +1351,7 @@ pub fn Client::create($request: Request): Response | Error
     $response
 }
 
-pub fn Client::text($input: String, $instructions: optional String): String | Error
+pub fn Client::text($input: String, $instructions: String | ()): String | Error
 {
     let $response: Response = $self.create Request(
         model: $self.::model,
@@ -1408,8 +1408,8 @@ OpenAI-aware Rust native. Its method contracts are part of this design exercise:
 | Method | Contract |
 | --- | --- |
 | TextSession(request_id:) | Start AwaitCreated with no selected channel and an empty accumulator |
-| accept(Event): optional String or Error | Apply the transitions below; return a delta or record a terminal transition |
-| next(events): optional String or Error | Advance events until a delta/terminal; EOF before terminal raises Truncated |
+| accept(Event): String \| () or Error | Apply the transitions below; return a delta or record a terminal transition |
+| next(events): String \| () or Error | Advance events until a delta/terminal; EOF before terminal raises Truncated |
 | result(): Response or ResponseError | Return cached validated completion; NotFinished otherwise |
 
 A successful completed transition stores the terminal Response. next subsequently returns
@@ -1448,11 +1448,11 @@ The pipeline-facing method stays small. TextSession implements the table above; 
 implementation is intentionally outside this design-only change.
 
 ~~~shy
-pub fn text_stream($events: std::stream::Reader, $request_id: optional String): std::stream::Reader | ErrorValue
+pub fn text_stream($events: std::stream::Reader, $request_id: String | ()): std::stream::Reader | ErrorValue
 {
     let $session = TextSession(request_id: $request_id)
     std::stream::Reader(
-        next: fn (): optional String | Error { $session.next $events },
+        next: fn (): String | () | Error { $session.next $events },
         result: fn (): Response | Error { $session.result },
         close: fn (): () | ErrorValue { $events.close },
     )

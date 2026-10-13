@@ -219,7 +219,7 @@ ANNOTATION-008	positive	default [Number]	tests/cases/positive/ANNOTATION-008.shy
 ANNOTATION-009	positive	default [String: Number]	tests/cases/positive/ANNOTATION-009.shy
 ANNOTATION-010	positive	default Array	tests/cases/positive/ANNOTATION-010.shy
 ANNOTATION-011	positive	default HashMap	tests/cases/positive/ANNOTATION-011.shy
-ANNOTATION-012	positive	default optional Number	tests/cases/positive/ANNOTATION-012.shy
+ANNOTATION-012	positive	default Number | ()	tests/cases/positive/ANNOTATION-012.shy
 ANNOTATION-013	positive	default ExecResult	tests/cases/positive/ANNOTATION-013.shy
 ANNOTATION-014	positive	default Range	tests/cases/positive/ANNOTATION-014.shy
 ANNOTATION-015	positive	default ArgumentExpansion	tests/cases/positive/ANNOTATION-015.shy
@@ -3763,7 +3763,7 @@ STRUCT-097	negative	invalid type name	tests/cases/negative/STRUCT-097.shy
 STRUCT-098	negative	empty annotation array	tests/cases/negative/STRUCT-098.shy
 STRUCT-099	negative	missing map value type	tests/cases/negative/STRUCT-099.shy
 STRUCT-100	negative	missing map key type	tests/cases/negative/STRUCT-100.shy
-STRUCT-101	negative	optional missing element type	tests/cases/negative/STRUCT-101.shy
+STRUCT-101	negative	removed optional type shorthand	tests/cases/negative/STRUCT-101.shy
 STRUCT-102	negative	constructor positional	tests/cases/negative/STRUCT-102.shy
 STRUCT-103	negative	constructor dollar label	tests/cases/negative/STRUCT-103.shy
 STRUCT-104	negative	constructor missing value	tests/cases/negative/STRUCT-104.shy
@@ -3964,7 +3964,7 @@ NUMERIC-016	positive	typed initializer and write	tests/cases/positive/NUMERIC-01
 NUMERIC-017	positive	typed variable source	tests/cases/positive/NUMERIC-017.shy
 NUMERIC-018	positive	Number source	tests/cases/positive/NUMERIC-018.shy
 NUMERIC-019	positive	untyped value remains integer	tests/cases/positive/NUMERIC-019.shy
-NUMERIC-020	positive	optional Float	tests/cases/positive/NUMERIC-020.shy
+NUMERIC-020	positive	Float | ()	tests/cases/positive/NUMERIC-020.shy
 NUMERIC-021	positive	parameter promotion	tests/cases/positive/NUMERIC-021.shy
 NUMERIC-022	positive	return promotion	tests/cases/positive/NUMERIC-022.shy
 NUMERIC-023	positive	typed Integer return widens	tests/cases/positive/NUMERIC-023.shy

@@ -1,7 +1,7 @@
 # ANNOTATION-194: variadic optional elements
 check ["id": "ANNOTATION-194",
     "name": "variadic optional elements",
-    "source": "fn f(\$xs: optional Number...): [optional Number] { return \$xs }; echo (f () 1)...",
+    "source": "fn f(\$xs: (Number | ())...): [Number | ()] { return \$xs }; echo (f () 1)...",
     "mode": "code",
     "args": [],
     "stdout": "() 1\n",

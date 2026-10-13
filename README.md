@@ -451,7 +451,7 @@ let $count: Number                 # Defaults to 0
 let $label: String = "items"
 let $values: [Number] = [1, 2.5]
 let $lookup: [String: Number]
-let $maybe: optional Number        # Defaults to ()
+let $maybe: Number | ()             # Defaults to ()
 $count = 3.5
 $lookup["count"] = $count
 ```
@@ -465,12 +465,12 @@ Annotated declarations may omit `= expression`. Defaults are:
 | `String` | Empty string |
 | `[T]`, `Array` | `[]` |
 | `[K: V]`, `HashMap` | `[:]` |
-| `optional T`, `None`, `any` | `()` |
+| `T \| ()`, `None`, `any` | `()` |
 | `Range` | `0..0` |
 | `ExecResult` | `ExecResult(0)` |
 | `ArgumentExpansion` | Empty argument expansion |
 
-Structs and enums require an initializer unless wrapped in `optional`; empty
+Structs and enums require an initializer unless their type includes `| ()`; empty
 containers of those types need no initializer. `let $x` without a type or an
 initializer remains an error. Annotations use the same types and nested container
 constraints as struct fields. `Number` accepts integers and floats, but does not
@@ -799,7 +799,7 @@ let $item = Item(quantity: 2)
 let $updated = $item.add 3
 echo $item.quantity $updated.quantity   # 5 5
 
-fn Array::first($fallback: optional any): any
+fn Array::first($fallback: any | ()): any
 {
     if $self.count == 0 { $fallback } else { $self[0] }
 }
@@ -1102,7 +1102,7 @@ struct Item
     pub state: Status,
     pub children: [Item],
     pub labels: [String: String],
-    pub next: optional Item,
+    pub next: Item | (),
     pub payload: any,
 }
 
@@ -1146,12 +1146,12 @@ calls retain space-separated arguments, including `foo (expression)` on one line
 | Declaration | Meaning |
 | --- | --- |
 | `field` or `field: any` | Required field accepting any value, including `()` |
-| `field: optional` or `field: optional any` | Any value; defaults to `()` when omitted |
+| `field: any \| ()` | Any value; defaults to `()` when omitted |
 | `field: Number` | Integer or float; strings and booleans do not qualify |
 | `field: MyEnum` or `field: MyStruct` | A value of that specific type declaration |
 | `field: [T]` | Array whose elements satisfy `T` |
 | `field: [K: V]` | Map whose keys satisfy `K` and values satisfy `V` |
-| `field: optional T` | Either `T` or `()`; defaults to `()` when omitted |
+| `field: T \| ()` | Either `T` or `()`; defaults to `()` when omitted |
 
 The existing builtin names also work, including `Integer`, `Float`, `String`,
 `Boolean`, `None`, `Range`, `Array`, `HashMap`, and `ExecResult`. Annotations check
@@ -1160,8 +1160,8 @@ typed collections. Other conversions require explicit `Type(value)` syntax.
 `Array` and `HashMap` accept those containers
 without constraining their contents; `any` accepts every value.
 
-Container annotations compose: `[String: [Item]]`, `[MyEnum: optional Item]`,
-`[optional Number]`, and `optional [String: any]`. An array of optional elements
+Container annotations compose: `[String: [Item]]`, `[MyEnum: Item | ()]`,
+`[Number | ()]`, and `[String: any] | ()`. An array of optional elements
 still requires an array; an optional array may itself be `()`. Empty arrays and
 maps satisfy their respective element constraints. Map-key constraints follow
 key equality: `1` and `1.0` denote the same key. This applies recursively to
@@ -1292,14 +1292,14 @@ side effects from evaluating its indexes and right-hand expression remain.
 
 Structs and enums share the same lexical type namespace, forward-reference rules,
 and REPL identity rules. A scope cannot declare an enum and a struct with the
-same name. An inner declaration may shadow an outer type. Type names `any` and
-`optional` are reserved. Redeclaration in a later REPL submission creates a new
+same name. An inner declaration may shadow an outer type. The type name `any`
+is reserved. Redeclaration in a later REPL submission creates a new
 identity; existing values, field annotations, and compiled functions retain the
 old definitions.
 
 Self and mutual references are supported through optional fields or containers.
 Cycles consisting entirely of required struct fields are rejected because they
-cannot form a finite, fully initialized value. For example, `next: optional Item`
+cannot form a finite, fully initialized value. For example, `next: Item | ()`
 and `children: [Item]` are valid; a required `next: Item` inside `Item` is not.
 
 Equality compares declaration identity and all field values. Structs can be map
@@ -1423,7 +1423,9 @@ must produce one unambiguous result. For example, if A and B are distinct Intege
 types, assigning `7` to `A | B` is ambiguous; use `A(7)` or `B(7)`. Unions without
 `()` require an initializer. Parentheses group type expressions, and unions work
 inside collection annotations, such as `[String: Integer | Boolean]`.
-`T | ()` and `optional T` are equivalent.
+A `T | ()` annotation is optional: variables default to `()`, struct fields
+may be omitted, and trailing function parameters may be omitted. Use `T | ()`;
+there is no `optional` keyword.
 
 ## Function prototypes
 
@@ -1899,14 +1901,14 @@ echo $item.value
 Parameter types are checked before the function body runs and remain constraints
 on assignments to those parameters. The return annotation applies to both explicit
 and implicit returns. Bare `return` and fallthrough returning `()` require a type
-that accepts `None`, such as `optional Number` or `any`. Unannotated parameters and
+that accepts `None`, such as `Number | ()` or `any`. Unannotated parameters and
 returns remain unrestricted. Integer arguments widen to Float where required;
 other implicit conversions are rejected.
 
-Trailing parameters annotated `optional T` may be omitted from right to left:
+Trailing parameters annotated `T | ()` may be omitted from right to left:
 
 ```text
-fn describe($value: Number, $label: optional String, $limit: optional Number)
+fn describe($value: Number, $label: String | (), $limit: Number | ())
 {
     echo $value $label $limit
 }
@@ -1916,7 +1918,7 @@ describe 7 "items"               # 7 items ()
 describe 7 "items" 10            # 7 items 10
 ```
 
-Required parameters cannot follow optional ones. Use `optional any` for an
+Required parameters cannot follow optional ones. Use `any | ()` for an
 omittable parameter accepting any value. Explicit `()` occupies its argument
 position, so `describe 7 () 10` skips the label while supplying the limit.
 The compiler emits parameter-binding instructions containing `()` defaults;
@@ -1949,7 +1951,7 @@ follow required and optional parameters; fixed parameters consume their position
 first, and all remaining arguments go into the array. Use `()` explicitly to skip
 an optional position before supplying variadic arguments. The suffix follows the
 element type: `$rows: [Number]...` receives `[[Number]]`, and
-`$values: optional Number...` receives `[optional Number]`.
+`$values: (Number | ())...` receives `[Number | ()]`.
 
 The final expression or command supplies the function's result. A trailing
 semicolon or newline does not discard it. `return expression` exits the current
@@ -2452,9 +2454,8 @@ parameters, returns, fields, and collections. Numeric widening applies to each
 position. Wrong lengths or element types fail validation. Destructuring still
 checks the actual yielded array before creating bindings.
 
-`T | ()` is another spelling of `optional T`, including in other annotations.
-General unions are supported too: an iterator can return `Integer | String | ()`.
-Existing `optional T` iterator return annotations are equivalent.
+The `()` member marks the end of iteration. An iterator can also return
+a union of item types, such as `Integer | String | ()`.
 
 ### Unbounded loop
 
@@ -2609,7 +2610,7 @@ Retyping a private variable does not export it. Native process and terminal APIs
 inherit the converted exports too; explicit `env` maps retain their String values
 and replace that environment as usual.
 
-The prelude's `optional_env($name: String, $fallback: optional String): optional String`
+The prelude's `optional_env($name: String, $fallback: String | ()): String | ()`
 reads an exported variable without spawning a process. Omit the fallback to get `()`
 when the name is absent; an existing empty value returns `""`, even with a fallback.
 Names are case-sensitive and supplied without `$`. Empty names and names containing

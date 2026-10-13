@@ -11,8 +11,8 @@ pub type Color = __readline_Color
 pub enum NamedColor { Black, Red, Green, Yellow, Blue, Purple, Cyan, White }
 pub struct Style
 {
-    pub foreground: optional Color, pub background: optional Color,
-    pub bold: optional Boolean, pub dim: optional Boolean, pub underline: optional Boolean,
+    pub foreground: Color | (), pub background: Color | (),
+    pub bold: Boolean | (), pub dim: Boolean | (), pub underline: Boolean | (),
 }
 pub fn Color::from_integer($value: Integer): Color | Error { __readline "color" $value }
 pub fn Color::from_array_integer($value: [Integer]): Color | Error { __readline "color" $value }
@@ -25,8 +25,8 @@ pub type PromptFn = fn(): String | Text
 pub struct Prompt
 {
     pub left: String | Text | PromptFn,
-    pub right: optional String | Text | PromptFn,
-    pub continuation: optional String | Text | PromptFn,
+    pub right: String | () | Text | PromptFn,
+    pub continuation: String | () | Text | PromptFn,
 }
 pub fn Prompt::from_string($text: String): Prompt { Prompt(left: $text) }
 
@@ -40,22 +40,22 @@ pub struct Edit
 }
 pub struct Completion
 {
-    pub value: String, pub replace: optional Span,
-    pub display: optional String, pub description: optional String,
-    pub append_space: optional Boolean,
+    pub value: String, pub replace: Span | (),
+    pub display: String | (), pub description: String | (),
+    pub append_space: Boolean | (),
 }
 pub type Complete = fn(Edit): [String | Completion]
 pub enum ValidationKind { Ready, More, Reject }
 pub struct Validation
 {
-    pub kind: ValidationKind, pub message: optional String, pub span: optional Span,
+    pub kind: ValidationKind, pub message: String | (), pub span: Span | (),
 }
 pub type Validate = fn(Edit): Validation
 pub struct HighlightSpan { pub span: Span, pub style: Style }
 pub type Highlight = fn(Edit): [HighlightSpan]
 pub fn ready(): Validation { Validation(kind: ValidationKind::Ready) }
 pub fn more(): Validation { Validation(kind: ValidationKind::More) }
-pub fn reject($message: String, $span: optional Span): Validation
+pub fn reject($message: String, $span: Span | ()): Validation
 { Validation(kind: ValidationKind::Reject, message: $message, span: $span) }
 pub fn words($values: [String]): Complete
 {
@@ -70,48 +70,48 @@ pub enum EventKind { Line, Interrupt, End }
 pub struct ReadEvent { pub kind: EventKind, pub text: String }
 pub struct ReadOptions
 {
-    pub prompt: optional String | Prompt,
-    pub initial: optional String, pub cursor: optional Integer,
+    pub prompt: String | () | Prompt,
+    pub initial: String | (), pub cursor: Integer | (),
 }
 pub enum HistoryRecord { Submitted, Manual }
 pub enum HistoryFailure { Memory, Raise }
 pub struct History
 {
-    pub path: optional String, pub limit: optional Integer,
-    pub record: optional HistoryRecord, pub failure: optional HistoryFailure,
+    pub path: String | (), pub limit: Integer | (),
+    pub record: HistoryRecord | (), pub failure: HistoryFailure | (),
 }
 pub enum HistoryMode { Memory, Persistent, Disabled }
-pub struct HistoryProblem { pub path: String, pub message: String, pub code: optional Integer }
-pub struct HistoryStatus { pub mode: HistoryMode, pub problem: optional HistoryProblem }
+pub struct HistoryProblem { pub path: String, pub message: String, pub code: Integer | () }
+pub struct HistoryStatus { pub mode: HistoryMode, pub problem: HistoryProblem | () }
 pub struct Limits
 {
-    pub max_input_bytes: optional Integer, pub max_completions: optional Integer,
-    pub max_completion_bytes: optional Integer, pub max_highlight_spans: optional Integer,
-    pub callback_timeout_ms: optional Integer, pub callback_instructions: optional Integer,
+    pub max_input_bytes: Integer | (), pub max_completions: Integer | (),
+    pub max_completion_bytes: Integer | (), pub max_highlight_spans: Integer | (),
+    pub callback_timeout_ms: Integer | (), pub callback_instructions: Integer | (),
 }
 
 pub enum TerminalFailure { NotTerminal, NotForeground, Read, Restore, Unsupported }
 pub error struct TerminalError
-{ pub what: TerminalFailure, pub message: String, pub code: optional Integer }
+{ pub what: TerminalFailure, pub message: String, pub code: Integer | () }
 pub error struct ConfigError { pub message: String }
 pub error struct BusyError { pub message: String }
 pub error struct ClosedError { pub message: String }
 pub error struct CancelledError { pub message: String }
 pub error struct LimitError { pub message: String }
 pub error struct CallbackError { pub hook: String, pub message: String }
-pub error struct HistoryError { pub path: String, pub message: String, pub code: optional Integer }
+pub error struct HistoryError { pub path: String, pub message: String, pub code: Integer | () }
 pub type Error = TerminalError | ConfigError | BusyError | ClosedError | CancelledError | LimitError | CallbackError | HistoryError
 
-pub fn Editor::new($prompt: optional String | Prompt, $history: optional History,
-    $complete: optional Complete, $validate: optional Validate, $highlight: optional Highlight,
-    $edit_mode: optional EditMode, $limits: optional Limits): Editor | Error
+pub fn Editor::new($prompt: String | () | Prompt, $history: History | (),
+    $complete: Complete | (), $validate: Validate | (), $highlight: Highlight | (),
+    $edit_mode: EditMode | (), $limits: Limits | ()): Editor | Error
 {
     __readline "create" ["prompt": $prompt, "history": $history, "complete": $complete,
         "validate": $validate, "highlight": $highlight, "edit_mode": $edit_mode, "limits": $limits]
 }
-pub fn Editor::read_event($options: optional ReadOptions): ReadEvent | Error
+pub fn Editor::read_event($options: ReadOptions | ()): ReadEvent | Error
 { __readline "read" $self $options }
-pub fn Editor::read($options: optional ReadOptions): optional String | Error
+pub fn Editor::read($options: ReadOptions | ()): String | () | Error
 {
     loop
     {
@@ -120,11 +120,11 @@ pub fn Editor::read($options: optional ReadOptions): optional String | Error
         if $event.kind == EventKind::Line { return $event.text }
     }
 }
-pub fn Editor::lines($options: optional ReadOptions): std::stream::Reader | Error
+pub fn Editor::lines($options: ReadOptions | ()): std::stream::Reader | Error
 {
     let $lease: Editor = __readline "lease" $self
     let $reader = std::stream::Reader(
-        next: fn(): optional String | Error { $lease.read $options },
+        next: fn(): String | () | Error { $lease.read $options },
         close: fn(): () | Error { __readline "release" $lease })
     __readline "attach" $reader $lease
 }
@@ -133,7 +133,7 @@ pub fn Editor::flush_history(): () | Error { __readline "flush" $self }
 pub fn Editor::get_history_status(): HistoryStatus { __readline "history_status" $self }
 pub fn Editor::get_draft(): String { __readline "draft" $self }
 pub fn Editor::close(): () | Error { __readline "close" $self }
-pub fn read($prompt: optional String | Prompt): optional String | Error
+pub fn read($prompt: String | () | Prompt): String | () | Error
 {
     let $editor = Editor(prompt: $prompt, history: History(limit: 0))
     try { return $editor.read }

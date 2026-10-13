@@ -1,7 +1,7 @@
 # ANNOTATION-180: optional explicit holes
 check ["id": "ANNOTATION-180",
     "name": "optional explicit holes",
-    "source": "fn f(\$a: optional Number, \$b: optional String) { echo \$a \$b }; f () \"b\"",
+    "source": "fn f(\$a: Number | (), \$b: String | ()) { echo \$a \$b }; f () \"b\"",
     "mode": "code",
     "args": [],
     "stdout": "() b\n",

@@ -1,7 +1,7 @@
 # STRUCT-058: present optional direct access
 check ["id": "STRUCT-058",
     "name": "present optional direct access",
-    "source": "struct Node { pub n: Number }; struct Box { pub item: optional Node }; echo Box(item: Node(n: 42)).item.n",
+    "source": "struct Node { pub n: Number }; struct Box { pub item: Node | () }; echo Box(item: Node(n: 42)).item.n",
     "mode": "code",
     "args": [],
     "stdout": "42\n",

@@ -1,7 +1,7 @@
 # STRUCT-042: field range bound
 check ["id": "STRUCT-042",
     "name": "field range bound",
-    "source": "struct S { pub n: Number, pub text: String, pub extra: optional }; let \$s = S(n: 2, text: \"x\"); echo (\$s.n..4)...",
+    "source": "struct S { pub n: Number, pub text: String, pub extra: any | () }; let \$s = S(n: 2, text: \"x\"); echo (\$s.n..4)...",
     "mode": "code",
     "args": [],
     "stdout": "2 3\n",

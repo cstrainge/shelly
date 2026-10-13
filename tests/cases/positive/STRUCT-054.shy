@@ -1,7 +1,7 @@
 # STRUCT-054: nested multiline declarations
 check ["id": "STRUCT-054",
     "name": "nested multiline declarations",
-    "source": "struct S\n{\n pub n: Number, # comment\n pub m: [\n String:\n optional [Number]\n ],\n}\necho S(n: 1, m: [:]).n",
+    "source": "struct S\n{\n pub n: Number, # comment\n pub m: [\n String:\n [Number] | ()\n ],\n}\necho S(n: 1, m: [:]).n",
     "mode": "code",
     "args": [],
     "stdout": "1\n",

@@ -5,8 +5,8 @@ pub type Error = FrameError | std::io::Error
 pub enum ByteOrder { BigEndian, LittleEndian }
 pub type Reader = std::stream::Reader
 
-pub fn encode_length($bytes: std::io::Bytes, $width: optional Integer,
-                     $order: optional ByteOrder, $max_bytes: optional Integer): std::io::Bytes | Error
+pub fn encode_length($bytes: std::io::Bytes, $width: Integer | (),
+                     $order: ByteOrder | (), $max_bytes: Integer | ()): std::io::Bytes | Error
 {
     let $width = if $width == () { 4 } else { $width }
     let $max = if $max_bytes == () { 1048576 } else { $max_bytes }
@@ -26,16 +26,16 @@ pub fn encode_length($bytes: std::io::Bytes, $width: optional Integer,
     std::io::Bytes($prefix).concat $bytes
 }
 pub fn write_length($writer: std::io::Writer, $bytes: std::io::Bytes,
-                    $width: optional Integer, $order: optional ByteOrder,
-                    $max_bytes: optional Integer): Integer | Error
+                    $width: Integer | (), $order: ByteOrder | (),
+                    $max_bytes: Integer | ()): Integer | Error
 {
     let $frame = encode_length $bytes $width $order $max_bytes
     let $lease = $writer.lease
     try { return $lease.write $frame }
     finally { $lease.close }
 }
-pub fn read_length($reader: std::io::Reader, $width: optional Integer,
-                   $order: optional ByteOrder, $max_bytes: optional Integer): Reader | ErrorValue
+pub fn read_length($reader: std::io::Reader, $width: Integer | (),
+                   $order: ByteOrder | (), $max_bytes: Integer | ()): Reader | ErrorValue
 {
     let $width = if $width == () { 4 } else { $width }
     let $max = if $max_bytes == () { 1048576 } else { $max_bytes }
@@ -45,7 +45,7 @@ pub fn read_length($reader: std::io::Reader, $width: optional Integer,
     { return FrameError(message: "Frame limit must be 1..16777216") }
     let $lease = $reader.lease
     std::stream::Reader(
-        next: fn (): optional std::io::Bytes | Error
+        next: fn (): std::io::Bytes | () | Error
         {
             try
             {
@@ -72,11 +72,11 @@ pub fn read_length($reader: std::io::Reader, $width: optional Integer,
         close: fn (): () | std::io::Error { $lease.close },
     )
 }
-pub fn read_lines($reader: std::io::Reader, $max_bytes: optional Integer): Reader | ErrorValue
+pub fn read_lines($reader: std::io::Reader, $max_bytes: Integer | ()): Reader | ErrorValue
 {
     let $lines = std::io::lines $reader $max_bytes
     std::stream::Reader(
-        next: fn (): optional String | std::io::Error { $lines.next_item },
+        next: fn (): String | () | std::io::Error { $lines.next_item },
         close: fn (): () | std::io::Error { $lines.close },
     )
 }

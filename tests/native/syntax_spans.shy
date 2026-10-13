@@ -103,7 +103,7 @@ for $source in ["", "# comment", "echo \"\${not_defined}\"", "echo `foo ()", "::
     "let \$x = if true { 1 } else { 2 }", "let \$x: [String: Integer]",
     "\$x[1..].type", "(let)", "let \$x = std::Kind(3)", "std::foo let",
     "echo hi -> \$out", "echo ~ +", "1\n + 2", "[1, 2] | increment | (\$ * 2) | \$results",
-    "echo let \\\n  fn", "pub import foo::{ Bar, baz }", "struct T { field: optional String }"]
+    "echo let \\\n  fn", "pub import foo::{ Bar, baz }", "struct T { field: String | () }"]
 {
     $report = syntax_report $source
     if $report["error"] != () { echo $source $report; fail "grammar sample failed" }

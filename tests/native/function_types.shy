@@ -53,7 +53,7 @@ prototype_case "fn a(): Integer { 1 }; fn b(): Integer { 1 }; let \$a: fn(): Int
 prototype_case "fn id(\$n: any): any { \$n }; let \$f: fn(any): any = `id; echo (\$f true) (\$f [1,2])" "true 1:2\n" ""
 prototype_case "fn many(\$n: Integer...): Integer { \$n.count }; let \$f: fn(Integer, Integer): Integer = `many; echo (\$f 1 2)" "2\n" ""
 prototype_case "fn many(\$n: Integer...): Integer { \$n.count }; let \$f: fn(String): Integer = `many" "" "parameter 1 is incompatible"
-prototype_case "fn optional_arg(\$n: optional Integer): any { \$n }; let \$f: fn(): any = `optional_arg; echo (\$f)" "()\n" ""
+prototype_case "fn optional_arg(\$n: Integer | ()): any { \$n }; let \$f: fn(): any = `optional_arg; echo (\$f)" "()\n" ""
 prototype_case "fn f(\$n: Integer | String): any { \$n }; let \$f: fn(Integer): any = `f; echo (\$f 1)" "1\n" ""
 prototype_case "fn f(\$n: Integer): any { \$n }; let \$f: fn(Integer | String): any = `f" "" "parameter 1 is incompatible"
 prototype_case "type F = fn(Missing): Integer" "" "Unknown type"

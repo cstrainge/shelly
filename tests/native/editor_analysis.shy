@@ -146,7 +146,7 @@ for _ in 0..100 { $deep = $deep + "(" }
 $report = __editor_source $deep
 require (has_issue $report "Limit") "deep expression not bounded"
 $deep = "let \$x: "
-for _ in 0..100 { $deep = $deep + "optional " }
+for _ in 0..100 { $deep = $deep + "(" }
 $report = __editor_source $deep
 require (has_issue $report "Limit") "deep type not bounded"
 let $large = ""

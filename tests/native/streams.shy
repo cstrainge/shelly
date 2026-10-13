@@ -9,7 +9,7 @@ require ($s.result == ()) "Default completion"
 let $closed = 0
 let $position = 0
 let $s = std::stream::Reader(
-    next: fn (): optional String
+    next: fn (): String | ()
     {
         $position = $position + 1
         if $position > 2 { return () }
@@ -51,7 +51,7 @@ require ($closed == 1) "Failed cursor closed twice"
 let $closed = 0
 try
 {
-    let $unused = std::stream::Reader(next: fn (): optional String { () },
+    let $unused = std::stream::Reader(next: fn (): String | () { () },
         close: fn () { $closed = $closed + 1 })
     throw StreamFailure(message: "unwind")
 }
@@ -67,7 +67,7 @@ let $peer = $listener.accept
 let $active = false
 let $closed = 0
 let $reader = std::stream::Reader(
-    next: fn (): optional String | ErrorValue
+    next: fn (): String | () | ErrorValue
     {
         $active = true
         $peer.reader.read 1

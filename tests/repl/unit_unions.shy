@@ -1,0 +1,12 @@
+check_repl ["id": "UNIT-UNIONS", "exit": 0, "steps": [
+    ['let $v: Integer | (); echo $v', "output", "()"],
+    ['$v = 7; echo $v', "output", "7"],
+    ['$v = (); echo $v', "output", "()"],
+    ['struct Box { pub value: Integer | () }; echo Box().value', "output", "()"],
+    ['fn value($n: Integer | ()): Integer { if $n == () { 0 } else { $n } }; echo (value) (value 7)', "output", "0 7"],
+    ['let $v: optional Integer', "error", "Parser error:"],
+    ['echo $v (value)', "output", "() 0"],
+    ['fn value($n: optional Integer): Integer { 9 }', "error", "Parser error:"],
+    ['echo (value 7)', "output", "7"],
+    ['type optional = Integer; let $named: optional = 9; echo $named.type.name $named', "output", "optional 9"],
+]]

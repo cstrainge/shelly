@@ -13,7 +13,7 @@ pub struct Event
     pub data: String,
     pub event: String,
     pub id: String,
-    pub retry: optional Integer,
+    pub retry: Integer | (),
 }
 
 # State and framing are Shelly code. Native line reads preserve boundaries across byte chunks.
@@ -26,7 +26,7 @@ struct Parser
     has_data: Boolean,
     event: String,
     id: String,
-    retry: optional Integer,
+    retry: Integer | (),
     size: Integer,
 }
 fn Parser::new($reader: std::io::Reader): Parser | Error
@@ -34,7 +34,7 @@ fn Parser::new($reader: std::io::Reader): Parser | Error
     Parser(lines: (std::io::lines $reader 16384 true), reader: $reader, first: true,
         data: "", has_data: false, event: "", id: "", size: 0)
 }
-fn Parser::next(): optional Event | Error
+fn Parser::next(): Event | () | Error
 {
     loop
     {
@@ -112,12 +112,12 @@ pub fn read($input: std::io::Reader | std::net::http::Response): Reader | ErrorV
     }
     let $parser = Parser(reader: $reader)
     std::stream::Reader(
-        next: fn (): optional Event | Error { $parser.next },
+        next: fn (): Event | () | Error { $parser.next },
         close: fn (): () | Error { $parser.close },
     )
 }
 
-pub fn Reader::read_as($target: Type, $options: optional std::json::MappingOptions, $boxed: optional Boolean): Reader | ErrorValue
+pub fn Reader::read_as($target: Type, $options: std::json::MappingOptions | (), $boxed: Boolean | ()): Reader | ErrorValue
 {
     if $boxed != true && (__json "accepts_null" $target)
     { return FrameError(message: "Target accepts null; select boxed mapping") }

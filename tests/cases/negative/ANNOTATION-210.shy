@@ -1,7 +1,7 @@
 # ANNOTATION-210: optional too few required
 check ["id": "ANNOTATION-210",
     "name": "optional too few required",
-    "source": "fn f(\$a: Number, \$b: optional Number) {}; f",
+    "source": "fn f(\$a: Number, \$b: Number | ()) {}; f",
     "mode": "code",
     "args": [],
     "stdout": "",

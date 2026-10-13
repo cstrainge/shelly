@@ -1023,6 +1023,12 @@ impl TypeRegistry
         {
             return existing.id;
         }
+        let union_member = |id|
+            {
+                let definition = self.get(id);
+                if matches!(definition.kind, TypeKind::Function(_, _))
+                { format!("({})", definition.name) } else { definition.name.clone() }
+            };
         let name = match &kind
             {
                 TypeKind::ReceiverMember(name) => format!("$self.{}", name),
@@ -1035,9 +1041,9 @@ impl TypeRegistry
                     if items.len() == 1 { "," } else { "" }),
                 TypeKind::Map(key, value) =>
                     format!("[{}: {}]", self.get(*key).name, self.get(*value).name),
-                TypeKind::Optional(id) => format!("optional {}", self.get(*id).name),
+                TypeKind::Optional(id) => format!("{} | ()", union_member(*id)),
                 TypeKind::Union(items) => items.iter()
-                    .map(|id| self.get(*id).name.clone()).collect::<Vec<_>>().join(" | "),
+                    .map(|id| union_member(*id)).collect::<Vec<_>>().join(" | "),
                 _ => unreachable!("Only anonymous container constraints are interned")
             };
         self.register(name, kind, None)
@@ -1319,7 +1325,7 @@ impl TypeRegistry
                     .collect();
                 names.push(registry.get(id).name.clone());
                 return Err(format!(
-                    "Required struct field cycle: {}. Use optional or a container to terminate \
+                    "Required struct field cycle: {}. Use T | () or a container to terminate \
                         recursion",
                     names.join(" -> ")
                 ));

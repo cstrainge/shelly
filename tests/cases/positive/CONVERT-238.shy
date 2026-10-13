@@ -1,7 +1,7 @@
 # CONVERT-238: optional conversion result
 check ["id": "CONVERT-238",
     "name": "optional conversion result",
-    "source": "let \$v: optional Integer = Integer(\"12\"); echo \$v",
+    "source": "let \$v: Integer | () = Integer(\"12\"); echo \$v",
     "mode": "code",
     "args": [],
     "stdout": "12\n",

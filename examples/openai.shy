@@ -30,9 +30,9 @@ pub struct Request
 {
     pub model: String,
     pub input: String | [Message],
-    pub instructions: optional String,
-    pub max_output_tokens: optional Integer,
-    pub store: optional Boolean,
+    pub instructions: String | (),
+    pub max_output_tokens: Integer | (),
+    pub store: Boolean | (),
 }
 
 pub fn Request::json_codec(): Codec
@@ -53,15 +53,15 @@ struct Envelope
 {
     pub id: String,
     pub status: String,
-    pub usage: optional Usage,
+    pub usage: Usage | (),
 }
 
 pub struct Response
 {
     pub id: String,
     pub status: String,
-    pub usage: optional Usage,
-    pub request_id: optional String,
+    pub usage: Usage | (),
+    pub request_id: String | (),
     pub raw: Document,
 }
 
@@ -92,7 +92,7 @@ pub error struct ApiError
 {
     pub status: Integer,
     pub message: String,
-    pub request_id: optional String,
+    pub request_id: String | (),
     pub response: Document,
 }
 
@@ -100,8 +100,8 @@ pub error struct ResponseError
 {
     pub what: ResponseFailure,
     pub message: String,
-    pub request_id: optional String,
-    pub response: optional Document,
+    pub request_id: String | (),
+    pub response: Document | (),
 }
 
 type NetworkError = std::net::http::Error | std::net::sse::Error
@@ -193,8 +193,8 @@ pub struct Client
 pub struct Model
 {
     pub id: String,
-    pub created: optional Integer,
-    pub owned_by: optional String,
+    pub created: Integer | (),
+    pub owned_by: String | (),
 }
 
 struct ModelList
@@ -210,7 +210,7 @@ pub fn Client::models(): [Model] | Error
     $list.data
 }
 
-pub fn Client::new($api_key: String, $model: String, $base_url: optional String): Client | Error
+pub fn Client::new($api_key: String, $model: String, $base_url: String | ()): Client | Error
 {
     let $url = if $base_url == ()
     {
@@ -244,7 +244,7 @@ pub fn Client::create($request: Request): Response | Error
     $response
 }
 
-pub fn Client::text($input: String, $instructions: optional String): String | Error
+pub fn Client::text($input: String, $instructions: String | ()): String | Error
 {
     let $response: Response = $self.create Request(
         model: $self.::model,
@@ -275,7 +275,7 @@ pub fn Event::from_json($document: Document): Event | std::json::Error
 }
 
 # Useful for scripted transports and deterministic tests as well as HTTP.
-pub fn text_stream($events: Reader, $request_id: optional String): Reader | Error
+pub fn text_stream($events: Reader, $request_id: String | ()): Reader | Error
 {
     let $session = TextSession(events: $events, request_id: $request_id)
     Reader(
@@ -320,20 +320,20 @@ struct TextChannel
 struct TextSession
 {
     events: Reader,
-    request_id: optional String,
-    response_id: optional String,
+    request_id: String | (),
+    response_id: String | (),
     sequence: Integer,
     event_count: Integer,
     encoded_bytes: Integer,
     items: [Integer: Document],
     done_items: [Integer: Boolean],
     phase: TextPhase,
-    channel: optional TextChannel,
+    channel: TextChannel | (),
     text: String,
-    completed: optional Response,
+    completed: Response | (),
 }
 
-fn TextSession::new($events: Reader, $request_id: optional String): TextSession
+fn TextSession::new($events: Reader, $request_id: String | ()): TextSession
 {
     TextSession(events: $events, request_id: $request_id, sequence: -1,
         event_count: 0, encoded_bytes: 0, items: [:], done_items: [:],
@@ -341,13 +341,13 @@ fn TextSession::new($events: Reader, $request_id: optional String): TextSession
 }
 
 fn TextSession::failure($what: ResponseFailure, $message: String,
-                        $evidence: optional Document): ResponseError
+                        $evidence: Document | ()): ResponseError
 {
     ResponseError(what: $what, message: $message,
         request_id: $self.::request_id, response: $evidence)
 }
 
-fn TextSession::protocol_error($message: String, $evidence: optional Document): ResponseError
+fn TextSession::protocol_error($message: String, $evidence: Document | ()): ResponseError
 {
     $self.failure ResponseFailure::Protocol $message $evidence
 }
@@ -574,7 +574,7 @@ fn TextSession::incomplete_response($doc: Document): ResponseError | Error
     return ($self.failure ResponseFailure::Incomplete "Generation is incomplete" $response)
 }
 
-fn TextSession::accept($event: Event): optional String | Error
+fn TextSession::accept($event: Event): String | () | Error
 {
     $self.check_event $event
     let $doc = $event.raw
@@ -611,7 +611,7 @@ fn TextSession::accept($event: Event): optional String | Error
     }
 }
 
-fn TextSession::next(): optional String | Error
+fn TextSession::next(): String | () | Error
 {
     if $self.::completed != ()
     {

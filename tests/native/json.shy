@@ -60,7 +60,7 @@ require (($first.require_integer "/x") == 1) "FirstWins"
 require (($last.require_integer "/x") == 2) "LastWins"
 
 enum Role { User, Assistant }
-struct User { pub name: String, pub age: Integer, pub role: Role, pub nickname: optional String }
+struct User { pub name: String, pub age: Integer, pub role: Role, pub nickname: String | () }
 let $user = decode_as '{"name":"Ada","age":3,"role":"User"}' User
 require (($user.type == User) && ($user.role == Role::User)) "derived struct mapping"
 require ($user.nickname == ()) "optional missing field"
@@ -113,7 +113,7 @@ fn WireRole::json_codec(): Codec
 {
     enum_codec WireRole [WireRole::Developer: "developer", WireRole::User: "user"]
 }
-struct Request { pub role: WireRole, pub input: String, pub note: optional String }
+struct Request { pub role: WireRole, pub input: String, pub note: String | () }
 fn Request::json_codec(): Codec
 {
     struct_codec Request StructOptions(rename_fields: ["input": "content"],

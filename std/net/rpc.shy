@@ -4,30 +4,30 @@ import std::net::http
 visible `__json_bind
 visible `__json_apply
 
-pub error struct CallError { pub code: Integer, pub message: String, pub data: optional std::json::Document }
+pub error struct CallError { pub code: Integer, pub message: String, pub data: std::json::Document | () }
 pub error struct RequestError { pub message: String }
-pub error struct ProtocolError { pub message: String, pub response: optional std::json::Document }
+pub error struct ProtocolError { pub message: String, pub response: std::json::Document | () }
 pub error struct RemoteError
 {
     pub code: Integer,
     pub message: String,
-    pub data: optional std::json::Document,
+    pub data: std::json::Document | (),
     pub id: std::json::Document,
 }
 pub error struct BatchError { pub message: String, pub response: std::json::Document }
 pub type Error = CallError | RequestError | ProtocolError | RemoteError | BatchError | std::json::Error | std::net::http::Error
-pub struct Call { pub method: String, pub params: optional any, pub notification: optional Boolean }
+pub struct Call { pub method: String, pub params: any | (), pub notification: Boolean | () }
 pub struct Outcome
 {
     pub id: String,
-    pub result: optional std::json::Document,
-    pub error: optional RemoteError,
+    pub result: std::json::Document | (),
+    pub error: RemoteError | (),
 }
-pub type Exchange = fn(std::json::Document): optional std::json::Document
+pub type Exchange = fn(std::json::Document): std::json::Document | ()
 pub type Notification = fn(std::json::Document): ()
 pub type Close = fn(): ()
-pub struct Client { exchange_fn: any, notify_fn: optional any, close_fn: optional any, reject_fn: optional any, sequence: Integer, closed: Boolean }
-pub fn Client::new($exchange: Exchange, $notify: optional Notification, $close: optional Close): Client
+pub struct Client { exchange_fn: any, notify_fn: any | (), close_fn: any | (), reject_fn: any | (), sequence: Integer, closed: Boolean }
+pub fn Client::new($exchange: Exchange, $notify: Notification | (), $close: Close | ()): Client
 { Client(exchange_fn: $exchange, notify_fn: $notify, close_fn: $close, reject_fn: $close, sequence: 0, closed: false) }
 pub fn Client::close(): () | ErrorValue
 {
@@ -52,7 +52,7 @@ fn Client::reject(): () | ErrorValue
     $self.::reject_fn = ()
     if $reject != () { $reject }
 }
-fn request($method: String, $params: any, $id: optional String): std::json::Document | Error
+fn request($method: String, $params: any, $id: String | ()): std::json::Document | Error
 {
     if ($method == "") || ($method.starts_with "rpc.")
     { return RequestError(message: "Method must be nonempty and not reserved") }
@@ -87,13 +87,13 @@ fn response($reply: std::json::Document, $id: String): std::json::Document | Err
     RemoteError(code: ($error.require_integer "/code"), message: ($error.require_string "/message"),
         data: ($error.find "/data"), id: $reply_id)
 }
-pub fn Client::exchange($document: std::json::Document): optional std::json::Document | ErrorValue
+pub fn Client::exchange($document: std::json::Document): std::json::Document | () | ErrorValue
 {
     if $self.::closed { return RequestError(message: "RPC client is closed") }
     let $exchange = $self.::exchange_fn
     $exchange $document
 }
-pub fn Client::call($method: String, $params: optional any): std::json::Document | ErrorValue
+pub fn Client::call($method: String, $params: any | ()): std::json::Document | ErrorValue
 {
     $self.::sequence = $self.::sequence + 1
     let $id = String($self.::sequence)
@@ -111,7 +111,7 @@ pub fn Client::call_as($method: String, $params: any, $target: Type): any | Erro
     let $conversion = __json_bind $target
     __json_apply ($self.call $method $params) $conversion
 }
-pub fn Client::notify($method: String, $params: optional any): () | ErrorValue
+pub fn Client::notify($method: String, $params: any | ()): () | ErrorValue
 {
     if $self.::closed { return RequestError(message: "RPC client is closed") }
     let $document = request $method $params ()
@@ -191,7 +191,7 @@ fn Client::batch_checked($calls: [Call]): [Outcome] | ErrorValue
 }
 pub fn over_http($client: std::net::http::Client, $path: String): Client
 {
-    Client(exchange: fn ($document: std::json::Document): optional std::json::Document | Error
+    Client(exchange: fn ($document: std::json::Document): std::json::Document | () | Error
         {
             let $reply = $client.post $path (std::net::http::json_body $document)
             $reply.require_success
@@ -209,7 +209,7 @@ pub fn String::from_batch_error($error: BatchError): String { $error.message }
 import std::io
 import std::net::framing
 pub fn over_stream($reader: std::io::Reader, $writer: std::io::Writer,
-                   $max_bytes: optional Integer): Client | ErrorValue
+                   $max_bytes: Integer | ()): Client | ErrorValue
 {
     let $busy = false
     let $closed = false
@@ -220,7 +220,7 @@ pub fn over_stream($reader: std::io::Reader, $writer: std::io::Writer,
         ()
     }
     let $client = Client(
-        exchange: fn ($document: std::json::Document): optional std::json::Document | ErrorValue
+        exchange: fn ($document: std::json::Document): std::json::Document | () | ErrorValue
         {
             if $closed { return RequestError(message: "RPC transport is closed") }
             if $busy { return RequestError(message: "RPC stream already has an exchange") }
@@ -269,9 +269,9 @@ pub fn over_stream($reader: std::io::Reader, $writer: std::io::Writer,
 
 # Routes are ordinary Shelly callbacks. Boundary policy catches/report failures once
 # and sends a constant internal-error message, never a script diagnostic to the peer.
-pub type Handler = fn(optional std::json::Document): any
+pub type Handler = fn(std::json::Document | ()): any
 pub struct Router { routes: [String: Handler] }
-pub fn Router::new($routes: optional [String: Handler]): Router
+pub fn Router::new($routes: [String: Handler] | ()): Router
 { Router(routes: (if $routes == () { [:] } else { $routes })) }
 pub fn Router::register($method: String, $handler: Handler): () | RequestError
 {
@@ -281,7 +281,7 @@ pub fn Router::register($method: String, $handler: Handler): () | RequestError
 }
 fn error_reply($id: std::json::Document, $code: Integer, $message: String): std::json::Document | Error
 { std::json::wrap ["jsonrpc": "2.0", "id": $id, "error": ["code": $code, "message": $message]] }
-fn Router::dispatch_one($request: std::json::Document): optional std::json::Document | ErrorValue
+fn Router::dispatch_one($request: std::json::Document): std::json::Document | () | ErrorValue
 {
     let $id = $request.find "/id"
     let $null = std::json::wrap ()
@@ -323,7 +323,7 @@ fn Router::dispatch_one($request: std::json::Document): optional std::json::Docu
         return error_reply $id -32603 "Internal error"
     }
 }
-pub fn Router::dispatch($request: std::json::Document): optional std::json::Document | ErrorValue
+pub fn Router::dispatch($request: std::json::Document): std::json::Document | () | ErrorValue
 {
     if $request.kind != std::json::Kind::Array { return $self.dispatch_one $request }
     let $items = $request.array_items
@@ -338,7 +338,7 @@ pub fn Router::dispatch($request: std::json::Document): optional std::json::Docu
     if $replies.count == 0 { return () }
     std::json::wrap $replies
 }
-pub fn Router::dispatch_text($text: String): optional std::json::Document | ErrorValue
+pub fn Router::dispatch_text($text: String): std::json::Document | () | ErrorValue
 {
     let $request: std::json::Document
     try { $request = std::json::parse $text }

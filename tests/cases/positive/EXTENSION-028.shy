@@ -1,7 +1,7 @@
 # EXTENSION-028: typed optional suffix
 check ["id": "EXTENSION-028",
     "name": "typed optional suffix",
-    "source": "fn Integer::add(\$a: Integer, \$b: optional Integer, \$c: optional Integer): Integer { \$self + \$a + (if \$b == () { 0 } else { \$b }) + (if \$c == () { 0 } else { \$c }) }; let \$v = 1; echo (\$v.add 2) (\$v.add 2 3) (\$v.add 2 3 4)",
+    "source": "fn Integer::add(\$a: Integer, \$b: Integer | (), \$c: Integer | ()): Integer { \$self + \$a + (if \$b == () { 0 } else { \$b }) + (if \$c == () { 0 } else { \$c }) }; let \$v = 1; echo (\$v.add 2) (\$v.add 2 3) (\$v.add 2 3 4)",
     "mode": "code",
     "args": [],
     "stdout": "3 6 10\n",

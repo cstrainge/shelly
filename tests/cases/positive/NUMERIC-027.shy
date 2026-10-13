@@ -2,7 +2,7 @@
 check [
     "id": "NUMERIC-027",
     "name": "nested collections",
-    "source": "let \$x: [String: [optional Float]] = [\"a\": [7, ()]]; \$x[\"a\"][0] = 9; echo (\$x[\"a\"][0] / 2) (\$x[\"a\"][1] == ())",
+    "source": "let \$x: [String: [Float | ()]] = [\"a\": [7, ()]]; \$x[\"a\"][0] = 9; echo (\$x[\"a\"][0] / 2) (\$x[\"a\"][1] == ())",
     "mode": "code",
     "args": [],
     "stdout": "4.5 true\n",

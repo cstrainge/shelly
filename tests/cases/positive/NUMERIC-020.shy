@@ -1,8 +1,8 @@
-# NUMERIC-020: optional Float
+# NUMERIC-020: Float | ()
 check [
     "id": "NUMERIC-020",
-    "name": "optional Float",
-    "source": "let \$x: optional Float; echo (\$x == ()); \$x = 7; echo (\$x / 2); \$x = (); echo (\$x == ())",
+    "name": "Float | ()",
+    "source": "let \$x: Float | (); echo (\$x == ()); \$x = 7; echo (\$x / 2); \$x = (); echo (\$x == ())",
     "mode": "code",
     "args": [],
     "stdout": "true\n3.5\ntrue\n",

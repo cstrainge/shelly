@@ -12,7 +12,7 @@ pub fn Socket::get_address(): Endpoint | Error
     let $value = __socket "udp_address" $self
     Endpoint(host: $value[0], port: $value[1])
 }
-pub fn Socket::receive($max_bytes: optional Integer): Datagram | Error
+pub fn Socket::receive($max_bytes: Integer | ()): Datagram | Error
 {
     let $value = __socket "udp_receive" $self $max_bytes
     Datagram(bytes: $value[0], peer: Endpoint(host: $value[1][0], port: $value[1][1]), truncated: $value[2])

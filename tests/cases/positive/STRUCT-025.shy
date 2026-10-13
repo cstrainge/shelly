@@ -1,7 +1,7 @@
 # STRUCT-025: optional update
 check ["id": "STRUCT-025",
     "name": "optional update",
-    "source": "struct S { pub n: optional Number }; let \$s = S(); \$s.n = 4; echo \$s.n; \$s.n = (); echo \$s.n",
+    "source": "struct S { pub n: Number | () }; let \$s = S(); \$s.n = 4; echo \$s.n; \$s.n = (); echo \$s.n",
     "mode": "code",
     "args": [],
     "stdout": "4\n()\n",

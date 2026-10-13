@@ -1,7 +1,7 @@
 # STRUCT-021: copy on write
 check ["id": "STRUCT-021",
     "name": "copy on write",
-    "source": "struct S { pub n: Number, pub text: String, pub extra: optional }; let \$a = S(n: 1, text: \"x\"); let \$b = \$a; \$b.n = 2; echo \$a.n \$b.n",
+    "source": "struct S { pub n: Number, pub text: String, pub extra: any | () }; let \$a = S(n: 1, text: \"x\"); let \$b = \$a; \$b.n = 2; echo \$a.n \$b.n",
     "mode": "code",
     "args": [],
     "stdout": "1 2\n",

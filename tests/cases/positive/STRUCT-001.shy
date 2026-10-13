@@ -1,7 +1,7 @@
 # STRUCT-001: basic construction
 check ["id": "STRUCT-001",
     "name": "basic construction",
-    "source": "struct S { pub n: Number, pub text: String, pub extra: optional }; let \$s = S(text: \"hello\", n: 2); echo \$s.n \$s.text \$s.extra",
+    "source": "struct S { pub n: Number, pub text: String, pub extra: any | () }; let \$s = S(text: \"hello\", n: 2); echo \$s.n \$s.text \$s.extra",
     "mode": "code",
     "args": [],
     "stdout": "2 hello ()\n",

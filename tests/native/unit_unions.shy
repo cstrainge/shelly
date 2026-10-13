@@ -1,0 +1,47 @@
+# Unit unions supply optional defaults without a type keyword.
+fn unit_union_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture,
+        "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "bundled", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if    ($out != $stdout) || ($reply["exit_code"] != $status)
+       || ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"]
+       || (($diagnostic == "") && ($err != ""))
+       || (($diagnostic != "") && !($err.contains $diagnostic))
+    { echo $source $reply $out $err; fail "unit union differs" }
+}
+
+unit_union_case 'let $v: Float | (); echo $v; $v = 7; echo $v ($v / 2); $v = (); echo $v' "()\n7.0 3.5\n()\n" ""
+unit_union_case 'struct Node { pub value: Integer, pub next: Node | () }; echo Node(value: 1).next; echo Node(value: 1, next: Node(value: 2)).next.value' "()\n2\n" ""
+unit_union_case 'struct Box { pub item: Integer | (), pub extra: any | () }; let $b = Box(); echo $b.item $b.extra; let $p = Box.properties; echo $p["item"].name' "() ()\nInteger | ()\n" ""
+unit_union_case 'fn pair($a: Integer | (), $b: String | ()): Array { [$a, $b] }; echo (pair)...; echo (pair 7)...; echo (pair () "label")...' "() ()\n7 ()\n() label\n" ""
+unit_union_case 'fn collect($items: (Integer | ())...): [Integer | ()] { $items }; echo (collect () 7)...; echo (collect).count' "() 7\n0\n" ""
+unit_union_case 'let $items: [Float | ()] = [7, ()]; let $table: [String: Integer | ()] = ["x": (), "y": 2]; echo $items[0] $items[1] $items.value_type.name $table.value_type.name' "7.0 () Float | () Integer | ()\n" ""
+unit_union_case 'let $items: [Integer] | (); echo $items; $items = [1, 2]; echo $items...; $items = (); echo $items' "()\n1 2\n()\n" ""
+unit_union_case 'fn invoke($callback: (fn(): String) | ()): String { if $callback == () { "none" } else { $callback } }; echo (invoke) (invoke fn(): String { "called" })' "none called\n" ""
+unit_union_case 'let $callbacks: [(fn(): Integer) | ()] = [fn(): Integer { 7 }, ()]; echo $callbacks.value_type.name; echo ($callbacks[0])' "(fn(): Integer) | ()\n7\n" ""
+unit_union_case 'type optional = Integer; let $v: optional = 7; echo $v $v.type.name' "7 optional\n" ""
+unit_union_case 'fn optional($value: Integer): Integer { $value }; echo (optional 7)' "7\n" ""
+
+# Collections of nullable items still require the collection itself.
+unit_union_case 'struct Box { pub items: [Integer | ()] }; Box()' "" "Missing required field"
+unit_union_case 'struct Box { pub items: [Integer | ()] }; Box(items: ())' "" "Expected [Integer | ()]"
+unit_union_case 'struct Box { pub item: Integer | () }; Box(item: "bad")' "" "Expected Integer"
+unit_union_case 'fn invalid($a: Integer | (), $b: String) {}' "" "Required parameters cannot follow optional"
+unit_union_case 'fn required($value: any) {}; required' "" "expected 1 arguments, but got 0"
+
+# The previous modifier has no special meaning in annotations or struct fields.
+unit_union_case 'let $v: optional Integer' "" "Parser error:"
+unit_union_case 'fn old($value: optional Integer) {}' "" "Parser error:"
+unit_union_case 'fn old(): optional Integer { () }' "" "Parser error:"
+unit_union_case 'struct Old { pub value: optional Integer }' "" "Parser error:"
+unit_union_case 'struct Old { pub value: optional }' "" "Unknown type 'optional'"

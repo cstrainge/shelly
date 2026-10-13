@@ -25,7 +25,7 @@ fn annotation_names(annotation: &AstType, names: &mut HashSet<String>)
     match annotation
     {
         AstType::Named(name) => { names.insert(name.clone()); },
-        AstType::Array(item) | AstType::Optional(item) => annotation_names(item, names),
+        AstType::Array(item) => annotation_names(item, names),
         AstType::Map(key, value) =>
             { annotation_names(key, names); annotation_names(value, names); },
         AstType::FixedArray(items) | AstType::Union(items) =>

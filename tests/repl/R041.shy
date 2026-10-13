@@ -1,5 +1,5 @@
 # Struct REPL nominal identities and type constraints
 check_repl ["id": "R041",
     "name": "Struct REPL nominal identities and type constraints",
-    "steps": [["struct Item { pub n: Number }; struct Box { pub item: Item }; let \$old = Item(n: 1); fn old_item() { Item(n: 1) }; let \$keys = [\$old: \"old\"]", "quiet", ""], ["struct Item { pub n: Number, pub text: optional String }", "quiet", ""], ["echo (\$old == Item(n: 1)) ((old_item) == \$old) \$keys[\$old] \$keys[Item(n: 1)]", "output", "false true old ()"], ["echo Box(item: \$old).item.n", "output", "1"], ["let \$new = Item(n: 2); echo Box(item: \$new)", "error", ""], ["enum Item { A }; echo Item::A", "output", "Item::A"], ["echo (old_item).n Box(item: \$old).item.n", "output", "1 1"]],
+    "steps": [["struct Item { pub n: Number }; struct Box { pub item: Item }; let \$old = Item(n: 1); fn old_item() { Item(n: 1) }; let \$keys = [\$old: \"old\"]", "quiet", ""], ["struct Item { pub n: Number, pub text: String | () }", "quiet", ""], ["echo (\$old == Item(n: 1)) ((old_item) == \$old) \$keys[\$old] \$keys[Item(n: 1)]", "output", "false true old ()"], ["echo Box(item: \$old).item.n", "output", "1"], ["let \$new = Item(n: 2); echo Box(item: \$new)", "error", ""], ["enum Item { A }; echo Item::A", "output", "Item::A"], ["echo (old_item).n Box(item: \$old).item.n", "output", "1 1"]],
     "exit": 0]

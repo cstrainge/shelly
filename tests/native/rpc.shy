@@ -1,6 +1,6 @@
 import std::json
 import std::net::rpc
-let $client = std::net::rpc::Client(exchange: fn ($request: std::json::Document): optional std::json::Document | ErrorValue
+let $client = std::net::rpc::Client(exchange: fn ($request: std::json::Document): std::json::Document | () | ErrorValue
     {
         if !($request.has "/id") { return () }
         let $id = $request.require_string "/id"
@@ -40,7 +40,7 @@ catch ($error: std::net::rpc::RequestError) {}
 
 
 let $router = std::net::rpc::Router()
-$router.register "echo" fn ($params: optional std::json::Document): any { $params }
+$router.register "echo" fn ($params: std::json::Document | ()): any { $params }
 let $reply = $router.dispatch_text '{"jsonrpc":"2.0","method":"echo","params":[null],"id":9007199254740993}'
 require (($reply.require_integer "/id") == 9007199254740993) "RPC router changed numeric ID"
 require (($reply.at "/result/0").kind == std::json::Kind::Null) "RPC router lost null"
@@ -52,7 +52,7 @@ require (($reply.require_integer "/error/code") == -32600) "RPC empty batch enve
 let $reply = $router.dispatch_text '[{"jsonrpc":"2.0","method":"echo"},{"jsonrpc":"2.0","method":"missing","id":null}]'
 require (($reply.array_items.count == 1) && (($reply.at "/0/id").kind == std::json::Kind::Null)) "RPC mixed notification/null ID batch"
 
-$router.register "reject" fn ($params: optional std::json::Document): Integer | std::net::rpc::CallError
+$router.register "reject" fn ($params: std::json::Document | ()): Integer | std::net::rpc::CallError
 { std::net::rpc::CallError(code:-32001, message:"Invalid operation", data:(std::json::wrap ())) }
 let $reply = $router.dispatch_text '{"jsonrpc":"2.0","method":"reject","id":"domain"}'
 require (($reply.require_integer "/error/code") == -32001) "Intentional RPC error became internal failure"

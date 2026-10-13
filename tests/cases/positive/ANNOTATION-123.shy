@@ -1,7 +1,7 @@
 # ANNOTATION-123: nested containers
 check ["id": "ANNOTATION-123",
     "name": "nested containers",
-    "source": "let \$x: [String: [optional Number]] = [\"a\": [1, (), 2.5]]; echo \$x[\"a\"]...",
+    "source": "let \$x: [String: [Number | ()]] = [\"a\": [1, (), 2.5]]; echo \$x[\"a\"]...",
     "mode": "code",
     "args": [],
     "stdout": "1 () 2.5\n",

@@ -12,7 +12,7 @@ visible "__server_Incoming"
 pub type Server = __server_Server
 pub type Incoming = __server_Incoming
 pub type Error = std::net::http::Error
-pub struct Response { pub status: Integer, pub headers: optional [String: String | [String]], pub body: optional std::net::http::Body }
+pub struct Response { pub status: Integer, pub headers: [String: String | [String]] | (), pub body: std::net::http::Body | () }
 pub type Handler = fn(Incoming): Response
 pub fn listen($host: String, $port: Integer): Server | Error { __server "listen" $host $port }
 pub fn Server::get_address(): Endpoint | Error
@@ -40,11 +40,11 @@ pub fn Incoming::read_as($target: Type): any | ErrorValue
 }
 pub fn Incoming::respond($response: Response): () | Error { __server "respond" $self $response }
 pub fn Incoming::close(): () | Error { __server_close $self }
-pub fn json_response($value: any, $status: optional Integer): Response | Error
+pub fn json_response($value: any, $status: Integer | ()): Response | Error
 { Response(status: (if $status == () { 200 } else { $status }), body: (std::net::http::json_body $value)) }
-pub fn text_response($value: String, $status: optional Integer): Response | Error
+pub fn text_response($value: String, $status: Integer | ()): Response | Error
 { Response(status: (if $status == () { 200 } else { $status }), body: (std::net::http::text_body $value)) }
-pub fn Server::serve($handler: Handler, $max_requests: optional Integer): Integer | ErrorValue
+pub fn Server::serve($handler: Handler, $max_requests: Integer | ()): Integer | ErrorValue
 {
     let $count = 0
     while $max_requests == () || $count < $max_requests
