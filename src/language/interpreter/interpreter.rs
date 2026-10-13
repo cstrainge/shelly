@@ -1621,6 +1621,7 @@ impl Interpreter
                                         type_id,
                                         exported: ValueVisibility::Private,
                                         reference,
+                                        dispatch_type: None,
                                         environment_conversion: None,
                                     },
                             )
@@ -1688,6 +1689,7 @@ impl Interpreter
                                     type_id,
                                     exported: ValueVisibility::Private,
                                     reference: None,
+                                    dispatch_type: None,
                                     environment_conversion: None,
                                 })
                         {
@@ -1732,9 +1734,15 @@ impl Interpreter
 
                 Code::SetVariable =>
                     {
-                        let variable_name = match &instruction.operand
+                        let (variable_name, view) = match &instruction.operand
                             {
-                                Some(Value::String(name, _)) => name.clone(),
+                                Some(Value::String(name, _)) => (name.clone(), None),
+                                Some(Value::Array(parts)) => match parts.as_slice()
+                                {
+                                    [Value::String(name, _), Value::Integer(id)] =>
+                                        (name.clone(), Some(TypeId(*id as usize))),
+                                    _ => unreachable!("Invalid union interface operand"),
+                                },
                                 _ => return Err(InterpreterError::new(
                                     location.clone(),
                                     ErrorWhat::InvalidOperand(
@@ -1764,6 +1772,8 @@ impl Interpreter
                         }
 
                         self.write_variable(&location, &variable_name, value)?;
+                        self.variable_binding(&variable_name).unwrap().borrow_mut()
+                            .dispatch_type = view;
                     },
 
                 Code::StartIteration =>
@@ -2041,6 +2051,7 @@ impl Interpreter
                         let mut reference = references.pop().expect("Missing receiver reference");
                         Self::get_element(&location,
                             &self.read_reference(&location, &reference)?, &index)?;
+                        reference.dispatch_type = None;
                         reference.indexes.push(index);
                         reference.fields.push(Value::Boolean(false));
                         references.push(reference);
@@ -2082,6 +2093,8 @@ impl Interpreter
                                 )
                             ));
                         };
+                        if let Some(Value::Integer(id)) = operands.get(2)
+                        { reference.dispatch_type = Some(TypeId(*id as usize)); }
                         let field = &operands[0];
                         let field = self.resolve_field_name(&location, field)?;
                         let (result, resolved) = self.resolve_field(
@@ -2334,14 +2347,14 @@ impl Interpreter
 
                 Code::InterpolateString | Code::InterpolateGlob =>
                     {
-                        let escaped_dollars = match &instruction.operand
-                            {
-                                Some(Value::Array(offsets)) => offsets.iter()
-                                    .map(|offset| offset.as_integer() as usize).collect(),
-                                _ => Vec::new()
-                            };
+                        let Some(Value::Array(parts)) = &instruction.operand
+                            else { unreachable!("Missing interpolation operand"); };
+                        let [Value::Array(offsets), members] = parts.as_slice()
+                            else { unreachable!("Invalid interpolation operand"); };
+                        let escaped_dollars = offsets.iter()
+                            .map(|offset| offset.as_integer() as usize).collect::<Vec<_>>();
                         self.handle_string_interpolation(&location, &mut stack, &escaped_dollars,
-                            matches!(instruction.code, Code::InterpolateGlob))?;
+                            matches!(instruction.code, Code::InterpolateGlob), members)?;
                     },
 
                 Code::EnterScope =>
@@ -2736,6 +2749,7 @@ impl Interpreter
                 type_id: None,
                 exported: ValueVisibility::Private,
                 reference: None,
+                dispatch_type: None,
                 environment_conversion: None,
             });
     }
@@ -2969,7 +2983,9 @@ impl Interpreter
         }
         drop(variable);
         let reference = self.variable_reference(name).unwrap();
-        self.write_receiver(location, name, &reference, value)
+        self.write_receiver(location, name, &reference, value)?;
+        self.variable_binding(name).unwrap().borrow_mut().dispatch_type = None;
+        Ok(())
     }
 
     fn write_receiver(
@@ -3203,18 +3219,32 @@ impl Interpreter
                       name: &str, snapshot: &Value) -> Option<BoundMethod>
     {
         if name == "new" { return None; }
+        let registry = &self.scope().types;
+        let selected = receiver.dispatch_type.or_else(||
+            {
+                if receiver.indexes.is_empty()
+                { let root = receiver.root.borrow(); root.type_id.or(root.dispatch_type) }
+                else { None }
+            });
         let mut method_types = Vec::new();
+        if let Some(id) = selected.and_then(|id| registry.union_interface(id))
+        { method_types.extend(registry.method_types(id)); }
+        let narrowed = selected.is_some_and(|id| registry.union_interface(id).is_none())
+            && receiver.dispatch_type.is_some();
         let mut underlying = value;
         while let Value::Named(item) = underlying
         {
-            method_types.push(item.definition.id);
+            if !narrowed { method_types.push(item.definition.id); }
             underlying = &item.value;
         }
         let receiver_type = if name == "next_item"
-            { self.scope().types.inferred_value_type(underlying) }
-            else { self.scope().types.value_type(underlying) };
-        let base_types = self.scope().types.method_types(receiver_type);
+            { registry.inferred_value_type(underlying) }
+            else { registry.value_type(underlying) };
+        let base_types = registry.method_types(receiver_type);
         let base_type = base_types[0];
+        // Generic methods follow both the selected interface and concrete member.
+        let any = registry.builtin_id("any").unwrap();
+        method_types.retain(|id| *id != any);
         method_types.extend(base_types);
         for id in method_types
         {
@@ -3257,6 +3287,32 @@ impl Interpreter
                 { receiver, name: name.to_string(), definition, snapshot: snapshot.clone() });
         }
         None
+    }
+
+    pub(super) fn is_union_method(&self, method: &BoundMethod) -> bool
+    {
+        match &method.definition
+        {
+            MethodDefinition::User(function) => function.receiver_type
+                .and_then(|id| self.scope().types.union_interface(id)).is_some(),
+            _ => false,
+        }
+    }
+
+    fn method_field(&mut self, location: &Location, value: &Value,
+                    method: BoundMethod, bind: bool) -> InterpreterResult<Value>
+    {
+        if bind
+        {
+            return Ok(Value::String(format!("{}.{}", value.type_name(), method.name),
+                Executable::Method(Rc::new(method))));
+        }
+        let previous = self.last_result.take();
+        let result = self.execute_method(location, &method, &[]);
+        let value = self.last_result.take().unwrap_or(Value::None);
+        self.last_result = previous;
+        result?;
+        Ok(value)
     }
 
     pub(super) fn execute_method(
@@ -4359,6 +4415,21 @@ impl Interpreter
         bind: bool,
     ) -> InterpreterResult<(Value, ValueReference)>
     {
+        // The selected union's interface precedes the concrete member's storage.
+        // Raw fields and intrinsic metadata still have their normal meaning.
+        let name = field.as_text();
+        let intrinsic = name == "type"
+            || matches!(value.underlying(), Value::Enum(_)) && name == "index"
+            || matches!(value.underlying(), Value::Type(_)) && name == "name"
+            || self.collection_property(location, &reference, &value, &name).is_some();
+        if    !intrinsic
+           && !name.starts_with("::")
+           && let Some(method) = self.resolve_method(&value, reference.clone(), &name, snapshot)
+           && self.is_union_method(&method)
+        {
+            let value = self.method_field(location, &value, method, bind)?;
+            return Ok((value.clone(), ValueReference::temporary(value)));
+        }
         if !matches!(value.underlying(), Value::Struct(_))
             && !field.as_text().starts_with("::")
             && field.as_text() != "type"
@@ -4425,6 +4496,7 @@ impl Interpreter
             }
             else if let Value::Enum(item) = value.underlying() && enum_index
             {
+                reference.dispatch_type = None;
                 reference.indexes.push(field.clone());
                 reference.fields.push(Value::Boolean(true));
                 Value::Integer(item.variant as i64)
@@ -4432,6 +4504,7 @@ impl Interpreter
             else if let Value::Type(item) = value.underlying()
                 && field.as_text() == "name"
             {
+                reference.dispatch_type = None;
                 reference.indexes.push(field.clone());
                 reference.fields.push(Value::Boolean(true));
                 Value::from_string(item.name.clone())
@@ -4439,6 +4512,7 @@ impl Interpreter
             else if let Value::Struct(item) = value.underlying()
                 && let Ok(index) = Self::struct_field_index(location, item, field)
             {
+                reference.dispatch_type = None;
                 reference.indexes.push(field.clone());
                 reference.fields.push(Value::Boolean(true));
                 item.fields[index].clone()
@@ -4453,22 +4527,9 @@ impl Interpreter
                 && let Some(method) = self.resolve_method(
                     &value, reference.clone(), name, snapshot)
             {
-                if bind
-                {
-                    Value::String(format!("{}.{}", value.type_name(), name),
-                        Executable::Method(Rc::new(method)))
-                }
-                else
-                {
-                    // Receiver and field operations preserve last_result.
-                    let previous = self.last_result.take();
-                    let result = self.execute_method(location, &method, &[]);
-                    let value = self.last_result.take().unwrap_or(Value::None);
-                    self.last_result = previous;
-                    result?;
-                    reference = ValueReference::temporary(value.clone());
-                    value
-                }
+                let result = self.method_field(location, &value, method, bind)?;
+                if !bind { reference = ValueReference::temporary(result.clone()); }
+                result
             }
             else
             {
@@ -4764,7 +4825,7 @@ impl Interpreter
 
     fn handle_string_interpolation(
         &mut self, location: &Location, stack: &mut VecDeque<Value>, escaped_dollars: &[usize],
-        escape_glob: bool,
+        escape_glob: bool, members: &Value,
     ) -> InterpreterResult<()>
     {
         let invalid_operand = |message| InterpreterError::new(
@@ -4778,13 +4839,8 @@ impl Interpreter
                 "Expected a string for InterpolateString instruction.".to_string()));
         };
 
-        let interpolated = self.interpolate_string_at(
-            location,
-            &text,
-            escaped_dollars,
-            !escape_glob,
-            escape_glob,
-        )?;
+        let interpolated = self.interpolate_with_interfaces(
+            location, &text, escaped_dollars, !escape_glob, escape_glob, members)?;
         Self::push(stack, Value::String(interpolated, executable));
         Ok(())
     }
@@ -4799,6 +4855,14 @@ impl Interpreter
                              escaped_dollars: &[usize], display_paths: bool,
                              escape_glob: bool) -> InterpreterResult<String>
     {
+        self.interpolate_with_interfaces(location, text, escaped_dollars, display_paths,
+            escape_glob, &Value::None)
+    }
+
+    fn interpolate_with_interfaces(&mut self, location: &Location, text: &str,
+                                   escaped_dollars: &[usize], display_paths: bool,
+                                   escape_glob: bool, members: &Value) -> InterpreterResult<String>
+    {
         let invalid_operand = |message| InterpreterError::new(
             location.clone(),
             ErrorWhat::InvalidOperand(message)
@@ -4806,6 +4870,7 @@ impl Interpreter
 
         let mut interpolated = String::with_capacity(text.len());
         let mut offset = 0;
+        let mut member_index = 0;
         for reference in interpolation_references(text, escaped_dollars)
         {
             interpolated.push_str(&text[offset..reference.span.start]);
@@ -4816,12 +4881,29 @@ impl Interpreter
             let mut value = self.read_raw_variable(name, location)?;
             let mut receiver = self.variable_reference(name)
                 .unwrap_or_else(|| ValueReference::temporary(value.clone()));
-            for name in parts
+            // Preserve per-occurrence facts when a repeated method reference mutates state.
+            let chain = if reference.name.contains('.')
             {
+                let chain = if let Value::Array(members) = members
+                    { members.get(member_index) } else { None };
+                member_index += 1;
+                chain
+            }
+            else { None };
+            for (index, name) in parts.enumerate()
+            {
+                let mut snapshot = &Value::None;
+                if let Some(Value::Array(chain)) = chain
+                    && let Some(Value::Array(parts)) = chain.get(index)
+                {
+                    if let Value::Integer(id) = parts[0]
+                    { receiver.dispatch_type = Some(TypeId(id as usize)); }
+                    snapshot = &parts[1];
+                }
                 let field = self.resolve_field_name(location, &Value::from_string(name.into()))?;
                 (value, receiver) = self.resolve_field(
                     location, receiver, self.eval_value_paths_to(value), &field,
-                    &Value::None, false)?;
+                    snapshot, false)?;
             }
             let value = if display_paths { self.eval_value_paths_to(value) } else { value };
 

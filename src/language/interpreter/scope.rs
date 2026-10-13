@@ -78,6 +78,7 @@ impl Scope
                     type_id: Some(type_id),
                     exported: ValueVisibility::Private,
                     reference: None,
+                    dispatch_type: None,
                     environment_conversion: None,
                 });
         }
@@ -87,6 +88,7 @@ impl Scope
                 type_id: Some(types.native_types["Boolean"].id),
                 exported: ValueVisibility::Private,
                 reference: None,
+                dispatch_type: None,
                 environment_conversion: None,
             });
         for &(_, name, color) in SYNTAX_COLORS
@@ -97,6 +99,7 @@ impl Scope
                     type_id: Some(types.native_types["String"].id),
                     exported: ValueVisibility::Private,
                     reference: None,
+                    dispatch_type: None,
                     environment_conversion: None,
                 });
         }
@@ -107,6 +110,7 @@ impl Scope
                 type_id: Some(widget_array),
                 exported: ValueVisibility::Private,
                 reference: None,
+                dispatch_type: None,
                 environment_conversion: None,
             });
         let widget_color = match color_mode
@@ -121,6 +125,7 @@ impl Scope
                 type_id: Some(types.native_types["String"].id),
                 exported: ValueVisibility::Private,
                 reference: None,
+                dispatch_type: None,
                 environment_conversion: None,
             });
         let prompt_type = types.native_types["Prompt"].id;
@@ -130,6 +135,7 @@ impl Scope
                 type_id: Some(prompt_type),
                 exported: ValueVisibility::Private,
                 reference: None,
+                dispatch_type: None,
                 environment_conversion: None,
             });
         Self

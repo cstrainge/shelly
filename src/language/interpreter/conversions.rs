@@ -78,7 +78,8 @@ impl Interpreter
             Value::String(name, Executable::Yes) =>
                 self.module_function(name).and_then(|function| function.return_type),
             Value::String(name, Executable::No) => self.variable_binding(name)
-                .and_then(|binding| binding.borrow().type_id),
+                .and_then(|binding|
+                    { let binding = binding.borrow(); binding.type_id.or(binding.dispatch_type) }),
             _ => None,
         };
         let declared = declared.map(|id| match self.scope().types
@@ -89,18 +90,25 @@ impl Interpreter
         });
         let source = declared.and_then(|id| self.scope().types.collection_source_type(id, &value))
             .unwrap_or_else(|| self.scope().types.inferred_value_type(&value));
-        let name = self.scope().types.conversion_method_name(source);
+        let output_source = declared.and_then(|id| self.scope().types.union_interface(id))
+            .unwrap_or(source);
         let mut factory = None;
-        for owner in self.conversion_owners(target)
+        let count = if output_source == source { 1 } else { 2 };
+        for source in [output_source, source].into_iter().take(count)
         {
-            if let Some(function) =
-                self.conversion_function(location, owner, &name, Some(source), snapshot)?
+            let name = self.scope().types.conversion_method_name(source);
+            for owner in self.conversion_owners(target)
             {
-                factory = Some((owner, function));
-                break;
+                if let Some(function) =
+                    self.conversion_function(location, owner, &name, Some(source), snapshot)?
+                {
+                    factory = Some((owner, name.clone(), function));
+                    break;
+                }
             }
+            if factory.is_some() { break; }
         }
-        let converted = if let Some((owner, function)) = factory
+        let converted = if let Some((owner, name, function)) = factory
         {
             let display = format!("{}::{}", self.scope().types.get(owner).name, name);
             self.execute_function(location, &display, &function, &[value])?;
@@ -114,7 +122,14 @@ impl Interpreter
         {
             let name = self.scope().types.output_conversion_method_name(target);
             let mut method = None;
-            for owner in self.scope().types.method_types(source)
+            let mut owners = self.scope().types.method_types(output_source);
+            if output_source != source
+            {
+                let any = self.scope().types.builtin_id("any").unwrap();
+                owners.retain(|id| *id != any);
+                owners.extend(self.scope().types.method_types(source));
+            }
+            for owner in owners
             {
                 if let Some(function) =
                     self.conversion_function(location, owner, &name, None, snapshot)?

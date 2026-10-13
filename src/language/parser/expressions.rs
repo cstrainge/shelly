@@ -170,6 +170,8 @@ fn parse_math_primary_inner(buffer: &mut TokenBuffer<'_, '_>)
                     drop(probe);
                     AstExpression
                         {
+                            interpolation_members: Default::default(),
+                            dispatch_type: Default::default(),
                             location: token.location.clone(), string_flag: None,
                             kind: AstExpressionKind::AnonymousFunction(Box::new(
                                 parse_anonymous_function(&mut *lookahead.buffer, token.location)?)),
@@ -221,6 +223,8 @@ fn parse_math_primary_inner(buffer: &mut TokenBuffer<'_, '_>)
                                     location: token.location,
                                     kind: AstExpressionKind::TypeConversion(
                                         name, Box::new(value), None, Cell::new(None)),
+                                    interpolation_members: Default::default(),
+                                    dispatch_type: Default::default(),
                                     string_flag: None,
                                 };
                             let expression = parse_postfix(&mut *lookahead.buffer, expression)?;
@@ -266,6 +270,8 @@ fn parse_math_primary_inner(buffer: &mut TokenBuffer<'_, '_>)
                             {
                                 location: token.location,
                                 kind,
+                                interpolation_members: Default::default(),
+                                dispatch_type: Default::default(),
                                 string_flag: None,
                             };
                         let expression = parse_postfix(&mut *lookahead.buffer, expression)?;
@@ -278,6 +284,8 @@ fn parse_math_primary_inner(buffer: &mut TokenBuffer<'_, '_>)
                         {
                             location: token.location,
                             kind: AstExpressionKind::EnumVariant(owner.into(), member.into()),
+                            interpolation_members: Default::default(),
+                            dispatch_type: Default::default(),
                             string_flag: None,
                         }
                 },
@@ -286,6 +294,8 @@ fn parse_math_primary_inner(buffer: &mut TokenBuffer<'_, '_>)
                 {
                     location: token.location,
                     kind: parse_collection(&mut *lookahead.buffer)?,
+                    interpolation_members: Default::default(),
+                    dispatch_type: Default::default(),
                     string_flag: None
                 },
 
@@ -351,6 +361,8 @@ fn parse_math_primary_inner(buffer: &mut TokenBuffer<'_, '_>)
                         {
                             location: token.location,
                             kind: AstExpressionKind::BooleanNot(Box::new(operand)),
+                            interpolation_members: Default::default(),
+                            dispatch_type: Default::default(),
                             string_flag: None
                         }
                 },
@@ -367,6 +379,8 @@ fn parse_math_primary_inner(buffer: &mut TokenBuffer<'_, '_>)
                         {
                             location: token.location.clone(),
                             kind: AstExpressionKind::MathNegate(Box::new(operand)),
+                            interpolation_members: Default::default(),
+                            dispatch_type: Default::default(),
                             string_flag: None
                         }
                 },
@@ -407,6 +421,8 @@ fn parse_math_primary_inner(buffer: &mut TokenBuffer<'_, '_>)
                         {
                             location: token.location,
                             kind: AstExpressionKind::Grouped(Box::new(expression)),
+                            interpolation_members: Default::default(),
+                            dispatch_type: Default::default(),
                             string_flag: None
                         }
                 },
@@ -467,12 +483,16 @@ fn parse_postfix(
                         AstAccess::Field(name) =>
                             AstExpressionKind::Field(Box::new(expression), name, None)
                     },
+                interpolation_members: Default::default(),
+                dispatch_type: Default::default(),
                 string_flag: None
             };
     }
     if let Some(splat) = try_expect_token(buffer, TokenKind::Splat)?
     {
         expression = AstExpression { location: splat.location,
+            interpolation_members: Default::default(),
+            dispatch_type: Default::default(),
             kind: AstExpressionKind::Splat(Box::new(expression)), string_flag: None };
     }
     Ok(expression)
@@ -759,6 +779,8 @@ fn parse_math_binary_tail(buffer: &mut TokenBuffer<'_, '_>,
             {
                 location: left.location.clone(),
                 kind: AstExpressionKind::MathExpression(operator, Box::new(left), Box::new(right)),
+                interpolation_members: Default::default(),
+                dispatch_type: Default::default(),
                 string_flag: None
             };
 
@@ -1043,6 +1065,8 @@ fn parse_scalar_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
                 {
                     location: escape.location,
                     kind: AstExpressionKind::ExecutableReference(Box::new(executable)),
+                    interpolation_members: Default::default(),
+                    dispatch_type: Default::default(),
                     string_flag: None,
                 }));
         }
@@ -1113,6 +1137,8 @@ fn parse_boolean_tail(buffer: &mut TokenBuffer<'_, '_>,
                 location: token.location,
                 kind: AstExpressionKind::BooleanExpression(
                     operator, Box::new(left), Box::new(right)),
+                interpolation_members: Default::default(),
+                dispatch_type: Default::default(),
                 string_flag: None,
             };
         lookahead.commit();
@@ -1182,6 +1208,8 @@ fn parse_range_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
         {
             location: operator.location,
             kind: AstExpressionKind::Range(start.map(Box::new), end.map(Box::new), inclusive),
+            interpolation_members: Default::default(),
+            dispatch_type: Default::default(),
             string_flag: None
         }))
 }
@@ -1232,6 +1260,8 @@ fn parse_value_before_block_inner(buffer: &mut TokenBuffer<'_, '_>,
     }
     if boundaries.is_empty() { return Ok(stages.pop()); }
     Ok(Some(AstExpression { location, string_flag: None,
+        interpolation_members: Default::default(),
+        dispatch_type: Default::default(),
         kind: AstExpressionKind::Pipeline(Box::new(AstPipeline { stages, boundaries })) }))
 }
 
@@ -1305,6 +1335,8 @@ fn parse_stage_before_block(buffer: &mut TokenBuffer<'_, '_>,
                             executable: expression,
                             arguments
                         })),
+                    interpolation_members: Default::default(),
+                    dispatch_type: Default::default(),
                     string_flag: None
                 };
         }
@@ -1358,6 +1390,8 @@ pub(super) fn parse_redirection_tail(buffer: &mut TokenBuffer<'_, '_>,
             {
                 location: expression.location.clone(),
                 kind: AstExpressionKind::Redirect(Box::new(expression), redirects),
+                interpolation_members: Default::default(),
+                dispatch_type: Default::default(),
                 string_flag: None,
             }));
     }
@@ -1369,6 +1403,8 @@ pub(super) fn parse_redirection_tail(buffer: &mut TokenBuffer<'_, '_>,
             {
                 location: expression.location.clone(),
                 kind: AstExpressionKind::TryExecute(Box::new(expression)),
+                interpolation_members: Default::default(),
+                dispatch_type: Default::default(),
                 string_flag: None,
             }));
     }

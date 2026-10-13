@@ -46,7 +46,8 @@ fn check_ast_inner(registry: &mut TypeRegistry, ast: &mut AstTopLevel,
     let mut bindings: Bindings = variables.get_all_flattened().into_iter().map(|(name, value)|
         {
             let inferred = if value.reference.is_none()
-                { Some(registry.inferred_value_type(&value.value)) } else { None };
+                { value.dispatch_type.or_else(|| Some(registry.inferred_value_type(&value.value))) }
+                else { None };
             (name, Binding { constraint: value.type_id, inferred, refined: None,
                 type_value: if let Value::Type(item) = &value.value
                     { Some(item.id) } else { None } })
@@ -1359,6 +1360,16 @@ fn accepts_results(registry: &TypeRegistry, expected: TypeId, actual: TypeId) ->
 fn method_result(registry: &TypeRegistry, receiver: TypeId, name: &str,
                  bindings: &Bindings) -> Option<TypeId>
 {
+    // Only the selected named interface can override concrete member signatures.
+    for id in registry.method_types(receiver).into_iter()
+        .filter(|id| registry.union_interface(*id).is_some())
+    {
+        if let Some(result) = bindings.methods.get(&method_key(id, name))
+        { return result.type_id.map(|result|
+            registry.specialize_receiver_type(result,
+                registry.collection_member_type(receiver, "value_type"),
+                registry.collection_member_type(receiver, "key_type"))); }
+    }
     let mut alternatives = Vec::new();
     runtime_alternatives(registry, receiver, &mut alternatives);
     if alternatives.len() > 1
@@ -1403,7 +1414,8 @@ fn returns_call_data(registry: &TypeRegistry, expression: &AstExpression,
                 if definition.name == "Type" && name == "name" { return true; }
                 if matches!(&definition.kind, TypeKind::Struct(fields)
                     if fields.iter().any(|field| field.name == *name)) { return false; }
-                method_result(registry, id, name, bindings).is_some()
+                method_receiver_type(registry, object, bindings)
+                    .and_then(|id| method_result(registry, id, name, bindings)).is_some()
             },
         _ => false,
     }
@@ -1429,6 +1441,21 @@ fn type_value(expression: &AstExpression, bindings: &Bindings) -> Option<TypeId>
         AstExpressionKind::Variable(item) => bindings.get(&item.name)?.type_value,
         _ => None,
     }
+}
+
+// Removing alternatives keeps the named interface until one concrete type remains.
+fn method_receiver_type(registry: &TypeRegistry, expression: &AstExpression,
+                        bindings: &Bindings) -> Option<TypeId>
+{
+    let actual = binding_type(registry, expression, bindings)?;
+    if let Some(interface) = registry.union_interface(actual) { return Some(interface); }
+    if matches!(registry.get(actual).kind, TypeKind::Union(_) | TypeKind::Optional(_))
+        && let AstExpressionKind::Variable(variable) = &ungroup(expression).kind
+        && let Some(binding) = bindings.get(&variable.name)
+        && let Some(interface) = binding.constraint.or(binding.inferred)
+            .and_then(|id| registry.union_interface(id))
+    { return Some(interface); }
+    Some(actual)
 }
 
 fn refined_receiver(expression: &AstExpression, bindings: &Bindings) -> bool
@@ -1866,7 +1893,7 @@ fn check_receiver_arguments(registry: &TypeRegistry, call: &AstExecuteStatement,
 {
     let AstExpressionKind::Field(object, name, _) = &ungroup(&call.executable).kind
         else { return Ok(()); };
-    let Some(receiver) = binding_type(registry, object, bindings) else { return Ok(()); };
+    let Some(receiver) = method_receiver_type(registry, object, bindings) else { return Ok(()); };
     for id in registry.method_types(receiver)
     {
         let Some(method) = bindings.methods.get(&method_key(id, name)) else
@@ -1962,22 +1989,31 @@ fn check_binding_expression(
     return_type: Option<TypeId>, expected: Option<TypeId>,
 ) -> CompileResult<MethodResults>
 {
+    if let AstExpressionKind::Field(object, _, _) = &expression.kind
+    {
+        let receiver = method_receiver_type(registry, object, bindings);
+        expression.dispatch_type.set(receiver.and_then(|id|
+            registry.union_interface(id).or_else(||
+                refined_receiver(object, bindings).then_some(id))));
+    }
     let members = interpolated_members(expression);
     if !members.is_empty()
     {
         let mut current = bindings.clone();
-        for member in members
+        for member in &members
         {
             current.methods = check_binding_expression(
-                registry, &member, &current, return_type, None)?;
-            if expression_may_mutate(registry, &member, &current)
+                registry, member, &current, return_type, None)?;
+            if expression_may_mutate(registry, member, &current)
             { forget_inferred(&mut current); }
         }
+        *expression.interpolation_members.borrow_mut() = members;
     }
-    if let AstExpressionKind::TypeConversion(_, value, _, source_type) = &expression.kind
+    if let AstExpressionKind::TypeConversion(_, value, target, source_type) = &expression.kind
     {
         // The source is evaluated before the factory can mutate caller bindings.
         source_type.set(declared_conversion_source(registry, value, bindings));
+        expression.dispatch_type.set(target.and_then(|id| registry.union_interface(id)));
     }
     if let AstExpressionKind::Field(value, name, _) = &expression.kind
         && name != "type" && !name.starts_with('$') && !name.starts_with("::")
@@ -2305,7 +2341,12 @@ fn declared_conversion_source(registry: &TypeRegistry, expression: &AstExpressio
 {
     match &expression.kind
     {
-        AstExpressionKind::Variable(item) => bindings.get(&item.name)?.constraint,
+        AstExpressionKind::Variable(item) =>
+            {
+                let binding = bindings.get(&item.name)?;
+                if binding.refined.is_some() { method_receiver_type(registry, expression, bindings) }
+                else { binding.constraint }
+            },
         AstExpressionKind::Grouped(inner) | AstExpressionKind::TryExecute(inner) =>
             {
                 let id = declared_conversion_source(registry, inner, bindings)?;
@@ -2385,7 +2426,8 @@ fn call_result(registry: &TypeRegistry, call: &AstExecuteStatement,
         { return registry.builtin_id("String"); }
         if !matches!(&definition.kind, TypeKind::Struct(fields)
             if fields.iter().any(|field| field.name == *name))
-        { return method_result(registry, id, name, bindings); }
+        { return method_receiver_type(registry, object, bindings)
+                .and_then(|id| method_result(registry, id, name, bindings)); }
     }
     let id = binding_type(registry, &call.executable, bindings)?;
     match registry.get(registry.underlying_type(id)).kind
@@ -2472,7 +2514,8 @@ fn binding_type_inner(
                     if let Some(field) = fields.iter().find(|field| field.name == *name)
                     { return Some(field.type_id); }
                 }
-                method_result(registry, id, name, bindings)
+                method_receiver_type(registry, object, bindings)
+                    .and_then(|id| method_result(registry, id, name, bindings))
             },
         AstExpressionKind::Index(object, index) =>
             {
@@ -2672,6 +2715,8 @@ fn interpolated_members(expression: &AstExpression) -> Vec<AstExpression>
                 let mut parts = reference.name.split('.');
                 let mut member = AstExpression
                     {
+                        interpolation_members: Default::default(),
+                        dispatch_type: Default::default(),
                         location: expression.location.clone(), string_flag: None,
                         kind: AstExpressionKind::Variable(AstSymbol
                             { name: parts.next().unwrap().into() }),
@@ -2680,6 +2725,8 @@ fn interpolated_members(expression: &AstExpression) -> Vec<AstExpression>
                 {
                     member = AstExpression
                         {
+                            interpolation_members: Default::default(),
+                            dispatch_type: Default::default(),
                             location: expression.location.clone(), string_flag: None,
                             kind: AstExpressionKind::Field(Box::new(member), name.into(), None),
                         };

@@ -63,6 +63,11 @@ raw/dynamic/interpolated member access, enum defaults, and pipeline construction
 contract rollback, and recovery after constructor recursion across submissions.
 Existing struct fixtures mark their publicly constructed storage with `pub`.
 
+`native/union_methods.shy` checks explicit named union interfaces, member narrowing,
+conversion hooks, collection and pipeline items, interpolation, imports, reflection,
+and rejected calls. `repl/union_methods.shy` checks retained interfaces and live,
+versioned method references across separate submissions.
+
 `native/typed_environment.shy` checks `let type`, prelude colon conversions, export
 status, collection mutations, all process-launch APIs, and conversion failures.
 `repl/typed_environment.shy` checks live closures, inherited module environments,

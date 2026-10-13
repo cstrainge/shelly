@@ -1,0 +1,90 @@
+# A named union selects its own interface without extending its members globally.
+fn union_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $stdout) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "union method interface differs" }
+}
+
+let $errors = 'error struct A { pub detail: String }; error struct B { pub detail: String }; type Errors = A | B; fn A::label(): String { "A:" + $self.detail }; fn B::label(): String { "B:" + $self.detail }; fn Errors::label(): String { match $self.type { A => { "union:" + $self.label }, B => { "union:" + $self.label } } }; '
+
+# Union annotations, catches and explicit conversions select the union's methods.
+union_case ($errors + 'try { let $e: Errors = A(detail: "one"); echo $e.label } catch ($e: Errors) { echo $e.label $e.type; if $e.type == A { echo $e.label } }; try { let $e: B = B(detail: "two") } catch ($e: B) { echo $e.label Errors($e).label }') "union:A:one\nunion:A:one A\nA:one\nB:two union:B:two\n" ""
+
+# A union method can create a concrete binding and call that member's interface.
+union_case ($errors + 'fn Errors::member(): String { match $self.type { A => { let $a: A = A($self); $a.label }, B => { let $b: B = B($self); $b.label } } }; try { let $e: Errors = B(detail: "two") } catch ($e: Errors) { echo $e.member }') "B:two\n" ""
+
+# Receiver narrowing also applies in short-circuit conditions.
+union_case ($errors + 'try { let $e: Errors = A(detail: "one") } catch ($e: Errors) { if $e.type == A && $e.label == "A:one" { echo "narrowed" }; echo $e.label }') "narrowed\nunion:A:one\n" ""
+
+# Function arguments, nested union aliases and union-to-String conversion use the interface.
+union_case ($errors + 'type Outer = Errors | RuntimeError; fn Outer::label(): String { "outer" }; fn Errors::to_string(): String { $self.label }; fn show($e: Errors): String { $e.label }; try { let $e: Errors = A(detail: "one") } catch ($e: Errors) { echo (show $e) String($e); let $outer: Outer = $e; echo $outer.label }') "union:A:one union:A:one\nouter\n" ""
+
+# Overlapping unions never attach their methods to an unannotated member.
+union_case ($errors + 'type Other = A | RuntimeError; fn Other::label(): String { "other" }; try { let $e: A = A(detail: "one") } catch ($e: A) { let $one: Errors = $e; let $two: Other = $e; echo $one.label $two.label $e.label }') "union:A:one other A:one\n" ""
+
+# Saved method references keep the live receiver, and writes keep the union constraint.
+union_case ($errors + 'fn Errors::replace($other: Errors) { $self = $other }; try { let $e: Errors = A(detail: "one") } catch ($e: Errors) { let $saved = `$e.label; try { let $b: B = B(detail: "changed") } catch ($b: B) { $e.replace $b }; echo ($saved) $e.type }') "union:B:changed B\n" ""
+union_case ($errors + 'fn Errors::replace() { $self = 7 }; try { let $e: Errors = A(detail: "one") } catch ($e: Errors) { $e.replace }') "" "Expected"
+
+# Union signatures participate in return checking even when members lack the method.
+union_case 'error struct A {}; error struct B {}; type Errors = A | B; fn Errors::answer(): Float { 1.5 }; fn broken($e: Errors): Integer { $e.answer }' "" "Expected Integer, got Float"
+union_case 'error struct A {}; error struct B {}; type Errors = A | B; fn Errors::answer($n: Integer): String { String($n) }; try { let $e: Errors = A() } catch ($e: Errors) { echo ($e.answer "wrong") }' "" "Expected Integer"
+
+# Ordinary distinct union types retain their nominal identity and explicit unwrapping.
+union_case 'type Choice = Integer | String; fn Choice::answer(): String { "choice" }; let $value: Choice = 7; echo $value.answer $value.type Integer($value); echo Choice("text").answer' "choice Choice 7\nchoice\n" ""
+
+# Reflection exposes the selected interface; raw fields still access member storage.
+union_case ($errors + 'fn Errors::answer(): Integer { 42 }; fn Errors::detail(): String { "method" }; try { let $e: Errors = A(detail: "field") } catch ($e: Errors) { echo $e.detail $e.::detail; let $props = $e.properties; echo ($props["detail"]) ($props["answer"]) $props["type"] }') "method field\nmethod 42 A\n" ""
+
+# Public methods travel with the exported union; private methods stay inside their module.
+let $fixture = $args[0]
+printf "%s" 'pub error struct A { pub detail: String }; pub error struct B { pub detail: String }; pub type Errors = A | B; fn Errors::secret(): String { "private" }; pub fn Errors::label(): String { $self.secret }; pub fn make(): Errors { A(detail: "payload") }' -> "${fixture}/errors.shy"
+printf "%s" 'pub import errors::{ Errors, make }' -> "${fixture}/bridge.shy"
+union_case 'import errors; try { let $e = errors::make } catch ($e: errors::Errors) { echo $e.label $e.type }' "private A\n" ""
+union_case 'import bridge::{ Errors, make }; try { let $e = make } catch ($e: Errors) { echo $e.label }' "private\n" ""
+union_case 'import errors; try { let $e = errors::make } catch ($e: errors::Errors) { echo $e.secret }' "" "Unknown field"
+
+# Explicit conversions retained in untyped bindings survive intervening calls.
+union_case ($errors + 'fn Errors::to_string(): String { $self.label }; try { let $e: A = A(detail: "one") } catch ($e: A) { let $u = Errors($e); echo "before"; echo $u.label String($u); $u = A($e); echo $u.label }') "before\nunion:A:one union:A:one\nA:one\n" ""
+
+# Collection projections keep declared union interfaces without changing member identities.
+union_case ($errors + 'try { let $e: A = A(detail: "one") } catch ($e: A) { let $items: [Errors] = [$e]; let $map: [String: Errors] = ["one": $e]; echo $items[0].label $map["one"].label }') "union:A:one union:A:one\n" ""
+
+# A member-only method is unavailable on another member narrowed from the union.
+union_case ($errors + 'fn A::only_a(): String { "A" }; fn bad($e: Errors): String { match $e.type { A => { $e.only_a }, B => { $e.only_a } } }') "" "Cannot access field 'only_a' on B"
+
+# Interpolated member references use the same narrowed interface as field expressions.
+union_case ($errors + 'fn Errors::text(): String { match $self.type { A => { "member ${self.label}" }, B => { "member ${self.label}" } } }; try { let $e: Errors = A(detail: "one") } catch ($e: Errors) { echo $e.text "interface ${e.label}" }') "member A:one interface union:A:one\n" ""
+
+# Typed pipeline and loop items retain the union interface.
+union_case ($errors + 'try { let $e: A = A(detail: "one") } catch ($e: A) { let $items: [Errors] = [$e]; let $answers: [String]; $items | ($.label) | $answers; echo $answers...; for $item in $items { echo $item.label } }') "union:A:one\nunion:A:one\n" ""
+
+# A member conversion inside a narrowed arm cannot recurse into the union conversion.
+union_case ($errors + 'fn A::to_string(): String { "member" }; fn Errors::to_string(): String { match $self.type { A => { "union:" + String($self) }, B => { "B" } } }; try { let $e: Errors = A(detail: "one") } catch ($e: Errors) { echo String($e) }') "union:member\n" ""
+
+# Target factories for the selected union precede source-side conversion methods.
+union_case ($errors + 'fn String::from_errors($e: Errors): String { "target" }; fn Errors::to_string(): String { "source" }; try { let $e: Errors = A(detail: "one") } catch ($e: Errors) { echo String($e) }') "target\n" ""
+
+# Repeated interpolation references keep each occurrence's own narrowing information.
+union_case ($errors + 'try { let $e: Errors = A(detail: "one") } catch ($e: Errors) { if $e.type == A { echo "${e.label}/${e.detail}/${e.label}" } }') "A:one/one/union:A:one\n" ""
+
+# The intended Error::message interface can override a member's message field.
+union_case 'error struct A { pub message: String }; error struct B { pub message: String }; type Errors = A | B; fn Errors::message(): String { match $self.type { A => { "A:" + $self.message }, B => { "B:" + $self.message } } }; try { let $e: Errors = A(message: "detail") } catch ($e: Errors) { echo $e.message $e.::message; if $e.type == A { echo $e.message } }' "A:detail detail\ndetail\n" ""
+
+# A non-null guard retains the named interface; exact member guards select member methods.
+union_case ($errors + 'fn label($e: optional Errors): String { if $e == () { return "none" }; $e.label }; try { let $e: Errors = A(detail: "one") } catch ($e: Errors) { echo (label $e) (label ()) }') "union:A:one none\n" ""
+union_case ($errors + 'error struct C {}; type Many = Errors | C; fn Many::label(): String { "many" }; try { let $e: Many = B(detail: "two") } catch ($e: Many) { if $e.type != A { echo $e.label }; if $e.type == B { echo $e.label } }') "many\nB:two\n" ""

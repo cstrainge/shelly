@@ -290,7 +290,7 @@ impl Interpreter
         Some(ValueReference
             {
                 root, indexes: Vec::new(), fields: Vec::new(), constraints: Vec::new(),
-                property: None,
+                dispatch_type: None, property: None,
             })
     }
 
@@ -310,9 +310,13 @@ impl Interpreter
         let location = condition.location.clone();
         let expression = AstExpression
             {
+                interpolation_members: Default::default(),
+                dispatch_type: Default::default(),
                 location: location.clone(), string_flag: None,
                 kind: AstExpressionKind::BooleanNot(Box::new(AstExpression
                     {
+                        interpolation_members: Default::default(),
+                        dispatch_type: Default::default(),
                         location, string_flag: None,
                         kind: AstExpressionKind::BooleanNot(Box::new(condition)),
                     })),
@@ -651,6 +655,7 @@ impl Interpreter
             {
                 value: Value::from_array(Vec::new()), type_id: None,
                 exported: ValueVisibility::Private, reference: None,
+                dispatch_type: None,
                 environment_conversion: None,
             });
         self.scopes.insert(key.to_string(), scope);

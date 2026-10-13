@@ -272,6 +272,18 @@ impl TypeRegistry
         self.extensions.insert((receiver, name.to_string()));
     }
 
+    // Optional projections keep their named interface when they contain a value.
+    pub fn union_interface(&self, id: TypeId) -> Option<TypeId>
+    {
+        match self.get(id).kind
+        {
+            TypeKind::Optional(inner) => self.union_interface(inner),
+            TypeKind::Named(_) if matches!(self.get(self.underlying_type(id)).kind,
+                TypeKind::Union(_)) => Some(id),
+            _ => None,
+        }
+    }
+
     pub fn method_types(&self, receiver: TypeId) -> Vec<TypeId>
     {
         let definition = self.get(receiver);
@@ -614,6 +626,7 @@ impl TypeRegistry
         }
         if !matches!(definition.kind, TypeKind::Builtin)
         {
+            if self.validate(target, value).is_ok() { return Ok(value.clone()); }
             return Err(format!("Type '{}' has no conversion defined", definition.name));
         }
         convert_builtin(&definition.name, value)
@@ -801,6 +814,7 @@ impl TypeRegistry
     {
         match &self.get(filter).kind
         {
+            TypeKind::Named(_) if self.success_type(filter).is_none() => filter,
             TypeKind::Named(inner) | TypeKind::Optional(inner) => self.catch_type(*inner),
             TypeKind::Union(items) => self.union_type(
                 items

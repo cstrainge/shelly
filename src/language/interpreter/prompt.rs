@@ -147,6 +147,7 @@ impl Interpreter
                         type_id: scope.types.builtin_id("String"),
                         exported: ValueVisibility::Private,
                         reference: None,
+                        dispatch_type: None,
                         environment_conversion: None,
                     });
                 let binding = scope.variables.binding("$rendered_widgets").unwrap();

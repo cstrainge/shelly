@@ -23,6 +23,14 @@ impl Interpreter
             { members.insert(MapKey::String(name.into()), value); }
         }
         let mut names = self.scope().types.method_names(id);
+        let selected = method.receiver.dispatch_type.or_else(||
+            {
+                if method.receiver.indexes.is_empty()
+                { let root = method.receiver.root.borrow(); root.type_id.or(root.dispatch_type) }
+                else { None }
+            });
+        if let Some(id) = selected.and_then(|id| self.scope().types.union_interface(id))
+        { names.extend(self.scope().types.method_names(id)); }
         let mut underlying = receiver;
         while let Value::Named(item) = underlying
         {
@@ -58,10 +66,13 @@ impl Interpreter
         for name in names
         {
             let key = MapKey::String(name.clone());
-            if members.contains_key(&key) || is_conversion_method(&name) { continue; }
+            if is_conversion_method(&name) || name == "type" { continue; }
             if let Some(bound) = self.resolve_method(receiver, method.receiver.clone(),
                                                     &name, &method.snapshot)
             {
+                if members.contains_key(&key) && !self.is_union_method(&bound) { continue; }
+                if self.collection_property(&Default::default(), &method.receiver,
+                    receiver, &name).is_some() { continue; }
                 members.insert(key, Value::String(format!("{}.{}", receiver.type_name(), name),
                     Executable::Method(Rc::new(bound))));
             }

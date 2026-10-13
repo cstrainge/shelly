@@ -1,5 +1,5 @@
 
-use std::cell::Cell;
+use std::cell::{ Cell, RefCell };
 
 use crate::language::{ text::location::Location, data::{ value::Value, types::TypeId } };
 
@@ -101,6 +101,8 @@ pub struct AstExpression
 {
     pub location: Location,
     pub kind: AstExpressionKind,
+    pub dispatch_type: Cell<Option<TypeId>>,
+    pub interpolation_members: RefCell<Vec<AstExpression>>,
     pub string_flag: Option<AstStringFlag>
 }
 
@@ -114,6 +116,8 @@ pub fn new_ast_variable(location: Location, name: String) -> AstExpression
                 {
                     name
                 }),
+            interpolation_members: Default::default(),
+            dispatch_type: Default::default(),
             string_flag:None
         }
 }
@@ -128,6 +132,8 @@ pub fn new_ast_variable_splat(location: Location, name: String) -> AstExpression
                 {
                     name
                 }),
+            interpolation_members: Default::default(),
+            dispatch_type: Default::default(),
             string_flag:None
         }
 }
@@ -143,6 +149,8 @@ pub fn new_ast_symbol(location: Location, name: String,
                 {
                     name
                 }),
+            interpolation_members: Default::default(),
+            dispatch_type: Cell::new(None),
             string_flag
         }
 }
@@ -159,6 +167,8 @@ pub fn new_ast_literal(location: Location,
                 {
                     value
                 }),
+            interpolation_members: Default::default(),
+            dispatch_type: Cell::new(None),
             string_flag
         }
 }

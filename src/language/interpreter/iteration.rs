@@ -103,7 +103,12 @@ impl Iteration
                         (function.return_type, false)
                     },
             };
-        if !return_type
+        // Native collections can contain acknowledged errors as ordinary items.
+        // Their precise optional item type must not be reduced to the success path.
+        let returns_native_items = native && return_type.is_some_and(|id|
+            matches!(interpreter.scope().types.get(id).kind, TypeKind::Optional(_)));
+        if    !returns_native_items
+           && !return_type
             .and_then(|id| interpreter.scope().types.success_type(id))
             .is_some_and(
                 |id| matches!(interpreter.scope().types.get(id).kind, TypeKind::Optional(_)),

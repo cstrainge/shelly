@@ -1,0 +1,35 @@
+# Explicit union views and bound method versions survive separate REPL submissions.
+let $fixture = $args[0]
+let $terminal = open_terminal [`$shelly, "-m", "-b"] [
+    "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+        "SHELLY_STD_PATH": "", "TERM": "xterm-256color", "LANG": "C.UTF-8"],
+    "rows": 40, "columns": 140]
+let $initial = drain $terminal
+require (!$initial["eof"]) "union method session exited at startup"
+for ($source, $kind, $expected) in [
+    ['error struct A {}; error struct B {}; type Errors = A | B', "quiet", ""],
+    ['fn A::label(): String { "member-A" }; fn B::label(): String { "member-B" }', "quiet", ""],
+    ['fn Errors::label(): String { "union" }; fn Errors::to_string(): String { $self.label }', "quiet", ""],
+    ['let $current = (); try { let $e: A = A() } catch ($e: A) { $current = Errors($e) }', "quiet", ""],
+    ['echo $current.label $current.type String($current)', "output", "union A union"],
+    ['if $current.type == A { echo $current.label }', "output", "member-A"],
+    ['let $saved = `$current.label', "quiet", ""],
+    ['fn Errors::label(): String { "new-union" }; echo $current.label ($saved)', "output", "new-union union"],
+    ['try { let $e: B = B() } catch ($e: B) { $current = Errors($e) }; echo ($saved) $current.type', "output", "union B"],
+    ['match $current.type { A => { echo $current.label }, B => { echo $current.label } }', "output", "member-B"],
+    ['$current = B($current); echo $current.label', "output", "member-B"],
+    ['$current = Errors($current); echo $current.label', "output", "new-union"],
+    ['let $view: Errors = $current; echo $view.label', "output", "new-union"],
+    ['fn Errors::wrong(): Integer { "bad" }', "error", "Expected Integer"],
+    ['echo $current.label', "output", "new-union"]
+]
+{
+    let $reply = submit $terminal $source
+    if $reply["eof"] || !(repl_matches $kind $expected $reply["output"])
+    { echo $source $reply["output"]; fail "union method REPL state differs" }
+}
+terminal_write $terminal "\x04"
+let $closed = drain $terminal
+require $closed["eof"] "Ctrl+D did not close the union method session"
+let $status = terminal_close $terminal
+require (($status["exit_code"] == 0) && ($status["signal"] == ())) "wrong union method exit"

@@ -1324,6 +1324,39 @@ returns an Integer. Define methods with `fn Count::method(...)` to override or
 extend the inherited behavior. Inherited mutating methods update the original
 receiver while enforcing its named type's constraints.
 
+Named unions can also define an interface shared by their members:
+
+```shy
+error struct NetworkError { pub detail: String }
+error struct CertificateError { pub detail: String }
+pub type RequestError = NetworkError | CertificateError
+
+pub fn RequestError::message(): String
+{
+    match $self.type
+    {
+        NetworkError     => { "Network: " + $self.detail }
+        CertificateError => { "Certificate: " + $self.detail }
+    }
+}
+
+pub fn RequestError::to_string(): String { $self.message }
+
+try { let $error: RequestError = NetworkError(detail: "connection closed") }
+catch ($error: RequestError) { echo $error.message }
+```
+
+The union interface is selected by an annotation, function parameter, typed catch,
+or explicit `RequestError(value)` conversion. Its methods take precedence over
+member methods and fields through that interface; `.::field` accesses member storage.
+Union methods are not installed on the member types globally. Narrowing an error
+with `match $error.type` or `if $error.type == NetworkError` selects that member's
+methods inside the branch, including inside a union method. An explicitly converted
+member binding also uses the member's interface. Error unions retain the concrete
+error's `.type`; ordinary distinct named unions retain their named identity.
+Public union methods follow normal module imports and re-exports, and `to_string`
+participates in the conversion protocol when the union interface is selected.
+
 The checker uses scripted method signatures, including forward declarations and
 imported extensions, when checking return values and typed assignments. Every
 possible declared result must fit: a method returning `Number | ()` cannot satisfy

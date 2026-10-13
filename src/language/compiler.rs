@@ -217,6 +217,8 @@ fn compile_receiver(instructions: &mut Vec<Instruction>, block: &FunctionBlockRe
                     compile_receiver(instructions, block, object)?;
                     (Code::ReferenceField, Some(Value::from_array(vec![
                             Value::from_string(name.clone()), method_snapshot(block, name),
+                            expression.dispatch_type.get().map_or(Value::None,
+                                |id| Value::Integer(id.0 as i64)),
                         ])))
                 },
             AstExpressionKind::Index(object, index) =>
@@ -249,6 +251,29 @@ fn compile_receiver(instructions: &mut Vec<Instruction>, block: &FunctionBlockRe
         };
     instructions.push(Instruction { location: Some(expression.location.clone()), code, operand });
     Ok(())
+}
+
+// Interpolation uses the same checked member chain as an ordinary field expression.
+fn interpolation_dispatch(block: &FunctionBlockRef, expression: &AstExpression) -> Value
+{
+    let mut members = Vec::new();
+    for member in expression.interpolation_members.borrow().iter()
+    {
+        let mut chain = Vec::new();
+        let mut current = member;
+        while let AstExpressionKind::Field(object, name, _) = &current.kind
+        {
+            chain.push(Value::from_array(vec![
+                    current.dispatch_type.get().map_or(Value::None,
+                        |id| Value::Integer(id.0 as i64)),
+                    method_snapshot(block, name),
+                ]));
+            current = object;
+        }
+        chain.reverse();
+        members.push(Value::from_array(chain));
+    }
+    Value::from_array(members)
 }
 
 fn compile_expression_mode(instructions: &mut Vec<Instruction>,
@@ -329,6 +354,8 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                         operand: Some(Value::from_array(vec![
                                 Value::from_string(name.clone()),
                                 method_snapshot(function_block, name),
+                                expression.dispatch_type.get().map_or(Value::None,
+                                    |id| Value::Integer(id.0 as i64)),
                             ])),
                     });
             },
@@ -797,8 +824,11 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                     code: if matches!(&expression.kind,
                                       AstExpressionKind::Symbol(symbol) if symbol.is_glob())
                         { Code::InterpolateGlob } else { Code::InterpolateString },
-                    operand: Some(Value::from_array(escaped_dollars.iter()
-                        .map(|offset| Value::Integer(*offset as i64)).collect()))
+                    operand: Some(Value::from_array(vec![
+                            Value::from_array(escaped_dollars.iter()
+                                .map(|offset| Value::Integer(*offset as i64)).collect()),
+                            interpolation_dispatch(function_block, expression),
+                        ]))
                 });
         }
     }
@@ -999,6 +1029,18 @@ fn compile_return_statement(instructions: &mut Vec<Instruction>,
 }
 
 
+// Explicit union conversions keep their interface when stored without an annotation.
+fn union_view(expression: &AstExpression) -> Option<TypeId>
+{
+    match &expression.kind
+    {
+        AstExpressionKind::TypeConversion(_, _, _, _) => expression.dispatch_type.get(),
+        AstExpressionKind::Grouped(inner) => union_view(inner),
+        _ => None,
+    }
+}
+
+
 fn compile_let_statement(
     instructions: &mut Vec<Instruction>,
     function_block: &FunctionBlockRef,
@@ -1083,7 +1125,12 @@ fn compile_let_statement(
         {
             location: Some(let_statement.location.clone()),
             code: Code::SetVariable,
-            operand: Some(Value::from_string(let_statement.identifier.clone()))
+            operand: Some(union_view(&let_statement.expression).map_or_else(
+                || Value::from_string(let_statement.identifier.clone()),
+                |id| Value::from_array(vec![
+                        Value::from_string(let_statement.identifier.clone()),
+                        Value::Integer(id.0 as i64),
+                    ])))
         });
     Ok(())
 }
@@ -1138,7 +1185,12 @@ fn compile_set_statement(instructions: &mut Vec<Instruction>,
             operand: Some(
                 if set_statement.indexes.is_empty()
                 {
-                    Value::from_string(set_statement.identifier.clone())
+                    union_view(&set_statement.expression).map_or_else(
+                        || Value::from_string(set_statement.identifier.clone()),
+                        |id| Value::from_array(vec![
+                                Value::from_string(set_statement.identifier.clone()),
+                                Value::Integer(id.0 as i64),
+                            ]))
                 }
                 else
                 {

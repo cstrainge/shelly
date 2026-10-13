@@ -19,6 +19,8 @@ pub struct ScopedValue
     pub type_id: Option<TypeId>,
     pub exported: ValueVisibility,
     pub reference: Option<ValueReference>,
+    // An explicit union conversion can retain its interface on an untyped binding.
+    pub dispatch_type: Option<TypeId>,
     pub environment_conversion: Option<Rc<EnvironmentConversion>>,
 }
 
@@ -43,6 +45,8 @@ pub struct ValueReference
     // true selects a data field, false an index; None projects a named payload.
     pub fields: Vec<Value>,
     pub constraints: Vec<(usize, TypeId)>,
+    // The explicit interface selected by the compiler, including narrowed members.
+    pub dispatch_type: Option<TypeId>,
     pub property: Option<Rc<PropertyReference>>,
 }
 
@@ -69,11 +73,13 @@ impl ValueReference
                         type_id: None,
                         exported: ValueVisibility::Private,
                         reference: None,
+                        dispatch_type: None,
                         environment_conversion: None,
                     })),
                 indexes: Vec::new(),
                 fields: Vec::new(),
                 constraints: Vec::new(),
+                dispatch_type: None,
                 property: None,
             }
     }
@@ -101,6 +107,7 @@ impl ScopedVariables
                     type_id: None,
                     exported: ValueVisibility::Exported,
                     reference: None,
+                    dispatch_type: None,
                     environment_conversion: None,
                 };
 
@@ -230,6 +237,7 @@ impl ScopedVariables
                         indexes: Vec::new(),
                         fields: Vec::new(),
                         constraints: Vec::new(),
+                        dispatch_type: None,
                         property: None,
                     });
             }

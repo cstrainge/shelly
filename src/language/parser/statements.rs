@@ -232,6 +232,8 @@ fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
             {
                 location: identifier.location.clone(),
                 kind: AstExpressionKind::Variable(AstSymbol { name: name.clone() }),
+                interpolation_members: Default::default(),
+                dispatch_type: Default::default(),
                 string_flag: None,
             };
         let mut statement = new_ast_let_statement(identifier.location,
@@ -482,6 +484,8 @@ fn parse_execute_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
                 AstExpression
                     {
                         location: location.clone(),
+                        interpolation_members: Default::default(),
+                        dispatch_type: Default::default(),
                         string_flag: None,
                         kind: AstExpressionKind::Execute(Box::new(AstExecuteStatement
                             {
@@ -732,6 +736,8 @@ pub(super) fn parse_match_expression(buffer: &mut TokenBuffer<'_, '_>,
             location: location.clone(),
             kind: AstExpressionKind::MatchExpression(Box::new(AstMatchExpression
                 { location, value, arms })),
+            interpolation_members: Default::default(),
+            dispatch_type: Default::default(),
             string_flag: None,
         })
 }
@@ -785,6 +791,8 @@ pub(super) fn parse_if_expression(buffer: &mut TokenBuffer<'_, '_>,
                     branches,
                     else_body
                 })),
+            interpolation_members: Default::default(),
+            dispatch_type: Default::default(),
             string_flag: None
         })
 }
