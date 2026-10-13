@@ -7,7 +7,7 @@ use crate::language::{ ast::AstTopLevel,
                        bytecode::{ FunctionBlock, FunctionBlockRef, FunctionRef, Instruction },
                        compiler::{ CompileResult, CompileTarget, compile_ast },
                        data::{ scoped_variables::{ ScopedValue, ScopedVariables, ValueVisibility },
-                               types::{ TypeDefinition, TypeId, TypeKind, TypeRegistry },
+                               types::{ EnumValue, TypeDefinition, TypeId, TypeKind, TypeRegistry },
                                value::Value } };
 
 
@@ -66,6 +66,21 @@ impl Scope
             .filter(|name| name.contains("::")).cloned());
         let builtins = native_functions.values().map(|item| item.name).collect();
         let mut variables = ScopedVariables::new_from_environment();
+        // Replace inherited text with the mode detected for this interpreter's terminal.
+        let color_type = types.native_types["TtyColorMode"].id;
+        let _ = variables.create("$tty_color_mode".to_string(), ScopedValue
+            {
+                value: Value::Enum(Rc::new(EnumValue
+                    {
+                        definition: types.get(color_type),
+                        variant: color_mode.variant_index(),
+                    })),
+                type_id: Some(color_type),
+                exported: ValueVisibility::Exported,
+                reference: None,
+                dispatch_type: None,
+                environment_conversion: None,
+            });
         let history_path = types.intern(TypeKind::Optional(types.native_types["String"].id));
         for (name, value, type_id) in [
                 ("$history_path", Value::from_string("~/.shelly_history.jsonl".into()), history_path),

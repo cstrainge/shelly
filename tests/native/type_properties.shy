@@ -1,0 +1,61 @@
+# Type reflection describes an interface without constructing or evaluating its instances.
+fn type_properties_case($source: String, $stdout: String, $diagnostic: String,
+                        $standard: String | ())
+{
+    let $fixture = $args[0]
+    let $standard = if $standard == () { "" } else { $standard }
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "${fixture}/bin:/usr/bin:/bin",
+            "SHELLY_STD_PATH": $standard, "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $stdout) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "type interface differs" }
+}
+
+# Bare, grouped and stored type receivers share the same metadata.
+type_properties_case 'echo ExecResult.name Type.name Integer.name; let $name: String = ExecResult.name; echo $name' "ExecResult Type Integer\nExecResult\n" ""
+type_properties_case 'let $p = ExecResult.properties; echo $p.type $p["type"] $p["value"] $p["name"] $p["properties"]' "HashMap ExecResult ExecResult () fn(): [String: any]\n" ""
+type_properties_case 'let $t: Type = ExecResult; let $a = $t.properties; let $b = (ExecResult).properties; echo ($a == $b) $t.type; let $p = Type.properties; echo $p["type"] $p["name"]' "true Type\nType String\n" ""
+type_properties_case 'fn Type::label($prefix: String): String { $prefix + $self.name }; echo (ExecResult.label "type:"); let $saved = `ExecResult.label; echo ($saved "saved:")' "type:ExecResult\nsaved:ExecResult\n" ""
+
+# Public fields and computed properties advertise types; private storage stays private.
+let $box = 'let $calls = 0; struct Box { pub n: Integer, secret: String }; fn Box::new(): Box { $calls = $calls + 1; Box(n: 7, secret: "private") }; fn Box::get_n(): Integer { $calls = $calls + 1; $self.::n }; fn Box::read($suffix: String): String { $calls = $calls + 1; $suffix }; '
+type_properties_case ($box + 'let $p = Box.properties; echo $p["type"] $p["n"] $p["secret"] $p["read"] $p["new"] $calls') "Box Integer () fn(String): String fn(): Box 0\n" ""
+type_properties_case 'struct Box { pub label: String }; let $p = Box.properties; let $b = Box(label: "value"); echo $p["label"] $b.properties["label"]' "String value\n" ""
+type_properties_case 'fn ExecResult::accept($n: Integer): Boolean { true }; fn ExecResult::nothing() {}; let $p = ExecResult.properties; echo $p["accept"] $p["nothing"]' "fn(Integer): Boolean fn(): None\n" ""
+type_properties_case 'fn Number::tag(): String { "number" }; type Count = Integer; let $p = Count.properties; echo $p["type"] $p["value"] $p["tag"]' "Count Count fn(): String\n" ""
+type_properties_case 'enum State { Ready, Done }; let $p = State.properties; echo $p["type"] $p["index"] $p["Ready"] $p["Done"]' "State Integer State::Ready State::Done\n" ""
+
+# Receiver-dependent signatures retain the collection's declared member types.
+type_properties_case 'type Items = [Integer]; fn Array::head(): $self.value_type | () { () }; let $p = Items.properties; echo $p["value_type"] $p["next_item"] $p["head"]' "Integer fn(): optional Integer fn(): optional Integer\n" ""
+type_properties_case 'type Table = [String: Float]; let $p = Table.properties; echo $p["key_type"] $p["value_type"] $p["next_item"]' "String Float fn(): optional [String, Float]\n" ""
+type_properties_case 'let $p = String.properties; echo $p["contains"] $p["trim"]' "fn(any): Boolean fn(): String\n" ""
+type_properties_case 'type Décompte = Integer; echo Décompte.name; let $p = Décompte.properties; echo $p["type"]' "Décompte\nDécompte\n" ""
+type_properties_case 'fn Boolean::from_exec_result($result: ExecResult): Boolean { if $result { true } else { false } }; fn Boolean::to_exec_result(): ExecResult { ExecResult(0) }; let $p = Boolean.properties; echo $p["from_exec_result"] $p["to_exec_result"]; let $v = true; echo ($v.properties["from_exec_result"] == ())' "fn(ExecResult): Boolean fn(): ExecResult\ntrue\n" ""
+type_properties_case 'type Count = Integer; let $p = Count.properties; echo $p["from_integer"]' "fn(Integer): Count\n" ""
+type_properties_case 'let $bad: Integer = ExecResult.name' "" "Expected Integer"
+type_properties_case 'ExecResult.missing' "" "Cannot access"
+type_properties_case 'fn Type::label($prefix: String): String { $prefix }; ExecResult.label 7' "" "Expected String"
+
+# Dotted external names, quoted text, paths and ordinary type-word arguments stay words.
+let $fixture = $args[0]
+ln -s -- `$shelly "${fixture}/bin/tool.command"
+ln -s -- `$shelly "${fixture}/bin/Integer.name"
+ln -s /usr/bin/false "${fixture}/bin/ExecResult"
+type_properties_case 'tool.command -m -c "echo external"; "Integer.name" -m -c "echo forced"; echo UnknownType.name Integer.txt/file "Integer.name" String; let $name = ExecResult.name; echo $name' "external\nforced\nUnknownType.name Integer.txt/file Integer.name String\nExecResult\n" ""
+
+# Imported interfaces include public methods, with private getters and methods excluded.
+printf "%s" 'pub struct Box { pub n: Integer, secret: String }; pub fn Box::read(): Integer { $self.::n }; fn Box::hidden(): String { "private" }; fn Box::get_n(): Integer { $self.::n }; pub fn Box::new($n: Integer): Box { Box(n: $n, secret: "private") }; pub fn Box::from_integer($n: Integer): Box { Box::new $n }; fn Box::from_string($text: String): Box { Box::new 0 }' -> "${fixture}/interface.shy"
+type_properties_case 'import interface; let $p = interface::Box.properties; echo $p["type"] $p["n"] $p["read"] $p["hidden"] $p["secret"]; echo $p["new"] $p["from_integer"] $p["from_string"]' "Box () fn(): Integer () ()\nfn(Integer): Box fn(Integer): Box ()\n" ""
+
+# The real prelude printer names the represented type for either receiver spelling.
+type_properties_case 'let $out: String; ExecResult.print_properties -> $out; echo ($out.starts_with "Properties for: ExecResult") ($out.contains "fn(): [String: any]"); (ExecResult).print_properties -> $out; echo ($out.starts_with "Properties for: ExecResult"); Type.print_properties -> $out; echo ($out.starts_with "Properties for: Type") ($out.contains "String")' "true true\ntrue\ntrue true\n" "" "bundled"

@@ -68,6 +68,16 @@ conversion hooks, collection and pipeline items, interpolation, imports, reflect
 and rejected calls. `repl/union_methods.shy` checks retained interfaces and live,
 versioned method references across separate submissions.
 
+`native/type_properties.shy` checks bare type receivers, represented interfaces,
+field, method, and factory signature metadata, imported visibility, and reflection without
+constructing instances or running user code. The properties REPL tests retain
+coverage for stored type receivers and method versions across submissions.
+
+`native/tty_color_mode.shy` checks the native color-mode enum, startup detection,
+typed assignments, module identities, and child-process export and redetection.
+`repl/tty_color_mode.shy` checks actual terminal modes, monochrome overrides, and
+availability in the user's init file before the first prompt.
+
 `native/typed_environment.shy` checks `let type`, prelude colon conversions, export
 status, collection mutations, all process-launch APIs, and conversion failures.
 `repl/typed_environment.shy` checks live closures, inherited module environments,
@@ -199,9 +209,12 @@ iteration, module/prelude imports, redeclarations, and atomic failed writes.
 The native and REPL `conversion_protocol.shy` tests cover implied typedef factories,
 explicit overrides, retained references and module exports, plus target-side factories,
 exact source identities, typed array/hash naming, empty declared collections,
-lowercase naming, signature and return contracts,
+snake-case naming, signature and return contracts,
 fallback rules, module privacy and re-exports, prelude access, frozen function
 versions, and recovery after conversion errors.
+`native/conversion_names.shy` checks compound names, acronyms, digits, Unicode,
+collection descriptors, implied factories, imports, named pipeline codecs, and
+diagnostics that suggest the required spelling.
 The native and REPL `function_types.shy` tests cover function prototypes, `any`,
 call-time contracts, higher-order functions, live methods, imports, versioned
 references, signature mismatches, and failed-call recovery.

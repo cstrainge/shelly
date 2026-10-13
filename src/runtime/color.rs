@@ -25,3 +25,23 @@ pub enum TtyColorMode
      */
     TtyTrueColor
 }
+
+
+impl TtyColorMode
+{
+    // The native Shelly enum uses the same names and ordering as the runtime mode.
+    pub const VARIANT_NAMES: [&'static str; 4] = [
+            "TtyMonochrome", "TtyBasic", "Tty256", "TtyTrueColor",
+        ];
+
+    pub fn variant_index(self) -> usize
+    {
+        match self
+        {
+            Self::TtyMonochrome => 0,
+            Self::TtyBasic => 1,
+            Self::Tty256 => 2,
+            Self::TtyTrueColor => 3,
+        }
+    }
+}

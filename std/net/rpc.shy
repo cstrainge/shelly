@@ -200,10 +200,10 @@ pub fn over_http($client: std::net::http::Client, $path: String): Client
             std::json::parse $text
         })
 }
-pub fn String::from_remoteerror($error: RemoteError): String { "RPC ${error.code}: ${error.message}" }
-pub fn String::from_protocolerror($error: ProtocolError): String { $error.message }
-pub fn String::from_requesterror($error: RequestError): String { $error.message }
-pub fn String::from_batcherror($error: BatchError): String { $error.message }
+pub fn String::from_remote_error($error: RemoteError): String { "RPC ${error.code}: ${error.message}" }
+pub fn String::from_protocol_error($error: ProtocolError): String { $error.message }
+pub fn String::from_request_error($error: RequestError): String { $error.message }
+pub fn String::from_batch_error($error: BatchError): String { $error.message }
 
 
 import std::io
@@ -347,4 +347,4 @@ pub fn Router::dispatch_text($text: String): optional std::json::Document | Erro
     $self.dispatch $request
 }
 
-pub fn String::from_callerror($error: CallError): String { "RPC ${error.code}: ${error.message}" }
+pub fn String::from_call_error($error: CallError): String { "RPC ${error.code}: ${error.message}" }

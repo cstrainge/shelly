@@ -152,7 +152,7 @@ require ($handled == 11) "unexpected handling count"
 
 # A conversion replaces responsibility and retains causes without caller plumbing.
 error struct DomainFailure { pub message: String }
-fn DomainFailure::from_firstfailure($error: FirstFailure): DomainFailure
+fn DomainFailure::from_first_failure($error: FirstFailure): DomainFailure
 {
     DomainFailure(message: "Domain: ${error.message}")
 }
@@ -170,7 +170,7 @@ catch ($stack, $error: DomainFailure)
 }
 
 # Source-owned error conversions transfer the same obligation and preserve its cause.
-fn FirstFailure::to_secondfailure(): SecondFailure
+fn FirstFailure::to_second_failure(): SecondFailure
 {
     SecondFailure(code: 17)
 }
@@ -187,7 +187,7 @@ catch ($stack, $error: SecondFailure)
     require ($stack.related[0].error.original_type == FirstFailure) "source conversion type lost"
 }
 
-fn SecondFailure::to_domainfailure(): any
+fn SecondFailure::to_domain_failure(): any
 {
     DomainFailure(message: "Source: " + String($self.code))
 }
@@ -224,7 +224,7 @@ catch ($error: FirstFailure) {}
 require ($destination == [99]) "pipeline published a failed collection"
 
 type DomainFailures = SecondFailure | RuntimeError
-fn DomainFailures::from_firstfailure($source: FirstFailure): DomainFailures
+fn DomainFailures::from_first_failure($source: FirstFailure): DomainFailures
 {
     SecondFailure(code: 42)
 }

@@ -7,5 +7,5 @@ check_repl ["id": "TYPE-NAME", "name": "Type names and retained type identity", 
     ["echo \$t.name", "output", "Float"],
     ["let \$a: [Integer] = []; echo \$a.properties[\"value_type\"].name", "output", "Integer"],
     ["let \$name: Integer = \$t.name", "error", "Expected Integer, got String"],
-    ["echo (Integer).properties[\"name\"] (Integer).type.name", "output", "Integer Type"]
+    ["echo (Integer).properties[\"type\"].name (Integer).type.name", "output", "Integer Type"]
 ], "exit": 0]

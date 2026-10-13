@@ -63,3 +63,15 @@ check_repl ["id": "IMPLIED_CONVERSIONS", "name": "Default factories, overrides a
     ["type BadDefault = Missing", "error", "Unknown type"],
     ["type BadDefault = Integer; echo (BadDefault::from_integer 7)", "output", "7"],
 ], "exit": 0]
+
+check_repl ["id": "CONVERSION_NAMES", "name": "Snake-case names and failed declaration recovery", "steps": [
+    ["fn Boolean::from_exec_result(\$v: ExecResult): Boolean { true }; fn Boolean::to_exec_result(): ExecResult { ExecResult(7) }; echo Boolean(ExecResult(1)) ExecResult(true)", "output", "true ExecResult(7)"],
+    ["fn Boolean::to_execresult(): ExecResult { ExecResult(0) }", "error", "use 'to_exec_result'"],
+    ["fn Boolean::to_ExecResult(): ExecResult { ExecResult(0) }", "error", "use 'to_exec_result'"],
+    ["fn Boolean::from_execresult(\$v: ExecResult): Boolean { false }", "error", "use 'from_exec_result'"],
+    ["echo Boolean(ExecResult(1)) ExecResult(true)", "output", "true ExecResult(7)"],
+    ["type HTTPResponse = Integer; type Wrapped = HTTPResponse; echo (Wrapped::from_http_response HTTPResponse(2))", "output", "2"],
+    ["fn String::from_HTTPResponse(\$v: HTTPResponse): String { \"bad\" }", "error", "use 'from_http_response'"],
+    ["fn String::from_http_response(\$v: HTTPResponse): String { \"http\" }; echo String(HTTPResponse(1))", "output", "http"],
+    ["let \$p = Boolean.properties; echo \$p[\"from_exec_result\"] \$p[\"to_exec_result\"]", "output", "fn(ExecResult): Boolean fn(): ExecResult"],
+], "exit": 0]

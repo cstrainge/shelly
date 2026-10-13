@@ -1,0 +1,52 @@
+# The native enum is available without a prelude and follows startup color detection.
+fn color_mode_case($force: String, $mono: Boolean, $source: String,
+                   $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $flags = if $mono { ["-m"] } else { [] }
+    let $reply = run_process [`$shelly, $flags..., "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "TERM": "dumb", "LANG": "C.UTF-8",
+            "FORCE_COLOR": $force, "tty_color_mode": "inherited-text"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $stdout) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "startup color mode differs" }
+}
+
+for ($force, $variant, $index) in [
+    ["0", "TtyMonochrome", 0], ["1", "TtyBasic", 1],
+    ["2", "Tty256", 2], ["3", "TtyTrueColor", 3],
+]
+{
+    let $expected = "TtyColorMode::${variant} TtyColorMode ${index}\nTtyColorMode::${variant}\n"
+    color_mode_case $force false 'echo $tty_color_mode $tty_color_mode.type $tty_color_mode.index; printenv tty_color_mode' $expected ""
+    color_mode_case $force false ('match $tty_color_mode { TtyColorMode::' + $variant + ' => { echo matched }, _ => { echo wrong } }') "matched\n" ""
+}
+
+# --mono overrides forced color; an inherited value never supplies the enum binding.
+color_mode_case "3" true 'echo $tty_color_mode; printenv tty_color_mode' "TtyColorMode::TtyMonochrome\nTtyColorMode::TtyMonochrome\n" ""
+color_mode_case "0" false 'echo TtyColorMode::TtyMonochrome TtyColorMode::TtyBasic TtyColorMode::Tty256 TtyColorMode::TtyTrueColor' "TtyColorMode::TtyMonochrome TtyColorMode::TtyBasic TtyColorMode::Tty256 TtyColorMode::TtyTrueColor\n" ""
+
+# Typed bindings accept enum values and reject strings, integers and other enums.
+color_mode_case "0" false '$tty_color_mode = TtyColorMode::Tty256; printenv tty_color_mode' "TtyColorMode::Tty256\n" ""
+color_mode_case "0" false '$tty_color_mode = "TtyColorMode::TtyBasic"' "" "Expected TtyColorMode"
+color_mode_case "0" false '$tty_color_mode = 2' "" "Expected TtyColorMode"
+color_mode_case "0" false 'enum Other { Tty256 }; $tty_color_mode = Other::Tty256' "" "Expected TtyColorMode"
+color_mode_case "0" false 'echo TtyColorMode::Missing' "" "Unknown"
+
+# Modules share the native type identity and initialize their own typed binding.
+let $fixture = $args[0]
+printf "%s" 'pub fn mode(): TtyColorMode { $tty_color_mode }; pub fn accepts($mode: TtyColorMode): Boolean { $mode == $tty_color_mode }' -> "${fixture}/color_child.shy"
+color_mode_case "2" false 'import color_child; echo (color_child::mode); echo (color_child::accepts $tty_color_mode); printenv tty_color_mode' "TtyColorMode::Tty256\ntrue\nTtyColorMode::Tty256\n" ""
+
+# A child Shelly redetects its mode instead of trusting the exported parent's value.
+color_mode_case "3" false '$shelly -m -c \'echo $tty_color_mode $tty_color_mode.type; printenv tty_color_mode\'' "TtyColorMode::TtyMonochrome TtyColorMode\nTtyColorMode::TtyMonochrome\n" ""

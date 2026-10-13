@@ -12,5 +12,13 @@ check_repl ["id": "PROPERTIES", "name": "Object properties and retained method r
     ["let \$s = \"one\"; let \$reflect = `\$s.properties", "quiet", ""],
     ["\$s = \"two\"; let \$p = (\$reflect); echo \$p[\"value\"] (\$p[\"contains\"] \"wo\")", "output", "two true"],
     ["echo (5.properties 1)", "error", "expected 0 arguments"],
-    ["echo 5.properties[\"value\"]", "output", "5"]
+    ["echo 5.properties[\"value\"]", "output", "5"],
+    ["fn Type::label(): String { \$self.name }; echo ExecResult.label", "output", "ExecResult"],
+    ["let \$interface = ExecResult.properties; echo \$interface.type \$interface[\"type\"]", "output", "HashMap ExecResult"],
+    ["fn ExecResult::success(): Boolean { true }; let \$interface = (ExecResult).properties; echo \$interface[\"success\"]", "output", "fn(): Boolean"],
+    ["let \$interface = Type.properties; echo \$interface[\"type\"] \$interface[\"name\"]", "output", "Type String"],
+    ["let \$saved = `ExecResult.label; fn Type::label(): String { \"new\" }; echo (\$saved) ExecResult.label", "output", "ExecResult new"],
+    ["ExecResult.missing", "error", "Cannot access"],
+    ["echo ExecResult.name ExecResult.type.name", "output", "ExecResult Type"],
+    ["fn Boolean::from_exec_result(\$result: ExecResult): Boolean { true }; let \$interface = Boolean.properties; echo \$interface[\"from_exec_result\"]", "output", "fn(ExecResult): Boolean"]
 ], "exit": 0]

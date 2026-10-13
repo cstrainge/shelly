@@ -3248,31 +3248,9 @@ impl Interpreter
         method_types.extend(base_types);
         for id in method_types
         {
-            let key = method_key(id, name);
-            let bound = match snapshot
-                {
-                    Value::HashMap(methods) => methods.get(&MapKey::String(key.clone())),
-                    _ => None,
-                };
-            let function = if let Some(Value::String(_, Executable::Function(function))) = bound
-                { Some(function.clone()) }
-                else
-                {
-                    self.scope().lexical_function(&key).or_else(||
-                        {
-                            if matches!(bound, Some(Value::None))
-                            { self.scope().imported_methods.get(&key).cloned() }
-                            else { None }
-                        }).or_else(|| self.module_method(id, &key))
-                };
-            let definition = if let Some(function) = function
-                { MethodDefinition::User(function) }
-                else if matches!(self.scope().types.get(id).kind, TypeKind::Named(_))
-                { continue; }
-                else if let Some(method) = self.scope().types.direct_method(
-                    if id == base_type { receiver_type } else { id }, name)
-                { MethodDefinition::Builtin(method) }
-                else { continue; };
+            let Some(definition) = self.method_definition(id,
+                if id == base_type { receiver_type } else { id }, name, snapshot)
+            else { continue; };
             let mut receiver = receiver.clone();
             let mut underlying = value;
             while let Value::Named(item) = underlying
@@ -3287,6 +3265,32 @@ impl Interpreter
                 { receiver, name: name.to_string(), definition, snapshot: snapshot.clone() });
         }
         None
+    }
+
+    // Interface reflection and bound calls use the same visibility and lexical versions.
+    pub(super) fn method_definition(&self, owner: TypeId, receiver: TypeId,
+                                    name: &str, snapshot: &Value) -> Option<MethodDefinition>
+    {
+        let key = method_key(owner, name);
+        let bound = match snapshot
+            {
+                Value::HashMap(methods) => methods.get(&MapKey::String(key.clone())),
+                _ => None,
+            };
+        let function = if let Some(Value::String(_, Executable::Function(function))) = bound
+            { Some(function.clone()) }
+            else
+            {
+                self.scope().lexical_function(&key).or_else(||
+                    {
+                        if matches!(bound, Some(Value::None))
+                        { self.scope().imported_methods.get(&key).cloned() }
+                        else { None }
+                    }).or_else(|| self.module_method(owner, &key))
+            };
+        if let Some(function) = function { return Some(MethodDefinition::User(function)); }
+        if matches!(self.scope().types.get(owner).kind, TypeKind::Named(_)) { return None; }
+        self.scope().types.direct_method(receiver, name).map(MethodDefinition::Builtin)
     }
 
     pub(super) fn is_union_method(&self, method: &BoundMethod) -> bool

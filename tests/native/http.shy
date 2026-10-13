@@ -61,7 +61,7 @@ try { $reply.take_body; fail "live body survived diagnostic capture" }
 catch ($error: std::net::http::Error) {}
 
 error struct ApiError { pub message: String }
-fn ApiError::from_statuserror($status: std::net::http::StatusError): ApiError | std::json::Error | std::net::http::Error
+fn ApiError::from_status_error($status: std::net::http::StatusError): ApiError | std::json::Error | std::net::http::Error
 {
     let $document = $status.response.read_document
     ApiError(message: $document.require_string "/error/message")
@@ -77,7 +77,7 @@ catch ($stack, $error: ApiError)
 $domain.close
 
 error struct BadDecoder { pub message: String }
-fn BadDecoder::from_statuserror($status: std::net::http::StatusError): BadDecoder | std::json::Error
+fn BadDecoder::from_status_error($status: std::net::http::StatusError): BadDecoder | std::json::Error
 {
     let $document = std::json::parse "invalid"
     BadDecoder(message: "unreachable")

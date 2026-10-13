@@ -9,6 +9,7 @@ use crate::{
     language::{
         bytecode::FunctionRef,
         data::{
+            conversion::conversion_type_name,
             failure::{FailureStatus, occurrence},
             io::{Bytes, adapters::ByteSource, handles::Reader},
             map_key::MapKey,
@@ -330,20 +331,21 @@ impl Interpreter
                 "error_decoder must name only marked errors",
             ));
         }
-        let key = method_key(target.id, "from_statuserror");
+        let method = format!("from_{}", conversion_type_name("StatusError"));
+        let key = method_key(target.id, &method);
         let function = scope
             .lexical_function(&key)
             .or_else(|| scope.imported_methods.get(&key).cloned())
             .ok_or_else(|| {
                 NativeFault::new(
                     "OpenError",
-                    "error_decoder has no accessible from_statuserror",
+                    format!("error_decoder has no accessible {}", method),
                 )
             })?;
         Ok(Some(Decoder {
             target: target.id,
             function,
-            name: format!("{}::from_statuserror", target.name),
+            name: format!("{}::{}", target.name, method),
         }))
     }
 

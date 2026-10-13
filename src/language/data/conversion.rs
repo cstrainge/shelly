@@ -1,7 +1,15 @@
 
 use std::rc::Rc;
 
+use heck::ToSnakeCase;
+
 use crate::language::data::value::{ ExecResult, Value };
+
+// Conversion names use the unqualified type name with ordinary snake-case boundaries.
+pub fn conversion_type_name(name: &str) -> String
+{
+    name.rsplit("::").next().unwrap_or(name).to_snake_case()
+}
 
 pub fn is_conversion_method(name: &str) -> bool
 {

@@ -98,12 +98,12 @@ pub error struct ResponseError
 
 pub type Error = ApiError | ResponseError | std::net::http::Error | std::json::Error | std::net::sse::Error | std::stream::Error
 
-pub fn String::from_apierror($error: ApiError): String
+pub fn String::from_api_error($error: ApiError): String
 {
     "OpenAI HTTP ${error.status}: ${error.message}"
 }
 
-pub fn String::from_responseerror($error: ResponseError): String
+pub fn String::from_response_error($error: ResponseError): String
 {
     "OpenAI ${error.what}: ${error.message}"
 }
@@ -159,7 +159,7 @@ pub fn Response::require_text(): String | ResponseError | std::json::Error
     $text
 }
 
-fn ApiError::from_statuserror($error: std::net::http::StatusError): ApiError | std::json::Error | std::net::http::Error
+fn ApiError::from_status_error($error: std::net::http::StatusError): ApiError | std::json::Error | std::net::http::Error
 {
     let $reply = $error.response
     let $document = $reply.read_document

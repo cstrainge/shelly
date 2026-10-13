@@ -20,7 +20,7 @@ fn property_case($source: String, $expected: String, $diagnostic: String)
     { echo $source $reply $out $err; fail "properties mismatch" }
 }
 property_case 'let $p: [String: any] = 5.properties; echo $p["value"] ($p["type"] == Integer)' "5 true\n" ""
-property_case 'for $v in [1.5, true, "", 1..3, [], ["x": 1], Integer] { let $p = $v.properties; echo ($p["value"] == $v) ($p["type"] == $v.type) }; let $p = ().properties; echo ($p["value"] == ()) ($p["type"] == ().type)' "true true\ntrue true\ntrue true\ntrue true\ntrue true\ntrue true\ntrue true\ntrue true\n" ""
+property_case 'for $v in [1.5, true, "", 1..3, [], ["x": 1], Integer] { let $p = $v.properties; let $type = if $v.type == Type { $v } else { $v.type }; echo ($p["value"] == $v) ($p["type"] == $type) }; let $p = ().properties; echo ($p["value"] == ()) ($p["type"] == ().type)' "true true\ntrue true\ntrue true\ntrue true\ntrue true\ntrue true\ntrue true\ntrue true\n" ""
 property_case 'let $s = "abc"; let $p = $s.properties; $s = "def"; echo $p["value"] ($p["contains"] "ef") ($p["trim"]); let $q = ($p["properties"]); echo $q["value"]' "abc true def\ndef\n" ""
 property_case 'struct Box { pub n: Integer, pub cb: fn(): String, pub extra: optional String }; fn Box::bump(): Integer { $self.n = $self.n + 1; $self.n }; let $b = Box(n: 2, cb: fn(): String { "callback" }); let $p = $b.properties; echo $p["n"] $p["extra"] ($p["cb"]) ($p["bump"]) $b.n ($p["type"] == Box)' "2 () callback 3 3 true\n" ""
 property_case 'enum State { Ready, Done }; let $p = State::Done.properties; echo $p["value"] $p["index"] ($p["type"] == State)' "State::Done 1 true\n" ""

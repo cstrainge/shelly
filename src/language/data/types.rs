@@ -5,11 +5,13 @@ use std::{ cell::RefCell, collections::{ HashMap, HashSet },
            fmt::{ self, Display, Error, Formatter },
            hash::{ Hash, Hasher } };
 
+use crate::runtime::color::TtyColorMode;
 use crate::language::{ text::location::Location,
                        interpreter::Interpreter,
                        native::{ NativeType, NativeVisibility },
                        data::{ callable::CallableValue,
-                               conversion::{ convert_builtin, is_conversion_method },
+                               conversion::{ conversion_type_name, convert_builtin,
+                                             is_conversion_method },
                                methods::{ BuiltinMethod, register_methods },
                                value::{ Value, ExecResult }, map_key::MapKey, range::Range } };
 
@@ -485,7 +487,7 @@ impl TypeRegistry
                 self.conversion_source_name(self.common_type(elements.iter().copied()))),
             TypeKind::Map(key, value) => format!("hash_{}_{}",
                 self.conversion_source_name(*key), self.conversion_source_name(*value)),
-            _ => definition.name.to_lowercase(),
+            _ => conversion_type_name(&definition.name),
         }
     }
 
@@ -657,6 +659,13 @@ impl TypeRegistry
         registry.register_json_types();
         registry.register_io_types();
         registry.register_network_types();
+        let color_variants = TtyColorMode::VARIANT_NAMES.into_iter().map(|name| EnumVariant
+            {
+                name: name.to_string(),
+                location: Location::new("<native>", 1, 1),
+            }).collect();
+        registry.register_native("TtyColorMode".to_string(), TypeKind::Enum(color_variants),
+                                 NativeVisibility::Visible);
         registry.register_native(
             "__stream_Reader".into(),
             TypeKind::Builtin,

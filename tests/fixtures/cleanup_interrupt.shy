@@ -1,6 +1,6 @@
 let $handled = false
 let $outer = false
-fn String::from_runtimeerror($error: RuntimeError): String
+fn String::from_runtime_error($error: RuntimeError): String
 { "control handled=${handled} outer=${outer}" }
 echo ready
 try

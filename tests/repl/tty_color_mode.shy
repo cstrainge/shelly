@@ -1,0 +1,41 @@
+# Startup scripts can use the native enum before the first prompt is evaluated.
+let $fixture = $args[0]
+printf "%s" 'echo "startup-mode:" $tty_color_mode $tty_color_mode.type' -> "${fixture}/.shelly_init.shy"
+
+for ($term, $color_term, $mono, $no_color, $variant) in [
+    ["xterm", "truecolor", false, false, "TtyTrueColor"],
+    ["xterm-256color", "", false, false, "Tty256"],
+    ["xterm", "", false, false, "TtyBasic"],
+    ["xterm-256color", "truecolor", true, false, "TtyMonochrome"],
+    ["xterm-256color", "truecolor", false, true, "TtyMonochrome"],
+    ["dumb", "", false, false, "TtyMonochrome"],
+]
+{
+    let $environment = ["HOME": $fixture, "PATH": "/usr/bin:/bin", "TERM": $term,
+        "SHELLY_STD_PATH": "", "tty_color_mode": "inherited-text", "LANG": "C.UTF-8"]
+    if $color_term != "" { $environment["COLORTERM"] = $color_term }
+    if $no_color { $environment["NO_COLOR"] = "1" }
+    let $flags = if $mono { ["-m", "-b"] } else { ["-b"] }
+    let $terminal = open_terminal [`$shelly, $flags...] [
+        "cwd": $fixture, "env": $environment, "rows": 40, "columns": 140]
+    let $initial = drain $terminal
+    let $mode = "TtyColorMode::${variant}"
+    require (!$initial["eof"]) "color mode session exited at startup"
+    require ($initial["output"].contains "startup-mode: ${mode} TtyColorMode") "init script has wrong color mode"
+    for ($source, $kind, $expected) in [
+        ['echo $tty_color_mode $tty_color_mode.type', "output", "${mode} TtyColorMode"],
+        ['printenv tty_color_mode', "output", $mode],
+        ['$tty_color_mode = "wrong"', "error", "Expected TtyColorMode"],
+        ['echo $tty_color_mode', "output", $mode],
+    ]
+    {
+        let $reply = submit $terminal $source
+        if $reply["eof"] || !(repl_matches $kind $expected $reply["output"])
+        { echo $reply["output"]; fail "color mode REPL binding differs" }
+    }
+    terminal_write $terminal "\x04"
+    let $closed = drain $terminal
+    require $closed["eof"] "color mode session did not close"
+    let $status = terminal_close $terminal
+    require (($status["exit_code"] == 0) && ($status["signal"] == ())) "color mode session failed"
+}

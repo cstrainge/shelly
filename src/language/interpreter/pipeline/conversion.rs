@@ -2,7 +2,8 @@
 use std::{ collections::HashSet, fmt::Display, mem::take };
 
 use crate::language::{ bytecode::{ PipelineBoundary, PipelineStage },
-                       data::{ formats::{ RecordDecoder, map_value }, map_key::MapKey,
+                       data::{ conversion::conversion_type_name,
+                               formats::{ RecordDecoder, map_value }, map_key::MapKey,
                                methods::method_key, types::{ TypeId, TypeKind },
                                value::{ Executable, Value } },
                        interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult },
@@ -273,8 +274,14 @@ impl Interpreter
         {
             return true;
         }
-        let (owner, name) = if encode { ("String", format!("from_{}", format.to_lowercase())) }
-            else { (format, "from_string".into()) };
+        let (owner, name) = if encode
+            {
+                ("String", format!("from_{}", conversion_type_name(format)))
+            }
+            else
+            {
+                (format, "from_string".into())
+            };
         self.pipeline_factory(boundary, owner, &name).is_some()
     }
 
@@ -296,8 +303,14 @@ impl Interpreter
                 &boundary.conversions,
             );
         }
-        let (owner, name) = if encode { ("String", format!("from_{}", format.to_lowercase())) }
-            else { (format, "from_string".into()) };
+        let (owner, name) = if encode
+            {
+                ("String", format!("from_{}", conversion_type_name(format)))
+            }
+            else
+            {
+                (format, "from_string".into())
+            };
         let factory = self.pipeline_factory(boundary, owner, &name).ok_or_else(||
             error(boundary, value.type_name(), format!("Missing {}::{}", owner, name)))?;
         self.last_result = None;

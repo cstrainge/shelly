@@ -53,21 +53,22 @@ fn is_key_type($name: String): Boolean
 # Append a pretty print for all type's properties method.
 pub fn any::print_properties()
 {
+    let $properties = $self.properties
     # Let the caller know what type we're printing properties for, for clarity.
-    echo "Properties for:" $self.type
+    echo "Properties for:" $properties["type"]
     echo
 
     # Whip through the list of keys and figure out how much padding we're going to need to print
     # the values all aligned with each other.
     let $padding: Integer = 0
 
-    for ($key, _) in $self.properties
+    for ($key, _) in $properties
     {
         $padding = max $padding $key.count
     }
 
     # Finally print the keys and the values with their assigned padding.
-    for ($key, $value) in $self.properties
+    for ($key, $value) in $properties
     {
         if    $key == "value"
            && !$value
@@ -367,4 +368,97 @@ pub fn popd()
     }
 
     echo_paths
+}
+
+
+# Show the current path as a list of directories.
+pub fn path()
+{
+    let $found_path: [String] = if $PATH.type == String
+        {
+            Array($PATH)
+        }
+        else
+        {
+            $PATH
+        }
+
+    let $bad_paths: Integer = 0
+
+    for $path in $found_path
+    {
+        if !(dir_exists $path)
+        {
+            if is_color
+            {
+                echo "\x1b[31m${path}\x1b[0m"
+            }
+            else
+            {
+                echo "[Doesn't Exist]: $path"
+            }
+
+            $bad_paths = $bad_paths + 1
+        }
+        else
+        {
+            echo $path
+        }
+    }
+
+    if $bad_paths > 0
+    {
+        echo
+
+        if is_color
+        {
+            echo "\x1b[31mThe path contains ${bad_paths} bad paths.\x1b[0m"
+        }
+        else
+        {
+            echo "The path contains ${bad_paths} bad paths."
+        }
+    }
+}
+
+
+pub fn dir_exists($path: String): Boolean
+{
+    Boolean(test -d $path)
+}
+
+
+pub fn file_exists($path: String): Boolean
+{
+    Boolean(test -f $path)
+}
+
+
+pub fn is_pipe(): Boolean
+{
+    Boolean(test -p 1)
+}
+
+
+pub fn is_tty(): Boolean
+{
+    Boolean(test -t 1)
+}
+
+
+pub fn Boolean::from_exec_result($result: ExecResult): Boolean
+{
+    if $result { true } else { false }
+}
+
+
+pub fn Boolean::to_exec_result(): ExecResult
+{
+    if $self { ExecResult(0) } else { ExecResult(1) }
+}
+
+
+pub fn is_color(): Boolean
+{
+    $tty_color_mode != TtyColorMode::TtyMonochrome
 }

@@ -137,4 +137,4 @@ pub fn Reader::read_as($target: Type, $options: optional std::json::MappingOptio
         close: fn (): () | ErrorValue { $source.close },
     )
 }
-pub fn String::from_frameerror($error: FrameError): String { $error.message }
+pub fn String::from_frame_error($error: FrameError): String { $error.message }

@@ -1,0 +1,59 @@
+# Conversion dispatch and diagnostics share snake-case spelling for every type word.
+fn conversion_name_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $stdout) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "conversion spelling differs" }
+}
+
+# Builtin compound names, acronym boundaries, digits and Unicode retain proper word breaks.
+conversion_name_case 'fn Boolean::from_exec_result($v: ExecResult): Boolean { true }; fn Boolean::to_exec_result(): ExecResult { ExecResult(7) }; echo Boolean(ExecResult(1)) ExecResult(true); let $p = Boolean.properties; echo $p["from_exec_result"] $p["to_exec_result"]' "true ExecResult(7)\nfn(ExecResult): Boolean fn(): ExecResult\n" ""
+conversion_name_case 'type HTTPResponse = Integer; fn String::from_http_response($v: HTTPResponse): String { "http" }; echo String(HTTPResponse(1))' "http\n" ""
+conversion_name_case 'type JSON2Document = Integer; fn String::from_json2_document($v: JSON2Document): String { "json2" }; type Version42Info = Integer; fn String::from_version42_info($v: Version42Info): String { "version" }; echo String(JSON2Document(1)) String(Version42Info(2))' "json2 version\n" ""
+conversion_name_case 'type DécompteTotal = Integer; fn String::from_décompte_total($v: DécompteTotal): String { "unicode" }; echo String(DécompteTotal(1))' "unicode\n" ""
+conversion_name_case 'struct HTTPResponse { pub n: Integer }; fn Integer::to_http_response(): HTTPResponse { HTTPResponse(n: 9) }; echo HTTPResponse(1).n' "9\n" ""
+
+# Implied factories and collection descriptors use the same conversion names.
+conversion_name_case 'type ApiResponse = Integer; type Wrapped = ApiResponse; echo (Wrapped::from_api_response ApiResponse(7)); let $p = Wrapped.properties; echo $p["from_api_response"]' "7\nfn(ApiResponse): Wrapped\n" ""
+conversion_name_case 'type HTTPResponse = Integer; fn String::from_array_http_response($v: [HTTPResponse]): String { "rows" }; fn String::from_hash_string_http_response($v: [String: HTTPResponse]): String { "map" }; echo String([HTTPResponse(1)]) String(["ok": HTTPResponse(2)])' "rows map\n" ""
+conversion_name_case 'type HTTPResponse = Integer; fn String::from_array_http_response($v: Array): String { "broad" }; echo String([HTTPResponse(1)])' "broad\n" ""
+
+# A misspelled method reports its canonical name before it can run or be published.
+for $name in ["to_execresult", "to_ExecResult", "to_Exec_Result", "to_exec__result"]
+{
+    conversion_name_case ('fn Boolean::' + $name + '(): ExecResult { ExecResult(0) }') "" "use 'to_exec_result'"
+}
+for $name in ["from_execresult", "from_ExecResult", "from_Exec_Result", "from_exec__result"]
+{
+    conversion_name_case ('fn Boolean::' + $name + '($v: ExecResult): Boolean { true }') "" "use 'from_exec_result'"
+}
+conversion_name_case 'type HTTPResponse = Integer; fn String::from_httpresponse($v: HTTPResponse): String { "bad" }' "" "use 'from_http_response'"
+conversion_name_case 'type HTTPResponse = Integer; fn String::from_array_httpresponse($v: Array): String { "bad" }' "" "use 'from_array_http_response'"
+conversion_name_case 'type HTTPResponse = Integer; fn String::from_hash_string_httpresponse($v: HashMap): String { "bad" }' "" "use 'from_hash_string_http_response'"
+conversion_name_case 'fn String::from_hashmap($v: HashMap): String { "bad" }' "" "use 'from_hash_map'"
+conversion_name_case 'fn Integer::to_argumentexpansion(): ArgumentExpansion { [1] }' "" "use 'to_argument_expansion'"
+conversion_name_case 'fn Boolean::to_execresult(): any { () }' "" "use 'to_exec_result'"
+conversion_name_case 'fn String::from_execresult($v: any): String { "bad" }' "" "use 'from_exec_result'"
+
+# Colliding type spellings require a return annotation that identifies the target.
+conversion_name_case 'type Exec_Result = Integer; fn Boolean::to_exec_result(): any { () }' "" "Ambiguous conversion target"
+
+# Named pipeline codecs share conversion spelling with ordinary Target(value) calls.
+conversion_name_case 'type WireFormat = String; fn String::from_wire_format($v: any): String { "encoded" }; fn WireFormat::from_string($v: String): WireFormat { $v }; let $out: String; 7 |:WireFormat cat | $out; echo $out.trim; let $decoded: WireFormat; printf "%s" data WireFormat:| $decoded; echo ($decoded == WireFormat("data"))' "encoded\ntrue\n" ""
+
+let $fixture = $args[0]
+printf "%s" 'pub type ApiResponse = Integer; pub fn String::from_api_response($v: ApiResponse): String { "module" }' -> "${fixture}/api.shy"
+conversion_name_case 'import api; echo String(api::ApiResponse(1))' "module\n" ""

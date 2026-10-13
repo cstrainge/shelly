@@ -127,8 +127,8 @@ pub fn DiagnosticResponse::read_as($target: Type, $options: optional std::json::
     let $conversion = __json_bind $target
     __json_apply ($self.read_document) $conversion $options
 }
-pub fn String::from_statuserror($error: StatusError): String { $error.message }
-pub fn String::from_protocolerror($error: ProtocolError): String { $error.message }
+pub fn String::from_status_error($error: StatusError): String { $error.message }
+pub fn String::from_protocol_error($error: ProtocolError): String { $error.message }
 
 pub fn DiagnosticResponse::get_bytes_received(): Integer | Error { __http "diagnostic_received" $self }
 
@@ -149,7 +149,7 @@ pub fn get_as($url: String, $target: Type): any | ErrorValue { (get $url).requir
 
 pub fn Client::send($request: Request): Response | Error { $self.create $request }
 
-pub fn String::from_transporterror($error: TransportError): String
+pub fn String::from_transport_error($error: TransportError): String
 { "${error.operation}: ${error.message} (delivery ${error.delivery})" }
 
 

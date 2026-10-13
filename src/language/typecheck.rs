@@ -3,6 +3,7 @@ use std::{ collections::{ HashMap, HashSet }, rc::Rc, mem::{ replace, take },
            ops::{ Deref, DerefMut } };
 
 use crate::language::{ ast::*,
+                       parser::member_word_parts,
                        compiler::{ CompileError, CompileResult, ErrorWhat },
                        bytecode::FunctionBlockRef,
                        data::{ types::{ EnumValue,
@@ -15,7 +16,7 @@ use crate::language::{ ast::*,
                                         TypeKind,
                                         TypeRegistry },
                                value::{ Value, Executable }, scoped_variables::ScopedVariables,
-                               conversion::is_conversion_method,
+                               conversion::{ conversion_type_name, is_conversion_method },
                                methods::method_key,
                                map_key::MapKey },
                        text::{ location::Location, interpolation::interpolation_references } };
@@ -470,9 +471,8 @@ fn check_function(
     }
     if function.receiver.is_some() && is_conversion_method(&function.name)
     {
-        if function.name != function.name.to_lowercase() || function.name == "from_"
-        { return Err(error(&function.location,
-            "Conversion method names must be lowercase: from_<source_type>".into())); }
+        check_conversion_spelling(registry, function, names, "from_",
+            function.parameters.first().and_then(|parameter| parameter.type_id))?;
         if    function.parameters.len() != 1
            || function.parameters[0].optional
            || function.parameters[0].variadic
@@ -488,17 +488,26 @@ fn check_function(
     if    function.receiver.is_some() && function.name.starts_with("to_")
        && function.name != "to_json"
     {
-        if function.name != function.name.to_lowercase() || function.name == "to_"
-        { return Err(error(&function.location,
-            "Conversion method names must be lowercase: to_<target_type>".into())); }
+        check_conversion_spelling(registry, function, names, "to_", function.return_type)?;
         if function.parameters.len() != 1
         { return Err(error(&function.location,
             "Output conversion methods must accept no arguments beyond their receiver".into())); }
-        let target_name = function.name.strip_prefix("to_").unwrap();
-        let target = names.iter().find(|(name, _)| name.to_lowercase() == target_name)
-            .map(|(_, id)| *id).or_else(|| registry.output_conversion_target(&function.name))
-            .ok_or_else(|| error(&function.location,
-                format!("Unknown conversion target in '{}'", function.name)))?;
+        let hinted = function.return_type.into_iter()
+            .chain(function.return_type.and_then(|id| registry.success_type(id)))
+            .find(|id| registry.output_conversion_method_name(*id) == function.name);
+        let mut targets: HashSet<_> = names.values().copied()
+            .filter(|id| registry.output_conversion_method_name(*id) == function.name).collect();
+        targets.extend(registry.output_conversion_target(&function.name));
+        let target = if let Some(id) = hinted { id }
+            else if targets.len() == 1 { *targets.iter().next().unwrap() }
+            else
+            {
+                let message = if targets.is_empty()
+                    { format!("Unknown conversion target in '{}'", function.name) }
+                    else { format!("Ambiguous conversion target in '{}'; declare its return type",
+                        function.name) };
+                return Err(error(&function.location, message));
+            };
         if    !function.return_type.is_some_and(|id| registry.valid_conversion_result(target, id))
            && function.return_type != registry.builtin_id("any")
         { return Err(error(&function.location, format!(
@@ -572,6 +581,51 @@ fn check_function(
 }
 
 
+// Preserve broad source parameters and format codecs while rejecting misspelled type words.
+fn check_conversion_spelling(
+    registry: &TypeRegistry, function: &AstFunctionStatement, names: &Names,
+    prefix: &str, hint: Option<TypeId>,
+) -> CompileResult<()>
+{
+    let compact = |name: &str| name.chars().filter(|character| *character != '_')
+        .flat_map(char::to_lowercase).collect::<String>();
+    let suggested = hint.map(|id| if prefix == "from_"
+        { registry.conversion_method_name(id) } else { registry.output_conversion_method_name(id) })
+        .filter(|name| compact(name) == compact(&function.name));
+    let expected = if let Some(name) = suggested { name }
+        else
+        {
+            let spelling = conversion_type_name(&function.name);
+            let Some(suffix) = spelling.strip_prefix(prefix).filter(|name| !name.is_empty())
+            else { return Err(error(&function.location, format!(
+                "Conversion method names must use snake case: {}<{}_type>", prefix,
+                if prefix == "from_" { "source" } else { "target" }))); };
+            let type_names: HashSet<_> = names.values().map(|id|
+                conversion_type_name(&registry.get(*id).name)).collect();
+            let mut words = Vec::new();
+            for word in suffix.split('_')
+            {
+                if type_names.contains(word) { words.push(word.to_string()); continue; }
+                let alternatives: HashSet<_> = type_names.iter()
+                    .filter(|name| compact(name) == word).cloned().collect();
+                if alternatives.len() > 1
+                { return Err(error(&function.location, format!(
+                    "Ambiguous type word '{}' in conversion '{}'; use its snake-case name",
+                    word, function.name))); }
+                words.push(alternatives.into_iter().next().unwrap_or_else(|| word.to_string()));
+            }
+            format!("{}{}", prefix, words.join("_"))
+        };
+    if function.name != expected
+    {
+        return Err(error(&function.location, format!(
+            "Conversion method '{}::{}' must use snake case; use '{}'",
+            function.receiver.as_deref().unwrap(), function.name, expected)));
+    }
+    Ok(())
+}
+
+
 // Preserve ordinary shell argument splitting when a spaced empty call names
 // no type. Declared types take precedence, including forward declarations.
 fn split_spaced_call(expression: &mut AstExpression, names: &Names) -> Option<AstExpression>
@@ -624,7 +678,8 @@ fn check_call(
         if let Some(none) = none { call.arguments.push(none); }
     }
     // Command words retain their shell meaning, including names of types.
-    if !matches!(call.executable.kind, AstExpressionKind::Symbol(_))
+    if    !matches!(call.executable.kind, AstExpressionKind::Symbol(_))
+       || type_word_receiver(&call.executable, names).is_some()
     { check_expression(registry, &mut call.executable, names)?; }
     if matches!(
         &call.executable.kind,
@@ -682,10 +737,21 @@ fn check_call(
                 && method_parameters.iter().all(|parameters| {
                     parameters.get(index + 1).copied().flatten() == registry.builtin_id("Type")
                 });
-        if !matches!(argument.kind, AstExpressionKind::Symbol(_)) || type_parameter
+        if    !matches!(argument.kind, AstExpressionKind::Symbol(_))
+           || type_parameter
+           || type_word_receiver(argument, names).is_some()
         { check_expression(registry, argument, names)?; }
     }
     Ok(())
+}
+
+
+// Dots remain part of shell words until a known type establishes a value receiver.
+fn type_word_receiver(expression: &AstExpression, names: &Names) -> Option<TypeId>
+{
+    let AstExpressionKind::Symbol(symbol) = &expression.kind else { return None; };
+    let (owner, _) = member_word_parts(&symbol.name)?;
+    names.get(owner).copied()
 }
 
 
@@ -695,6 +761,33 @@ fn check_expression(
     names: &Names,
 ) -> CompileResult<()>
 {
+    if    let AstExpressionKind::TryExecute(inner) = &mut expression.kind
+       && type_word_receiver(inner, names).is_some()
+    {
+        check_expression(registry, inner, names)?;
+        let value = replace(inner,
+            Box::new(new_ast_literal(inner.location.clone(), Value::None, None)));
+        *expression = *value;
+        return Ok(());
+    }
+    if let Some(id) = type_word_receiver(expression, names)
+    {
+        let AstExpressionKind::Symbol(symbol) = &expression.kind else { unreachable!(); };
+        let mut receiver = new_ast_literal(expression.location.clone(),
+            Value::Type(registry.get(id)), None);
+        for name in symbol.name.split('.').skip(1)
+        {
+            receiver = AstExpression
+                {
+                    location: expression.location.clone(),
+                    kind: AstExpressionKind::Field(Box::new(receiver), name.to_string(), None),
+                    interpolation_members: Default::default(),
+                    dispatch_type: Default::default(),
+                    string_flag: None,
+                };
+        }
+        *expression = receiver;
+    }
     // Only a single bare type entry is a constructor. Grouping requests a Type value.
     let collection = match &expression.kind
         {

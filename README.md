@@ -177,6 +177,23 @@ REPL. `$args` is an array of the supplied arguments, excluding the script filena
 `$args...` passes its elements as separate arguments. Shell options go before the
 script filename or script arguments. Use `--help` for all options.
 
+The native enum `TtyColorMode` has variants `TtyMonochrome`, `TtyBasic`, `Tty256`,
+and `TtyTrueColor`. The exported `$tty_color_mode: TtyColorMode` reports the mode
+detected at startup, including `--mono`/`-m`. It is available in profiles, init
+files, and modules without a prelude. External programs receive its qualified
+name as text; a child Shelly detects its own mode.
+
+```shy
+if $tty_color_mode == TtyColorMode::TtyMonochrome
+{
+    echo $path
+}
+else
+{
+    echo "\x1b[31m${path}\x1b[0m"
+}
+```
+
 In the REPL, Ctrl+Enter switches to multiline entry without changing prompt width.
 The prompt marker and continuation `>` turn yellow on 256-color and true-color
 terminals while multiline entry is active. Monochrome mode disables editor and
@@ -730,7 +747,8 @@ references; collecting the hash does not execute a getter. Private storage and
 inaccessible accessors are omitted. Setter-only properties have no readable entry. Imported objects
 expose only methods available under the normal module visibility rules.
 `next_item` is included for iterable values; calling it advances the receiver.
-Receiver-free `from_*` conversion factories and `new` constructors are excluded.
+Instance reflection excludes receiver-free `from_*` conversion factories and
+`new` constructors.
 
 ```shy
 let $properties = 5.properties
@@ -744,10 +762,20 @@ echo ($properties["next_item"])         # 3; $items now contains [1, 2]
 ```
 
 The standard prelude provides `.print_properties` to print these properties in
-aligned columns. It works on type objects as well as other values:
+aligned columns. On a type object, `.properties` describes the represented type's
+interface: public fields contain their declared types, and methods and factories
+contain function prototype types, without constructing an instance or running
+getters or methods. Receiver-free conversion factories and constructors retain
+all their parameters in these prototypes; instance methods omit `$self`.
+The `"type"` entry names the represented type; the type object's own `.type` remains
+`Type`. Unknown native method argument types are shown as `any`; variadic parameters
+use their array types in prototypes. Ordinary value reflection still returns field
+values and live bound method references.
 
 ```shy
-(Integer).print_properties          # The Integer type object, including its name
+ExecResult.print_properties         # ExecResult's interface
+Type.print_properties               # Type's interface, including name: String
+Integer.print_properties            # Integer's interface; grouping is also supported
 [Integer].print_properties          # An empty integer array
 ```
 
@@ -1521,7 +1549,10 @@ targets and conversion-method versions remain fixed in previously compiled funct
 Explicit `Target(value)` conversions first look for a factory on the target type
 named `from_<source_type>`. If absent, they look for a zero-argument receiver method
 `Source::to_<target_type>`, then use the built-in conversion rules. Both names use
-lowercase type names. For example:
+snake-case type names: `ExecResult` becomes `exec_result`, and `HTTPResponse`
+becomes `http_response`. Incorrect spellings such as `to_execresult` or
+`to_ExecResult` are rejected with the required spelling, `to_exec_result`.
+For example:
 
 ```javascript
 type Count = Integer
@@ -1531,6 +1562,18 @@ fn Count::from_string($value: String): Count
 }
 
 echo Count("7")  # 7, with type Count
+```
+
+```shy
+pub fn Boolean::from_exec_result($result: ExecResult): Boolean
+{
+    if $result { true } else { false }
+}
+
+pub fn Boolean::to_exec_result(): ExecResult
+{
+    if $self { ExecResult(0) } else { ExecResult(1) }
+}
 ```
 
 Each `type` declaration provides a default factory from its immediate underlying
@@ -1578,7 +1621,7 @@ Declared collection constraints determine the name, including for empty typed
 collections. Otherwise Shelly infers types from the contents; mixed or unknown
 types use `any`, so an untyped empty array selects `from_array_any`, and an
 untyped empty hash selects `from_hash_any_any`. Key and value types are inferred
-separately. Names are lowercase, including named element types. Nested collections
+separately. Names use snake case, including named element types. Nested collections
 use the same spelling recursively, such as `from_array_array_integer` and
 `from_hash_string_array_integer`. A distinct named collection type keeps its own
 name: `type Numbers = [Integer]` selects `from_numbers`.

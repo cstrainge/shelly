@@ -4,6 +4,7 @@ use crate::language::{ ast::AstTopLevel,
                        parser::{ statements::parse_statement, results::ParseResult,
                                  source::SyntaxMetadata } };
 pub use crate::language::parser::results::ParserError;
+pub(crate) use crate::language::parser::expressions::member_word_parts;
 
 mod results;
 mod base_utils;

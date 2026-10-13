@@ -45,6 +45,16 @@ pub(super) fn valid_type_name(name: &str) -> bool
 }
 
 
+// Keep ambiguous dotted words intact until a known type supplies their receiver.
+pub(crate) fn member_word_parts(name: &str) -> Option<(&str, Vec<&str>)>
+{
+    let (owner, members) = name.split_once('.')?;
+    if !owner.split("::").all(valid_type_name) { return None; }
+    let members: Vec<_> = members.split('.').collect();
+    members.iter().all(|name| valid_type_name(name)).then_some((owner, members))
+}
+
+
 fn math_operator(kind: TokenKind) -> Option<(AstMathOperator, u8)>
 {
     match kind
@@ -1026,8 +1036,8 @@ fn parse_operator_to_symbol(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opt
 
 fn parse_scalar_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
-    // An executable reference currently stores only its name. Use a literal so that value
-    // parsing does not turn the name into a call or apply symbol expansion.
+    // Bare executable names remain literal references. Preserve possible type members
+    // for the checker to resolve without turning the reference into a call.
     if let Some(escape) = try_expect_token(buffer, TokenKind::ExecEscape)?
     {
         // An escaped name remains a separate argument even when followed by
@@ -1053,13 +1063,13 @@ fn parse_scalar_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Opti
                 kind: ParserErrorKind::ExpectedExpression
             })?;
 
-        if matches!(
-            executable.kind,
-            AstExpressionKind::Variable(_)
-                | AstExpressionKind::Index(_, _)
-                | AstExpressionKind::Field(_, _, _)
-                | AstExpressionKind::EnumVariant(_, _)
-        )
+        if    matches!(executable.kind,
+                       AstExpressionKind::Variable(_)
+                           | AstExpressionKind::Index(_, _)
+                           | AstExpressionKind::Field(_, _, _)
+                           | AstExpressionKind::EnumVariant(_, _))
+           || matches!(&executable.kind, AstExpressionKind::Symbol(symbol)
+                if member_word_parts(&symbol.name).is_some())
         {
             return Ok(Some(AstExpression
                 {

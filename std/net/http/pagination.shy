@@ -105,4 +105,4 @@ pub fn items($pages: Reader): Reader | ErrorValue
         close: fn (): () | ErrorValue { $pages.close },
     )
 }
-pub fn String::from_paginationerror($error: PaginationError): String { $error.message }
+pub fn String::from_pagination_error($error: PaginationError): String { $error.message }
