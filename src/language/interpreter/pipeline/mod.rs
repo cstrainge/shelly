@@ -3,7 +3,7 @@ mod stream;
 mod process;
 mod conversion;
 
-use std::{ io::{ Write, stdout }, thread::sleep, time::Duration };
+use std::{ thread::sleep, time::Duration };
 
 use crate::{ language::{ bytecode::CompiledPipeline,
                          data::value::{ ExecResult, Value },
@@ -151,7 +151,7 @@ impl Interpreter
             { output.copy_from(&mut &*bytes).map(|_| ()) }
             else if let Some(capture) = self.captured_stdout.as_mut()
             { capture.extend_from_slice(bytes); Ok(()) }
-            else { stdout().lock().write_all(bytes) };
+            else { crate::runtime::readline::output::write_data(bytes) };
         result.map_err(|error| Self::redirection_error(location, error))
     }
 }

@@ -11,7 +11,7 @@ use std::{ cell::RefCell,
            fmt::{ self, Debug, Display, Formatter },
            panic::Location as NativeLocation,
            fs::File,
-           io::{ BufReader, Error, ErrorKind, Read, Write, copy, pipe, stdout, stderr },
+           io::{ BufReader, Error, ErrorKind, Read, Write, copy, pipe, stderr },
            path::{ Path, PathBuf, Component, MAIN_SEPARATOR_STR, is_separator },
            process::{ Command, Stdio, id },
            rc::Rc,
@@ -602,6 +602,16 @@ impl Interpreter
 
         let mut native_functions: NativeFunctions = bodies.into_iter().map(|(name, body)|
             (name, NativeFunction::new(name, NativeVisibility::Visible, body))).collect();
+        native_functions.insert("__readline", NativeFunction::suspending(
+            "__readline", NativeVisibility::Hidden, Self::handle_readline));
+        native_functions.insert(
+            "__env",
+            NativeFunction::new(
+                "__env",
+                NativeVisibility::Hidden,
+                Rc::new(Interpreter::handle_env),
+            ),
+        );
         native_functions.insert(
             "__report_error",
             NativeFunction::new(
@@ -3770,10 +3780,15 @@ impl Interpreter
             matches!(value, Value::String(command, _) if matches!(command.as_str(), "status" |
                 "headers" | "url" | "diagnostic_complete" | "diagnostic_reason" |
                     "diagnostic_bytes" | "diagnostic_received")));
-        let pure = http_metadata
+        let readline_metadata = function.name == "__readline" && args.first().is_some_and(|value|
+            matches!(value, Value::String(command, _) if matches!(command.as_str(),
+                "text" | "color" | "styled" | "concat" | "slice" | "words" | "draft"
+                    | "history_status")));
+        let pure = http_metadata || readline_metadata
             || matches!(
                 function.name,
                 "__json"
+                    | "__env"
                     | "__json_bind"
                     | "__json_apply"
                     | "__http_apply"
@@ -3781,11 +3796,19 @@ impl Interpreter
                     | "__http_header"
             )
             || FACTORIES.iter().any(|(name, _, _)| *name == function.name);
+        if self.exceptions.readline_callback && function.name == "__report_error"
+        {
+            return Err(InterpreterError::new(location.clone(), ErrorWhat::UnsupportedSuspension(
+                "Error reporting is not admitted while editing input".into())));
+        }
         let stream_close = matches!(function.name, "__stream" | "__json_reader")
             && args.first().is_some_and(
                 |value| matches!(value, Value::String(command, _) if command == "close"),
             );
-        let cleanup = (matches!(
+        let readline_close = function.name == "__readline" && args.first().is_some_and(|value|
+            matches!(value, Value::String(command, _) if matches!(command.as_str(),
+                "close" | "release")));
+        let cleanup = (readline_close || matches!(
             function.name,
             "__io_close"
                 | "__tcp_close"
@@ -4212,7 +4235,7 @@ impl Interpreter
                 {
                     copy(&mut file, capture)
                 }
-                else { copy(&mut file, &mut stdout().lock()) }
+                else { crate::runtime::readline::output::copy_data(&mut file) }
             });
         result.map_err(|error| Self::redirection_error(location,
             format!("'{}': {}", path, error)))?;
@@ -4222,6 +4245,12 @@ impl Interpreter
 
     fn write_stderr(&self, location: &Location, text: &str) -> InterpreterResult<()>
     {
+        if crate::runtime::readline::editing() && !self.redirections.iter()
+            .any(|redirect| redirect.error.is_some())
+        {
+            return Err(InterpreterError::new(location.clone(),
+                ErrorWhat::ReceiverBusy("Terminal is busy editing input".into())));
+        }
         let result = if let Some(output) = self.redirections.iter().rev()
             .find_map(|redirect| redirect.error.as_ref())
             { output.copy_from(&mut text.as_bytes()).map(|_| ()) }

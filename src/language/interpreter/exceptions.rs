@@ -67,6 +67,7 @@ pub(super) struct ExceptionState
     pub protected: Vec<usize>,
     pub last_location: Location,
     pub reporting: bool,
+    pub readline_callback: bool,
     pub report_floor: usize,
     pub report_prefix: Option<String>,
 }

@@ -1,0 +1,92 @@
+import std::io
+import std::json
+import std::net::http
+import std::net::http::server
+
+fn streaming($response: std::json::Document, $text: String): std::net::http::Body | ErrorValue
+{
+    let $id = $response.require_string "/id"
+    let $item = $response.at "/output/0"
+    let $item_id = $item.require_string "/id"
+    let $records = [
+        ["type":"response.created", "sequence_number":0, "response":["id":$id]],
+        ["type":"response.output_item.added", "sequence_number":1, "output_index":0,
+            "item":["id":$item_id, "type":"message"]],
+        ["type":"response.content_part.added", "sequence_number":2, "output_index":0,
+            "content_index":0, "item_id":$item_id, "part":["type":"output_text", "text":""]],
+        ["type":"response.output_text.delta", "sequence_number":3, "output_index":0,
+            "content_index":0, "item_id":$item_id, "delta":$text[0..4]],
+        ["type":"response.output_text.delta", "sequence_number":4, "output_index":0,
+            "content_index":0, "item_id":$item_id, "delta":$text[4..]],
+        ["type":"response.output_text.done", "sequence_number":5, "output_index":0,
+            "content_index":0, "item_id":$item_id, "text":$text],
+        ["type":"response.content_part.done", "sequence_number":6, "output_index":0,
+            "content_index":0, "item_id":$item_id, "part":["type":"output_text", "text":$text]],
+        ["type":"response.output_item.done", "sequence_number":7, "output_index":0, "item":$item],
+        ["type":"response.completed", "sequence_number":8, "response":$response],
+    ]
+    let $events = ""
+    for $record in $records { $events = $events + "data: " + (std::json::encode $record) + "\n\n" }
+    std::net::http::Body(value: std::io::Bytes($events), content_type: "text/event-stream")
+}
+
+let $server = std::net::http::server::listen "127.0.0.1" 0
+echo ready $server.address.port
+let $catalogs = 0
+let $requests: [std::json::Document] = []
+try
+{
+    for _ in 0..10
+    {
+        let $request = $server.accept
+        try
+        {
+            if ($request.headers.get "authorization") != "Bearer fixture-key"
+            { throw RuntimeError(what: "fixture", message: "Incorrect API key precedence") }
+            if $request.method == "GET" && $request.path == "/models"
+            {
+                $catalogs = $catalogs + 1
+                if $catalogs == 2
+                {
+                    let $message = ["error":["message":"catalog unavailable"]]
+                    let $error = std::net::http::json_body $message
+                    $request.respond std::net::http::server::Response(status:503,
+                        headers:["x-request-id":"req_catalog_failure"], body:$error)
+                }
+                else
+                {
+                    let $catalog = ["object":"list", "data":[
+                        ["id":"fixture-beta", "created":1, "owned_by":"fixture", "extra":"ignored"],
+                        ["id":"fixture-alpha", "object":"model"],
+                    ]]
+                    $request.respond (std::net::http::server::json_response $catalog)
+                }
+                continue
+            }
+            let $document = $request.read_document
+            $requests = [$requests..., $document]
+            std::io::write_text "chat-requests.json" (std::json::encode $requests)
+            let $input = $document.array_items "/input"
+            let $text = $input[$input.count - 1].require_string "/content"
+            if $requests.count == 3
+            {
+                $request.respond std::net::http::server::Response(status:400,
+                    headers:["x-request-id":"req_chat_failure"],
+                    body:(std::net::http::json_body ["error":["message":"fixture rejected once"]]))
+                continue
+            }
+            let $answer = "answer ${requests.count}: ${text}"
+            let $response = std::json::wrap ["id":"resp_${requests.count}", "status":"completed",
+                "usage":["input_tokens":12,"output_tokens":3,"total_tokens":15],
+                "output":[["id":"msg_${requests.count}","type":"message",
+                    "content":[["type":"output_text","text":$answer]]]]]
+            let $body = if ($document.find "/stream") != () && ($document.require_boolean "/stream")
+                { streaming $response $answer }
+                else { std::net::http::json_body $response }
+            $request.respond std::net::http::server::Response(status:200,
+                headers:["x-request-id":"req_chat"], body:$body)
+        }
+        finally { $request.close }
+    }
+}
+finally { $server.close }

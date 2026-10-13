@@ -1,0 +1,15 @@
+let $fixture = $args[0]
+printf "%s" 'let export $ENV_LABEL = "module"; pub fn label(): String { optional_env "ENV_LABEL" "missing" }' -> "${fixture}/env_widget.shy"
+
+check_repl ["id": "OPTIONAL-ENV", "exit": 0, "steps": [
+    ['echo ((optional_env "ENV_LABEL") == ())', "output", "true"],
+    ['let export $ENV_LABEL = "initial"; echo (optional_env "ENV_LABEL")', "output", "initial"],
+    ['$ENV_LABEL = "live"; echo (optional_env "ENV_LABEL")', "output", "live"],
+    ['fn local() { let export $ENV_LABEL = "local"; echo (optional_env "ENV_LABEL") }; local', "output", "local"],
+    ['echo (optional_env "ENV_LABEL")', "output", "live"],
+    ['optional_env "bad=name"', "error", "Environment names must be nonempty"],
+    ['echo (optional_env "ENV_LABEL")', "output", "live"],
+    ['import env_widget; $widgets = [`env_widget::label]; $prompt = \'env=${rendered_widgets}\\n\'', "output", "env=[live]"],
+    ['$ENV_LABEL = "refreshed"', "output", "env=[refreshed]"],
+    ['$ENV_LABEL = ""; echo ((optional_env "ENV_LABEL" "fallback") == "")', "output", "true"],
+]]

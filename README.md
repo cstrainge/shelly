@@ -2609,6 +2609,25 @@ Retyping a private variable does not export it. Native process and terminal APIs
 inherit the converted exports too; explicit `env` maps retain their String values
 and replace that environment as usual.
 
+The prelude's `optional_env($name: String, $fallback: optional String): optional String`
+reads an exported variable without spawning a process. Omit the fallback to get `()`
+when the name is absent; an existing empty value returns `""`, even with a fallback.
+Names are case-sensitive and supplied without `$`. Empty names and names containing
+`=` or NUL are rejected.
+
+```text
+let $token = optional_env "API_TOKEN"
+let $model = optional_env "OPENAI_MODEL" "gpt-6.1-sol"
+let $api_key = (optional_env "OPENAI_API_KEY" "").trim
+```
+
+Lookup observes the calling module's current exports, including function-local exports
+and later assignments. A private binding hides an exported binding of the same name.
+Values use the same String representation and path expansion as child-process inheritance;
+whitespace, newlines and Unicode are preserved. Like other Strings, a returned value stored
+in a variable follows Shelly's usual home-path display rules when that variable is read.
+Widgets read the captured environment for that prompt evaluation. The Rust helper `__env`
+is hidden; scripts normally use `optional_env`.
 
 Useful predefined variables include `$args`, `$pid`, `$pwd`, `$HOSTNAME`, `$HOME`, `$PATH`,
 `$shelly` (an executable reference to this binary), `$version`, `$os` (also `$OS`),
@@ -2945,6 +2964,36 @@ scopes copy only initially visible names. The networking and JSON libraries use 
 See the [executable API reference](docs/networking-json-api-implementation.md) for exact JSON,
 conversion protocols, byte pipelines, sockets, HTTP, SSE, RPC and marked errors.
 The OpenAI client is an [ordinary sample module](examples/openai.shy), outside the standard library.
+Scripts can build their own REPLs with [std::terminal::readline](docs/terminal-readline-api.md),
+which wraps Reedline and supports prompt functions, isolated history, editing callbacks and pipelines.
+
+The [interactive OpenAI chat example](examples/openai_chat.shy) combines both modules:
+
+```sh
+shelly examples/openai_chat.shy --model gpt-6.1-sol
+shelly examples/openai_chat.shy --api-key YOUR_KEY --model YOUR_MODEL
+shelly examples/openai_chat.shy --help
+```
+
+It reads `OPENAI_API_KEY` and `OPENAI_MODEL`; flags override the environment. The model defaults
+to `gpt-6.1-sol`. Use `/model list [filter]`, `/model <name>`, `/new`, `/system`, `/stream`,
+`/history`, `/status`, `/retry`, `/help` and `/quit`. Replies stream by default. Only completed
+turns enter conversation context; a failed prompt remains available for explicit `/retry`.
+History stays in memory, and requests use `store: false`. Model changes preserve context;
+instruction changes start a new conversation. `--base-url` selects another compatible endpoint.
+The text-only sample follows the official OpenAI documentation for
+[conversation input](https://developers.openai.com/api/docs/guides/conversation-state),
+[streaming](https://developers.openai.com/api/docs/guides/streaming-responses) and
+[model listing](https://developers.openai.com/api/reference/resources/models/methods/list).
+
+The examples show Shelly's features working together. The small [REPL](examples/repl.shy)
+keeps application state local and captures it in a live prompt. The
+[OpenAI module](examples/openai.shy) uses typed messages, enum/struct JSON codecs, conversion
+protocols and a reader with a validated completion result. The chat client holds its state in
+a typed receiver, parses options and commands through `from_*` conversions, and binds methods
+directly as readline callbacks. Model records stay typed through `client.models | $.id`, and
+streamed text goes to an ordinary Unix program with `chunks | cat`. One recovery boundary in
+the input loop handles application errors; finally blocks close the resources that each scope owns.
 
 Standard-library imports use a separate search path:
 

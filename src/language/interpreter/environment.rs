@@ -1,5 +1,5 @@
 
-use std::{ cell::Cell, rc::Rc };
+use std::{ cell::Cell, mem::replace, rc::Rc };
 
 use crate::language::{ data::{ map_key::MapKey,
                                scoped_variables::{ EnvironmentConversion, ValueVisibility },
@@ -117,6 +117,21 @@ impl Interpreter
         Ok(value)
     }
 
+    // Optional lookup and child inheritance share the binding's retained conversion.
+    fn exported_variable_text(&mut self, key: &str, location: &Location)
+        -> InterpreterResult<String>
+    {
+        let text = self.environment_value(location, key)?.as_text();
+        Ok(if key == "$PATH"
+            {
+                self.eval_path_list_from(&text)
+            }
+            else
+            {
+                self.eval_path_from(&text)
+            })
+    }
+
     pub(super) fn exported_environment(&mut self, location: &Location)
         -> InterpreterResult<Vec<(String, String)>>
     {
@@ -126,12 +141,60 @@ impl Interpreter
         for (key, binding) in bindings
         {
             if binding.exported != ValueVisibility::Exported { continue; }
-            let text = self.environment_value(location, &key)?.as_text();
+            let text = self.exported_variable_text(&key, location)?;
             if self.halted { break; }
-            let text = if key == "$PATH" { self.eval_path_list_from(&text) }
-                else { self.eval_path_from(&text) };
             environment.push((key.strip_prefix('$').unwrap_or(&key).to_string(), text));
         }
         Ok(environment)
+    }
+
+    fn environment_variable(&mut self, name: &str, location: &Location) -> InterpreterResult<Value>
+    {
+        if let Some(environment) = &self.widget_environment
+        {
+            return Ok(environment.iter().find(|(key, _)| key == name)
+                .map_or(Value::None, |(_, text)| Value::from_string(text.clone())));
+        }
+        let key = format!("${name}");
+        let exported = self.scope().variables.get(&key)
+            .is_some_and(|value| value.exported == ValueVisibility::Exported);
+        if !exported { return Ok(Value::None); }
+        self.exported_variable_text(&key, location).map(Value::from_string)
+    }
+
+    pub(super) fn handle_env(&mut self, location: &Location, args: &[Value])
+        -> InterpreterResult<()>
+    {
+        let (name, fallback) = match args
+        {
+            [Value::String(name, _)] => (name, Value::None),
+            [Value::String(name, _), fallback @ (Value::String(_, _) | Value::None)] =>
+                (name, fallback.clone()),
+            _ =>
+            {
+                return Err(InterpreterError::new(location.clone(), ErrorWhat::ArgumentMismatch(
+                    "__env expects a String name and an optional String fallback".into())));
+            }
+        };
+        if name.is_empty() || name.contains(['=', '\0'])
+        {
+            return Err(InterpreterError::new(location.clone(), ErrorWhat::InvalidOperand(
+                "Environment names must be nonempty and contain neither '=' nor NUL".into())));
+        }
+
+        // This private bridge reads the caller of its Shelly wrapper, rather than
+        // the standard library's separate module environment. Direct top-level
+        // native calls use the current scope instead.
+        let caller = self.exceptions.callers.last().cloned()
+            .unwrap_or_else(|| self.current_scope.clone());
+        let home = replace(&mut self.current_scope, caller);
+        let result = self.environment_variable(name, location);
+        self.current_scope = home;
+        self.last_result = Some(match result?
+            {
+                Value::None => fallback,
+                value => value,
+            });
+        Ok(())
     }
 }

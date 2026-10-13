@@ -139,3 +139,14 @@ fn nearest(color: Color, count: u16) -> Color
         }).unwrap() as u8;
     if count == 16 { basic_color(index) } else { Color::Fixed(index) }
 }
+
+pub(crate) fn adapt_color(color: Color, mode: TtyColorMode) -> Option<Color>
+{
+    match mode
+    {
+        TtyColorMode::TtyMonochrome => None,
+        TtyColorMode::TtyBasic => Some(nearest(color, 16)),
+        TtyColorMode::Tty256 => Some(nearest(color, 256)),
+        TtyColorMode::TtyTrueColor => Some(color),
+    }
+}

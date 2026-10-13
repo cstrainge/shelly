@@ -1,0 +1,37 @@
+import std::io
+import std::json
+import readline_helpers
+let $fixture = $args[0]
+
+# A managed source can wait for input while its consumer cancels and joins restoration.
+let $source = 'import std::terminal::{ readline }; import std::json; let $e = readline::Editor(prompt:"cancel> "); let $lines = $e.lines; let $bytes = std::json::array_source $lines; $bytes.next_item; $lines.close; $bytes.close; echo CANCELLED; echo "REUSED" ($e.read readline::ReadOptions(prompt:"reuse> ")); $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "CANCELLED"
+readline_helpers::wait_for $terminal "reuse> "
+readline_helpers::input $terminal "ok"
+readline_helpers::wait_for $terminal "REUSED ok"
+readline_helpers::finish $terminal
+
+# Terminal prompts remain separate from a backpressured JSON Lines byte pipeline.
+let $source = 'import std::terminal::{ readline }; import std::json; import std::io; let $reads = 0; let $prompt = readline::Prompt(left: fn(): String { $reads = $reads + 1; "pipe-${reads}> " }); let $e = readline::Editor(prompt:$prompt); try { std::json::lines_source $e.lines | (std::io::write_file "lines.jsonl") } finally { $e.close }; echo DONE'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "pipe-1> "
+readline_helpers::input $terminal "héllo"
+# A repaint of the submitted line must not be mistaken for the next empty read.
+readline_helpers::wait_for $terminal "pipe-2> "
+terminal_write $terminal "\x04"
+readline_helpers::wait_for $terminal "DONE"
+readline_helpers::finish $terminal
+require ((std::io::read_text "${fixture}/lines.jsonl") == '"héllo"\n') "interactive JSON pipeline bytes"
+
+# Adapter composition retains the same whole-iteration lease and releases it on break.
+let $source = 'import std::terminal::{ readline }; import std::stream; fn identity($v:String):String { $v }; let $e = readline::Editor(prompt:"map> "); let $lines = $e.lines; try { $e.read } catch ($error:readline::BusyError) { echo BUSY }; for $line in (std::stream::map $lines `identity) { echo "MAPPED" $line.value; break }; echo "REUSED" ($e.read readline::ReadOptions(prompt:"after> ")); $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "BUSY"
+readline_helpers::wait_for $terminal "map> "
+readline_helpers::input $terminal "mapped"
+readline_helpers::wait_for $terminal "MAPPED mapped"
+readline_helpers::wait_for $terminal "after> "
+readline_helpers::input $terminal "reused"
+readline_helpers::wait_for $terminal "REUSED reused"
+readline_helpers::finish $terminal

@@ -22,7 +22,8 @@ pub fn Mapped::next_item(): optional Item | ErrorValue
 pub fn Mapped::close(): () | ErrorValue { $self.::source.close }
 pub fn map($source: Reader, $convert: any): Reader | ErrorValue
 {
-    from_iterable Mapped(source: $source, convert: $convert)
+    let $reader = from_iterable Mapped(source: $source, convert: $convert)
+    __stream "inherit_iteration" $reader $source
 }
 
 pub struct Filtered { source: Reader, keep: any }
@@ -41,7 +42,8 @@ pub fn Filtered::next_item(): optional Item | ErrorValue
 pub fn Filtered::close(): () | ErrorValue { $self.::source.close }
 pub fn filter($source: Reader, $keep: any): Reader | ErrorValue
 {
-    from_iterable Filtered(source: $source, keep: $keep)
+    let $reader = from_iterable Filtered(source: $source, keep: $keep)
+    __stream "inherit_iteration" $reader $source
 }
 
 pub fn collect($source: Reader): Array | ErrorValue

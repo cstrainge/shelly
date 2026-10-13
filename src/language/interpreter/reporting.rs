@@ -299,6 +299,11 @@ impl Interpreter
         args: &[Value],
     ) -> InterpreterResult<()>
     {
+        if crate::runtime::readline::editing()
+        {
+            return Err(InterpreterError::new(location.clone(),
+                ErrorWhat::ReceiverBusy("Terminal is busy editing input".into())));
+        }
         let [stack, error] = args
         else
         {

@@ -1,0 +1,37 @@
+# A custom REPL runs inside a shell submission, then hands the terminal back to the shell.
+let $fixture = $args[0]
+let $terminal = session $fixture
+drain $terminal
+let $source = 'import std::terminal::{ readline }; let $editor = readline::Editor(prompt:"app> "); try { for $line in $editor.lines { if $line == "quit" { break }; echo "APP" $line } } finally { $editor.close }; echo RETURNED'
+terminal_write $terminal "\x1b[200~${source}\x1b[201~\r"
+let $ready = false
+for $attempt in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    let $text = $reply["text"]
+    if $text.contains "\x1b[6n" { terminal_write $terminal "\x1b[1;1R" }
+    if $text.contains "app> " { $ready = true; break }
+}
+require $ready "custom REPL never acquired the terminal"
+terminal_write $terminal "hello\r"
+let $ready = false
+let $output = ""
+for $attempt in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    let $text = $reply["text"]
+    if $text.contains "\x1b[6n" { terminal_write $terminal "\x1b[1;1R" }
+    $output = $output + $text
+    if $output.contains "APP hello" { $ready = true; break }
+}
+require $ready "custom REPL did not evaluate input"
+terminal_write $terminal "quit\r"
+let $reply = drain $terminal
+require ($reply["output"].contains "RETURNED") "custom REPL failed to return"
+let $reply = submit $terminal "echo SHELL_ALIVE"
+require ($reply["output"].contains "SHELL_ALIVE") "outer shell editor lost terminal state"
+terminal_write $terminal "\x04"
+let $reply = drain $terminal
+require $reply["eof"] "outer shell EOF stopped working"
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "nested readline changed shell exit status"

@@ -135,6 +135,18 @@ string interpolation and returned prompt strings, callable contracts, live closu
 imported callbacks, stdout isolation, temporary widget bindings, empty prompts,
 default initialization/fallback, and recovery across submissions.
 
+`native/readline*.shy` checks the scripted Reedline wrapper with real PTYs: prompt functions,
+Unicode and byte spans, blank/EOF/interrupt events, both editing modes, completion, validation,
+callback budgets and errors, isolated persistent history, stdout routing and managed pipelines.
+`repl/readline.shy` checks a custom REPL running within a shell submission and returning its
+terminal to the built-in editor.
+
+`native/openai_chat.shy` exercises the runnable OpenAI chat sample through real readline PTYs
+and a loopback HTTP/SSE fixture. It checks key/model flag precedence and environment fallback,
+cached model completion, Unicode multiline streaming, follow-up context, API-error recovery,
+explicit retry, instruction/reset commands, literal slashes, EOF and missing-key guidance.
+It sends no requests to the live OpenAI service.
+
 `native/` checks string methods, process results/settings, exact binary I/O,
 redirection, live exports, terminal identity/lifecycle, UTF-8 boundaries, deadlines,
 process-group cleanup, and Ctrl+C. `harness/` tests schema/result validation,
@@ -179,6 +191,11 @@ functions, live variables, aliases, native visibility, re-exported namespaces,
 private symbols, ordinary module imports, reload replacement/removal, binding
 conflicts, saved references, and retained module generations. The native and
 bundled-library tests also run the prelude's variadic `sum` through row pipelines.
+`native/optional_env.shy` checks optional native environment lookup without a usable PATH,
+missing versus empty values, explicit fallbacks, preserved whitespace and Unicode, live
+exports and private shadows, module scope, pipelines, cleanup, and invalid arguments.
+`repl/optional_env.shy` checks live exports across submissions, recovery after invalid
+names, and an imported widget reading the prompt's captured environment.
 `native/banner_sixel.shy` checks the optional Python/Pillow banner renderer's cell
 bounding boxes and pixel dimensions, control bytes, text layout, output files, and invalid inputs.
 It skips when Python or Pillow is unavailable; the harness orchestration remains in Shelly.
