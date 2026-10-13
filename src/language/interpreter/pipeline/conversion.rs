@@ -349,17 +349,23 @@ impl Interpreter
                     return types.coerce(signature.result, value).map(Some);
                 }
                 let source = types.inferred_value_type(value);
-                let method = types.conversion_method_name(source);
-                let Some(factory) = self.pipeline_type_factory(boundary, target, &method)
-                    else { return Ok(None); };
+                let available = self.has_captured_conversion(&boundary.location, target, source,
+                    &boundary.conversions).map_err(|error|
+                        {
+                            let message = error.what.to_string();
+                            failure = Some(error);
+                            message
+                        })?;
+                if !available { return Ok(None); }
                 self.last_result = None;
-                self.execute_value(&boundary.location, factory, vec![value.clone()])
+                self.convert_value(&boundary.location, target, value.clone(),
+                    &boundary.conversions, &Value::Integer(source.0 as i64))
                     .map_err(|error|
-                            {
-                                let message = error.what.to_string();
-                                failure = Some(error);
-                                message
-                            })?;
+                        {
+                            let message = error.what.to_string();
+                            failure = Some(error);
+                            message
+                        })?;
                 let converted = self.last_result.take().unwrap_or(Value::None);
                 types.coerce(target, converted).map(Some)
             }).map_err(|message|
@@ -389,10 +395,11 @@ impl Interpreter
                 location: stage.location.clone(), decode: None, annotation: None, type_id: None,
                 conversions: stage.conversions.clone(),
             };
-        let name = self.scope().types.conversion_method_name(source);
-        if let Some(factory) = self.pipeline_factory(&boundary, "String", &name)
+        let string = self.scope().types.builtin_id("String").unwrap();
+        if self.has_captured_conversion(&stage.location, string, source, &stage.conversions)?
         {
-            self.execute_value(&stage.location, factory, vec![value])?;
+            self.convert_value(&stage.location, string, value, &stage.conversions,
+                &Value::Integer(source.0 as i64))?;
             if let Some(Value::String(text, Executable::No)) = self.last_result.take()
             { return Ok(text.into_bytes()); }
         }

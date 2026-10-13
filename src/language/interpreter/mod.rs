@@ -4,6 +4,7 @@ mod call_stack;
 mod collection_types;
 mod conversions;
 mod exceptions;
+mod environment;
 mod interpreter;
 mod io;
 mod iteration;

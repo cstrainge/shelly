@@ -63,6 +63,13 @@ raw/dynamic/interpolated member access, enum defaults, and pipeline construction
 contract rollback, and recovery after constructor recursion across submissions.
 Existing struct fixtures mark their publicly constructed storage with `pub`.
 
+`native/typed_environment.shy` checks `let type`, prelude colon conversions, export
+status, collection mutations, all process-launch APIs, and conversion failures.
+`repl/typed_environment.shy` checks live closures, inherited module environments,
+retained method versions, and recovery after failed retyping across submissions.
+The conversion-protocol and pipeline tests cover source-side `to_<type>` methods,
+target-factory precedence, private receivers, and imported extensions.
+
 ## Process case records
 
 `native/colon_arguments.shy` verifies attached colons in command and alias words,

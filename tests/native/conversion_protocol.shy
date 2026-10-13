@@ -60,6 +60,26 @@ conversion_case "type Count = Integer; echo Count(\"7\")" "" "Expected Integer"
 conversion_case "type Count = Integer; fn Count::from_integer(\$v: Integer): Count { \$v + 1 }; let \$n: Integer = 7.5" "" "Expected Integer"
 conversion_case "fn Integer::from_string(\$v: String): Integer { exit 0 }; echo Integer(\"7\"); echo unreachable" "" ""
 
+
+# Source-side receiver conversions follow target-side factories and use private copies.
+conversion_case 'type Count = Integer; fn Count::to_string(): String { "count:" + String(Integer($self)) }; echo String(Count(7))' "count:7\n" ""
+conversion_case 'type Count = Integer; fn Count::to_string(): String { $self = Count(9); "changed" }; let $n = Count(7); echo String($n) Integer($n)' "changed 7\n" ""
+conversion_case 'fn Integer::to_string(): String { "source" }; fn String::from_integer($v: Integer): String { "target" }; echo String(7)' "target\n" ""
+conversion_case 'fn Integer::to_string(): String { "source" }; fn String::from_integer($v: Integer): String { let _ = 1 / 0; "target" }; echo String(7)' "" "zero"
+conversion_case 'enum Label { One }; fn Integer::to_label(): Label { Label::One }; echo Label(7)' "Label::One\n" ""
+conversion_case 'struct Label { pub value: Integer }; fn Integer::to_label(): Label { Label(value: $self) }; echo Label(7).value' "7\n" ""
+conversion_case 'fn Array::to_string(): String { $self = []; "array" }; let $a = [1,2]; echo String($a) $a.count' "array 2\n" ""
+conversion_case 'fn HashMap::to_string(): String { "hash" }; echo String(["x":1])' "hash\n" ""
+conversion_case 'fn Range::to_string(): String { "range" }; echo String(1..3)' "range\n" ""
+conversion_case 'fn Integer::to_string(): any { 7 }; echo String(7)' "" "Expected String"
+conversion_case 'fn Integer::to_string(): String { let _ = 1 / 0; "bad" }; echo String(7)' "" "zero"
+conversion_case 'fn Integer::to_String(): String { "bad" }' "" "lowercase"
+conversion_case 'fn Integer::to_(): String { "bad" }' "" "lowercase"
+conversion_case 'fn Integer::to_string($extra: Integer): String { "bad" }' "" "no arguments beyond"
+conversion_case 'fn Integer::to_string() {}' "" "must declare return type"
+conversion_case 'fn Integer::to_string(): Integer { 7 }' "" "must declare return type"
+conversion_case 'fn Integer::to_unknown(): String { "bad" }' "" "Unknown conversion target"
+
 let $fixture = $args[0]
 printf "%s" "pub type Count = Integer; pub fn Count::from_string(\$v: String): Count { Integer(\$v) + 1 }; fn Count::from_boolean(\$v: Boolean): Count { 42 }" -> "${fixture}/counts.shy"
 printf "%s" "pub type Count = Integer; pub fn Count::from_string(\$v: String): Count { Integer(\$v) + 2 }" -> "${fixture}/other.shy"
@@ -75,6 +95,13 @@ mkdir -p "${fixture}/std"
 printf "%s" "pub type PreludeCount = Integer; pub fn PreludeCount::from_string(\$v: String): PreludeCount { Integer(\$v) + 3 }" -> "${fixture}/std/prelude.shy"
 printf "%s" "pub fn value(): PreludeCount { PreludeCount(\"7\") }" -> "${fixture}/user.shy"
 conversion_case "import user; echo PreludeCount(\"7\") (user::value)" "10 10\n" ""
+
+conversion_case 'type Words = [String]; fn String::to_words(): Words { [$self] }; echo Words("x").count Words("x")[0]' "1 x\n" ""
+
+# Methods imported with public types also participate in source-side conversions.
+printf "%s" 'pub type Label = Integer; pub fn Label::to_string(): String { "public" }; type Hidden = Integer; fn Hidden::to_string(): String { "private" }; pub fn hidden(): Hidden { Hidden(1) }' -> "${fixture}/output_methods.shy"
+conversion_case 'import output_methods; echo String(output_methods::Label(7))' "public\n" ""
+conversion_case 'import output_methods; echo String((output_methods::hidden))' "1\n" ""
 
 # Collection source types select distinct factories.
 conversion_case "type Count = Integer; fn Count::from_array_integer(\$v: [Integer]): Count { \$v.count }; fn Count::from_array_string(\$v: [String]): Count { 9 }; echo Count([1,2]) Count([\"x\"])" "2 9\n" ""

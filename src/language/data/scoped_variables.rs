@@ -19,6 +19,17 @@ pub struct ScopedValue
     pub type_id: Option<TypeId>,
     pub exported: ValueVisibility,
     pub reference: Option<ValueReference>,
+    pub environment_conversion: Option<Rc<EnvironmentConversion>>,
+}
+
+
+// Retyping preserves the original environment representation and the selected methods.
+pub struct EnvironmentConversion
+{
+    pub original_type: TypeId,
+    pub value_type: TypeId,
+    pub methods: Value,
+    pub active: Cell<bool>,
 }
 
 
@@ -58,6 +69,7 @@ impl ValueReference
                         type_id: None,
                         exported: ValueVisibility::Private,
                         reference: None,
+                        environment_conversion: None,
                     })),
                 indexes: Vec::new(),
                 fields: Vec::new(),
@@ -89,6 +101,7 @@ impl ScopedVariables
                     type_id: None,
                     exported: ValueVisibility::Exported,
                     reference: None,
+                    environment_conversion: None,
                 };
 
             variables.insert(format!("${}", name), Rc::new(RefCell::new(scoped_value)));

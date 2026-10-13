@@ -1,0 +1,55 @@
+# Separate submissions preserve bindings, constraints and saved converter identities.
+let $fixture = $args[0]
+printf "%s" 'pub fn show() { echo $TYPED_ENV.value_type; printenv TYPED_ENV }' -> "${fixture}/typed_child.shy"
+printf "%s" 'pub type Count = Integer; pub fn Count::to_string(): String { "module-" + String(Integer($self)) }' -> "${fixture}/typed_methods.shy"
+mkdir -p "${fixture}/completion"
+ln -s -- `$shelly "${fixture}/completion/typed_environment_probe"
+let $terminal = open_terminal [`$shelly, "-m", "-b"] [
+    "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+        "TYPED_ENV": "one:two", "SHELLY_STD_PATH": "bundled",
+        "TERM": "xterm-256color", "LANG": "C.UTF-8"], "rows": 40, "columns": 140]
+let $initial = drain $terminal
+require (!$initial["eof"]) "typed environment session exited at startup"
+for ($source, $kind, $expected) in [
+    ['let $live = fn(): any { $TYPED_ENV }; let type $TYPED_ENV = [String]', "quiet", ""],
+    ['echo ($live).value_type $TYPED_ENV.count', "output", "String 2"],
+    ['import typed_child; typed_child::show', "output", "String"],
+    ['printenv TYPED_ENV', "output", "one:two"],
+    ['$TYPED_ENV[0] = "three"; printenv TYPED_ENV', "output", "three:two"],
+    ['$TYPED_ENV = [7]', "error", "Expected String"],
+    ['printenv TYPED_ENV', "output", "three:two"],
+    ['let export $bad = "7"; fn Integer::from_string($v: String): any { "bad" }; let type $bad = Integer', "error", "Expected Integer"],
+    ['echo $bad.type $bad; printenv bad', "output", "String 7"],
+    ['fn Array::to_string(): String { "new" }', "quiet", ""],
+    ['printenv TYPED_ENV; echo String($TYPED_ENV)', "output", "three:two"],
+    ['echo String($TYPED_ENV)', "output", "new"],
+    ['let type $PATH = [String]', "quiet", ""],
+    ['fn Array::to_string(): String { "later" }', "quiet", ""],
+    ['echo $PATH.value_type; printenv PATH', "error", "Executable not found"],
+    # Restore the original converter explicitly for a new adaptation.
+    ['fn Array::to_string(): String { let $out = ""; let $sep = ""; for $v in $self { $out = $out + $sep + $v; $sep = ":" }; $out }; let type $PATH = [String]', "quiet", ""],
+    ['$PATH = ["/bin", "/usr/bin"]; printenv PATH', "output", "/bin:/usr/bin"],
+    ['$PATH = ["<FIXTURE>/completion", $PATH...]; printenv PATH', "output", "<FIXTURE>/completion:/bin:/usr/bin"],
+    # A failed declaration leaves the prior binding and completion environment usable.
+    ['fn Array::from_string($v: String): any { [7] }; let type $bad = [String]', "error", "Expected String"],
+    ['echo $bad.type $bad', "output", "String 7"],
+    ['import typed_methods; echo String(typed_methods::Count(3))', "output", "module-3"],
+    ['fn Integer::to_string(): String { "first" }; fn saved($v: Integer): String { String($v) }', "quiet", ""],
+    ['fn Integer::to_string(): String { "second" }; echo (saved 7) String(7)', "output", "first second"]
+]
+{
+    let $reply = submit $terminal ($source.replace "<FIXTURE>" $fixture)
+    let $expected = $expected.replace "<FIXTURE>" $fixture
+    if $reply["eof"] || !(repl_matches $kind $expected $reply["output"])
+    { echo $source $reply["output"]; fail "typed environment REPL state differs" }
+}
+# The editor's refreshed PATH snapshot must also use the retained serializer.
+terminal_write $terminal "typed_environment_p\t -m -c \"echo completed\"\r"
+let $completed = drain $terminal
+if $completed["eof"] || !(repl_matches "output" "completed" $completed["output"])
+{ echo $completed["output"]; fail "completion did not use the typed PATH" }
+terminal_write $terminal "\x04"
+let $closed = drain $terminal
+require $closed["eof"] "Ctrl+D did not close the typed environment session"
+let $status = terminal_close $terminal
+require (($status["exit_code"] == 0) && ($status["signal"] == ())) "wrong typed environment exit"

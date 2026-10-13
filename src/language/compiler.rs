@@ -659,7 +659,10 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                         operand: Some(Value::from_array(vec![
                                 Value::Integer(id.0 as i64),
                                 method_snapshot_matching(function_block,
-                                    |key| key.starts_with(&method_key(id, "from_"))),
+                                    |key| key.starts_with(&method_key(id, "from_"))
+                                        || key.starts_with("\0method:")
+                                            && key.rsplit(':').next().is_some_and(|name|
+                                                name.starts_with("to_"))),
                                 conversion_source_hint(function_block, inner, source_type.get()),
                             ])),
                     });
@@ -1002,6 +1005,23 @@ fn compile_let_statement(
     let_statement: &AstLetStatement,
 ) -> CompileResult<()>
 {
+    if let_statement.retype
+    {
+        instructions.push(Instruction
+            {
+                location: Some(let_statement.location.clone()),
+                code: Code::RetypeVariable,
+                operand: Some(Value::from_array(vec![
+                        Value::from_string(let_statement.identifier.clone()),
+                        Value::Integer(let_statement.type_id.unwrap().0 as i64),
+                        method_snapshot_matching(function_block, |key|
+                            key.starts_with("\0method:") && key.rsplit(':').next()
+                                .is_some_and(|name| name.starts_with("from_")
+                                    || name.starts_with("to_"))),
+                    ])),
+            });
+        return Ok(());
+    }
     if let_statement.deferred_initialize
     {
         if let_statement.export_flag == AstExportFlag::Exported
@@ -1407,7 +1427,8 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     | Code::PublishSymbol | Code::TryExecute
                     | Code::RedirectSource
                     | Code::ExecuteIfExecutable | Code::MakeExecutable | Code::MakeClosure
-                    | Code::ToBoolean | Code::ConvertType | Code::BooleanNot | Code::MathNegate
+                    | Code::ToBoolean | Code::ConvertType | Code::RetypeVariable
+                    | Code::BooleanNot | Code::MathNegate
                     | Code::NextIteration | Code::MatchPattern | Code::MatchFail => false,
 
                     // Do not carry a proof across control-flow boundaries.

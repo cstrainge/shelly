@@ -34,6 +34,9 @@ fn semantic_absent($report: any, $raw: String): Boolean
     true
 }
 
+let $report = semantic_report 'let type $PATH = [String]; echo $PATH.count'
+require (semantic_has $report '$PATH' "Variable" "Array") "retyped variable not colored"
+require (semantic_has $report ".count" "Method" ()) "typed array method not colored"
 let $actual: String = "untouched"
 fn snapshot_function($x: Integer): String { "never called" }
 alias snapshot_alias = echo

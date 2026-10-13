@@ -220,6 +220,29 @@ fn parse_return_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
 fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     expect_token(buffer, TokenKind::Let)?;
+    if try_expect_token(buffer, TokenKind::Type)?.is_some()
+    {
+        let identifier = expect_token(buffer, TokenKind::Identifier)?;
+        buffer.annotate(identifier.span, SyntaxRole::Variable);
+        expect_token(buffer, TokenKind::Assign)?;
+        let annotation = parse_type(buffer)?;
+        expect_statement_end(buffer)?;
+        let name = identifier.token_value_text();
+        let expression = AstExpression
+            {
+                location: identifier.location.clone(),
+                kind: AstExpressionKind::Variable(AstSymbol { name: name.clone() }),
+                string_flag: None,
+            };
+        let mut statement = new_ast_let_statement(identifier.location,
+            AstExportFlag::NonExported, name, expression).unwrap();
+        if let AstStatement::LetStatement(item) = &mut statement
+        {
+            item.annotation = Some(annotation);
+            item.retype = true;
+        }
+        return Ok(Some(statement));
+    }
     let mut lookahead = Lookahead::new(buffer);
     let discard = lookahead.buffer.next()?.is_some_and(|token|
         {

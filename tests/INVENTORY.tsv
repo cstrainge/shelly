@@ -1762,7 +1762,7 @@ CONVERT-061	negative	matrix None to Array	tests/cases/negative/CONVERT-061.shy
 CONVERT-062	negative	matrix Integer to Array	tests/cases/negative/CONVERT-062.shy
 CONVERT-063	negative	matrix Float to Array	tests/cases/negative/CONVERT-063.shy
 CONVERT-064	negative	matrix Boolean to Array	tests/cases/negative/CONVERT-064.shy
-CONVERT-065	negative	matrix String to Array	tests/cases/negative/CONVERT-065.shy
+CONVERT-065	positive	matrix String to Array	tests/cases/positive/CONVERT-065.shy
 CONVERT-066	positive	matrix Array to Array	tests/cases/positive/CONVERT-066.shy
 CONVERT-067	positive	matrix ArgumentExpansion to Array	tests/cases/positive/CONVERT-067.shy
 CONVERT-068	negative	matrix HashMap to Array	tests/cases/negative/CONVERT-068.shy

@@ -40,6 +40,8 @@ fn roles($source: String, $expected: [String])
     if $actual != $expected { echo $source $actual $expected; fail "wrong grammar roles" }
 }
 
+roles 'let type $PATH = [String]' ["Keyword", "Keyword", "Variable", "Operator",
+    "Delimiter", "TypeName", "Delimiter"]
 roles "echo let" ["CommandName", "Argument"]
 roles "let \$let = 1; echo let \$let" ["Keyword", "VariableDeclaration", "Operator", "Literal",
     "Delimiter", "CommandName", "Argument", "Variable"]

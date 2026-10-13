@@ -344,7 +344,8 @@ fn check_scope(
                         statement.type_id = constant_value(registry, &statement.expression)
                             .and_then(|value| value.collection_type());
                     }
-                    if let Some(id) = statement.type_id && !statement.deferred_initialize
+                    if    let Some(id) = statement.type_id
+                       && !statement.deferred_initialize && !statement.retype
                     {
                         check_known_value(registry, id, &statement.expression)
                             .map_err(|message| error(&statement.location,
@@ -482,6 +483,27 @@ fn check_function(
         { return Err(error(&function.location, format!(
             "Conversion method '{}::{}' must declare return type {} or any",
             registry.get(target).name, function.name, registry.get(target).name))); }
+    }
+    if    function.receiver.is_some() && function.name.starts_with("to_")
+       && function.name != "to_json"
+    {
+        if function.name != function.name.to_lowercase() || function.name == "to_"
+        { return Err(error(&function.location,
+            "Conversion method names must be lowercase: to_<target_type>".into())); }
+        if function.parameters.len() != 1
+        { return Err(error(&function.location,
+            "Output conversion methods must accept no arguments beyond their receiver".into())); }
+        let target_name = function.name.strip_prefix("to_").unwrap();
+        let target = names.iter().find(|(name, _)| name.to_lowercase() == target_name)
+            .map(|(_, id)| *id).or_else(|| registry.output_conversion_target(&function.name))
+            .ok_or_else(|| error(&function.location,
+                format!("Unknown conversion target in '{}'", function.name)))?;
+        if    !function.return_type.is_some_and(|id| registry.valid_conversion_result(target, id))
+           && function.return_type != registry.builtin_id("any")
+        { return Err(error(&function.location, format!(
+            "Conversion method '{}::{}' must declare return type {} or any",
+            registry.get(function.receiver_type.unwrap()).name, function.name,
+            registry.get(target).name))); }
     }
     if function.receiver.is_some() && function.name == "next_item"
     {
@@ -1581,6 +1603,13 @@ fn check_binding_scope(
         {
             AstStatement::LetStatement(item) =>
                 {
+                    if item.retype
+                    {
+                        // Conversion executes at runtime; subsequent uses see the new constraint.
+                        forget_inferred(&mut bindings);
+                        bindings.insert(item.identifier.clone(), Binding::declared(item.type_id));
+                        continue;
+                    }
                     if item.deferred_initialize
                     {
                         bindings.insert(item.identifier.clone(), Binding::declared(item.type_id));

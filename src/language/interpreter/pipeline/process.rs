@@ -40,13 +40,15 @@ fn nonblocking(fd: RawFd) -> Result<(), Error>
 impl External
 {
     pub fn new(interpreter: &mut Interpreter, stage: &PipelineStage, name: &str,
-               arguments: &[Value], source: bool) -> InterpreterResult<Self>
+               arguments: &[Value], source: bool) -> InterpreterResult<Option<Self>>
     {
+        let environment = interpreter.exported_environment(&stage.location)?;
+        if interpreter.halted { return Ok(None); }
         let executable = interpreter.eval_path_from(name);
         let mut command = Command::new(&executable);
         command.args(arguments.iter()
                 .map(|argument| interpreter.eval_path_from(&argument.as_text())))
-            .env_clear().envs(interpreter.exported_environment(&stage.location)?)
+            .env_clear().envs(environment)
             .stdin(if source { Stdio::inherit() } else { Stdio::piped() })
             .stdout(Stdio::piped()).stderr(Stdio::inherit());
         let depth = interpreter.redirections.len();
@@ -96,7 +98,7 @@ impl External
             .map_err(|error| Interpreter::redirection_error(&stage.location, error))?; }
         if let Some(output) = &stream.output { nonblocking(output.as_raw_fd())
             .map_err(|error| Interpreter::redirection_error(&stage.location, error))?; }
-        Ok(stream)
+        Ok(Some(stream))
     }
 
     pub fn wants_input(&self) -> bool

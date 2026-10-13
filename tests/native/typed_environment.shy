@@ -1,0 +1,82 @@
+# Retyped bindings retain their environment representation across every process API.
+fn typed_environment_case($source: String, $stdout: String, $diagnostic: String,
+                          $standard: String | ())
+{
+    let $fixture = $args[0]
+    let $standard = if $standard == () { "bundled" } else { $standard }
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "TYPED_ENV": "a::b:", "TEST_DIRECTORY": $fixture,
+            "SHELLY_STD_PATH": $standard, "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($out != $stdout) || ($reply["exit_code"] != $status) ||
+        ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"] ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $reply $out $err; fail "typed environment mismatch" }
+}
+
+typed_environment_case 'echo (String(Array(":é::世界:")) == ":é::世界:")' "true\n" ""
+typed_environment_case 'let type $PATH = [String]; echo $PATH.value_type $PATH.count; printenv PATH' "String 2\n/usr/bin:/bin\n" ""
+typed_environment_case 'let type $TYPED_ENV = [String]; echo $TYPED_ENV.count $TYPED_ENV[1].chars.count $TYPED_ENV[3].chars.count; printenv TYPED_ENV' "4 0 0\na::b:\n" ""
+typed_environment_case 'let type $PATH = [String]; $PATH = ["/bin", "/usr/bin"]; printenv PATH' "/bin:/usr/bin\n" ""
+typed_environment_case 'let type $PATH = [String]; $PATH[0] = "/bin"; printenv PATH' "/bin:/bin\n" ""
+typed_environment_case 'let type $TYPED_ENV = [String]; $TYPED_ENV.push "first"; printenv TYPED_ENV' "first:a::b:\n" ""
+typed_environment_case 'let type $TYPED_ENV = [String]; $TYPED_ENV = []; printenv TYPED_ENV; echo $TYPED_ENV.value_type' "\nString\n" ""
+typed_environment_case 'let $local = "one:two"; let type $local = [String]; echo $local...; let $r = run_process ["printenv", "local"] [:]; echo $r["exit_code"]' "one two\n1\n" ""
+typed_environment_case 'let export $local = "one:two"; let type $local = [String]; printenv local' "one:two\n" ""
+typed_environment_case 'let type $PATH = [String]; let $out: String; printenv PATH | cat | $out; echo $out.trim' "/usr/bin:/bin\n" ""
+typed_environment_case 'let type $TYPED_ENV = [String]; let $file = "${TEST_DIRECTORY}/native.out"; let $r = run_process ["printenv", "TYPED_ENV"] ["stdout_file": $file]; let $out: String; $file -> $out; echo $r["exit_code"] $out.trim' "0 a::b:\n" ""
+typed_environment_case 'let type $TYPED_ENV = [String]; let $r = run_process ["printenv", "TYPED_ENV"] ["env": ["TYPED_ENV": "override"]]; echo $r["exit_code"]' "override\n0\n" ""
+typed_environment_case 'let type $TYPED_ENV = [String]; let $terminal = open_terminal ["/usr/bin/printenv", "TYPED_ENV"] [:]; let $out = ""; for _ in 0..30 { let $r = terminal_read $terminal 100; $out = $out + $r["text"]; if $r["eof"] { break } }; let $r = terminal_close $terminal; echo $out.trim $r["exit_code"]' "a::b: 0\n" ""
+
+# Retyping does not replace the live binding or change captured converter versions.
+typed_environment_case 'fn add() { $TYPED_ENV.push "last" }; let type $TYPED_ENV = [String]; add; printenv TYPED_ENV' "last:a::b:\n" ""
+typed_environment_case 'let type $TYPED_ENV = [String]; fn Array::to_string(): String { "new" }; printenv TYPED_ENV; echo String($TYPED_ENV)' "a::b:\nnew\n" ""
+typed_environment_case 'fn String::from_array_string($v: [String]): String { "target" }; let type $TYPED_ENV = [String]; printenv TYPED_ENV' "target\n" ""
+typed_environment_case 'let export $n = "7"; let type $n = Integer; $n = 8; printenv n; echo $n.type' "8\nInteger\n" ""
+typed_environment_case 'let type $TYPED_ENV = [String]; let type $TYPED_ENV = String; $TYPED_ENV = "changed"; printenv TYPED_ENV; echo $TYPED_ENV.type' "changed\nString\n" ""
+
+# Strict syntax, type constraints and converter failures never use display fallback.
+typed_environment_case 'let type $missing = [String]' "" "undefined variable"
+typed_environment_case 'let type $PATH = [String]; $PATH = "bad"' "" "Expected [String]"
+typed_environment_case 'let type $PATH = [String]; $PATH[0] = 7' "" "Expected String"
+typed_environment_case 'let type $PATH = [String]; $PATH.push 7' "" "Expected String"
+typed_environment_case 'let type $PATH = UnknownType' "" "Unknown type"
+typed_environment_case 'let type $PATH = [String] extra' "" "Expected token"
+typed_environment_case 'let type $PATH' "" "expected token: Assign"
+typed_environment_case 'let type $PATH = [String]' "" "No reverse conversion" ""
+typed_environment_case 'fn Array::from_string($v: String): Array { [] }; let type $PATH = [String]' "" "No reverse conversion" ""
+typed_environment_case 'fn Array::from_string($v: String): [String] { let _ = 1 / 0; [] }; let type $PATH = [String]' "" "zero"
+typed_environment_case 'fn Array::to_string(): String { let _ = 1 / 0; "" }; let type $PATH = [String]; /usr/bin/printenv PATH' "" "zero"
+typed_environment_case 'fn Array::to_string(): String { /usr/bin/printenv PATH; "" }; let type $PATH = [String]; /usr/bin/printenv PATH' "" "Recursive environment conversion"
+typed_environment_case 'fn Array::to_string(): any { 7 }; let type $PATH = [String]; /usr/bin/printenv PATH' "" "Expected String"
+
+# Dynamic values still require a real structured serializer, never display fallback.
+typed_environment_case 'let type $TYPED_ENV = any; $TYPED_ENV = ["x":1]; /usr/bin/printenv TYPED_ENV' "" "No reverse conversion"
+typed_environment_case 'fn Array::from_string($v: String): Array { [] }; let type $PATH = Array' "" "No reverse conversion" ""
+
+# Explicit exits in converters stop evaluation before a child is launched.
+typed_environment_case 'fn Array::from_string($v: String): [String] { exit 0 }; let type $PATH = [String]; /usr/bin/printf launched' "" ""
+typed_environment_case 'fn Array::to_string(): String { exit 0 }; let type $PATH = [String]; /usr/bin/printf launched' "" ""
+typed_environment_case 'fn Array::to_string(): String { exit 0 }; let type $PATH = [String]; run_process ["/usr/bin/printf", "launched"] [:]' "" ""
+typed_environment_case 'fn Array::to_string(): String { exit 0 }; let type $PATH = [String]; open_terminal ["/usr/bin/printf", "launched"] [:]' "" ""
+typed_environment_case 'fn Array::to_string(): String { exit 0 }; let type $PATH = [String]; /usr/bin/printf launched | cat' "" ""
+
+# Explicit environments and existing terminal handles do not serialize unused exports.
+typed_environment_case 'fn Array::to_string(): String { let _ = 1 / 0; "" }; let type $PATH = [String]; let $r = run_process ["/usr/bin/printenv", "PATH"] ["env": ["PATH": "override"]]; if $r["exit_code"] != 0 { exit 1 }' "override\n" ""
+typed_environment_case 'fn Array::to_string(): String { let _ = 1 / 0; "" }; let type $PATH = [String]; let $t = open_terminal ["/usr/bin/printenv", "PATH"] ["env": ["PATH": "override"]]; let $out = ""; for _ in 0..30 { let $r = terminal_read $t 100; $out = $out + $r["text"]; if $r["eof"] { break } }; let $r = terminal_close $t; if ($out.trim != "override") || ($r["exit_code"] != 0) { exit 1 }' "" ""
+
+# The forward direction can also be owned by the String source.
+typed_environment_case 'fn String::to_array_string(): [String] { $self.split ":" }; fn Array::to_string(): String { "custom" }; let type $TYPED_ENV = [String]; /usr/bin/printenv TYPED_ENV; echo $TYPED_ENV.value_type $TYPED_ENV.count' "custom\nString 4\n" "" ""
+
+# Retyping preserves a module's public interface as well as child-process exports.
+let $fixture = $args[0]
+printf "%s" 'pub let export $DATA = "a:b"; let type $DATA = [String]' -> "${fixture}/typed_owner.shy"
+typed_environment_case 'import typed_owner::{ $DATA }; echo $DATA.value_type; printenv DATA; $DATA.push "first"; printenv DATA' "String\na:b\nfirst:a:b\n" ""

@@ -414,12 +414,33 @@ impl TypeRegistry
 
     pub fn has_conversion(&self, target: TypeId, source: TypeId) -> bool
     {
-        self.has_conversion_method(target, &self.conversion_method_name(source))
+        let name = self.conversion_method_name(source);
+        let target_has = self.has_conversion_method(target, &name)
+            || matches!(self.get(target).kind,
+                TypeKind::Array(_) | TypeKind::FixedArray(_) | TypeKind::Map(_, _))
+                && self.has_conversion_method(self.method_types(target)[0], &name);
+        target_has || self.method_types(source).into_iter().any(|id|
+            self.extensions.contains(&(id, self.output_conversion_method_name(target))))
     }
 
     pub fn conversion_method_name(&self, source: TypeId) -> String
     {
         format!("from_{}", self.conversion_source_name(source))
+    }
+
+    pub fn output_conversion_method_name(&self, target: TypeId) -> String
+    {
+        format!("to_{}", self.conversion_source_name(target))
+    }
+
+    pub fn output_conversion_target(&self, name: &str) -> Option<TypeId>
+    {
+        let target = name.strip_prefix("to_")?;
+        self.definitions.borrow().iter()
+            .find(|definition| matches!(definition.kind,
+                TypeKind::Array(_) | TypeKind::FixedArray(_) | TypeKind::Map(_, _))
+                && self.conversion_source_name(definition.id) == target)
+            .map(|definition| definition.id)
     }
 
     pub fn collection_source_type(&self, declared: TypeId, value: &Value) -> Option<TypeId>
@@ -476,7 +497,9 @@ impl TypeRegistry
 
     pub fn has_conversion_methods(&self, target: TypeId) -> bool
     {
-        self.extensions.iter().any(|(id, name)| *id == target && is_conversion_method(name))
+        self.extensions.iter().any(|(id, name)|
+            (*id == target && is_conversion_method(name))
+                || *name == self.output_conversion_method_name(target))
     }
 
     pub fn register_method(&mut self, receiver: TypeId, method: BuiltinMethod)
@@ -730,6 +753,9 @@ impl TypeRegistry
         }
         match &self.get(result).kind
         {
+            TypeKind::Array(_) | TypeKind::FixedArray(_)
+                if Some(target) == self.builtin_id("Array") => true,
+            TypeKind::Map(_, _) if Some(target) == self.builtin_id("HashMap") => true,
             TypeKind::Union(items) => items
                 .iter()
                 .all(|id| self.valid_conversion_result(target, *id)),

@@ -651,6 +651,7 @@ impl Interpreter
             {
                 value: Value::from_array(Vec::new()), type_id: None,
                 exported: ValueVisibility::Private, reference: None,
+                environment_conversion: None,
             });
         self.scopes.insert(key.to_string(), scope);
         self.module_sources.insert(key.to_string(), source.clone());

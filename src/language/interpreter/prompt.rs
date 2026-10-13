@@ -121,6 +121,7 @@ impl Interpreter
             {
                 // Only return values contribute widget text, not printed stdout.
                 let environment = self.exported_environment(&location)?;
+                if self.halted { return Ok(None); }
                 let previous_environment = self.widget_environment.replace(environment);
                 let (rendered, _) = self.capture_stdout(|interpreter|
                     interpreter.render_widgets(&location));
@@ -146,6 +147,7 @@ impl Interpreter
                         type_id: scope.types.builtin_id("String"),
                         exported: ValueVisibility::Private,
                         reference: None,
+                        environment_conversion: None,
                     });
                 let binding = scope.variables.binding("$rendered_widgets").unwrap();
                 let previous_widgets = self.prompt_widgets.replace(binding);

@@ -260,8 +260,8 @@ impl<'a> StageStream<'a>
             { executable = Value::String(name, Executable::Native(function)); }
             else
             {
-                let mut external = External::new(interpreter, self.stage, &name, &arguments,
-                    self.index == 0)?;
+                let Some(mut external) = External::new(interpreter, self.stage, &name, &arguments,
+                    self.index == 0)? else { return Ok(Step::End); };
                 self.per_item_external = self.index > 0 && self.stage.input_used;
                 if self.per_item_external { external.close_input(); }
                 else { self.pending = data; }

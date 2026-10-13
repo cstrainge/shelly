@@ -167,6 +167,29 @@ pub fn Float::sum($args: Float...): Float
 }
 
 
+# Convert colon-separated text into an array, preserving empty entries.
+pub fn Array::from_string($value: String): [String]
+{
+    $value.split ":"
+}
+
+
+# Convert a string array back into colon-separated text.
+pub fn Array::to_string(): String
+{
+    let $text = ""
+    let $separator = ""
+
+    for $value in $self
+    {
+        $text = $text + $separator + String($value)
+        $separator = ":"
+    }
+
+    $text
+}
+
+
 # Check to see if an array is empty.
 pub fn Array::empty(): Boolean
 {

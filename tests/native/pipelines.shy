@@ -145,3 +145,8 @@ pipeline_case "let \$long: String; printf \"%9000s\" a -> \$long; fn pieces(\$ro
 pipeline_case "let \$status = printf hello | /not/a/program; echo \$status" "" "Executable not found"
 pipeline_case "struct Row { pub n: Integer }; let \$rows: [Row]; printf \"n\\n1\\n2\\n\" csv:|:Row \$rows; echo \$rows[0].n \$rows[1].n" "1 2\n" ""
 pipeline_case "let \$out: String; fn prepend(\$row: [String]): String { \$row[0] + \"\\n\" }; printf \"a,b\\nc,d\\n\" csv:| prepend | cat | \$out; echo \$out" "a\nc\n\n" ""
+
+# Source-owned converters participate at external boundaries and in row mapping.
+pipeline_case 'type Packet = Integer; fn Packet::to_string(): String { "packet" }; [Packet(7)] | cat' "packet" ""
+pipeline_case 'type Packet = Integer; fn Packet::to_string(): String { "source" }; fn String::from_packet($v: Packet): String { "target" }; [Packet(7)] | cat' "target" ""
+pipeline_case 'enum State { Ready }; fn String::to_state(): State { State::Ready }; struct Row { pub state: State }; let $out: [Row]; printf "state\\nready\\n" csv:|:Row $out; echo $out[0].state' "State::Ready\n" ""

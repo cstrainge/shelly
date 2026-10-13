@@ -169,6 +169,40 @@ catch ($stack, $error: DomainFailure)
     require ($stack.related[0].error.original_type == FirstFailure) "source type lost"
 }
 
+# Source-owned error conversions transfer the same obligation and preserve its cause.
+fn FirstFailure::to_secondfailure(): SecondFailure
+{
+    SecondFailure(code: 17)
+}
+try
+{
+    let $source: FirstFailure = produce_failure "source conversion"
+    let $replacement: SecondFailure = SecondFailure($source)
+}
+catch ($stack, $error: SecondFailure)
+{
+    require ($error.code == 17) "source conversion did not replace the error"
+    require ($stack.related.count == 1) "source conversion duplicated its obligation"
+    require ($stack.related[0].relation == "Cause") "source conversion cause missing"
+    require ($stack.related[0].error.original_type == FirstFailure) "source conversion type lost"
+}
+
+fn SecondFailure::to_domainfailure(): any
+{
+    DomainFailure(message: "Source: " + String($self.code))
+}
+try
+{
+    let $source: SecondFailure = SecondFailure(code: 19)
+    let $replacement: DomainFailure = DomainFailure($source)
+}
+catch ($stack, $error: DomainFailure)
+{
+    require ($error.message == "Source: 19") "dynamic source conversion did not run"
+    require ($stack.related.count == 1) "dynamic source conversion duplicated its cause"
+    require ($stack.related[0].error.original_type == SecondFailure) "dynamic cause type lost"
+}
+
 fn fallible_callback($value: any): Integer | FirstFailure
 {
     produce_failure "callback"

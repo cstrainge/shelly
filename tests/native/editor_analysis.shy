@@ -129,7 +129,8 @@ for $source in ["let \$x = ; echo let", "echo <- file\necho let", "pub echo bad;
 
 # Walk every edit position in representative constructs, including quotes and Unicode.
 for $source in ["fn f(\$x: [Integer]): String { echo let; \"é猫\" }",
-    "import std::net::{ ping } when \$os == \"linux\"", "\$input csv:|:Response consume \$"]
+    "import std::net::{ ping } when \$os == \"linux\"", "\$input csv:|:Response consume \$",
+    "let type \$PATH = [String]"]
 {
     let $prefix = ""
     for $character in $source.chars

@@ -260,6 +260,8 @@ pub struct AstLetStatement
     pub type_id: Option<TypeId>,
     pub default_initialize: bool,
     pub deferred_initialize: bool,
+    // Retype an existing binding and retain its external representation.
+    pub retype: bool,
     pub expression: AstExpression,
 }
 
@@ -386,6 +388,7 @@ pub fn new_ast_let_statement(
             type_id: None,
             default_initialize: false,
             deferred_initialize: false,
+            retype: false,
             expression,
         })))
 }
@@ -663,7 +666,8 @@ impl AstStatement
     {
         Some(match self
             {
-                Self::LetStatement(item) => (&item.identifier, &item.location, item.public),
+                Self::LetStatement(item) if !item.retype || item.public =>
+                    (&item.identifier, &item.location, item.public),
                 Self::FunctionDefinition(item) => (&item.name, &item.location, item.public),
                 Self::StructDeclaration(item) => (&item.name, &item.location, item.public),
                 Self::EnumDeclaration(item) => (&item.name, &item.location, item.public),

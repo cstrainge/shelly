@@ -1,17 +1,67 @@
-use crate::language::{
-    data::{
-        map_key::MapKey,
-        methods::{method_key, conversion_key},
-        types::{TypeId, TypeKind},
-        value::{Executable, Value},
-    },
-    interpreter::{ErrorWhat, Interpreter, InterpreterError, InterpreterResult},
-    text::location::Location,
-};
+
+use crate::language::{ bytecode::FunctionRef,
+                       data::{ map_key::MapKey, methods::{ method_key, conversion_key },
+                               scoped_variables::ValueReference, types::{ TypeId, TypeKind },
+                               value::{ Executable, Value } },
+                       interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult },
+                       text::location::Location };
 
 
 impl Interpreter
 {
+    // A captured method set must not acquire definitions added by a later REPL submission.
+    pub(super) fn conversion_function(&self, location: &Location, owner: TypeId,
+                                     name: &str, source: Option<TypeId>, snapshot: &Value)
+        -> InterpreterResult<Option<FunctionRef>>
+    {
+        let Value::HashMap(methods) = snapshot else { return Ok(None); };
+        let plain = method_key(owner, name);
+        let typed = source.map(|id| conversion_key(owner, name, id));
+        let key = typed.as_ref().filter(|key| methods.contains_key(&MapKey::String((*key).clone())))
+            .unwrap_or(&plain);
+        match methods.get(&MapKey::String(key.clone()))
+        {
+            Some(Value::String(_, Executable::Function(function))) => Ok(Some(function.clone())),
+            Some(Value::None) => self.scope().lexical_function(key)
+                .or_else(|| self.scope().imported_methods.get(key).cloned())
+                .or_else(|| self.module_method(owner, key))
+                .map(Some).ok_or_else(|| InterpreterError::new(location.clone(),
+                    ErrorWhat::InvalidOperand(format!(
+                        "Conversion method '{}::{}' is unavailable during module initialization",
+                        self.scope().types.get(owner).name, name)))),
+            _ => Ok(None),
+        }
+    }
+
+    pub(super) fn conversion_owners(&self, target: TypeId) -> Vec<TypeId>
+    {
+        match self.scope().types.get(target).kind
+        {
+            TypeKind::Array(_) | TypeKind::FixedArray(_) | TypeKind::Map(_, _) =>
+                vec![target, self.scope().types.method_types(target)[0]],
+            _ => vec![target],
+        }
+    }
+
+    pub(super) fn has_captured_conversion(&self, location: &Location, target: TypeId,
+                                         source: TypeId, snapshot: &Value)
+        -> InterpreterResult<bool>
+    {
+        let name = self.scope().types.conversion_method_name(source);
+        for owner in self.conversion_owners(target)
+        {
+            if self.conversion_function(location, owner, &name, Some(source), snapshot)?.is_some()
+            { return Ok(true); }
+        }
+        let name = self.scope().types.output_conversion_method_name(target);
+        for owner in self.scope().types.method_types(source)
+        {
+            if self.conversion_function(location, owner, &name, None, snapshot)?.is_some()
+            { return Ok(true); }
+        }
+        Ok(false)
+    }
+
     pub(super) fn convert_value(
         &mut self,
         location: &Location,
@@ -40,48 +90,19 @@ impl Interpreter
         let source = declared.and_then(|id| self.scope().types.collection_source_type(id, &value))
             .unwrap_or_else(|| self.scope().types.inferred_value_type(&value));
         let name = self.scope().types.conversion_method_name(source);
-        let plain = method_key(target, &name);
-        let typed = conversion_key(target, &name, source);
-        let key = if let Value::HashMap(methods) = snapshot
-            && methods.contains_key(&MapKey::String(typed.clone()))
+        let mut factory = None;
+        for owner in self.conversion_owners(target)
         {
-            typed
-        }
-        else
-        {
-            plain
-        };
-        let bound = match snapshot
+            if let Some(function) =
+                self.conversion_function(location, owner, &name, Some(source), snapshot)?
             {
-                Value::HashMap(methods) => methods.get(&MapKey::String(key.clone())),
-                _ => None,
-            };
-        let function = match bound
-            {
-                Some(Value::String(_, Executable::Function(function))) => Some(function.clone()),
-                // A declaration without a compiled body is resolved in the captured
-                // lexical scope. An absent entry must not acquire a later REPL definition.
-                Some(Value::None) => self.scope().lexical_function(&key)
-                    .or_else(|| self.scope().imported_methods.get(&key).cloned())
-                    .or_else(|| self.module_method(target, &key)),
-                _ => None,
-            };
-        if matches!(bound, Some(Value::None)) && function.is_none()
-        {
-            return Err(InterpreterError::new(
-                location.clone(),
-                ErrorWhat::InvalidOperand(
-                    format!(
-                        "Conversion method '{}::{}' is unavailable during module initialization",
-                        self.scope().types.get(target).name,
-                        name
-                    )
-                )
-            ));
+                factory = Some((owner, function));
+                break;
+            }
         }
-        let converted = if let Some(function) = function
+        let converted = if let Some((owner, function)) = factory
         {
-            let display = format!("{}::{}", self.scope().types.get(target).name, name);
+            let display = format!("{}::{}", self.scope().types.get(owner).name, name);
             self.execute_function(location, &display, &function, &[value])?;
             if self.halted { return Ok(()); }
             let result = self.last_result.take().unwrap_or(Value::None);
@@ -91,7 +112,49 @@ impl Interpreter
         }
         else
         {
-            self.scope().types.convert(target, &value)
+            let name = self.scope().types.output_conversion_method_name(target);
+            let mut method = None;
+            for owner in self.scope().types.method_types(source)
+            {
+                if let Some(function) =
+                    self.conversion_function(location, owner, &name, None, snapshot)?
+                {
+                    method = Some((owner, function));
+                    break;
+                }
+            }
+            if let Some((owner, function)) = method
+            {
+                let mut receiver = value;
+                while let Value::Named(item) = &receiver
+                {
+                    if item.definition.id == owner { break; }
+                    receiver = item.value.clone();
+                }
+                let reference = ValueReference::temporary(receiver.clone());
+                let display = format!("{}::{}", self.scope().types.get(owner).name, name);
+                let arguments = [receiver];
+                let mut result = self.execute_function_with_receiver(location, &display, &function,
+                    &arguments, Some(&reference));
+                if    function.return_type == self.scope().types.builtin_id("any")
+                   && self.scope().types.has_error_type(target)
+                   && self.scope().types.success_type(target).is_none()
+                { self.conversion_causes(location, &arguments, &mut result); }
+                result?;
+                if self.halted { return Ok(()); }
+                let result = self.last_result.take().unwrap_or(Value::None);
+                if crate::language::data::failure::pending(&result).is_some()
+                { self.last_result = Some(result); return Ok(()); }
+                self.scope().types.coerce(target, result)
+            }
+            else if matches!(self.scope().types.get(target).kind,
+                TypeKind::Array(_) | TypeKind::FixedArray(_) | TypeKind::Map(_, _))
+            {
+                let base = self.scope().types.method_types(target)[0];
+                self.scope().types.convert(base, &value)
+                    .and_then(|value| self.scope().types.coerce(target, value))
+            }
+            else { self.scope().types.convert(target, &value) }
         };
         self.last_result = Some(converted.map_err(|message| InterpreterError::new(
             location.clone(),

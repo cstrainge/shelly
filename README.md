@@ -125,7 +125,7 @@ String factories accept one row or an array of rows.
 
 At an unannotated external boundary, Strings pass directly and other values need
 the existing String conversion protocol. Structured arrays, hashes, and structs
-need an explicit encoding or a matching String conversion factory. Unannotated
+need an explicit encoding or a matching String conversion method. Unannotated
 external output entering a Shelly stage becomes a String after EOF; invalid UTF-8
 is an error there. Bytes between external programs are preserved without UTF-8
 conversion. External stages with explicit `$` arguments run once per incoming
@@ -1463,8 +1463,10 @@ numeric code, so it cannot convert to an integer or float.
 
 Collection conversions preserve elements without converting them. Arrays and
 argument expansions share their reference-counted storage; writes retain value
-semantics. Bounded ranges materialize their integer elements. Other collection
-conversions, including arrays of pairs to maps, are errors.
+semantics. Bounded ranges materialize their integer elements. Other built-in collection
+conversions, including arrays of pairs to maps, are errors. Scripted conversion
+methods can add alternatives; the prelude also supports colon-separated String
+and Array conversions.
 
 ```text
 let $count: Integer = Integer("42")
@@ -1484,7 +1486,9 @@ declaration with a builtin name shadows that conversion. Resolved conversion
 targets and conversion-method versions remain fixed in previously compiled functions.
 
 Explicit `Target(value)` conversions first look for a factory on the target type
-named `from_<source_type>`, using the source type's name in lowercase. For example:
+named `from_<source_type>`. If absent, they look for a zero-argument receiver method
+`Source::to_<target_type>`, then use the built-in conversion rules. Both names use
+lowercase type names. For example:
 
 ```javascript
 type Count = Integer
@@ -1546,10 +1550,29 @@ use the same spelling recursively, such as `from_array_array_integer` and
 `from_hash_string_array_integer`. A distinct named collection type keeps its own
 name: `type Numbers = [Integer]` selects `from_numbers`.
 
-A matching factory runs before existing conversion rules, even when the source
-already has the target type. If none exists, the existing rules apply. A factory
-error propagates without trying a fallback. Annotations and assignments continue
-using their normal coercion rules; they do not invoke conversion factories.
+Source-side conversions keep the implementation on the source type:
+
+```javascript
+type Count = Integer
+pub fn Count::to_string(): String
+{
+    "count:" + String(Integer($self))
+}
+
+echo String(Count(7))  # count:7
+```
+
+A `to_<target_type>` method declares the target return type or `any`, accepts no
+arguments beyond `$self`, and runs on a private receiver copy during conversion.
+Its result is checked against the requested target. Collections use the same type
+spelling in destination names, such as `to_array_string` or `to_hash_string_integer`.
+The prelude supplies `Array::from_string` and `Array::to_string` for colon-separated
+text, preserving empty entries and their order.
+
+A matching target factory takes precedence over a source method, even when the source
+already has the target type. Conversion errors propagate without trying the next
+alternative. Annotations and assignments continue using their normal coercion rules;
+they do not invoke conversion methods. `let type` explicitly converts an existing binding.
 Factories can also be called as `Count::from_string "7"` or stored as function
 references. Use `pub fn Count::from_string(...)` to make a factory available to
 importers; private factories remain in their defining module.
@@ -2485,6 +2508,31 @@ Shelly imports the environment. New variables are private unless declared with
 ```text
 let export $SHELLY_PROJECT = 'shelly'
 ```
+
+Use `let type` to convert an existing binding while retaining its original
+representation for child processes:
+
+```javascript
+let type $PATH = [String]
+$PATH = ["/opt/tools/bin", $PATH...]
+printenv PATH  # A colon-separated String containing the current entries.
+```
+
+This declaration preserves the binding and its export status, converts its current
+value using the normal conversion protocol, and enforces the new type on later
+assignments and mutations. Children receive a conversion of the current value back
+to its original type. The selected conversion methods remain fixed for that binding;
+a later method redefinition does not change its serialization. The prelude's array
+conversion pair makes the PATH example work after the prelude has loaded, such as
+in the user's RC file.
+
+The binding must already exist. Missing reverse conversions and failed conversions
+are errors; a failed declaration leaves its old value and constraint unchanged.
+Structured values require a reverse converter rather than display-text fallback.
+Retyping a private variable does not export it. Native process and terminal APIs
+inherit the converted exports too; explicit `env` maps retain their String values
+and replace that environment as usual.
+
 
 Useful predefined variables include `$args`, `$pid`, `$pwd`, `$HOSTNAME`, `$HOME`, `$PATH`,
 `$shelly` (an executable reference to this binary), `$version`, `$os` (also `$OS`),

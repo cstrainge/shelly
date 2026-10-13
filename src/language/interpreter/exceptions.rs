@@ -943,6 +943,7 @@ impl Interpreter
                     type_id,
                     exported: ValueVisibility::Private,
                     reference: None,
+                    environment_conversion: None,
                 },
             )
             .map_err(|message| {

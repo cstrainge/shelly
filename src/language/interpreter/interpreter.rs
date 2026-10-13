@@ -479,30 +479,6 @@ impl Interpreter
             .expect("The current scope must be registered.")
     }
 
-    pub(super) fn exported_environment(&self, location: &Location)
-        -> InterpreterResult<Vec<(String, String)>>
-    {
-        if let Some(environment) = &self.widget_environment { return Ok(environment.clone()); }
-        self.scope().variables.get_all_flattened()
-            .iter()
-            .filter(|(_, value)| value.exported == ValueVisibility::Exported)
-            .map(|(key, _)|
-                {
-                    let text = self.read_raw_variable(key, location)?.as_text();
-                    let text = if key == "$PATH"
-                        {
-                            self.eval_path_list_from(&text)
-                        }
-                        else
-                        {
-                            self.eval_path_from(&text)
-                        };
-
-                    Ok((key.strip_prefix('$').unwrap_or(key.as_str()).to_string(), text))
-                })
-            .collect()
-    }
-
     pub fn new(startup: Startup,
                interactive: Interactive,
                color_mode: TtyColorMode,
@@ -545,7 +521,16 @@ impl Interpreter
         {
             bodies.insert(name, Rc::new(move |interpreter, location, args|
                 {
-                    let environment = interpreter.exported_environment(location)?;
+                    let inherited = matches!(name, "run_process" | "open_terminal")
+                        && !matches!(args.get(1), Some(Value::HashMap(options))
+                            if options.contains_key(&MapKey::String("env".into())));
+                    let environment = if inherited
+                        { interpreter.exported_environment(location)? } else { Vec::new() };
+                    if interpreter.halted
+                    {
+                        interpreter.last_result = Some(Value::None);
+                        return Ok(());
+                    }
                     let mut capture = None;
                     let interruption = crate::runtime::signals::generation();
                     let result = invoke(name, args, &environment,
@@ -1330,7 +1315,7 @@ impl Interpreter
                         }
                         let executable = value.as_text();
 
-                        if self.can_execute(&executable)
+                        if self.can_execute(&location, &executable)?
                         {
                             let value =
                                 self.bind_executable(Value::from_executable_string(executable));
@@ -1636,10 +1621,20 @@ impl Interpreter
                                         type_id,
                                         exported: ValueVisibility::Private,
                                         reference,
+                                        environment_conversion: None,
                                     },
                             )
                             .map_err(invalid)?;
                         self.register_failure_binding(name);
+                    },
+
+                Code::RetypeVariable =>
+                    {
+                        let Some(Value::Array(parts)) = &instruction.operand
+                            else { unreachable!(); };
+                        let [Value::String(name, _), Value::Integer(id), methods] = parts.as_slice()
+                            else { unreachable!(); };
+                        self.retype_variable(&location, name, TypeId(*id as usize), methods)?;
                     },
 
                 Code::NewVariable | Code::BindIteration =>
@@ -1693,6 +1688,7 @@ impl Interpreter
                                     type_id,
                                     exported: ValueVisibility::Private,
                                     reference: None,
+                                    environment_conversion: None,
                                 })
                         {
                             return Err(InterpreterError::new(
@@ -2740,6 +2736,7 @@ impl Interpreter
                 type_id: None,
                 exported: ValueVisibility::Private,
                 reference: None,
+                environment_conversion: None,
             });
     }
 
@@ -2768,13 +2765,13 @@ impl Interpreter
     /**
      * Read a filesystem setting, expanding its home-shortened form.
      */
-    pub fn evaluate_path_variable(&self, name: &str) -> InterpreterResult<String>
+    pub fn evaluate_path_variable(&mut self, name: &str) -> InterpreterResult<String>
     {
         if self.variable_binding(name).is_none() && !self.special_vars.contains_key(name)
         {
             return Ok(String::new());
         }
-        let value = self.read_raw_variable(name, &Location::new(name, 1, 1))?.as_text();
+        let value = self.environment_value(&Location::new(name, 1, 1), name)?.as_text();
 
         Ok(if name == "$PATH"
             {
@@ -3406,7 +3403,8 @@ impl Interpreter
         }
     }
 
-    fn can_execute(&self, executable: &str) -> bool
+    fn can_execute(&mut self, location: &Location, executable: &str)
+        -> InterpreterResult<bool>
     {
         if    (executable.contains("::") && self.scope().types.module_names
                 .contains(executable.split("::").next().unwrap()))
@@ -3414,7 +3412,7 @@ impl Interpreter
            || self.module_alias_in(&self.current_scope, executable).is_some()
            || self.module_function(executable).is_some()
         {
-            return true;
+            return Ok(true);
         }
 
         let is_executable = |path: &Path|
@@ -3439,16 +3437,20 @@ impl Interpreter
 
         if executable.contains('/')
         {
-            return is_executable(Path::new(&self.eval_path_from(executable)));
+            return Ok(is_executable(Path::new(&self.eval_path_from(executable))));
         }
 
         // Command uses the child's exported PATH, or the system default when it is absent.
-        let path = self.scope().variables.get("$PATH")
-            .filter(|value| value.exported == ValueVisibility::Exported)
-            .map(|value| self.eval_path_list_from(&value.value.as_text()))
-            .unwrap_or_else(|| "/bin:/usr/bin".to_string());
+        let exported = self.scope().variables.get("$PATH")
+            .is_some_and(|value| value.exported == ValueVisibility::Exported);
+        let path = if exported
+            {
+                let value = self.environment_value(location, "$PATH")?;
+                self.eval_path_list_from(&value.as_text())
+            }
+            else { "/bin:/usr/bin".to_string() };
 
-        split_paths(&path).any(|directory| is_executable(&directory.join(executable)))
+        Ok(split_paths(&path).any(|directory| is_executable(&directory.join(executable))))
     }
 
     pub(super) fn execute_function(&mut self,
@@ -3460,7 +3462,7 @@ impl Interpreter
         self.execute_function_with_receiver(location, name, function, args, None)
     }
 
-    fn execute_function_with_receiver(
+    pub(super) fn execute_function_with_receiver(
         &mut self,
         location: &Location,
         name: &str,
@@ -3500,14 +3502,15 @@ impl Interpreter
         self.exceptions.returns.push(function.return_type);
         self.exceptions.callers.push(self.current_scope.clone());
         let mut result = self.execute_function_body(location, name, function, args, receiver);
-        let converts_error = function.receiver_type.is_some_and(|id| {
-            self.scope().types.has_error_type(id) && self.scope().types.success_type(id).is_none()
-        }) && function
-            .functions
-            .borrow()
-            .function_name
-            .as_ref()
-            .is_some_and(|name| name.rsplit(':').next().is_some_and(is_conversion_method));
+        let conversion_target = function.functions.borrow().function_name.as_ref()
+            .and_then(|name| name.rsplit(':').next()).and_then(|name|
+                {
+                    if is_conversion_method(name) { function.receiver_type }
+                    else if name.starts_with("to_") { function.return_type }
+                    else { None }
+                });
+        let converts_error = conversion_target.is_some_and(|id|
+            self.scope().types.has_error_type(id) && self.scope().types.success_type(id).is_none());
         if converts_error
         {
             self.conversion_causes(location, args, &mut result);
@@ -3980,6 +3983,7 @@ impl Interpreter
     ) -> InterpreterResult<()>
     {
         let env_vars = self.exported_environment(location)?;
+        if self.halted { return Ok(()); }
 
         for argument in &args
         {
@@ -4127,10 +4131,11 @@ impl Interpreter
                         command_word: bool) -> InterpreterResult<()>
     {
         if    value.is_executable()
-           || (command_word && self.can_execute(&value.as_text()))
+           || (command_word && self.can_execute(location, &value.as_text())?)
         {
             return self.execute_value(location, value, Vec::new());
         }
+        if self.halted { return Ok(()); }
         let Value::String(path, _) = value else
         {
             return Err(Self::redirection_error(location, "A file path must be a string"));
@@ -4906,7 +4911,7 @@ impl Interpreter
     /**
      * PATH entries must be real paths when searching for or launching programs.
      */
-    fn eval_path_list_from(&self, paths: &str) -> String
+    pub(super) fn eval_path_list_from(&self, paths: &str) -> String
     {
         let expanded = split_paths(paths)
             .map(|path| PathBuf::from(self.eval_path_from(&path.to_string_lossy())));
