@@ -479,30 +479,6 @@ impl Interpreter
             .expect("The current scope must be registered.")
     }
 
-    pub(super) fn exported_environment(&self, location: &Location)
-        -> InterpreterResult<Vec<(String, String)>>
-    {
-        if let Some(environment) = &self.widget_environment { return Ok(environment.clone()); }
-        self.scope().variables.get_all_flattened()
-            .iter()
-            .filter(|(_, value)| value.exported == ValueVisibility::Exported)
-            .map(|(key, _)|
-                {
-                    let text = self.read_raw_variable(key, location)?.as_text();
-                    let text = if key == "$PATH"
-                        {
-                            self.eval_path_list_from(&text)
-                        }
-                        else
-                        {
-                            self.eval_path_from(&text)
-                        };
-
-                    Ok((key.strip_prefix('$').unwrap_or(key.as_str()).to_string(), text))
-                })
-            .collect()
-    }
-
     pub fn new(startup: Startup,
                interactive: Interactive,
                color_mode: TtyColorMode,
@@ -619,6 +595,14 @@ impl Interpreter
             (name, NativeFunction::new(name, NativeVisibility::Visible, body))).collect();
         native_functions.insert("__readline", NativeFunction::suspending(
             "__readline", NativeVisibility::Hidden, Self::handle_readline));
+        native_functions.insert(
+            "__env",
+            NativeFunction::new(
+                "__env",
+                NativeVisibility::Hidden,
+                Rc::new(Interpreter::handle_env),
+            ),
+        );
         native_functions.insert(
             "__report_error",
             NativeFunction::new(
@@ -3717,6 +3701,7 @@ impl Interpreter
             || matches!(
                 function.name,
                 "__json"
+                    | "__env"
                     | "__json_bind"
                     | "__json_apply"
                     | "__http_apply"
@@ -4926,7 +4911,7 @@ impl Interpreter
     /**
      * PATH entries must be real paths when searching for or launching programs.
      */
-    fn eval_path_list_from(&self, paths: &str) -> String
+    pub(super) fn eval_path_list_from(&self, paths: &str) -> String
     {
         let expanded = split_paths(paths)
             .map(|path| PathBuf::from(self.eval_path_from(&path.to_string_lossy())));

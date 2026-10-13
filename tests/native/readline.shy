@@ -45,6 +45,13 @@ let $suite = $args[1]
 let $terminal = open_terminal [`$shelly, "-m", "${suite}/examples/repl.shy"] ["cwd": $fixture,
     "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin", "TERM": "xterm-256color", "LANG": "C.UTF-8"]]
 readline_helpers::wait_for $terminal "demo> "
+readline_helpers::input $terminal "help"
+readline_helpers::wait_for $terminal "Show these commands"
+readline_helpers::wait_for $terminal "Change the name in the prompt"
+readline_helpers::wait_for $terminal "demo> "
+readline_helpers::input $terminal "name"
+readline_helpers::wait_for $terminal "Usage: name NEW_NAME"
+readline_helpers::wait_for $terminal "demo> "
 readline_helpers::input $terminal "name renamed"
 readline_helpers::wait_for $terminal "renamed> "
 readline_helpers::input $terminal "status"

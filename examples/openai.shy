@@ -1,15 +1,19 @@
 # Responses client. The model remains a caller choice; no live requests occur on import.
-import std::io
-import std::json
-import std::stream
-import std::net::http
-import std::net::sse
+import std::io::{ Bytes }
+import std::json::{ Codec, Document, StructOptions, MappingOptions, UnknownFields,
+    enum_codec, struct_codec, convert, wrap, encode, set }
+import std::stream::{ Reader }
+import std::net::http::{ StatusError, json_body, bearer }
+import std::net::sse::{ read }
 
-pub enum Role { Developer, User, Assistant }
-
-pub fn Role::json_codec(): std::json::Codec
+pub enum Role
 {
-    std::json::enum_codec Role [
+    Developer, User, Assistant
+}
+
+pub fn Role::json_codec(): Codec
+{
+    enum_codec Role [
         Role::Developer: "developer",
         Role::User: "user",
         Role::Assistant: "assistant",
@@ -31,9 +35,9 @@ pub struct Request
     pub store: optional Boolean,
 }
 
-pub fn Request::json_codec(): std::json::Codec
+pub fn Request::json_codec(): Codec
 {
-    std::json::struct_codec Request std::json::StructOptions(
+    struct_codec Request StructOptions(
         omit_null_fields: ["instructions", "max_output_tokens", "store"],
     )
 }
@@ -58,12 +62,13 @@ pub struct Response
     pub status: String,
     pub usage: optional Usage,
     pub request_id: optional String,
-    pub raw: std::json::Document,
+    pub raw: Document,
 }
 
-pub fn Response::from_json($document: std::json::Document): Response | std::json::Error
+pub fn Response::from_json($document: Document): Response | std::json::Error
 {
-    let $envelope: Envelope = std::json::convert $document Envelope (std::json::MappingOptions(unknown_fields: std::json::UnknownFields::Ignore))
+    let $options = MappingOptions(unknown_fields: UnknownFields::Ignore)
+    let $envelope: Envelope = convert $document Envelope $options
 
     Response(
         id: $envelope.id,
@@ -73,19 +78,22 @@ pub fn Response::from_json($document: std::json::Document): Response | std::json
     )
 }
 
-pub fn Response::to_json(): std::json::Document
+pub fn Response::to_json(): Document
 {
     $self.raw
 }
 
-pub enum ResponseFailure { Incomplete, Failed, Refused, NoText, Protocol, Truncated }
+pub enum ResponseFailure
+{
+    Incomplete, Failed, Refused, NoText, Protocol, Truncated
+}
 
 pub error struct ApiError
 {
     pub status: Integer,
     pub message: String,
     pub request_id: optional String,
-    pub response: std::json::Document,
+    pub response: Document,
 }
 
 pub error struct ResponseError
@@ -93,10 +101,11 @@ pub error struct ResponseError
     pub what: ResponseFailure,
     pub message: String,
     pub request_id: optional String,
-    pub response: optional std::json::Document,
+    pub response: optional Document,
 }
 
-pub type Error = ApiError | ResponseError | std::net::http::Error | std::json::Error | std::net::sse::Error | std::stream::Error
+type NetworkError = std::net::http::Error | std::net::sse::Error
+pub type Error = ApiError | ResponseError | NetworkError | std::json::Error | std::stream::Error
 
 pub fn String::from_apierror($error: ApiError): String
 {
@@ -108,17 +117,10 @@ pub fn String::from_responseerror($error: ResponseError): String
     "OpenAI ${error.what}: ${error.message}"
 }
 
-# Return the marked value to transfer it to the caller's success-only context.
-fn response_failure($what: ResponseFailure, $message: String,
-                    $request_id: optional String,
-                    $document: optional std::json::Document): ResponseError
+fn Response::failure($what: ResponseFailure, $message: String): ResponseError
 {
-    ResponseError(
-        what: $what,
-        message: $message,
-        request_id: $request_id,
-        response: $document,
-    )
+    ResponseError(what: $what, message: $message,
+        request_id: $self.request_id, response: $self.raw)
 }
 
 pub fn Response::require_text(): String | ResponseError | std::json::Error
@@ -126,16 +128,24 @@ pub fn Response::require_text(): String | ResponseError | std::json::Error
     if $self.status != "completed"
     {
         let $what = if $self.status == "incomplete"
-            { ResponseFailure::Incomplete }
-            else { ResponseFailure::Failed }
+            {
+                ResponseFailure::Incomplete
+            }
+            else
+            {
+                ResponseFailure::Failed
+            }
 
-        return (response_failure $what "Response did not complete" $self.request_id $self.raw)
+        return ($self.failure $what "Response did not complete")
     }
 
     let $text = ""
     for $item in $self.raw.array_items "/output"
     {
-        if ($item.require_string "/type") != "message" { continue }
+        if ($item.require_string "/type") != "message"
+        {
+            continue
+        }
 
         for $part in $item.array_items "/content"
         {
@@ -144,7 +154,8 @@ pub fn Response::require_text(): String | ResponseError | std::json::Error
                 "output_text" => { $text = $text + ($part.require_string "/text") },
                 "refusal" =>
                 {
-                    return (response_failure ResponseFailure::Refused ($part.require_string "/refusal") $self.request_id $self.raw)
+                    let $message = $part.require_string "/refusal"
+                    return ($self.failure ResponseFailure::Refused $message)
                 },
                 _ => {},
             }
@@ -153,13 +164,14 @@ pub fn Response::require_text(): String | ResponseError | std::json::Error
 
     if $text == ""
     {
-        return (response_failure ResponseFailure::NoText "Response contains no text output" $self.request_id $self.raw)
+        return ($self.failure ResponseFailure::NoText "Response contains no text output")
     }
 
     $text
 }
 
-fn ApiError::from_statuserror($error: std::net::http::StatusError): ApiError | std::json::Error | std::net::http::Error
+fn ApiError::from_statuserror(
+    $error: StatusError): ApiError | std::json::Error | std::net::http::Error
 {
     let $reply = $error.response
     let $document = $reply.read_document
@@ -185,22 +197,34 @@ pub struct Model
     pub owned_by: optional String,
 }
 
-struct ModelList { pub data: [Model] }
+struct ModelList
+{
+    pub data: [Model]
+}
 
 pub fn Client::models(): [Model] | Error
 {
     let $reply = $self.::transport.get "models"
-    let $options = std::json::MappingOptions(unknown_fields: std::json::UnknownFields::Ignore)
+    let $options = MappingOptions(unknown_fields: UnknownFields::Ignore)
     let $list: ModelList = $reply.require_success.read_as ModelList $options
     $list.data
 }
 
 pub fn Client::new($api_key: String, $model: String, $base_url: optional String): Client | Error
 {
+    let $url = if $base_url == ()
+    {
+        "https://api.openai.com/v1/"
+    }
+    else
+    {
+        $base_url
+    }
+
     Client(
         transport: std::net::http::Client(
-            base_url: (if $base_url == () { "https://api.openai.com/v1/" } else { $base_url }),
-            auth: (std::net::http::bearer $api_key),
+            base_url: $url,
+            auth: (bearer $api_key),
             timeout_ms: 120000,
             error_decoder: ApiError,
         ),
@@ -211,8 +235,8 @@ pub fn Client::new($api_key: String, $model: String, $base_url: optional String)
 pub fn Client::create($request: Request): Response | Error
 {
     # Bind this module's codecs before the generic HTTP body helper changes module scope.
-    let $body = std::json::wrap $request
-    let $wire = std::net::http::json_body $body
+    let $body = wrap $request
+    let $wire = json_body $body
     let $reply: std::net::http::Response = $self.::transport.post "responses" $wire
 
     let $response: Response = $reply.require_success.read_as Response
@@ -232,7 +256,7 @@ pub fn Client::text($input: String, $instructions: optional String): String | Er
     $response.require_text
 }
 
-pub fn Client::close()
+pub fn Client::close(): () | Error
 {
     $self.::transport.close
 }
@@ -241,246 +265,382 @@ pub struct Event
 {
     pub kind: String,
     pub sequence: Integer,
-    pub raw: std::json::Document,
+    pub raw: Document,
 }
-pub fn Event::from_json($document: std::json::Document): Event | std::json::Error
+
+pub fn Event::from_json($document: Document): Event | std::json::Error
 {
     Event(kind: ($document.require_string "/type"),
         sequence: ($document.require_integer "/sequence_number"), raw: $document)
 }
 
+# Useful for scripted transports and deterministic tests as well as HTTP.
+pub fn text_stream($events: Reader, $request_id: optional String): Reader | Error
+{
+    let $session = TextSession(events: $events, request_id: $request_id)
+    Reader(
+        next: `$session.next,
+        result: `$session.result,
+        close: `$events.close,
+    )
+}
+
+fn Client::stream_response($request: Request): std::net::http::Response | Error
+{
+    let $body = set (wrap $request) "/stream" true
+    let $reply = $self.::transport.post "responses" (json_body $body)
+    $reply.require_success
+}
+
+pub fn Client::events($request: Request): Reader | Error
+{
+    let $reply = $self.stream_response $request
+    (read $reply).read_as Event
+}
+
+pub fn Client::stream_text($request: Request): Reader | Error
+{
+    let $reply = $self.stream_response $request
+    let $events = (read $reply).read_as Event
+    text_stream $events ($reply.headers.get "x-request-id")
+}
+
+enum TextPhase
+{
+    Waiting, Streaming, TextDone, PartDone, ItemDone
+}
+struct TextChannel
+{
+    pub item_id: String,
+    pub output_index: Integer,
+    pub content_index: Integer,
+}
+
+# A stream owns its source and validates every transition before emitting more text.
 struct TextSession
 {
+    events: Reader,
     request_id: optional String,
-    response_id: String,
+    response_id: optional String,
     sequence: Integer,
-    count: Integer,
-    bytes: Integer,
-    items: [Integer: std::json::Document],
+    event_count: Integer,
+    encoded_bytes: Integer,
+    items: [Integer: Document],
     done_items: [Integer: Boolean],
-    channel: Boolean,
-    item_id: String,
-    output_index: Integer,
-    content_index: Integer,
+    phase: TextPhase,
+    channel: optional TextChannel,
     text: String,
-    text_done: Boolean,
-    part_done: Boolean,
-    item_done: Boolean,
     completed: optional Response,
 }
-fn TextSession::new($request_id: optional String): TextSession
+
+fn TextSession::new($events: Reader, $request_id: optional String): TextSession
 {
-    TextSession(request_id: $request_id, response_id: "", sequence: -1, count: 0, bytes: 0,
-        items: [:], done_items: [:], channel: false, item_id: "", output_index: -1, content_index: -1,
-        text: "", text_done: false, part_done: false, item_done: false)
+    TextSession(events: $events, request_id: $request_id, sequence: -1,
+        event_count: 0, encoded_bytes: 0, items: [:], done_items: [:],
+        phase: TextPhase::Waiting, text: "")
 }
+
 fn TextSession::failure($what: ResponseFailure, $message: String,
-                        $evidence: optional std::json::Document): ResponseError
+                        $evidence: optional Document): ResponseError
 {
-    response_failure $what $message $self.::request_id $evidence
+    ResponseError(what: $what, message: $message,
+        request_id: $self.::request_id, response: $evidence)
 }
-fn TextSession::check_tuple($event: std::json::Document): () | Error
+
+fn TextSession::protocol_error($message: String, $evidence: optional Document): ResponseError
 {
-    if !$self.::channel ||
-        ($event.require_string "/item_id") != $self.::item_id ||
-        ($event.require_integer "/output_index") != $self.::output_index ||
-        ($event.require_integer "/content_index") != $self.::content_index
-    { return ($self.failure ResponseFailure::Protocol "Text channel does not match" $event) }
+    $self.failure ResponseFailure::Protocol $message $evidence
 }
-fn TextSession::accept($event: Event): optional String | Error
+
+fn TextSession::check_channel($event: Document): () | Error
+{
+    if $self.::channel == ()
+    {
+        return ($self.protocol_error "Text channel does not match" $event)
+    }
+    let $channel = $self.::channel
+    if ($event.require_string "/item_id") != $channel.item_id ||
+        ($event.require_integer "/output_index") != $channel.output_index ||
+        ($event.require_integer "/content_index") != $channel.content_index
+    {
+        return ($self.protocol_error "Text channel does not match" $event)
+    }
+}
+
+fn TextSession::check_event($event: Event): () | Error
 {
     let $doc = $event.raw
-    $self.::count = $self.::count + 1
-    $self.::bytes = $self.::bytes + std::io::Bytes(std::json::encode $doc).count
-    if ($self.::count > 32768) || ($self.::bytes > 67108864)
-    { return ($self.failure ResponseFailure::Protocol "Stream exceeds event budget" $doc) }
-    if ($event.sequence < 0) || ($event.sequence <= $self.::sequence)
-    { return ($self.failure ResponseFailure::Protocol "Event sequence is not increasing" $doc) }
-    $self.::sequence = $event.sequence
-    let $response = $doc.find "/response"
-    if $event.kind == "response.created"
+    $self.::event_count = $self.::event_count + 1
+    $self.::encoded_bytes = $self.::encoded_bytes + Bytes(encode $doc).count
+    if ($self.::event_count > 32768) || ($self.::encoded_bytes > 67108864)
     {
-        let $id = $doc.require_string "/response/id"
-        if ($self.::response_id != "") || ($id == "")
-        { return ($self.failure ResponseFailure::Protocol "Invalid response creation" $doc) }
-        $self.::response_id = $id
+        return ($self.protocol_error "Stream exceeds event budget" $doc)
+    }
+    if ($event.sequence < 0) || ($event.sequence <= $self.::sequence)
+    {
+        return ($self.protocol_error "Event sequence is not increasing" $doc)
+    }
+    $self.::sequence = $event.sequence
+}
+
+fn TextSession::start_response($doc: Document): () | Error
+{
+    let $id = $doc.require_string "/response/id"
+    if ($self.::response_id != ()) || ($id == "")
+    {
+        return ($self.protocol_error "Invalid response creation" $doc)
+    }
+    $self.::response_id = $id
+}
+
+fn TextSession::register_item($doc: Document): () | Error
+{
+    let $index = $doc.require_integer "/output_index"
+    let $item = $doc.at "/item"
+    let $id = $item.require_string "/id"
+    if ($index < 0) || ($id == "") || ($self.::items.count >= 256) ||
+        ($self.::items[$index] != ())
+    {
+        return ($self.protocol_error "Invalid output item registration" $doc)
+    }
+    for (_, $existing) in $self.::items
+    {
+        if ($existing.require_string "/id") == $id
+        {
+            return ($self.protocol_error "Duplicate output item ID" $doc)
+        }
+    }
+    $self.::items[$index] = $item
+}
+
+fn TextSession::register_content($doc: Document): () | Error
+{
+    let $index = $doc.require_integer "/output_index"
+    let $content = $doc.require_integer "/content_index"
+    let $id = $doc.require_string "/item_id"
+    let $item = $self.::items[$index]
+    if ($index < 0) || ($content < 0) || ($item == ()) || $self.::done_items[$index] == true ||
+        ($item.require_string "/id") != $id
+    {
+        return ($self.protocol_error "Invalid content part identity" $doc)
+    }
+    if ($doc.require_string "/part/type") != "output_text"
+    {
         return ()
     }
+    if $self.::phase != TextPhase::Waiting || ($index < 0) || ($content < 0) || ($item == ())
+    {
+        return ($self.protocol_error "Invalid text channel registration" $doc)
+    }
+    if ($item.require_string "/id") != $id ||
+        ($item.require_string "/type") != "message" ||
+        ($doc.require_string "/part/text") != ""
+    {
+        return ($self.protocol_error "Invalid initial text part" $doc)
+    }
+    $self.::channel = TextChannel(item_id: $id,
+        output_index: $index, content_index: $content)
+    $self.::phase = TextPhase::Streaming
+}
+
+fn TextSession::accept_delta($doc: Document): String | Error
+{
+    $self.check_channel $doc
+    if $self.::phase != TextPhase::Streaming
+    {
+        return ($self.protocol_error "Delta follows text completion" $doc)
+    }
+    let $delta = $doc.require_string "/delta"
+    if Bytes($self.::text).count + Bytes($delta).count > 1048576
+    {
+        return ($self.protocol_error "Text exceeds 1 MiB" $doc)
+    }
+    $self.::text = $self.::text + $delta
+    return $delta
+}
+
+fn TextSession::finish_text($doc: Document): () | Error
+{
+    $self.check_channel $doc
+    if $self.::phase != TextPhase::Streaming || ($doc.require_string "/text") != $self.::text
+    {
+        return ($self.protocol_error "Final text differs from deltas" $doc)
+    }
+    $self.::phase = TextPhase::TextDone
+}
+
+fn TextSession::finish_content($doc: Document): () | Error
+{
+    if ($doc.require_string "/part/type") != "output_text"
+    {
+        return ()
+    }
+    $self.check_channel $doc
+    if $self.::phase != TextPhase::TextDone ||
+        ($doc.require_string "/part/text") != $self.::text
+    {
+        return ($self.protocol_error "Text part completion is inconsistent" $doc)
+    }
+    $self.::phase = TextPhase::PartDone
+}
+
+fn TextSession::finish_item($doc: Document): () | Error
+{
+    let $channel = $self.::channel
+    let $index = $doc.require_integer "/output_index"
+    let $item = $self.::items[$index]
+    if ($index < 0) || ($item == ()) || $self.::done_items[$index] == true
+    {
+        return ($self.protocol_error "Invalid output item completion" $doc)
+    }
+    if ($doc.require_string "/item/id") != ($item.require_string "/id") ||
+        ($doc.require_string "/item/type") != ($item.require_string "/type")
+    {
+        return ($self.protocol_error "Output item identity changed" $doc)
+    }
+    $self.::done_items[$index] = true
+    if ($channel != ()) && ($index == $channel.output_index)
+    {
+        if $self.::phase != TextPhase::PartDone ||
+            ($doc.require_string "/item/id") != $channel.item_id ||
+            ($doc.require_string "/item/type") != "message"
+        {
+            return ($self.protocol_error "Output item completion is inconsistent" $doc)
+        }
+        let $parts = ($doc.at "/item").array_items "/content"
+        if $channel.content_index >= $parts.count ||
+            ($parts[$channel.content_index].require_string "/type") != "output_text" ||
+            ($parts[$channel.content_index].require_string "/text") != $self.::text
+        {
+            return ($self.protocol_error "Completed item differs from deltas" $doc)
+        }
+        $self.::phase = TextPhase::ItemDone
+    }
+}
+
+fn TextSession::complete_response($doc: Document): () | Error
+{
+    let $channel = $self.::channel
+    let $response = $doc.at "/response"
+    if ($response.require_string "/status") != "completed" ||
+        $self.::phase != TextPhase::ItemDone
+    {
+        return ($self.protocol_error "Premature or inconsistent completion" $doc)
+    }
+    let $items = $response.array_items "/output"
+    if $channel.output_index >= $items.count
+    {
+        return ($self.protocol_error "Terminal output index changed" $doc)
+    }
+    let $item = $items[$channel.output_index]
+    if    (($item.require_string "/id") != $channel.item_id)
+       || (($item.require_string "/type") != "message")
+    {
+        return ($self.protocol_error "Terminal item identity changed" $doc)
+    }
+    let $parts = $item.array_items "/content"
+    if $channel.content_index >= $parts.count ||
+        ($parts[$channel.content_index].require_string "/type") != "output_text" ||
+        ($parts[$channel.content_index].require_string "/text") != $self.::text
+    {
+        return ($self.protocol_error "Terminal content channel changed" $doc)
+    }
+    let $completed: Response = convert $response Response
+    $completed.request_id = $self.::request_id
+    if $completed.require_text != $self.::text
+    {
+        return ($self.protocol_error "Completed response differs from emitted text" $doc)
+    }
+    $self.::completed = $completed
+}
+
+fn TextSession::failed_response($doc: Document): ResponseError | Error
+{
+    let $response = $doc.at "/response"
+    if ($response.require_string "/status") != "failed"
+    {
+        return ($self.protocol_error "Failed event has inconsistent status" $doc)
+    }
+    return ($self.failure ResponseFailure::Failed "Generation failed" $response)
+}
+
+fn TextSession::incomplete_response($doc: Document): ResponseError | Error
+{
+    let $response = $doc.at "/response"
+    if ($response.require_string "/status") != "incomplete"
+    {
+        return ($self.protocol_error "Incomplete event has inconsistent status" $doc)
+    }
+    return ($self.failure ResponseFailure::Incomplete "Generation is incomplete" $response)
+}
+
+fn TextSession::accept($event: Event): optional String | Error
+{
+    $self.check_event $event
+    let $doc = $event.raw
+    if $event.kind == "response.created"
+    {
+        return ($self.start_response $doc)
+    }
     if $event.kind == "error"
-    { return ($self.failure ResponseFailure::Failed ($doc.require_string "/message") $doc) }
-    if $self.::response_id == ""
-    { return ($self.failure ResponseFailure::Protocol "Event precedes response creation" $doc) }
+    {
+        return ($self.failure ResponseFailure::Failed ($doc.require_string "/message") $doc)
+    }
+    if $self.::response_id == ()
+    {
+        return ($self.protocol_error "Event precedes response creation" $doc)
+    }
+    let $response = $doc.find "/response"
     if $response != () && ($response.require_string "/id") != $self.::response_id
-    { return ($self.failure ResponseFailure::Protocol "Response ID changed" $doc) }
+    {
+        return ($self.protocol_error "Response ID changed" $doc)
+    }
+
     match $event.kind
     {
-        "response.output_item.added" =>
-            {
-                let $index = $doc.require_integer "/output_index"
-                let $item = $doc.at "/item"
-                let $id = $item.require_string "/id"
-                if ($index < 0) || ($id == "") || ($self.::items.count >= 256) ||
-                    ($self.::items[$index] != ())
-                { return ($self.failure ResponseFailure::Protocol "Invalid output item registration" $doc) }
-                for (_, $existing) in $self.::items
-                {
-                    if ($existing.require_string "/id") == $id
-                    { return ($self.failure ResponseFailure::Protocol "Duplicate output item ID" $doc) }
-                }
-                $self.::items[$index] = $item
-            },
-        "response.content_part.added" =>
-            {
-                let $index = $doc.require_integer "/output_index"
-                let $content = $doc.require_integer "/content_index"
-                let $id = $doc.require_string "/item_id"
-                let $item = $self.::items[$index]
-                if ($index < 0) || ($content < 0) || ($item == ()) || $self.::done_items[$index] == true ||
-                    ($item.require_string "/id") != $id
-                { return ($self.failure ResponseFailure::Protocol "Invalid content part identity" $doc) }
-                if ($doc.require_string "/part/type") != "output_text" { return () }
-                if $self.::channel || ($index < 0) || ($content < 0) || ($item == ())
-                { return ($self.failure ResponseFailure::Protocol "Invalid text channel registration" $doc) }
-                if ($item.require_string "/id") != $id ||
-                    ($item.require_string "/type") != "message" ||
-                    ($doc.require_string "/part/text") != ""
-                { return ($self.failure ResponseFailure::Protocol "Invalid initial text part" $doc) }
-                $self.::channel = true
-                $self.::item_id = $id
-                $self.::output_index = $index
-                $self.::content_index = $content
-            },
-        "response.output_text.delta" =>
-            {
-                $self.check_tuple $doc
-                if $self.::text_done
-                { return ($self.failure ResponseFailure::Protocol "Delta follows text completion" $doc) }
-                let $delta = $doc.require_string "/delta"
-                if std::io::Bytes($self.::text).count + std::io::Bytes($delta).count > 1048576
-                { return ($self.failure ResponseFailure::Protocol "Text exceeds 1 MiB" $doc) }
-                $self.::text = $self.::text + $delta
-                return $delta
-            },
-        "response.output_text.done" =>
-            {
-                $self.check_tuple $doc
-                if $self.::text_done || ($doc.require_string "/text") != $self.::text
-                { return ($self.failure ResponseFailure::Protocol "Final text differs from deltas" $doc) }
-                $self.::text_done = true
-            },
-        "response.content_part.done" =>
-            {
-                if ($doc.require_string "/part/type") != "output_text" { return () }
-                $self.check_tuple $doc
-                if !$self.::text_done || $self.::part_done ||
-                    ($doc.require_string "/part/text") != $self.::text
-                { return ($self.failure ResponseFailure::Protocol "Text part completion is inconsistent" $doc) }
-                $self.::part_done = true
-            },
-        "response.output_item.done" =>
-            {
-                let $index = $doc.require_integer "/output_index"
-                let $item = $self.::items[$index]
-                if ($index < 0) || ($item == ()) || $self.::done_items[$index] == true
-                { return ($self.failure ResponseFailure::Protocol "Invalid output item completion" $doc) }
-                if ($doc.require_string "/item/id") != ($item.require_string "/id") ||
-                    ($doc.require_string "/item/type") != ($item.require_string "/type")
-                { return ($self.failure ResponseFailure::Protocol "Output item identity changed" $doc) }
-                $self.::done_items[$index] = true
-                if $index == $self.::output_index
-                {
-                    if !$self.::part_done || $self.::item_done ||
-                        ($doc.require_string "/item/id") != $self.::item_id ||
-                        ($doc.require_string "/item/type") != "message"
-                    { return ($self.failure ResponseFailure::Protocol "Output item completion is inconsistent" $doc) }
-                    let $parts = ($doc.at "/item").array_items "/content"
-                    if $self.::content_index >= $parts.count ||
-                        ($parts[$self.::content_index].require_string "/type") != "output_text" ||
-                        ($parts[$self.::content_index].require_string "/text") != $self.::text
-                    { return ($self.failure ResponseFailure::Protocol "Completed item differs from deltas" $doc) }
-                    $self.::item_done = true
-                }
-            },
-        "response.completed" =>
-            {
-                if ($response.require_string "/status") != "completed" ||
-                    !$self.::channel || !$self.::item_done
-                { return ($self.failure ResponseFailure::Protocol "Premature or inconsistent completion" $doc) }
-                let $items = $response.array_items "/output"
-                if $self.::output_index >= $items.count
-                { return ($self.failure ResponseFailure::Protocol "Terminal output index changed" $doc) }
-                let $item = $items[$self.::output_index]
-                if ($item.require_string "/id") != $self.::item_id || ($item.require_string "/type") != "message"
-                { return ($self.failure ResponseFailure::Protocol "Terminal item identity changed" $doc) }
-                let $parts = $item.array_items "/content"
-                if $self.::content_index >= $parts.count ||
-                    ($parts[$self.::content_index].require_string "/type") != "output_text" ||
-                    ($parts[$self.::content_index].require_string "/text") != $self.::text
-                { return ($self.failure ResponseFailure::Protocol "Terminal content channel changed" $doc) }
-                let $completed: Response = std::json::convert $response Response
-                $completed.request_id = $self.::request_id
-                if $completed.require_text != $self.::text
-                { return ($self.failure ResponseFailure::Protocol "Completed response differs from emitted text" $doc) }
-                $self.::completed = $completed
-            },
-        "response.failed" =>
-            {
-                if ($response.require_string "/status") != "failed"
-                { return ($self.failure ResponseFailure::Protocol "Failed event has inconsistent status" $doc) }
-                return ($self.failure ResponseFailure::Failed "Generation failed" $response)
-            },
-        "response.incomplete" =>
-            {
-                if ($response.require_string "/status") != "incomplete"
-                { return ($self.failure ResponseFailure::Protocol "Incomplete event has inconsistent status" $doc) }
-                return ($self.failure ResponseFailure::Incomplete "Generation is incomplete" $response)
-            },
-        _ => {},
+        "response.output_item.added" => { $self.register_item $doc },
+        "response.content_part.added" => { $self.register_content $doc },
+        "response.output_text.delta" => { $self.accept_delta $doc },
+        "response.output_text.done" => { $self.finish_text $doc },
+        "response.content_part.done" => { $self.finish_content $doc },
+        "response.output_item.done" => { $self.finish_item $doc },
+        "response.completed" => { $self.complete_response $doc },
+        "response.failed" => { $self.failed_response $doc },
+        "response.incomplete" => { $self.incomplete_response $doc },
+        _ => { () },
     }
-    ()
 }
-fn TextSession::next($events: std::stream::Reader): optional String | Error
+
+fn TextSession::next(): optional String | Error
 {
-    if $self.::completed != () { return () }
+    if $self.::completed != ()
+    {
+        return ()
+    }
     loop
     {
-        let $event = $events.next_item
+        let $event = $self.::events.next_item
         if $event == ()
-        { return ($self.failure ResponseFailure::Truncated "Stream ended before completion" ()) }
+        {
+            return ($self.failure ResponseFailure::Truncated "Stream ended before completion" ())
+        }
         let $delta = $self.accept $event
-        if $delta != () { return $delta }
-        if $self.::completed != () { return () }
+        if $delta != ()
+        {
+            return $delta
+        }
+        if $self.::completed != ()
+        {
+            return ()
+        }
     }
 }
+
 fn TextSession::result(): Response | Error
 {
     if $self.::completed == ()
-    { return ($self.failure ResponseFailure::Protocol "Stream has not completed" ()) }
+    {
+        return ($self.protocol_error "Stream has not completed" ())
+    }
     $self.::completed
-}
-
-# Useful for scripted transports and deterministic tests as well as HTTP.
-pub fn text_stream($events: std::stream::Reader, $request_id: optional String): std::stream::Reader | ErrorValue
-{
-    let $session = TextSession(request_id: $request_id)
-    std::stream::Reader(
-        next: fn (): optional String | Error { $session.next $events },
-        result: fn (): Response | Error { $session.result },
-        close: fn (): () | ErrorValue { $events.close },
-    )
-}
-pub fn Client::events($request: Request): std::stream::Reader | ErrorValue
-{
-    let $body = std::json::set (std::json::wrap $request) "/stream" true
-    let $reply = $self.::transport.post "responses" (std::net::http::json_body $body)
-    $reply.require_success
-    (std::net::sse::read $reply).read_as Event
-}
-pub fn Client::stream_text($request: Request): std::stream::Reader | ErrorValue
-{
-    let $body = std::json::set (std::json::wrap $request) "/stream" true
-    let $reply = $self.::transport.post "responses" (std::net::http::json_body $body)
-    $reply.require_success
-    let $events = (std::net::sse::read $reply).read_as Event
-    text_stream $events ($reply.headers.get "x-request-id")
 }

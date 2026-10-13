@@ -37,6 +37,27 @@ for $chunk in $chunks { $answer = $answer + $chunk }
 require ($answer == "Hello") "OpenAI deltas"
 require (($chunks.result.id == "resp_test") && ($chunks.result.request_id == "req_test")) "OpenAI cached terminal"
 
+# Non-text output can finish before a text channel is registered.
+let $reasoning = ["id":"reason_1", "type":"reasoning"]
+let $with_reasoning = std::json::set $terminal "/output" [($terminal.at "/output/0"), $reasoning]
+let $records = [$raw[0],
+    ["type":"response.output_item.added", "output_index":1, "item":$reasoning],
+    ["type":"response.output_item.done", "output_index":1, "item":$reasoning],
+    $raw[1..8]...,
+    ["type":"response.completed", "response":$with_reasoning]]
+let $bytes = ""
+let $sequence = 0
+for $record in $records
+{
+    let $numbered = std::json::set (std::json::wrap $record) "/sequence_number" $sequence
+    $bytes = $bytes + "data: " + (std::json::encode $numbered) + "\n\n"
+    $sequence = $sequence + 1
+}
+let $chunks = openai::text_stream (events $bytes)
+let $answer = ""
+for $chunk in $chunks { $answer = $answer + $chunk }
+require ($answer == "Hello") "Non-text item completion broke the text channel"
+
 let $truncated = openai::text_stream (events "data: {\"type\":\"response.created\",\"sequence_number\":0,\"response\":{\"id\":\"resp_test\"}}\n\n")
 try { for $chunk in $truncated {}; fail "Truncated generation succeeded" }
 catch ($error: openai::ResponseError) { require ($error.what == openai::ResponseFailure::Truncated) "Truncation category" }
@@ -62,6 +83,9 @@ fn reject_events($records: Array)
 let $bad = $raw
 $bad[8] = ["type":"response.completed","sequence_number":8,
     "response":(std::json::set $terminal "/output/0/id" "different_message")]
+reject_events $bad
+let $bad = $raw
+$bad[6] = std::json::set (std::json::wrap $raw[4]) "/sequence_number" 6
 reject_events $bad
 let $bad = $raw
 $bad[4] = std::json::set (std::json::wrap $bad[4]) "/sequence_number" 3

@@ -3,6 +3,7 @@ mod bundled_std;
 mod call_stack;
 mod collection_types;
 mod conversions;
+mod environment;
 mod exceptions;
 mod interpreter;
 mod io;

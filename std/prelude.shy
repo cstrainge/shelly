@@ -3,6 +3,14 @@
 # loaded module.
 
 visible `__report_error
+visible `__env
+
+# Read the caller's exported environment without launching a process. Missing names
+# return (), or the supplied fallback; an existing empty value remains an empty String.
+pub fn optional_env($name: String, $fallback: optional String): optional String
+{
+    __env $name $fallback
+}
 
 pub fn report_error($stack: CallStack, $error: ErrorValue): ()
 {

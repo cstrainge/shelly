@@ -94,7 +94,10 @@ pub(crate) fn write_data(bytes: &[u8]) -> io::Result<()>
     }
     else
     {
-        io::stdout().lock().write_all(bytes)
+        let mut output = io::stdout().lock();
+        output.write_all(bytes)?;
+        // Forward partial pipeline chunks now, before a child writes to the same descriptor.
+        output.flush()
     }
 }
 pub(crate) fn copy_data(input: &mut impl Read) -> io::Result<u64>

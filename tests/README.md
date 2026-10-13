@@ -169,6 +169,11 @@ functions, live variables, aliases, native visibility, re-exported namespaces,
 private symbols, ordinary module imports, reload replacement/removal, binding
 conflicts, saved references, and retained module generations. The native and
 bundled-library tests also run the prelude's variadic `sum` through row pipelines.
+`native/optional_env.shy` checks optional native environment lookup without a usable PATH,
+missing versus empty values, explicit fallbacks, preserved whitespace and Unicode, live
+exports and private shadows, module scope, pipelines, cleanup, and invalid arguments.
+`repl/optional_env.shy` checks live exports across submissions, recovery after invalid
+names, and an imported widget reading the prompt's captured environment.
 `native/banner_sixel.shy` checks the optional Python/Pillow banner renderer's cell
 bounding boxes and pixel dimensions, control bytes, text layout, output files, and invalid inputs.
 It skips when Python or Pillow is unavailable; the harness orchestration remains in Shelly.

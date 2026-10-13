@@ -1,31 +1,87 @@
-# Run: shelly examples/repl.shy
+#!/usr/bin/env shelly
+
 import std::terminal::{ readline }
+import std::terminal::readline::{ Editor }
 
-error struct CommandError { pub message: String }
-let $name = "demo"
-fn prompt(): String { "${name}> " }
-
-fn dispatch($line: String): () | CommandError
+error struct CommandError
 {
-    if $line == "help" { echo "help | status | name NEW_NAME | quit" }
-    else if $line == "status" { echo "Current name: ${name}" }
-    else if $line.starts_with "name " { $name = ($line.strip_prefix "name ").trim }
-    else { return CommandError(message: "Unknown command: ${line}") }
-    ()
+    pub message: String
 }
 
-let $editor = readline::Editor(
-    prompt: readline::Prompt(left: `prompt, right: "help for commands", continuation: "... "),
-    complete: (readline::words ["help", "status", "name", "quit"]))
-
-try
+fn help()
 {
-    for $line in $editor.lines
+    echo "*
+        help           Show these commands
+        status         Show the current name
+        name NEW_NAME  Change the name in the prompt
+        quit           Exit (or press Ctrl+D)
+        *"
+}
+
+fn main(): () | ErrorValue
+{
+    let $name = "demo"
+
+    fn dispatch($line: String): () | CommandError
     {
-        if $line == "quit" { break }
-        if $line.trim == "" { continue }
-        try { dispatch $line }
-        catch ($error: CommandError) { echo $error.message }
+        match $line
+        {
+            "help" => { help },
+            "status" => { echo "Current name: ${name}" },
+            _ =>
+            {
+                if ($line != "name") && !($line.starts_with "name ")
+                {
+                    return CommandError(message: "Unknown command: ${line}. Try help.")
+                }
+                let $new_name = ($line.strip_prefix "name").trim
+                if $new_name == ""
+                {
+                    return CommandError(message: "Usage: name NEW_NAME")
+                }
+                $name = $new_name
+            },
+        }
+        ()
+    }
+
+    let $editor = Editor(
+        prompt: readline::Prompt(
+            left: fn(): String
+                {
+                    "${name}> "
+                },
+            right: "help for commands",
+            continuation: "... "),
+        complete: (readline::words ["help", "status", "name", "quit"]))
+
+    try
+    {
+        for $input in $editor.lines
+        {
+            let $line = $input.trim
+            if $line == "quit"
+            {
+                break
+            }
+            if $line == ""
+            {
+                continue
+            }
+            try
+            {
+                dispatch $line
+            }
+            catch ($error: CommandError)
+            {
+                echo $error.message
+            }
+        }
+    }
+    finally
+    {
+        $editor.close
     }
 }
-finally { $editor.close }
+
+main

@@ -1,6 +1,14 @@
 import readline_helpers
 let $fixture = $args[0]
 
+# Environment lookup is read-only and admitted in prompt and editing callbacks.
+let $source = 'import std::terminal::{ readline }; let export $ENV_LABEL = "env> "; fn prompt(): String { optional_env "ENV_LABEL" "missing> " }; fn colors($edit: readline::Edit): [readline::HighlightSpan] { if (optional_env "ENV_LABEL") != "env> " { 1 / 0 }; [] }; let $e = readline::Editor(prompt:readline::Prompt(left:`prompt), highlight:`colors); echo "ENVRESULT" ($e.read); $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "env> "
+readline_helpers::input $terminal "native"
+readline_helpers::wait_for $terminal "ENVRESULT native"
+readline_helpers::finish $terminal
+
 # A private failure in a prompt runs before input and retains its concrete type.
 let $source = 'import std::terminal::{ readline }; error struct AppError { pub message:String }; fn prompt(): String | AppError { AppError(message:"private prompt") }; let $e = readline::Editor(prompt:readline::Prompt(left:`prompt)); try { $e.read } catch ($stack,$error:AppError) { echo "PROMPTERR" $error.message }; let $v = $e.read readline::ReadOptions(prompt:"recover> "); echo "RECOVERED" $v; $e.close'
 let $terminal = readline_helpers::session $source $fixture

@@ -1,0 +1,59 @@
+# Controlled children have no usable PATH: environment lookup must be entirely native.
+let $fixture = $args[0]
+let $suite = $args[1]
+
+fn env_case($source: String, $diagnostic: String, $library: String)
+{
+    let $fixture = $args[0]
+    let $source = 'fn ensure($ok: Boolean) { if !$ok { exit 23 } }; ' + $source
+    let $result = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture,
+        "env": ["HOME": "${fixture}/home", "PATH": "${fixture}/no-executables",
+            "SHELLY_STD_PATH": $library, "SHELLY_ENV_PRESENT": "initial",
+            "SHELLY_ENV_EMPTY": "", "SHELLY_ENV_TEXT": " \tλ\n\n",
+            "SHELLY_ENV_PATH": "${fixture}/home/sub", "SHELLY_ENV_CASE": "upper",
+            "shelly_env_case": "lower"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/env.out",
+        "stderr_file": "${fixture}/env.err", "timeout_ms": 3000,
+    ]
+    let $out: String
+    let $err: String
+    "${fixture}/env.out" -> $out
+    "${fixture}/env.err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if    ($result["exit_code"] != $status)
+       || ($result["error"] != ()) || ($result["signal"] != ()) || $result["timed_out"]
+       || ($out != "")
+       || (($diagnostic == "") && ($err != ""))
+       || (($diagnostic != "") && !($err.contains $diagnostic))
+    {
+        echo $source $result $out $err
+        fail "optional environment lookup"
+    }
+}
+
+for $library in ["bundled", "${suite}/std"]
+{
+    env_case 'ensure ((optional_env "MISSING") == ()); ensure ((optional_env "MISSING" "fallback") == "fallback"); ensure ((optional_env "MISSING" ()) == ())' "" $library
+    env_case 'ensure ((optional_env "SHELLY_ENV_EMPTY") == ""); ensure ((optional_env "SHELLY_ENV_EMPTY" "fallback") == ""); ensure ((optional_env "SHELLY_ENV_TEXT") == " \\tλ\\n\\n")' "" $library
+    env_case 'ensure ((optional_env "SHELLY_ENV_CASE") == "upper"); ensure ((optional_env "shelly_env_case") == "lower"); ensure ((optional_env "Shelly_Env_Case") == ())' "" $library
+    env_case 'ensure ((optional_env "SHELLY_ENV_PRESENT") == "initial"); $SHELLY_ENV_PRESENT = "updated"; ensure ((optional_env "SHELLY_ENV_PRESENT") == "updated"); let export $NEW_VALUE = 17; ensure ((optional_env "NEW_VALUE") == "17"); let $private_value = "hidden"; ensure ((optional_env "private_value") == ())' "" $library
+    env_case 'fn local() { let export $SHELLY_ENV_PRESENT = "local"; ensure ((optional_env "SHELLY_ENV_PRESENT") == "local") }; local; ensure ((optional_env "SHELLY_ENV_PRESENT") == "initial"); fn hidden() { let $SHELLY_ENV_PRESENT = "private"; ensure ((optional_env "SHELLY_ENV_PRESENT") == ()) }; hidden; ensure ((optional_env "SHELLY_ENV_PRESENT") == "initial")' "" $library
+    env_case 'let $values = []; ["SHELLY_ENV_PRESENT", "MISSING"] | optional_env $ "fallback" | $values; ensure ($values == ["initial", "fallback"]); let $saved = `optional_env; ensure (($saved "SHELLY_ENV_PRESENT") == "initial"); try { ensure true } finally { ensure ((optional_env "SHELLY_ENV_PRESENT") == "initial") }' "" $library
+    env_case "ensure ((optional_env \"SHELLY_ENV_PATH\") == \"${fixture}/home/sub\"); ensure ((optional_env \"HOME\") == \"${fixture}/home\"); ensure ((optional_env \"PATH\") == \"${fixture}/no-executables\")" "" $library
+    env_case 'let export $SHELLY_ENV_PATH = "~/sub"; ensure ((optional_env "SHELLY_ENV_PATH") == ((optional_env "HOME") + "/sub")); $PATH = "~/bin:/bin"; ensure ((optional_env "PATH") == ((optional_env "HOME") + "/bin:/bin"))' "" $library
+    env_case 'import std::prelude::{ optional_env }; let export $SHELLY_ENV_PRESENT = "caller"; ensure ((std::prelude::optional_env "SHELLY_ENV_PRESENT") == "caller"); ensure ((optional_env "SHELLY_ENV_PRESENT") == "caller")' "" $library
+    env_case 'optional_env ""' "Environment names must be nonempty" $library
+    env_case 'optional_env "NAME=value"' "Environment names must be nonempty" $library
+    env_case 'optional_env "NAME\\x00"' "Environment names must be nonempty" $library
+    env_case 'optional_env 7' "Expected String" $library
+    env_case 'optional_env "MISSING" 7' "Expected" $library
+    env_case '__env "SHELLY_ENV_PRESENT"' "Executable not found" $library
+    env_case 'visible `__env; ensure ((__env "SHELLY_ENV_PRESENT") == "initial"); ensure ((__env "MISSING" "fallback") == "fallback")' "" $library
+    env_case 'visible `__env; __env' "__env expects a String name" $library
+    env_case 'visible `__env; __env "MISSING" 7' "__env expects a String name" $library
+}
+
+# Imported functions read their own module's exports, rather than the prelude or importer.
+printf "%s" 'let export $SHELLY_ENV_PRESENT = "module"; pub fn read(): optional String { optional_env "SHELLY_ENV_PRESENT" }; pub fn change() { $SHELLY_ENV_PRESENT = "changed" }' -> "${fixture}/env_module.shy"
+env_case 'import env_module; ensure ((env_module::read) == "module"); env_module::change; ensure ((env_module::read) == "changed"); ensure ((optional_env "SHELLY_ENV_PRESENT") == "initial")' "" "bundled"

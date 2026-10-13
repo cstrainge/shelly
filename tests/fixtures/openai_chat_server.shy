@@ -36,7 +36,7 @@ let $catalogs = 0
 let $requests: [std::json::Document] = []
 try
 {
-    for _ in 0..8
+    for _ in 0..10
     {
         let $request = $server.accept
         try

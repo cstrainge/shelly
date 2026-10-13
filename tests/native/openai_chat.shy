@@ -16,7 +16,8 @@ let $client = open_terminal [`$shelly, "-m", "${suite}/examples/openai_chat.shy"
         "OPENAI_API_KEY":"wrong-environment-key","OPENAI_MODEL":"wrong-environment-model"]]
 readline_helpers::wait_for $client "fixture-alpha> "
 readline_helpers::input $client "/model list fixture"
-readline_helpers::wait_for $client "2 model IDs."
+let $catalog = readline_helpers::wait_for $client "2 model IDs."
+require ($catalog.contains "fixture-alpha\r\nfixture-beta\r\n") "model catalog is not sorted"
 readline_helpers::wait_for $client "fixture-alpha> "
 # Completion is based on the fetched catalog and never performs another request.
 terminal_write $client "/model fixture-b\t\r"
@@ -75,10 +76,34 @@ readline_helpers::wait_for $client "2 model IDs."
 readline_helpers::wait_for $client "fixture-alpha> "
 terminal_write $client "\x04"
 readline_helpers::finish $client
+
+# A single external pipeline consumer preserves redirected stdout across replies.
+let $relay = "\"${shelly}\" -m \"${suite}/examples/openai_chat.shy\""
+$relay = $relay + " --base-url \"${base_url}\" -> \"${fixture}/chat.out\""
+std::io::write_text "${fixture}/redirect-chat.shy" $relay
+let $client = open_terminal [`$shelly, "-m", "${fixture}/redirect-chat.shy"] [
+    "cwd":$fixture, "rows":40, "columns":140,
+    "env":["HOME":$fixture,"PATH":"/usr/bin:/bin","TERM":"xterm-256color","NO_COLOR":"1",
+        "OPENAI_API_KEY":"fixture-key","OPENAI_MODEL":"fixture-alpha"]]
+readline_helpers::wait_for $client "fixture-alpha> "
+readline_helpers::input $client "redirect one"
+readline_helpers::wait_for $client "1 turns · /help"
+readline_helpers::input $client "redirect two"
+readline_helpers::wait_for $client "2 turns · /help"
+readline_helpers::input $client "/quit"
+readline_helpers::finish $client
 readline_helpers::finish $server
+let $transcript = std::io::read_text "${fixture}/chat.out"
+require ($transcript.contains "OpenAI chat · fixture-alpha") "redirected banner was lost"
+require ($transcript.contains "answer 6: redirect one\n") "first redirected reply was lost"
+require ($transcript.contains "answer 7: redirect two\n") $transcript
+require (!($transcript.contains "\x1b")) "terminal controls leaked into redirected output"
+let $expected = "OpenAI chat · fixture-alpha · /help for commands\n"
+$expected = $expected + "answer 6: redirect one\nanswer 7: redirect two\n"
+require ($transcript == $expected) $transcript
 
 let $requests = (std::json::parse (std::io::read_text "${fixture}/chat-requests.json")).array_items
-require ($requests.count == 5) "unexpected generation requests"
+require ($requests.count == 7) "unexpected generation requests"
 require (($requests[0].require_string "/model") == "fixture-beta") "model completion/switch"
 require (($requests[0].require_string "/input/0/content") == "héllo\n世界") "multiline prompt"
 let $streamed = $requests[0].require_boolean "/stream"
@@ -96,8 +121,10 @@ require (($requests[4].array_items "/input").count == 1) "instruction change kep
 require (($requests[4].require_string "/instructions") == "Speak briefly.") "instructions missing"
 require (($requests[4].require_string "/input/0/content") == "/literal") "literal leading slash"
 
+# Reading absent credentials must work even when no external commands can be found.
 let $result = run_process [`$shelly, "-m", "${suite}/examples/openai_chat.shy"] [
-    "env":["PATH":"/usr/bin:/bin"],"stdout_file":"${fixture}/missing-key.out",
+    "env":["PATH":"${fixture}/no-executables", "SHELLY_STD_PATH":"bundled"],
+    "stdout_file":"${fixture}/missing-key.out",
     "stderr_file":"${fixture}/missing-key.err","stdin_file":"/dev/null","timeout_ms":3000]
 require ($result["exit_code"] == 1) "missing credentials accepted"
 let $error = std::io::read_text "${fixture}/missing-key.err"
