@@ -1,0 +1,104 @@
+import std::io
+import std::json
+import readline_helpers
+
+let $fixture = $args[0]
+let $suite = $args[1]
+let $server = open_terminal [`$shelly, "-m", "${fixture}/openai_chat_server.shy"] [
+    "cwd":$fixture, "env":["HOME":$fixture,"PATH":"/usr/bin:/bin","TERM":"dumb"]]
+let $ready = readline_helpers::wait_for $server "ready "
+let $port = readline_helpers::wait_for $server "\r"
+let $base_url = "http://127.0.0.1:${port.trim}/"
+let $client = open_terminal [`$shelly, "-m", "${suite}/examples/openai_chat.shy",
+    "--api-key", "fixture-key", "--model", "fixture-alpha", "--base-url", $base_url] [
+    "cwd":$fixture, "rows":40, "columns":140,
+    "env":["HOME":$fixture,"PATH":"/usr/bin:/bin","TERM":"xterm-256color","NO_COLOR":"1",
+        "OPENAI_API_KEY":"wrong-environment-key","OPENAI_MODEL":"wrong-environment-model"]]
+readline_helpers::wait_for $client "fixture-alpha> "
+readline_helpers::input $client "/model list fixture"
+readline_helpers::wait_for $client "2 model IDs."
+readline_helpers::wait_for $client "fixture-alpha> "
+# Completion is based on the fetched catalog and never performs another request.
+terminal_write $client "/model fixture-b\t\r"
+readline_helpers::wait_for $client "Model: fixture-beta (conversation kept)"
+readline_helpers::wait_for $client "fixture-beta> "
+readline_helpers::input $client "héllo\n世界"
+readline_helpers::wait_for $client "answer 1: héllo"
+let $output = readline_helpers::wait_for $client "fixture-beta> "
+require (!($output.contains "Error:")) $output
+readline_helpers::input $client "/stream off"
+readline_helpers::wait_for $client "Streaming: off"
+readline_helpers::wait_for $client "fixture-beta> "
+readline_helpers::input $client "follow up"
+readline_helpers::wait_for $client "answer 2: follow up"
+let $output = readline_helpers::wait_for $client "fixture-beta> "
+require (!($output.contains "Error:")) $output
+readline_helpers::input $client "please fail"
+readline_helpers::wait_for $client "fixture rejected once"
+readline_helpers::wait_for $client "fixture-beta> "
+readline_helpers::input $client "/status"
+readline_helpers::wait_for $client "completed turns: 2"
+readline_helpers::wait_for $client "A failed prompt is available with /retry."
+readline_helpers::wait_for $client "fixture-beta> "
+readline_helpers::input $client "/retry"
+readline_helpers::wait_for $client "answer 4: please fail"
+readline_helpers::wait_for $client "fixture-beta> "
+readline_helpers::input $client "/model list"
+readline_helpers::wait_for $client "catalog unavailable"
+readline_helpers::wait_for $client "fixture-beta> "
+readline_helpers::input $client "/unknown"
+readline_helpers::wait_for $client "Unknown command: /unknown. Try /help."
+readline_helpers::wait_for $client "fixture-beta> "
+readline_helpers::input $client "/system Speak briefly."
+readline_helpers::wait_for $client "Instructions updated. Conversation cleared."
+readline_helpers::wait_for $client "fixture-beta> "
+readline_helpers::input $client "//literal"
+readline_helpers::wait_for $client "answer 5: /literal"
+readline_helpers::wait_for $client "fixture-beta> "
+readline_helpers::input $client "/new"
+readline_helpers::wait_for $client "Conversation cleared."
+readline_helpers::wait_for $client "fixture-beta> "
+readline_helpers::input $client "/retry"
+readline_helpers::wait_for $client "No failed prompt to retry."
+readline_helpers::wait_for $client "fixture-beta> "
+readline_helpers::input $client "/quit"
+readline_helpers::finish $client
+
+# Environment-only credentials and model, and EOF instead of /quit.
+let $client = open_terminal [`$shelly, "-m", "${suite}/examples/openai_chat.shy",
+    "--base-url", $base_url] ["cwd":$fixture, "rows":40, "columns":140,
+    "env":["HOME":$fixture,"PATH":"/usr/bin:/bin","TERM":"xterm-256color","NO_COLOR":"1",
+        "OPENAI_API_KEY":"fixture-key","OPENAI_MODEL":"fixture-alpha"]]
+readline_helpers::wait_for $client "fixture-alpha> "
+readline_helpers::input $client "/model list"
+readline_helpers::wait_for $client "2 model IDs."
+readline_helpers::wait_for $client "fixture-alpha> "
+terminal_write $client "\x04"
+readline_helpers::finish $client
+readline_helpers::finish $server
+
+let $requests = (std::json::parse (std::io::read_text "${fixture}/chat-requests.json")).array_items
+require ($requests.count == 5) "unexpected generation requests"
+require (($requests[0].require_string "/model") == "fixture-beta") "model completion/switch"
+require (($requests[0].require_string "/input/0/content") == "héllo\n世界") "multiline prompt"
+let $streamed = $requests[0].require_boolean "/stream"
+require ($streamed && !($requests[0].require_boolean "/store")) "stream/store policy"
+require (($requests[0].require_string "/input/0/role") == "user") "streamed role codec"
+require (($requests[1].require_string "/input/1/role") == "assistant") "assistant context codec"
+let $first_answer = $requests[1].require_string "/input/1/content"
+require ($first_answer == "answer 1: héllo\n世界") "streamed context"
+require (!($requests[1].has "/instructions")) "buffered request ignored omission codec"
+require (!($requests[1].has "/stream")) "buffered request still streamed"
+let $failed_request = std::json::encode $requests[2]
+require ($failed_request == (std::json::encode $requests[3])) "retry changed context"
+require (($requests[3].array_items "/input").count == 5) "retry lost or duplicated turns"
+require (($requests[4].array_items "/input").count == 1) "instruction change kept old context"
+require (($requests[4].require_string "/instructions") == "Speak briefly.") "instructions missing"
+require (($requests[4].require_string "/input/0/content") == "/literal") "literal leading slash"
+
+let $result = run_process [`$shelly, "-m", "${suite}/examples/openai_chat.shy"] [
+    "env":["PATH":"/usr/bin:/bin"],"stdout_file":"${fixture}/missing-key.out",
+    "stderr_file":"${fixture}/missing-key.err","stdin_file":"/dev/null","timeout_ms":3000]
+require ($result["exit_code"] == 1) "missing credentials accepted"
+let $error = std::io::read_text "${fixture}/missing-key.err"
+require ($error.contains "Set OPENAI_API_KEY") "credential guidance missing"

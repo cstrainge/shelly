@@ -119,6 +119,12 @@ callback budgets and errors, isolated persistent history, stdout routing and man
 `repl/readline.shy` checks a custom REPL running within a shell submission and returning its
 terminal to the built-in editor.
 
+`native/openai_chat.shy` exercises the runnable OpenAI chat sample through real readline PTYs
+and a loopback HTTP/SSE fixture. It checks key/model flag precedence and environment fallback,
+cached model completion, Unicode multiline streaming, follow-up context, API-error recovery,
+explicit retry, instruction/reset commands, literal slashes, EOF and missing-key guidance.
+It sends no requests to the live OpenAI service.
+
 `native/` checks string methods, process results/settings, exact binary I/O,
 redirection, live exports, terminal identity/lifecycle, UTF-8 boundaries, deadlines,
 process-group cleanup, and Ctrl+C. `harness/` tests schema/result validation,

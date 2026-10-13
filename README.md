@@ -2824,6 +2824,25 @@ The OpenAI client is an [ordinary sample module](examples/openai.shy), outside t
 Scripts can build their own REPLs with [std::terminal::readline](docs/terminal-readline-api.md),
 which wraps Reedline and supports prompt functions, isolated history, editing callbacks and pipelines.
 
+The [interactive OpenAI chat example](examples/openai_chat.shy) combines both modules:
+
+```sh
+shelly examples/openai_chat.shy --model gpt-6.1-sol
+shelly examples/openai_chat.shy --api-key YOUR_KEY --model YOUR_MODEL
+shelly examples/openai_chat.shy --help
+```
+
+It reads `OPENAI_API_KEY` and `OPENAI_MODEL`; flags override the environment. The model defaults
+to `gpt-6.1-sol`. Use `/model list [filter]`, `/model <name>`, `/new`, `/system`, `/stream`,
+`/history`, `/status`, `/retry`, `/help` and `/quit`. Replies stream by default. Only completed
+turns enter conversation context; a failed prompt remains available for explicit `/retry`.
+History stays in memory, and requests use `store: false`. Model changes preserve context;
+instruction changes start a new conversation. `--base-url` selects another compatible endpoint.
+The text-only sample follows the official OpenAI documentation for
+[conversation input](https://developers.openai.com/api/docs/guides/conversation-state),
+[streaming](https://developers.openai.com/api/docs/guides/streaming-responses) and
+[model listing](https://developers.openai.com/api/reference/resources/models/methods/list).
+
 Standard-library imports use a separate search path:
 
 ```shy

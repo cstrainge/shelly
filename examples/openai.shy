@@ -178,6 +178,23 @@ pub struct Client
     model: String,
 }
 
+pub struct Model
+{
+    pub id: String,
+    pub created: optional Integer,
+    pub owned_by: optional String,
+}
+
+struct ModelList { pub data: [Model] }
+
+pub fn Client::models(): [Model] | Error
+{
+    let $reply = $self.::transport.get "models"
+    let $options = std::json::MappingOptions(unknown_fields: std::json::UnknownFields::Ignore)
+    let $list: ModelList = $reply.require_success.read_as ModelList $options
+    $list.data
+}
+
 pub fn Client::new($api_key: String, $model: String, $base_url: optional String): Client | Error
 {
     Client(
@@ -193,7 +210,10 @@ pub fn Client::new($api_key: String, $model: String, $base_url: optional String)
 
 pub fn Client::create($request: Request): Response | Error
 {
-    let $reply: std::net::http::Response = $self.::transport.post "responses" (std::net::http::json_body $request)
+    # Bind this module's codecs before the generic HTTP body helper changes module scope.
+    let $body = std::json::wrap $request
+    let $wire = std::net::http::json_body $body
+    let $reply: std::net::http::Response = $self.::transport.post "responses" $wire
 
     let $response: Response = $reply.require_success.read_as Response
     $response.request_id = $reply.headers.get "x-request-id"

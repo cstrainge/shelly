@@ -1,0 +1,259 @@
+#!/usr/bin/env shelly
+# Run: shelly examples/openai_chat.shy --model MODEL
+import openai
+import std::io
+import std::terminal::{ readline }
+
+error struct CommandError { pub message: String }
+fn String::from_commanderror($error: CommandError): String { $error.message }
+
+fn help()
+{
+    echo "OpenAI chat — enter text, or a command:"
+    echo "  /help                 Show this help"
+    echo "  /quit                 Exit (also /exit or Ctrl+D)"
+    echo "  /model                Show the current model"
+    echo "  /model list [filter]  Fetch available model IDs"
+    echo "  /model <name>         Change model, keeping the conversation"
+    echo "  /new                  Clear conversation and pending retry (also /clear)"
+    echo "  /system [text|off]    Show/set instructions; changes start a new conversation"
+    echo "  /stream [on|off]      Show/set streaming (default on)"
+    echo "  /history              Show completed conversation turns"
+    echo "  /retry                Resend the last failed prompt"
+    echo "  /status               Show model, turn count and last token usage"
+    echo "Prefix text with // to send a literal leading slash. Ctrl+C discards an input draft."
+    echo "Multiline input: Ctrl+Enter, or paste multiple lines."
+}
+
+fn environment($name: String): String
+{
+    let $value: String
+    let $result = run_process ["printenv", $name] [:] -> $value
+    if $result["exit_code"] == 0 { return $value.trim }
+    ""
+}
+
+struct Options { pub api_key: String, pub model: String, pub base_url: optional String }
+fn options(): Options | CommandError
+{
+    let $key = environment "OPENAI_API_KEY"
+    let $model = environment "OPENAI_MODEL"
+    let $base_url: optional String = ()
+    let $index = 0
+    while $index < $args.count
+    {
+        let $flag = $args[$index]
+        if $flag == "--help"
+        {
+            echo "Usage: shelly examples/openai_chat.shy [options]"
+            echo "Options: --api-key KEY, --model MODEL, --base-url URL, --help"
+            echo "Environment: OPENAI_API_KEY, OPENAI_MODEL. Flags override the environment."
+            help
+            exit 0
+        }
+        if ($flag != "--api-key") && ($flag != "--model") && ($flag != "--base-url")
+        { return CommandError(message: "Unknown option. Run with --help.") }
+        $index = $index + 1
+        if ($index >= $args.count) || ($args[$index].trim == "")
+        { return CommandError(message: "${flag} needs a value.") }
+        match $flag
+        {
+            "--api-key" => { $key = $args[$index] },
+            "--model" => { $model = $args[$index] },
+            "--base-url" => { $base_url = $args[$index] },
+        }
+        $index = $index + 1
+    }
+    if $key == ""
+    { return CommandError(message: "Set OPENAI_API_KEY or pass --api-key <key>.") }
+    if $model == "" { $model = "gpt-6.1-sol" }
+    Options(api_key: $key, model: $model, base_url: $base_url)
+}
+
+let $model = ""
+let $messages: [openai::Message] = []
+let $instructions: optional String = ()
+let $streaming = true
+let $pending = ""
+let $models: [String] = []
+let $usage: optional openai::Usage = ()
+
+fn prompt(): String { "${model}> " }
+fn prompt_status(): String
+{
+    let $turns = $messages.count / 2
+    "${turns} turns · /help"
+}
+fn complete($edit: readline::Edit): [String | readline::Completion]
+{
+    let $candidates = ["/help", "/quit", "/exit", "/model", "/new", "/clear", "/system",
+        "/stream", "/history", "/retry", "/status"]
+    if $edit.before_cursor.starts_with "/model " { $candidates = ["list", $models...] }
+    else if $edit.before_cursor.starts_with "/stream " { $candidates = ["on", "off"] }
+    else if $edit.word_span.start != 0 { return [] }
+    let $matches: [String | readline::Completion] = []
+    for $candidate in $candidates
+    {
+        if $candidate.starts_with $edit.word_prefix { $matches.push $candidate }
+        if $matches.count == 64 { break }
+    }
+    $matches
+}
+
+fn reset()
+{
+    $messages = []
+    $pending = ""
+    $usage = ()
+}
+
+fn respond($ai: openai::Client, $request: openai::Request): openai::Response | ErrorValue
+{
+    if !$streaming
+    {
+        let $reply = $ai.create $request
+        echo ($reply.require_text)
+        return $reply
+    }
+    let $output = std::io::open_writer "/dev/stdout"
+    try
+    {
+        let $chunks = $ai.stream_text $request
+        try
+        {
+            for $chunk in $chunks { $output.write std::io::Bytes($chunk) }
+            $output.write std::io::Bytes("\n")
+            $output.flush
+            return $chunks.result
+        }
+        finally { $chunks.close }
+    }
+    finally { $output.close }
+}
+
+fn send($ai: openai::Client, $text: String): () | ErrorValue
+{
+    $pending = $text
+    let $user = openai::Message(role: openai::Role::User, content: $text)
+    let $reply = respond $ai openai::Request(model: $model, input: [$messages..., $user],
+        instructions: $instructions, store: false)
+    let $answer = $reply.require_text
+    $messages = [$messages..., $user,
+        openai::Message(role: openai::Role::Assistant, content: $answer)]
+    $usage = $reply.usage
+    $pending = ""
+    ()
+}
+
+fn command($ai: openai::Client, $line: String): Boolean | ErrorValue
+{
+    let $words = ($line.replace "\t" " ").split " "
+    let $name = $words[0]
+    let $argument = ($line.strip_prefix $name).trim
+    if $name == "/exit" { $name = "/quit" }
+    else if $name == "/clear" { $name = "/new" }
+    match $name
+    {
+        "/quit" => { return false },
+        "/help" => { help },
+        "/new" => { reset; echo "Conversation cleared." },
+        "/model" =>
+        {
+            if $argument == "" { echo "Model: ${model}" }
+            else if ($argument == "list") || ($argument.starts_with "list ")
+            {
+                let $filter = ($argument.strip_prefix "list").trim
+                let $available: [String] = []
+                for $entry in $ai.models { $available.push $entry.id }
+                $available.sort
+                $models = $available
+                let $shown = 0
+                for $id in $models
+                {
+                    if $id.contains $filter { echo $id; $shown = $shown + 1 }
+                }
+                echo "${shown} model IDs. The catalog includes models for other API tasks."
+            }
+            else
+            {
+                if ($argument.contains " ") || ($argument.contains "\n")
+                { return CommandError(message: "Usage: /model <name> or /model list [filter]") }
+                $model = $argument
+                echo "Model: ${model} (conversation kept)"
+            }
+        },
+        "/system" =>
+        {
+            if $argument == ""
+            { echo (if $instructions == () { "No system instructions." } else { $instructions }) }
+            else
+            {
+                $instructions = if $argument == "off" { () } else { $argument }
+                reset
+                echo "Instructions updated. Conversation cleared."
+            }
+        },
+        "/stream" =>
+        {
+            if $argument == "on" { $streaming = true }
+            else if $argument == "off" { $streaming = false }
+            else if $argument != ""
+            { return CommandError(message: "Usage: /stream [on|off]") }
+            echo (if $streaming { "Streaming: on" } else { "Streaming: off" })
+        },
+        "/history" =>
+        {
+            if $messages.count == 0 { echo "No completed turns." }
+            for $message in $messages { echo "${message.role}: ${message.content}" }
+        },
+        "/status" =>
+        {
+            let $turns = $messages.count / 2
+            echo "Model: ${model}; completed turns: ${turns}"
+            if $usage != ()
+            {
+                let $input = $usage.input_tokens
+                let $output = $usage.output_tokens
+                echo "Last response: ${input} input / ${output} output tokens"
+            }
+            if $pending != "" { echo "A failed prompt is available with /retry." }
+        },
+        "/retry" =>
+        {
+            if $pending == "" { echo "No failed prompt to retry." }
+            else { send $ai $pending }
+        },
+        _ => { return CommandError(message: "Unknown command: ${name}. Try /help.") },
+    }
+    true
+}
+
+fn chat($ai: openai::Client): () | ErrorValue
+{
+    let $editor = readline::Editor(prompt: readline::Prompt(left: `prompt,
+        right: `prompt_status, continuation: "... "), complete: `complete)
+    echo "OpenAI chat · ${model} · /help for commands"
+    try
+    {
+        for $input in $editor.lines
+        {
+            let $line = $input.trim
+            if $line == "" { continue }
+            try
+            {
+                if $line.starts_with "//" { send $ai ($line.strip_prefix "/") }
+                else if $line.starts_with "/" { if !(command $ai $line) { break } }
+                else { send $ai $input }
+            }
+            catch ($error: CommandError) { echo $error.message }
+            catch ($stack, $error) { echo; report_error $stack $error }
+        }
+    }
+    finally { $editor.close }
+}
+
+let $config = options
+$model = $config.model
+let $ai = openai::Client(api_key: $config.api_key, model: $model, base_url: $config.base_url)
+try { chat $ai }
+finally { $ai.close }
