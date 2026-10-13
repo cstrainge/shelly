@@ -216,6 +216,7 @@ pub fn read_array($reader: std::io::Reader, $pointer: optional String,
 
 visible `__json_bind
 visible `__json_apply
+visible `__stream
 pub fn std::stream::Reader::read_as($target: Type, $options: optional MappingOptions,
                                    $boxed: optional Boolean): std::stream::Reader | ErrorValue
 {
@@ -223,7 +224,7 @@ pub fn std::stream::Reader::read_as($target: Type, $options: optional MappingOpt
     { return MappingError(message: "Target accepts null; select boxed mapping", path: "", line: 0, column: 0) }
     let $source = $self
     let $conversion = __json_bind $target
-    std::stream::Reader(
+    let $reader = std::stream::Reader(
         next: fn (): any | ErrorValue
         {
             let $document = $source.next_item
@@ -237,6 +238,7 @@ pub fn std::stream::Reader::read_as($target: Type, $options: optional MappingOpt
         result: fn (): any | ErrorValue { $source.result },
         close: fn (): () | ErrorValue { $source.close },
     )
+    __stream "inherit_iteration" $reader $source
 }
 
 # Single-document chunk decoder. finish is the explicit end-of-input boundary; an
