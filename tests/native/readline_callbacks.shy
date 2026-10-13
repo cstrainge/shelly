@@ -1,0 +1,45 @@
+import readline_helpers
+let $fixture = $args[0]
+
+# A private failure in a prompt runs before input and retains its concrete type.
+let $source = 'import std::terminal::{ readline }; error struct AppError { pub message:String }; fn prompt(): String | AppError { AppError(message:"private prompt") }; let $e = readline::Editor(prompt:readline::Prompt(left:`prompt)); try { $e.read } catch ($stack,$error:AppError) { echo "PROMPTERR" $error.message }; let $v = $e.read readline::ReadOptions(prompt:"recover> "); echo "RECOVERED" $v; $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "PROMPTERR private prompt"
+readline_helpers::wait_for $terminal "recover> "
+readline_helpers::input $terminal "ok"
+readline_helpers::wait_for $terminal "RECOVERED ok"
+readline_helpers::finish $terminal
+
+# Checked completion replaces the UTF-8 word range and preserves surrounding input.
+let $source = 'import std::terminal::{ readline }; let $e = readline::Editor(prompt:"complete> ", complete:(readline::words ["héllo", "quit", "quit"])); echo "RESULT" ($e.read); $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "complete> "
+terminal_write $terminal "hé\t\r"
+readline_helpers::wait_for $terminal "RESULT héllo"
+readline_helpers::finish $terminal
+
+# Rejection does not throw or append a newline; More gives automatic multiline input.
+let $source = 'import std::terminal::{ readline }; fn check($edit:readline::Edit): readline::Validation { if $edit.text == "bad" { return readline::reject "try again" }; if !($edit.text.ends_with ";") { return readline::more }; readline::ready }; let $e = readline::Editor(prompt:"validate> ", validate:`check); echo "RESULT" (($e.read).replace "\\n" "<NL>"); $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "validate> "
+terminal_write $terminal "bad\r"
+readline_helpers::wait_for $terminal "try again"
+terminal_write $terminal "\x7f\x7f\x7fone\r"
+terminal_write $terminal "two;\r"
+readline_helpers::wait_for $terminal "RESULT one<NL>two;"
+readline_helpers::finish $terminal
+
+# Highlight failure unwinds first, then a catch can print and reuse the editor.
+let $source = 'import std::terminal::{ readline }; error struct AppError { pub message:String }; fn colors($edit:readline::Edit): [readline::HighlightSpan] | AppError { AppError(message:"private colors") }; let $e = readline::Editor(prompt:"broken> ", highlight:`colors); try { $e.read } catch ($stack,$error:AppError) { echo "COLORERR" $error.message }; $e.close; let $ok = readline::Editor(prompt:"after> "); echo "AFTER" ($ok.read); $ok.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "COLORERR private colors"
+readline_helpers::wait_for $terminal "after> "
+readline_helpers::input $terminal "restored"
+readline_helpers::wait_for $terminal "AFTER restored"
+readline_helpers::finish $terminal
+
+# An editing callback cannot mutate an application binding.
+let $source = 'import std::terminal::{ readline }; let $calls = 0; fn colors($edit:readline::Edit): [readline::HighlightSpan] { $calls = $calls + 1; [] }; let $e = readline::Editor(highlight:`colors); try { $e.read } catch ($error) { echo "GUARDED" $calls }; $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "GUARDED 0"
+readline_helpers::finish $terminal

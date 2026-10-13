@@ -1,0 +1,3 @@
+import std::terminal::{ readline }
+let $line = readline::read "redirect> "
+echo $line

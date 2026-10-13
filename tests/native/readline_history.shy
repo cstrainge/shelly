@@ -1,0 +1,51 @@
+import std::terminal::{ readline }
+import std::json
+import std::io
+import readline_helpers
+let $fixture = $args[0]
+let $path = "${fixture}/commands.jsonl"
+
+# Manual recording persists only explicitly remembered commands, never a submitted secret.
+let $source = 'import std::terminal::{ readline }; let $e = readline::Editor(prompt:"history> ", history:readline::History(path:"commands.jsonl", record:readline::HistoryRecord::Manual)); let $s = $e.read; $e.remember "safe"; $e.flush_history; $e.close; echo DONE'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "history> "
+readline_helpers::input $terminal "secret"
+readline_helpers::wait_for $terminal "DONE"
+readline_helpers::finish $terminal
+let $disk = std::io::read_text $path
+require (($disk.contains "safe") && !($disk.contains "secret")) "manual history leaked input"
+
+# Navigation loads the application's file, and the shell's history remains separate.
+let $source = 'import std::terminal::{ readline }; let $e = readline::Editor(prompt:"reload> ", history:readline::History(path:"commands.jsonl")); echo "HISTORY" ($e.read); $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "reload> "
+terminal_write $terminal "\x1b[A\r"
+readline_helpers::wait_for $terminal "HISTORY safe"
+readline_helpers::finish $terminal
+require (!(test -e "${fixture}/.shelly_history.jsonl")) "application inherited shell history"
+
+# Disk failure defaults to memory and preserves a damaged file.
+printf "%s" "damaged" -> "${fixture}/broken.jsonl"
+let $source = 'import std::terminal::{ readline }; let $e = readline::Editor(prompt:"fallback> ", history:readline::History(path:"broken.jsonl")); let $s = $e.read; echo "FALLBACK" $s $e.history_status.mode.index; $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "fallback> "
+readline_helpers::input $terminal "accepted"
+readline_helpers::wait_for $terminal "FALLBACK accepted 0"
+readline_helpers::finish $terminal
+require ((std::io::read_text "${fixture}/broken.jsonl") == "damaged") "damaged history overwritten"
+
+# An explicit durability requirement raises a marked storage error before editing.
+let $source = 'import std::terminal::{ readline }; let $e = readline::Editor(history:readline::History(path:"broken.jsonl", failure:readline::HistoryFailure::Raise)); try { $e.read } catch ($error:readline::HistoryError) { echo STRICT }; try { $e.close } catch ($error:readline::HistoryError) {}; echo DONE'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "STRICT"
+readline_helpers::finish $terminal
+
+# Redirected stdout contains only data: protocol controls and prompts belong to stderr.
+let $source = '$shelly -m readline_redirect.shy -> "data.txt"; echo DONE'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "redirect> "
+readline_helpers::input $terminal "data"
+readline_helpers::wait_for $terminal "DONE"
+readline_helpers::finish $terminal
+let $disk = std::io::read_text "${fixture}/data.txt"
+require ($disk == "data\n") "terminal controls contaminated redirected stdout"

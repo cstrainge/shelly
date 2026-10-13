@@ -85,6 +85,8 @@ impl Redirection
 
 pub(super) fn configure(command: &mut Command, redirects: &[Redirection]) -> io::Result<bool>
 {
+    if let Some(output) = crate::runtime::readline::output::data_stdio()?
+    { command.stdout(output); }
     let output = redirects.iter().rev().find_map(|redirect| redirect.output.as_ref());
     if let Some(output) = output { command.stdout(output.stdio()?); }
     if let Some(error) = redirects.iter().rev().find_map(|redirect| redirect.error.as_ref())

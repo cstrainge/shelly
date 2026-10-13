@@ -2821,6 +2821,8 @@ scopes copy only initially visible names. The networking and JSON libraries use 
 See the [executable API reference](docs/networking-json-api-implementation.md) for exact JSON,
 conversion protocols, byte pipelines, sockets, HTTP, SSE, RPC and marked errors.
 The OpenAI client is an [ordinary sample module](examples/openai.shy), outside the standard library.
+Scripts can build their own REPLs with [std::terminal::readline](docs/terminal-readline-api.md),
+which wraps Reedline and supports prompt functions, isolated history, editing callbacks and pipelines.
 
 Standard-library imports use a separate search path:
 

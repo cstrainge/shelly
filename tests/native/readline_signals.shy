@@ -1,0 +1,34 @@
+import readline_helpers
+let $fixture = $args[0]
+
+# A real OS signal during editing is an event, and does not poison the next command/read.
+let $source = 'import std::terminal::{ readline }; echo "PID:${pid}:END"; let $e = readline::Editor(prompt:"signal> "); echo "SIGNAL" ($e.read_event).kind.index; echo "NEXT" ($e.read readline::ReadOptions(prompt:"next> ")); $e.close'
+let $terminal = readline_helpers::session $source $fixture
+let $out = readline_helpers::wait_for $terminal ":END"
+let $pid = (($out.split "PID:")[1].split ":END")[0]
+readline_helpers::wait_for $terminal "signal> "
+/bin/kill -INT $pid
+readline_helpers::wait_for $terminal "SIGNAL 1"
+readline_helpers::wait_for $terminal "next> "
+readline_helpers::input $terminal "alive"
+readline_helpers::wait_for $terminal "NEXT alive"
+readline_helpers::finish $terminal
+
+# Manual multiline entry uses the existing enhanced key chords.
+let $source = 'import std::terminal::{ readline }; let $e = readline::Editor(prompt:"manual> "); echo "MANUAL" (($e.read).replace "\\n" "<NL>"); $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "manual> "
+terminal_write $terminal "\x1b[13;5uone\rtwo"
+readline_helpers::wait_for $terminal "two"
+terminal_write $terminal "\x1b[13;5u"
+readline_helpers::wait_for $terminal "MANUAL one<NL>two"
+readline_helpers::finish $terminal
+
+# An inactive native editor's deferred Drop cannot disable another editor's terminal mode.
+let $source = 'import std::terminal::{ readline }; import std::json; let $idle = readline::Editor(); let $e = readline::Editor(prompt:"active> "); let $lines = $e.lines; let $bytes = std::json::array_source $lines; $bytes.next_item; $idle.close; $lines.close; $bytes.close; echo RESTORED; echo "NEXT" ($e.read readline::ReadOptions(prompt:"again> ")); $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "RESTORED"
+readline_helpers::wait_for $terminal "again> "
+readline_helpers::input $terminal "working"
+readline_helpers::wait_for $terminal "NEXT working"
+readline_helpers::finish $terminal

@@ -621,6 +621,10 @@ impl TypeRegistry
         registry.register_json_types();
         registry.register_io_types();
         registry.register_network_types();
+        for name in ["__readline_Editor", "__readline_Text", "__readline_Color"]
+        {
+            registry.register_native(name.into(), TypeKind::Builtin, NativeVisibility::Hidden);
+        }
         registry.register_native(
             "__stream_Reader".into(),
             TypeKind::Builtin,

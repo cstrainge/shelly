@@ -33,6 +33,7 @@ pub struct NativeFault
     pub line: u32,
     pub column: u32,
     pub script_error: Option<u64>,
+    pub cancelled: bool,
 }
 
 impl NativeFault
@@ -79,6 +80,7 @@ impl NativeFault
             line: source.line(),
             column: source.column(),
             script_error: None,
+            cancelled: false,
         }
     }
     #[track_caller]
@@ -358,7 +360,7 @@ impl Reactor
             {
                 let since = *task.cancelled_at.get_or_insert_with(Instant::now);
                 task.future.take();
-                task.reply = Some(Err(NativeFault::new(
+                let mut fault = NativeFault::new(
                     if since.elapsed() < Duration::from_secs(5)
                     {
                         "Interrupted"
@@ -368,7 +370,9 @@ impl Reactor
                         "CleanupAbort"
                     },
                     "Byte source cancelled",
-                )));
+                );
+                fault.cancelled = true;
+                task.reply = Some(Err(fault));
             }
             if let Some(future) = &mut task.future
                 && let Poll::Ready(reply) = future.as_mut().poll(context)

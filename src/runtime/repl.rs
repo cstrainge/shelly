@@ -569,6 +569,7 @@ impl Repl
 
     pub fn run(&mut self) -> RuntimeResult<ExitCode>
     {
+        let initialization = crate::runtime::readline::mode_lock();
         let multiline = Arc::new(AtomicBool::new(false));
         let mut prompt = ShellyPrompt
             {
@@ -621,6 +622,7 @@ impl Repl
                     multiline: multiline.clone(),
                     startup_keys,
                 }));
+        drop(initialization);
 
         while !self.interpreter.halted
         {
@@ -687,7 +689,17 @@ impl Repl
             }
             editor = editor.with_immediately_accept(accept_startup);
             let input = if let Some(signal) = startup_signal { Ok(signal) }
-                else { editor.read_line(&prompt) };
+                else
+                {
+                    let _lease = loop
+                    {
+                        if let Ok(lease) = crate::runtime::readline::EditingLease::acquire()
+                        { break lease; }
+                        std::thread::sleep(Duration::from_millis(5));
+                    };
+                    let _mode = crate::runtime::readline::mode_lock();
+                    editor.read_line(&prompt)
+                };
             editor = editor.with_immediately_accept(false);
             if !matches!(&input, Ok(Signal::Success(text)) if !text.trim().is_empty())
             {
@@ -745,7 +757,7 @@ impl Repl
         Ok(ExitCode::from(self.interpreter.exit_code))
     }
 
-    fn apply_keybindings(keybindings: &mut Keybindings)
+    pub(crate) fn apply_keybindings(keybindings: &mut Keybindings)
     {
         fn simple(command: EditCommand) -> ReedlineEvent
         {

@@ -1,7 +1,7 @@
 
 use std::{ collections::HashSet,
            fs::{ File, OpenOptions, TryLockError, create_dir_all, remove_file, rename },
-           io::{ self, BufRead, BufReader, BufWriter, Error, ErrorKind, Write },
+    io::{ self, BufRead, BufReader, BufWriter, Error, ErrorKind, Read, Write },
            path::{ Path, PathBuf },
            process::id,
            sync::atomic::{ AtomicU64, Ordering },
@@ -26,7 +26,7 @@ fn invalid(line: usize) -> Error
     Error::new(ErrorKind::InvalidData, format!("Invalid history record on line {}", line))
 }
 
-fn read(path: &Path) -> io::Result<Vec<Record>>
+fn read(path: &Path, max_bytes: usize) -> io::Result<Vec<Record>>
 {
     let file = match File::open(path)
     {
@@ -36,10 +36,16 @@ fn read(path: &Path) -> io::Result<Vec<Record>>
     };
     let mut records = Vec::new();
     let mut ids = HashSet::new();
-    for (number, line) in BufReader::new(file).lines().enumerate()
+    let file_limit = if max_bytes == usize::MAX { u64::MAX } else { 134217728 };
+    let mut read_bytes = 0u64;
+    for (number, line) in BufReader::new(file.take(file_limit)).lines().enumerate()
     {
         let number = number + 1;
-        let value: Value = from_str(&line?).map_err(|_| invalid(number))?;
+        let line = line?;
+        read_bytes = read_bytes.saturating_add(line.len() as u64 + 1);
+        if max_bytes != usize::MAX && (read_bytes >= file_limit || number > 100000)
+        { return Err(Error::new(ErrorKind::InvalidData, "History file exceeds storage limits")); }
+        let value: Value = from_str(&line).map_err(|_| invalid(number))?;
         let id = value.get("id").and_then(Value::as_str).filter(|id| !id.is_empty());
         let command = value.get("command").and_then(Value::as_str)
             .filter(|command| !command.trim().is_empty());
@@ -113,7 +119,7 @@ fn write(path: &Path, records: &[Record]) -> io::Result<()>
     Ok(())
 }
 
-pub(super) fn synchronize(path: &Path, pending: &[Record], limit: usize)
+pub(super) fn synchronize(path: &Path, pending: &[Record], limit: usize, max_bytes: usize)
     -> io::Result<Vec<Record>>
 {
     let parent = path.parent().filter(|parent| !parent.as_os_str().is_empty())
@@ -139,7 +145,7 @@ pub(super) fn synchronize(path: &Path, pending: &[Record], limit: usize)
             Err(TryLockError::Error(error)) => return Err(error),
         }
     }
-    let mut records = read(path)?;
+    let mut records = read(path, max_bytes)?;
     let mut ids: HashSet<_> = records.iter().map(|record| record.id.as_str()).collect();
     let additions: Vec<_> = pending.iter().filter(|record| ids.insert(&record.id)).collect();
     let previous_length = records.len();
@@ -151,7 +157,12 @@ pub(super) fn synchronize(path: &Path, pending: &[Record], limit: usize)
     let changed = added || records.len() != previous_length
         || records.len() > limit || !path.exists();
     if records.len() > limit { records.drain(..records.len() - limit); }
-    if changed { write(path, &records)?; }
+    let mut bytes: usize = records.iter().map(|item| item.command.len()).sum();
+    let mut remove = 0;
+    while bytes > max_bytes && remove < records.len()
+    { bytes -= records[remove].command.len(); remove += 1; }
+    if remove != 0 { records.drain(..remove); }
+    if changed || remove != 0 { write(path, &records)?; }
     // Closing the lock file releases the lock on both success and error.
     Ok(records)
 }

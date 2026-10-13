@@ -1,0 +1,40 @@
+import readline_helpers
+let $fixture = $args[0]
+
+# First Tab extends a common prefix without a menu; explicit suffix completion works.
+let $source = 'import std::terminal::{ readline }; let $e = readline::Editor(prompt:"prefix> ", complete:(readline::words ["hello", "help"])); echo "PREFIX" ($e.read); $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "prefix> "
+terminal_write $terminal "h\tlo\r"
+readline_helpers::wait_for $terminal "PREFIX hello"
+readline_helpers::finish $terminal
+
+# Vi insertion mode uses Reedline's own key map and the same wrapper signals.
+let $source = 'import std::terminal::{ readline }; let $e = readline::Editor(prompt:"vi> ", edit_mode:readline::EditMode::Vi); echo "VI" ($e.read); $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "vi> "
+readline_helpers::input $terminal "typed"
+readline_helpers::wait_for $terminal "VI typed"
+readline_helpers::finish $terminal
+
+# Bad UTF-8 completion ranges fail before insertion and preserve the draft.
+let $source = 'import std::terminal::{ readline }; fn bad($edit:readline::Edit):[String | readline::Completion] { [readline::Completion(value:"oops", replace:readline::Span(start:1,end:2))] }; let $e = readline::Editor(prompt:"range> ", complete:`bad); try { $e.read } catch ($stack,$error:readline::CallbackError) { echo "RANGE" $error.hook $e.draft }; $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "range> "
+terminal_write $terminal "é\t"
+readline_helpers::wait_for $terminal "RANGE complete é"
+readline_helpers::finish $terminal
+
+# Budget exhaustion cannot hang the native editor or swallow the callback identity.
+let $source = 'import std::terminal::{ readline }; fn bad($edit:readline::Edit):[readline::HighlightSpan] { loop {} }; let $e = readline::Editor(highlight:`bad, limits:readline::Limits(callback_instructions:1000)); try { $e.read } catch ($error:readline::CallbackError) { echo "BUDGET" $error.hook }; $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "BUDGET highlight"
+readline_helpers::finish $terminal
+
+# Input is bounded before it is presented to application callbacks or returned as success.
+let $source = 'import std::terminal::{ readline }; let $e = readline::Editor(prompt:"limit> ", limits:readline::Limits(max_input_bytes:3)); try { $e.read } catch ($error:readline::LimitError) { echo LIMIT }; $e.close'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "limit> "
+readline_helpers::input $terminal "oversize"
+readline_helpers::wait_for $terminal "LIMIT"
+readline_helpers::finish $terminal

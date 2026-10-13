@@ -19,6 +19,8 @@ pub struct ReplHistory
     pending: Vec<Record>,
     session: String,
     sequence: u64,
+    max_bytes: usize,
+    fail_to_memory: bool,
 }
 
 impl ReplHistory
@@ -35,7 +37,15 @@ impl ReplHistory
                 pending: Vec::new(),
                 session: format!("{}-{}-{}", timestamp, id(), session),
                 sequence: 0,
+                max_bytes: usize::MAX,
+                fail_to_memory: true,
             }
+    }
+    pub(crate) fn bounded(mut self, max_bytes: usize, fail_to_memory: bool) -> Self
+    {
+        self.max_bytes = max_bytes;
+        self.fail_to_memory = fail_to_memory;
+        self
     }
 }
 
@@ -54,6 +64,21 @@ impl History for ReplHistory
                     command: item.command_line.clone(),
                 });
             self.sequence += 1;
+        }
+        if self.max_bytes != usize::MAX
+        {
+            let commands = self.memory
+                .search(SearchQuery::everything(SearchDirection::Forward, None))?;
+            let mut bytes: usize = commands.iter().map(|item| item.command_line.len()).sum();
+            for old in commands
+            {
+                if bytes <= self.max_bytes { break; }
+                bytes -= old.command_line.len();
+                if let Some(id) = old.id { self.memory.delete(id)?; }
+            }
+            let mut pending_bytes: usize = self.pending.iter().map(|item| item.command.len()).sum();
+            while pending_bytes > self.max_bytes
+            { pending_bytes -= self.pending.remove(0).command.len(); }
         }
         Ok(item)
     }
@@ -79,7 +104,7 @@ impl History for ReplHistory
     fn sync(&mut self) -> io::Result<()>
     {
         let Some(path) = &self.path else { return Ok(()); };
-        let records = match synchronize(path, &self.pending, self.limit)
+        let records = match synchronize(path, &self.pending, self.limit, self.max_bytes)
         {
             Ok(records) => records,
             Err(error) =>
@@ -87,8 +112,11 @@ impl History for ReplHistory
                     let message = format!("{}: {}", path.display(), error);
                     // Preserve memory and the damaged/unavailable file; stop disk attempts
                     // for this session rather than repeatedly disrupting the prompt.
-                    self.path = None;
-                    self.pending.clear();
+                    if self.fail_to_memory
+                    {
+                        self.path = None;
+                        self.pending.clear();
+                    }
                     return Err(Error::other(message));
                 },
         };

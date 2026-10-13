@@ -1,0 +1,64 @@
+let $pending = [:]
+pub fn session($source: String, $fixture: String): Terminal
+{
+    open_terminal [`$shelly, "-m", "-c", $source] ["cwd": $fixture,
+        "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin", "TERM": "xterm-256color",
+            "LANG": "C.UTF-8", "NO_COLOR": "1"], "rows": 40, "columns": 140]
+}
+pub fn wait_for($terminal: Terminal, $needle: String): String
+{
+    let $output = if $pending[$terminal] == () { "" } else { $pending[$terminal] }
+    for $attempt in 0..150
+    {
+        if $output.contains $needle
+        {
+            let $prefix = ($output.split $needle)[0] + $needle
+            $pending[$terminal] = $output[$prefix.count..]
+            return $prefix
+        }
+        let $reply = terminal_read $terminal 20
+        $output = $output + $reply["text"]
+        if ($output.contains "\x1b[6n")
+        {
+            terminal_write $terminal "\x1b[1;1R"
+            $output = $output.replace "\x1b[6n" ""
+        }
+        if ($output.contains "\x1b[c")
+        {
+            terminal_write $terminal "\x1b[?1;2c"
+            $output = $output.replace "\x1b[c" ""
+        }
+        if $output.contains $needle
+        {
+            let $prefix = ($output.split $needle)[0] + $needle
+            $pending[$terminal] = $output[$prefix.count..]
+            return $prefix
+        }
+        if $reply["eof"] { break }
+    }
+    echo $output
+    echo "Missing terminal output: ${needle}"
+    exit 1
+}
+pub fn input($terminal: Terminal, $text: String)
+{ terminal_write $terminal "\x1b[200~${text}\x1b[201~\r" }
+pub fn finish($terminal: Terminal)
+{
+    let $output = ""
+    for $attempt in 0..150
+    {
+        let $reply = terminal_read $terminal 20
+        $output = $output + $reply["text"]
+        if $reply["eof"]
+        {
+            let $result = terminal_close $terminal
+            if ($result["exit_code"] != 0) || ($result["signal"] != ())
+            { echo $output $result; exit 1 }
+            return
+        }
+    }
+    echo $output
+    echo "Terminal child failed to exit"
+    terminal_close $terminal
+    exit 1
+}

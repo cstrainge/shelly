@@ -6,6 +6,7 @@ pub mod history;
 pub mod iterm2;
 pub mod process;
 pub mod repl;
+pub(crate) mod readline;
 pub mod result;
 pub mod signals;
 pub mod sixel;

@@ -1,0 +1,31 @@
+# Run: shelly examples/repl.shy
+import std::terminal::{ readline }
+
+error struct CommandError { pub message: String }
+let $name = "demo"
+fn prompt(): String { "${name}> " }
+
+fn dispatch($line: String): () | CommandError
+{
+    if $line == "help" { echo "help | status | name NEW_NAME | quit" }
+    else if $line == "status" { echo "Current name: ${name}" }
+    else if $line.starts_with "name " { $name = ($line.strip_prefix "name ").trim }
+    else { return CommandError(message: "Unknown command: ${line}") }
+    ()
+}
+
+let $editor = readline::Editor(
+    prompt: readline::Prompt(left: `prompt, right: "help for commands", continuation: "... "),
+    complete: (readline::words ["help", "status", "name", "quit"]))
+
+try
+{
+    for $line in $editor.lines
+    {
+        if $line == "quit" { break }
+        if $line.trim == "" { continue }
+        try { dispatch $line }
+        catch ($error: CommandError) { echo $error.message }
+    }
+}
+finally { $editor.close }

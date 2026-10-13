@@ -1,0 +1,68 @@
+import std::terminal::{ readline }
+import readline_helpers
+let $fixture = $args[0]
+
+# No terminal needed to construct/style/check configuration, and no shell history leakage.
+let $editor = readline::Editor(prompt: "test> ")
+require ($editor.history_status.mode == readline::HistoryMode::Memory) "history is not isolated"
+try { $editor.read; fail "nonterminal read succeeded" }
+catch ($error: readline::TerminalError)
+{ require ($error.what == readline::TerminalFailure::NotTerminal) "wrong terminal error" }
+$editor.close
+$editor.close
+try { $editor.read; fail "closed editor read succeeded" }
+catch ($error: readline::ClosedError) {}
+try { readline::Editor(limits: readline::Limits(max_input_bytes: -1)); fail "bad limit accepted" }
+catch ($error: readline::ConfigError) {}
+require ((readline::Span(start: 1, end: 3).slice "aéz") == "é") "byte span slicing"
+try { readline::Span(start: 2, end: 3).slice "aéz"; fail "split UTF-8 accepted" }
+catch ($error: readline::CallbackError) {}
+let $styled = readline::styled "ok" readline::Style(foreground: readline::Color([20, 90, 160]))
+require ($styled.type == readline::Text) "styled prompt type"
+
+# Blank input, exact multiline/Unicode text, normal interrupt, stable EOF and cleanup.
+let $source = 'import std::terminal::{ readline }; let $e = readline::Editor(prompt:"rl> "); try { loop { let $v = $e.read_event; echo "EVENT" $v.kind.index $v.text; if $v.kind == readline::EventKind::End { break } } ; echo "ENDAGAIN" ($e.read_event).kind.index } finally { $e.close }; echo DONE'
+let $terminal = readline_helpers::session $source $fixture
+readline_helpers::wait_for $terminal "rl> "
+readline_helpers::input $terminal ""
+readline_helpers::wait_for $terminal "EVENT 0 "
+readline_helpers::wait_for $terminal "rl> "
+readline_helpers::input $terminal "héllo\n世界"
+let $out = readline_helpers::wait_for $terminal "EVENT 0 héllo"
+require ($out.contains "世界") "Unicode multiline text missing"
+readline_helpers::wait_for $terminal "rl> "
+terminal_write $terminal "discard\x03"
+readline_helpers::wait_for $terminal "EVENT 1 discard"
+readline_helpers::wait_for $terminal "rl> "
+terminal_write $terminal "\x04"
+let $out = readline_helpers::wait_for $terminal "DONE"
+require ($out.contains "EVENT 2") "EOF not an event"
+require ($out.contains "ENDAGAIN 2") "EOF not stable"
+readline_helpers::finish $terminal
+
+# The shipped sample is an ordinary script and its prompt follows application state.
+let $suite = $args[1]
+let $terminal = open_terminal [`$shelly, "-m", "${suite}/examples/repl.shy"] ["cwd": $fixture,
+    "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin", "TERM": "xterm-256color", "LANG": "C.UTF-8"]]
+readline_helpers::wait_for $terminal "demo> "
+readline_helpers::input $terminal "name renamed"
+readline_helpers::wait_for $terminal "renamed> "
+readline_helpers::input $terminal "status"
+readline_helpers::wait_for $terminal "Current name: renamed"
+readline_helpers::wait_for $terminal "renamed> "
+readline_helpers::input $terminal "quit"
+readline_helpers::finish $terminal
+
+# Prompt functions are lazy, see updated state, and run once per editing attempt.
+let $source = 'import std::terminal::{ readline }; let $n = 0; fn prompt(): String { $n = $n + 1; "p${n}> " }; let $e = readline::Editor(prompt:readline::Prompt(left:`prompt, right:fn(): String { "right" }, continuation:"... ")); echo "BEFORE" $n; try { for $s in $e.lines { echo "LINE" $n $s; if $s == "quit" { break } }; let $s = $e.read readline::ReadOptions(prompt:"again> "); echo "AGAIN" $s } finally { $e.close }; echo DONE'
+let $terminal = readline_helpers::session $source $fixture
+let $out = readline_helpers::wait_for $terminal "p1> "
+require ($out.contains "BEFORE 0") "prompt called during construction"
+readline_helpers::input $terminal "first"
+readline_helpers::wait_for $terminal "LINE 1 first"
+readline_helpers::wait_for $terminal "p2> "
+readline_helpers::input $terminal "quit"
+readline_helpers::wait_for $terminal "again> "
+readline_helpers::input $terminal "reused"
+readline_helpers::wait_for $terminal "AGAIN reused"
+readline_helpers::finish $terminal

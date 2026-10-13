@@ -113,6 +113,12 @@ string interpolation and returned prompt strings, callable contracts, live closu
 imported callbacks, stdout isolation, temporary widget bindings, empty prompts,
 default initialization/fallback, and recovery across submissions.
 
+`native/readline*.shy` checks the scripted Reedline wrapper with real PTYs: prompt functions,
+Unicode and byte spans, blank/EOF/interrupt events, both editing modes, completion, validation,
+callback budgets and errors, isolated persistent history, stdout routing and managed pipelines.
+`repl/readline.shy` checks a custom REPL running within a shell submission and returning its
+terminal to the built-in editor.
+
 `native/` checks string methods, process results/settings, exact binary I/O,
 redirection, live exports, terminal identity/lifecycle, UTF-8 boundaries, deadlines,
 process-group cleanup, and Ctrl+C. `harness/` tests schema/result validation,

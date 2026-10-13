@@ -15,6 +15,7 @@ mod prompt;
 mod properties;
 mod redirection;
 mod reporting;
+mod readline;
 mod scope;
 mod source;
 mod streams;

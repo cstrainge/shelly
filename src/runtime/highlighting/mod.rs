@@ -9,6 +9,7 @@ use crate::{ language::analysis::{ analyze_semantics, SymbolSnapshot,
 
 mod palette;
 pub use crate::runtime::highlighting::palette::{ SyntaxSettings, SYNTAX_COLORS };
+pub(crate) use crate::runtime::highlighting::palette::adapt_color;
 
 
 #[derive(Default)]

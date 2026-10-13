@@ -43,6 +43,7 @@ pub(super) struct Reader
     source: RefCell<Option<Value>>,
     snapshot: Value,
     completion: RefCell<Option<InterpreterResult<Value>>>,
+    iteration_resource: RefCell<Option<NativeValue>>,
 }
 
 impl NativeData for Rc<Reader>
@@ -77,6 +78,17 @@ impl Drop for IterationLease
     {
         self.0.leased.set(false);
         self.0.consumer.set(None);
+        // Some borrowed native sources reserve a handle for exactly one whole iteration.
+        // Their release is native-only, so break/return/error can release it even in Drop.
+        if let Some(resource) = self.0.iteration_resource.borrow_mut().take()
+        {
+            resource.0.release();
+            self.0.closed.set(true);
+            self.0.cancel.store(true, Ordering::Release);
+            self.0.callbacks.borrow_mut().take();
+            self.0.source.borrow_mut().take();
+            self.0.iteration.borrow_mut().take();
+        }
     }
 }
 pub(super) fn iteration_lease(
@@ -109,6 +121,16 @@ fn reader(value: &Value) -> Option<Rc<Reader>>
     {
         None
     }
+}
+
+pub(super) fn attach_iteration_resource(value: &Value, resource: NativeValue) -> bool
+{
+    if let Some(reader) = reader(value)
+    {
+        *reader.iteration_resource.borrow_mut() = Some(resource);
+        true
+    }
+    else { false }
 }
 
 fn context_summary(value: &Value) -> String
@@ -213,6 +235,8 @@ impl Interpreter
     {
         // Clear captures before calling cleanup, so a failed/reentrant close cannot replay it.
         let callbacks = source.callbacks.borrow_mut().take();
+        if let Some(resource) = source.iteration_resource.borrow_mut().take()
+        { resource.0.release(); }
         let value = source.source.borrow_mut().take();
         source.iteration.borrow_mut().take();
         if let Some((_, _, close)) = callbacks
@@ -365,6 +389,16 @@ impl Interpreter
         }
         match command.as_str()
         {
+            "inherit_iteration" =>
+            {
+                let source = rest.first().and_then(reader);
+                if let (Some(target), Some(source)) = (reader(input), source)
+                {
+                    *target.iteration_resource.borrow_mut() =
+                        source.iteration_resource.borrow().clone();
+                }
+                self.last_result = Some(input.clone());
+            },
             "reader" | "from_iterable" =>
             {
                 self.exceptions
@@ -463,6 +497,7 @@ impl Interpreter
                     source: RefCell::new(source),
                     snapshot,
                     completion: RefCell::new(None),
+                    iteration_resource: RefCell::new(None),
                 });
                 let region = *self.exceptions.regions.last().unwrap_or(&0);
                 self.exceptions.readers.push((region, source.clone()));
