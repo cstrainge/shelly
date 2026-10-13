@@ -72,6 +72,8 @@ pub fn highlight_spans(source: &str, analysis: &SemanticAnalysis) -> Vec<Highlig
                 | TokenKind::Sub | TokenKind::If | TokenKind::Else | TokenKind::While
                 | TokenKind::Until | TokenKind::For | TokenKind::In | TokenKind::Break
                 | TokenKind::Continue | TokenKind::Loop | TokenKind::Match | TokenKind::Return
+                | TokenKind::Error | TokenKind::Try | TokenKind::Catch | TokenKind::Finally
+                | TokenKind::Throw
                 | TokenKind::Function | TokenKind::Struct | TokenKind::Enum | TokenKind::Type
                 | TokenKind::Import => HighlightKind::Keyword,
                 TokenKind::LineBreak => HighlightKind::Plain,

@@ -24,6 +24,12 @@ fn run_case($file: String, $library: String, $suite: String): Boolean
         rm -rf -- $work
         return false
     }
+    # Exercise the sample as an ordinary external module, never as bundled std code.
+    if $file == "tests/native/openai.shy"
+    {
+        if !(cp -- "${suite}/examples/openai.shy" "${work}/openai.shy")
+        { rm -rf -- $work; return false }
+    }
     mkdir -- "${work}/driver-home" "${work}/tmp"
     ln -s -- `$shelly "${work}/bin/shelly"
     let $common: String

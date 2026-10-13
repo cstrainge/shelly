@@ -1,0 +1,99 @@
+import std::stream
+import std::io
+import std::net::sse
+
+let $s = std::stream::from_iterable [1, (), 2]
+let $items = std::stream::collect $s
+require ($items == [1, (), 2]) "Stream lost null items"
+require ($s.result == ()) "Default completion"
+let $closed = 0
+let $position = 0
+let $s = std::stream::Reader(
+    next: fn (): optional String
+    {
+        $position = $position + 1
+        if $position > 2 { return () }
+        "item"
+    },
+    result: fn (): Integer { 42 },
+    close: fn () { $closed = $closed + 1 },
+)
+let $values: [String]
+$s | $values
+require ($values == ["item", "item"]) "Script cursor pipeline"
+require ($s.result == 42) "Completion result"
+$s.close
+$s.close
+require ($closed == 1) "Cleanup repeated"
+
+let $reader = std::io::memory_reader std::io::Bytes("\xfeff: comment\rdata: one\r\ndata: two\n\nid: key\nretry: 50\nevent: custom\ndata:\n\ndata: unfinished")
+let $events = std::net::sse::read $reader
+let $a = $events.next_item
+let $b = $events.next_item
+require ($a.data == "one\ntwo") "SSE data joining/newline/BOM"
+require (($b.data == "") && ($b.id == "key") && ($b.retry == 50) && ($b.event == "custom")) "SSE empty event/metadata"
+require ($events.next_item == ()) "SSE dispatched unterminated final event"
+
+error struct StreamFailure { pub message: String }
+let $closed = 0
+let $broken = std::stream::Reader(
+    next: fn (): String | StreamFailure { StreamFailure(message: "broken") },
+    close: fn () { $closed = $closed + 1 },
+)
+try { $broken.next_item; fail "Stream swallowed failure" }
+catch ($stack, $error: StreamFailure)
+{
+    require ($error.message == "broken") "Stream changed concrete error"
+    require ($stack.frames.count > 0) "Stream erased call stack"
+}
+$broken.close
+require ($closed == 1) "Failed cursor closed twice"
+let $closed = 0
+try
+{
+    let $unused = std::stream::Reader(next: fn (): optional String { () },
+        close: fn () { $closed = $closed + 1 })
+    throw StreamFailure(message: "unwind")
+}
+catch ($error: StreamFailure) { require ($closed == 1) "Reader was not released before catch" }
+
+
+import std::json
+import std::net::tcp
+# Closing an alias interrupts a callback suspended on native I/O and joins its cleanup.
+let $listener = std::net::tcp::listen "127.0.0.1" 0
+let $client = std::net::tcp::connect "127.0.0.1" $listener.address.port
+let $peer = $listener.accept
+let $active = false
+let $closed = 0
+let $reader = std::stream::Reader(
+    next: fn (): optional String | ErrorValue
+    {
+        $active = true
+        $peer.reader.read 1
+        "unreachable"
+    },
+    close: fn () { $closed = $closed + 1 },
+)
+let $source = std::json::array_source $reader
+try
+{
+    require ((String($source.next_item)) == "[") "Producer prefix"
+    require $active "Producer callback was not active"
+    $reader.close
+    require ($closed == 1) "Active close did not join callback cleanup"
+    $reader.close
+    require ($closed == 1) "Active close replayed cleanup"
+}
+finally { $source.close; $peer.close; $client.close; $listener.close }
+
+
+let $context = ["operation":"fixture", "request_id":"req_local"]
+let $reader = std::stream::Reader(next: fn (): String | StreamFailure { StreamFailure(message:"context") }, context:$context)
+require ($reader.context == $context) "Stream discarded operation context"
+try { $reader.next_item; fail "Context reader swallowed error" }
+catch ($stack, $error: StreamFailure)
+{
+    require ($stack.related[0].relation == "Context") "Stream failure lost context"
+    require ($stack.related[0].error.formatted.contains "req_local") "Stream context lost request metadata"
+}

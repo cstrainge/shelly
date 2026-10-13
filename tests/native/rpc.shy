@@ -1,0 +1,97 @@
+import std::json
+import std::net::rpc
+let $client = std::net::rpc::Client(exchange: fn ($request: std::json::Document): optional std::json::Document | ErrorValue
+    {
+        if !($request.has "/id") { return () }
+        let $id = $request.require_string "/id"
+        std::json::wrap ["jsonrpc": "2.0", "id": $id, "result": ()]
+    })
+let $reply = $client.call "null"
+require ($reply.kind == std::json::Kind::Null) "RPC null result confused with missing response"
+$client.notify "changed"
+try { $client.call "bad" 3; fail "RPC scalar params accepted" }
+catch ($error: std::net::rpc::RequestError) {}
+let $client = std::net::rpc::Client(exchange: fn ($request: std::json::Document): std::json::Document | ErrorValue
+    { std::json::wrap ["jsonrpc":"2.0", "id":($request.require_string "/id"), "error":["code":-32601,"message":"missing","data":()]] })
+try { $client.call "missing"; fail "Remote error swallowed" }
+catch ($error: std::net::rpc::RemoteError)
+{
+    require (($error.code == -32601) && ($error.message == "missing")) "Remote error details"
+    require ($error.data.kind == std::json::Kind::Null) "Remote error null data lost"
+}
+let $client = std::net::rpc::Client(exchange: fn ($request: std::json::Document): std::json::Document | ErrorValue
+    { std::json::parse '{"jsonrpc":"2.0","id":1,"result":true}' })
+try { $client.call "numeric_id"; fail "RPC accepted mismatched ID kind" }
+catch ($error: std::net::rpc::ProtocolError) {}
+let $client = std::net::rpc::Client(exchange: fn ($request: std::json::Document): std::json::Document | ErrorValue
+    {
+        let $replies = []
+        for $entry in $request.array_items
+        {
+            if $entry.has "/id"
+            { $replies = [["jsonrpc":"2.0", "id":($entry.require_string "/id"), "result":7], $replies...] }
+        }
+        std::json::wrap $replies
+    })
+let $result = $client.batch [std::net::rpc::Call(method:"one"), std::net::rpc::Call(method:"notify",notification:true), std::net::rpc::Call(method:"two")]
+require (($result.count == 2) && ($result[0].id == "1") && ($result[1].id == "2")) "Batch did not correlate out-of-order replies"
+try { $client.batch []; fail "Empty RPC batch was transmitted" }
+catch ($error: std::net::rpc::RequestError) {}
+
+
+let $router = std::net::rpc::Router()
+$router.register "echo" fn ($params: optional std::json::Document): any { $params }
+let $reply = $router.dispatch_text '{"jsonrpc":"2.0","method":"echo","params":[null],"id":9007199254740993}'
+require (($reply.require_integer "/id") == 9007199254740993) "RPC router changed numeric ID"
+require (($reply.at "/result/0").kind == std::json::Kind::Null) "RPC router lost null"
+require (($router.dispatch_text '{"jsonrpc":"2.0","method":"echo"}') == ()) "Router replied to notification"
+let $reply = $router.dispatch_text "not JSON"
+require (($reply.require_integer "/error/code") == -32700) "RPC parse error envelope"
+let $reply = $router.dispatch_text "[]"
+require (($reply.require_integer "/error/code") == -32600) "RPC empty batch envelope"
+let $reply = $router.dispatch_text '[{"jsonrpc":"2.0","method":"echo"},{"jsonrpc":"2.0","method":"missing","id":null}]'
+require (($reply.array_items.count == 1) && (($reply.at "/0/id").kind == std::json::Kind::Null)) "RPC mixed notification/null ID batch"
+
+$router.register "reject" fn ($params: optional std::json::Document): Integer | std::net::rpc::CallError
+{ std::net::rpc::CallError(code:-32001, message:"Invalid operation", data:(std::json::wrap ())) }
+let $reply = $router.dispatch_text '{"jsonrpc":"2.0","method":"reject","id":"domain"}'
+require (($reply.require_integer "/error/code") == -32001) "Intentional RPC error became internal failure"
+require (($reply.at "/error/data").kind == std::json::Kind::Null) "Intentional RPC null error data"
+
+import std::io
+import std::net::tcp
+let $fixture = $args[0]
+let $terminal = open_terminal [`$shelly,"-m","${fixture}/rpc_server.shy"] [
+    "cwd":$fixture,"env":["HOME":$fixture,"PATH":"/usr/bin:/bin","SHELLY_STD_PATH":"bundled","TERM":"dumb"]]
+let $port = ()
+for _ in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    if $reply["text"].contains "ready "
+    { $port = Integer((($reply["text"].split "ready ")[1].split "\r")[0].trim); break }
+    require (!($reply["eof"])) "RPC fixture exited before ready"
+}
+require ($port != ()) "RPC fixture was not ready"
+let $peer = std::net::tcp::connect "127.0.0.1" $port
+let $rpc = std::net::rpc::over_stream $peer.reader $peer.writer
+struct Echo { pub text: String }
+fn Echo::from_json($document: std::json::Document): Echo | std::json::Error
+{ Echo(text:$document.require_string "/0") }
+try
+{
+    let $reply = $rpc.call "echo" [(),7]
+    require (($reply.at "/0").kind == std::json::Kind::Null) "Framed RPC lost null"
+    $rpc.notify "changed"
+    let $reply: Echo = $rpc.call_as "echo" ["typed"] Echo
+    require ($reply.text == "typed") "Framed RPC did not pin private conversion"
+}
+finally { $rpc.close; $peer.close }
+try { $rpc.call "echo"; fail "Closed RPC client called transport" }
+catch ($error: std::net::rpc::RequestError) {}
+let $eof = false
+for _ in 0..50
+{
+    if (terminal_read $terminal 100)["eof"] { $eof = true; break }
+}
+require $eof "RPC fixture did not finish"
+require ((terminal_close $terminal)["exit_code"] == 0) "RPC fixture failed"

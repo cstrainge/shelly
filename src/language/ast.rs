@@ -259,7 +259,8 @@ pub struct AstLetStatement
     pub annotation: Option<AstType>,
     pub type_id: Option<TypeId>,
     pub default_initialize: bool,
-    pub expression: AstExpression
+    pub deferred_initialize: bool,
+    pub expression: AstExpression,
 }
 
 
@@ -368,10 +369,12 @@ pub struct AstReturnStatement
 }
 
 
-pub fn new_ast_let_statement(location: Location,
-                             export_flag: AstExportFlag,
-                             identifier: String,
-                             expression: AstExpression) -> Option<AstStatement>
+pub fn new_ast_let_statement(
+    location: Location,
+    export_flag: AstExportFlag,
+    identifier: String,
+    expression: AstExpression,
+) -> Option<AstStatement>
 {
     Some(AstStatement::LetStatement(Box::new(AstLetStatement
         {
@@ -382,6 +385,7 @@ pub fn new_ast_let_statement(location: Location,
             annotation: None,
             type_id: None,
             default_initialize: false,
+            deferred_initialize: false,
             expression,
         })))
 }
@@ -527,9 +531,10 @@ pub struct AstFieldDeclaration
 pub struct AstStructDeclaration
 {
     pub public: bool,
+    pub error: bool,
     pub name: String,
     pub fields: Vec<AstFieldDeclaration>,
-    pub location: Location
+    pub location: Location,
 }
 
 pub struct AstTypeDeclaration
@@ -578,9 +583,28 @@ pub struct AstImportStatement
     pub enabled: bool,
 }
 
+pub struct AstCatch
+{
+    pub location: Location,
+    pub stack: Option<String>,
+    pub error: String,
+    pub annotation: Option<AstType>,
+    pub type_id: Option<TypeId>,
+    pub body: AstBlockStatement,
+}
+
+pub struct AstTry
+{
+    pub location: Location,
+    pub body: AstBlockStatement,
+    pub catches: Vec<AstCatch>,
+    pub finally: Option<AstBlockStatement>,
+}
 
 pub enum AstStatement
 {
+    TryStatement(Box<AstTry>),
+    ThrowStatement(AstExpression),
     ImportStatement(Box<AstImportStatement>),
     EnumDeclaration(Box<AstEnumDeclaration>),
     StructDeclaration(Box<AstStructDeclaration>),
@@ -599,7 +623,7 @@ pub enum AstStatement
     ConditionalLoopStatement(Box<AstConditionalLoopStatement>),
     BreakStatement(Location),
     ContinueStatement(Location),
-    NullStatement
+    NullStatement,
 }
 
 
@@ -612,6 +636,10 @@ impl AstStatement
     {
         match self
         {
+            Self::TryStatement(item) => item.body.uses_pipeline_input()
+                || item.catches.iter().any(|catch| catch.body.uses_pipeline_input())
+                || item.finally.as_ref().is_some_and(AstBlockStatement::uses_pipeline_input),
+            Self::ThrowStatement(item) => item.uses_pipeline_input(),
             Self::LetStatement(item) => item.expression.uses_pipeline_input(),
             Self::SetStatement(item) => item.expression.uses_pipeline_input()
                 || item.indexes.iter().any(|access| match access

@@ -76,7 +76,10 @@ fn check_ast_inner(registry: &mut TypeRegistry, ast: &mut AstTopLevel,
 
 
 fn check_scope(
-    registry: &mut TypeRegistry, ast: &mut AstTopLevel, parent: &Names, module_level: bool,
+    registry: &mut TypeRegistry,
+    ast: &mut AstTopLevel,
+    parent: &Names,
+    module_level: bool,
 ) -> CompileResult<Names>
 {
     let mut names = parent.clone();
@@ -176,6 +179,7 @@ fn check_scope(
                             });
                     }
                     registry.finish(names[&declaration.name], TypeKind::Struct(fields));
+                    if declaration.error { registry.mark_error(names[&declaration.name]); }
                 },
             _ => {}
         }
@@ -257,6 +261,39 @@ fn check_scope(
         { check_protocol(registry, function, &names)?; }
     }
 
+    for statement in ast.iter()
+    {
+        if let AstStatement::FunctionDefinition(function) = statement
+        {
+            let parameters = function
+                .parameters
+                .iter()
+                .map(|parameter| {
+                    parameter
+                        .annotation
+                        .as_ref()
+                        .map(|annotation| {
+                            resolve_method_type(
+                                registry,
+                                annotation,
+                                &names,
+                                &parameter.location,
+                                function
+                                    .receiver_type
+                                    .filter(|_| !is_conversion_method(&function.name)),
+                            )
+                        })
+                        .transpose()
+                })
+                .collect::<CompileResult<Vec<_>>>()?;
+            let name = function.receiver_type.map_or_else(
+                || function.name.clone(),
+                |id| method_key(id, &function.name),
+            );
+            registry.argument_signatures.insert(name, parameters);
+        }
+    }
+
     for statement in ast.iter_mut()
     {
         if let AstStatement::ExecuteStatement(call) = statement
@@ -286,9 +323,17 @@ fn check_scope(
                         statement.type_id = Some(id);
                         if statement.default_initialize
                         {
-                            let value = registry
-                                .default_value(id)
-                                .map_err(|message| error(&statement.location, message))?;
+                            let value = match registry.default_value(id)
+                            {
+                                Ok(value) => value,
+                                Err(_) if matches!(registry.get(registry.underlying_type(id)).kind,
+                                    TypeKind::Struct(_) | TypeKind::Enum(_)) &&
+                                        !registry.has_error_type(id)
+                                    ||
+                                        registry.get(registry.underlying_type(id)).name.starts_with("__") =>
+                                    { statement.deferred_initialize = true; Value::None },
+                                Err(message) => return Err(error(&statement.location, message)),
+                            };
                             statement.expression =
                                 new_ast_literal(statement.location.clone(), value, None);
                         }
@@ -299,7 +344,7 @@ fn check_scope(
                         statement.type_id = constant_value(registry, &statement.expression)
                             .and_then(|value| value.collection_type());
                     }
-                    if let Some(id) = statement.type_id
+                    if let Some(id) = statement.type_id && !statement.deferred_initialize
                     {
                         check_known_value(registry, id, &statement.expression)
                             .map_err(|message| error(&statement.location,
@@ -324,6 +369,7 @@ fn check_scope(
                     check_expression(registry, &mut statement.expression, &names)?;
                 },
             AstStatement::ExpressionStatement(expression)
+            | AstStatement::ThrowStatement(expression)
             | AstStatement::DiscardStatement(expression) =>
                 check_expression(registry, expression, &names)?,
             AstStatement::ExecuteStatement(statement) => check_call(registry, statement, &names)?,
@@ -332,6 +378,25 @@ fn check_scope(
                     if let Some(expression) = &mut statement.expression
                     {
                         check_expression(registry, expression, &names)?;
+                    }
+                },
+            AstStatement::TryStatement(statement) =>
+                {
+                    check_scope(registry, &mut statement.body.body, &names, false)?;
+                    for catch in &mut statement.catches
+                    {
+                        catch.type_id = catch.annotation.as_ref().map(|annotation|
+                            resolve_type(registry, annotation, &names,
+                                &catch.location)).transpose()?;
+                        if catch.type_id.is_some_and(|id| !registry.has_error_type(id))
+                        { return Err(error(&catch.location,
+                            "Catch type must include marked errors".into())); }
+                        check_scope(registry, &mut catch.body.body, &names, false)?;
+                    }
+                    if let Some(finally) = &mut statement.finally
+                    {
+                        check_finally(&finally.body, 0)?;
+                        check_scope(registry, &mut finally.body, &names, false)?;
                     }
                 },
             AstStatement::FunctionDefinition(statement) =>
@@ -358,8 +423,11 @@ fn check_scope(
 }
 
 
-fn check_function(registry: &mut TypeRegistry, function: &mut AstFunctionStatement,
-                  names: &Names) -> CompileResult<()>
+fn check_function(
+    registry: &mut TypeRegistry,
+    function: &mut AstFunctionStatement,
+    names: &Names,
+) -> CompileResult<()>
 {
     let mut optional_seen = false;
     for parameter in &mut function.parameters
@@ -409,7 +477,7 @@ fn check_function(registry: &mut TypeRegistry, function: &mut AstFunctionStateme
         { return Err(error(&function.location,
             "Conversion methods must accept exactly one required source argument".into())); }
         let target = function.receiver_type.unwrap();
-        if    function.return_type != Some(target)
+        if    !function.return_type.is_some_and(|id| registry.valid_conversion_result(target, id))
            && function.return_type != registry.builtin_id("any")
         { return Err(error(&function.location, format!(
             "Conversion method '{}::{}' must declare return type {} or any",
@@ -420,10 +488,56 @@ fn check_function(registry: &mut TypeRegistry, function: &mut AstFunctionStateme
         if function.parameters.len() != 1
         { return Err(error(&function.location,
             "next_item must accept no arguments beyond its receiver".into())); }
-        if !function.return_type.is_some_and(|id|
+        if !function.return_type.and_then(|id| registry.success_type(id)).is_some_and(|id|
             matches!(registry.get(id).kind, TypeKind::Optional(_)))
         { return Err(error(&function.location,
             "next_item must declare a return type T | ()".into())); }
+    }
+    if function.receiver.is_some() && matches!(function.name.as_str(), "to_json" | "json_codec")
+    {
+        let (arguments, success) = if function.name == "to_json"
+        {
+            (1, "__JsonDocument")
+        }
+        else
+        {
+            (0, "__JsonCodec")
+        };
+        let valid_result = function.return_type.is_some_and(|result| {
+            registry
+                .success_type(result)
+                .is_none_or(|id| registry.get(registry.underlying_type(id)).name == success)
+        });
+        if function.parameters.len() != arguments || !valid_result
+        {
+            return Err(error(
+                &function.location,
+                format!(
+                    "JSON protocol ABI 1: {} must take no arguments and return {} | marked errors",
+                    function.name,
+                    if arguments == 1
+                    {
+                        "json::Document"
+                    }
+                    else
+                    {
+                        "json::Codec"
+                    }
+                ),
+            ));
+        }
+    }
+    if function.receiver.is_some() && function.name == "from_json"
+    {
+        let source = function.parameters[0].type_id;
+        if !source
+            .is_some_and(|id| registry.get(registry.underlying_type(id)).name == "__JsonDocument")
+            || function.return_type == registry.builtin_id("any")
+        {
+            return Err(error(&function.location,
+            concat!("JSON protocol ABI 1: from_json requires json::Document and returns ",
+                    "its target | marked errors; use json::encode/to_json for encoding").into()));
+        }
     }
     let previous = registry.checking_factory;
     registry.checking_factory = if function.name == "new" { function.receiver_type }
@@ -473,7 +587,9 @@ fn spaced_call_receiver(expression: &mut AstExpression) -> Option<&mut AstExpres
 
 
 fn check_call(
-    registry: &mut TypeRegistry, call: &mut AstExecuteStatement, names: &Names,
+    registry: &mut TypeRegistry,
+    call: &mut AstExecuteStatement,
+    names: &Names,
 ) -> CompileResult<()>
 {
     if let Some(none) = split_spaced_call(&mut call.executable, names)
@@ -510,9 +626,40 @@ fn check_call(
             "Cannot execute a struct as a command".to_string(),
         ));
     }
-    for argument in &mut call.arguments
+    let callable = match &call.executable.kind
     {
-        if !matches!(argument.kind, AstExpressionKind::Symbol(_))
+        AstExpressionKind::Symbol(item) => Some(item.name.clone()),
+        AstExpressionKind::EnumVariant(owner, member) => Some(format!("{}::{}", owner, member)),
+        _ => None,
+    };
+    let parameters = callable.and_then(|name| registry.argument_signatures.get(&name).cloned());
+    let method_parameters: Vec<_> = if let AstExpressionKind::Field(_, name, _) =
+        &call.executable.kind
+    {
+        registry
+            .argument_signatures
+            .iter()
+            .filter(|(key, _)| key.starts_with("\0method:") && key.ends_with(&format!(":{}", name)))
+            .map(|(_, parameters)| parameters.clone())
+            .collect()
+    }
+    else
+    {
+        Vec::new()
+    };
+    for (index, argument) in call.arguments.iter_mut().enumerate()
+    {
+        let type_parameter = parameters
+            .as_ref()
+            .and_then(|parameters| parameters.get(index))
+            .copied()
+            .flatten()
+            == registry.builtin_id("Type")
+            || !method_parameters.is_empty()
+                && method_parameters.iter().all(|parameters| {
+                    parameters.get(index + 1).copied().flatten() == registry.builtin_id("Type")
+                });
+        if !matches!(argument.kind, AstExpressionKind::Symbol(_)) || type_parameter
         { check_expression(registry, argument, names)?; }
     }
     Ok(())
@@ -520,7 +667,9 @@ fn check_call(
 
 
 fn check_expression(
-    registry: &mut TypeRegistry, expression: &mut AstExpression, names: &Names,
+    registry: &mut TypeRegistry,
+    expression: &mut AstExpression,
+    names: &Names,
 ) -> CompileResult<()>
 {
     // Only a single bare type entry is a constructor. Grouping requests a Type value.
@@ -646,9 +795,6 @@ fn check_expression(
                     constructor.type_id = Some(id);
                     return Ok(());
                 }
-                let TypeKind::Struct(fields) = &definition.kind
-                else { return Err(error(&expression.location,
-                    format!("Type '{}' is not a struct", constructor.name))); };
                 if !constructor.raw && registry.constructors.contains_key(&id)
                 {
                     if !registry.constructor_permissions.contains(&id)
@@ -680,6 +826,9 @@ fn check_expression(
                     constructor.type_id = Some(id);
                     return Ok(());
                 }
+                let TypeKind::Struct(fields) = &definition.kind
+                else { return Err(error(&expression.location,
+                    format!("Type '{}' is not a struct", constructor.name))); };
                 let mut supplied = HashSet::new();
                 for (name, location, value) in &mut constructor.fields
                 {
@@ -1070,19 +1219,22 @@ fn constant_value(registry: &TypeRegistry, expression: &AstExpression) -> Option
                 for ((_, _, expression), index) in item.fields.iter().zip(&item.field_indexes)
                 { values[*index] = constant_value(registry, expression)?; }
                 Some(Value::Struct(Rc::new(StructValue
-                    { definition, fields: values, constructing: false })))
+                    { definition, fields: values, constructing: false, failure: None })))
             },
         _ => None
     }
 }
 
 fn check_known_value(
-    registry: &TypeRegistry, expected: TypeId, expression: &AstExpression,
+    registry: &TypeRegistry,
+    expected: TypeId,
+    expression: &AstExpression,
 ) -> Result<(), String>
 {
     if registry.has_receiver_type(expected) { return Ok(()); }
     if let Some(value) = constant_value(registry, expression)
     {
+        if crate::language::data::failure::marked(&value) { return Ok(()); }
         return registry.coerce(expected, value).map(|_| ());
     }
     if    let Some(actual) = known_type(registry, expression)
@@ -1177,7 +1329,9 @@ fn accepts_results(registry: &TypeRegistry, expected: TypeId, actual: TypeId) ->
 {
     let mut alternatives = Vec::new();
     runtime_alternatives(registry, actual, &mut alternatives);
-    alternatives.into_iter().all(|id| registry.may_assign(expected, id))
+    alternatives
+        .into_iter()
+        .all(|id| registry.get(id).error || registry.may_assign(expected, id))
 }
 
 fn method_result(registry: &TypeRegistry, receiver: TypeId, name: &str,
@@ -1281,6 +1435,8 @@ fn runtime_alternatives(registry: &TypeRegistry, id: TypeId, items: &mut Vec<Typ
     let definition = registry.get(id);
     match &definition.kind
     {
+        TypeKind::Named(inner) if registry.has_error_type(id) =>
+            runtime_alternatives(registry, *inner, items),
         TypeKind::Union(members) =>
             { for member in members { runtime_alternatives(registry, *member, items); } },
         TypeKind::Optional(inner) =>
@@ -1390,9 +1546,13 @@ fn condition_bindings(registry: &TypeRegistry, expression: &AstExpression,
 }
 
 
-fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bindings,
-                       return_type: Option<TypeId>, tail_type: Option<TypeId>)
-    -> CompileResult<MethodResults>
+fn check_binding_scope(
+    registry: &TypeRegistry,
+    ast: &AstTopLevel,
+    parent: &Bindings,
+    return_type: Option<TypeId>,
+    tail_type: Option<TypeId>,
+) -> CompileResult<MethodResults>
 {
     let mut bindings = parent.clone();
     // Pending local declarations shadow outer versions. Preserve already installed
@@ -1421,6 +1581,11 @@ fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bind
         {
             AstStatement::LetStatement(item) =>
                 {
+                    if item.deferred_initialize
+                    {
+                        bindings.insert(item.identifier.clone(), Binding::declared(item.type_id));
+                        continue;
+                    }
                     bindings.methods = check_binding_expression(
                         registry,
                         &item.expression,
@@ -1429,7 +1594,11 @@ fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bind
                         item.type_id,
                     )?;
                     check_stored_string(registry, &item.expression, &bindings, item.type_id)?;
-                    let inferred = binding_type(registry, &item.expression, &bindings);
+                    let inferred = binding_type(registry, &item.expression, &bindings)
+                        .and_then(|id| if item.type_id.is_none_or(|expected|
+                            !registry.has_error_type(expected))
+                            && returns_call_data(registry, &item.expression, &bindings)
+                            { registry.success_type(id) } else { Some(id) });
                     if expression_may_mutate(registry, &item.expression, &bindings)
                     { forget_inferred(&mut bindings); }
                     let type_value = type_value(&item.expression, &bindings);
@@ -1487,6 +1656,31 @@ fn check_binding_scope(registry: &TypeRegistry, ast: &AstTopLevel, parent: &Bind
                        || matches!(expression.kind,
                             AstExpressionKind::Variable(_) | AstExpressionKind::Index(_, _))
                     { forget_inferred(&mut bindings); }
+                },
+            AstStatement::TryStatement(item) =>
+                {
+                    check_binding_scope(registry, &item.body.body, &bindings, return_type, None)?;
+                    for catch in &item.catches
+                    {
+                        let mut handler = bindings.clone();
+                        let caught = catch.type_id.map(|id| registry.catch_type(id))
+                            .unwrap_or_else(|| registry.builtin_id("ErrorValue").unwrap());
+                        handler.insert(catch.error.clone(), Binding::declared(Some(caught)));
+                        if let Some(stack) = &catch.stack
+                        { handler.insert(stack.clone(),
+                            Binding::declared(Some(registry.native_types["CallStack"].id))); }
+                        check_binding_scope(registry, &catch.body.body, &handler, return_type,
+                            None)?;
+                    }
+                    if let Some(finally) = &item.finally
+                    { check_binding_scope(registry, &finally.body, &bindings, return_type, None)?; }
+                    forget_inferred(&mut bindings);
+                },
+            AstStatement::ThrowStatement(expression) =>
+                {
+                    bindings.methods = check_binding_expression(
+                        registry, expression, &bindings, return_type, None)?;
+                    reachable = false;
                 },
             AstStatement::DiscardStatement(expression) =>
                 {
@@ -2466,14 +2660,21 @@ fn interpolated_members(expression: &AstExpression) -> Vec<AstExpression>
 }
 
 
-pub(crate) fn check_protocol(registry: &mut TypeRegistry, function: &mut AstFunctionStatement,
-                  names: &Names) -> CompileResult<()>
+pub(crate) fn check_protocol(
+    registry: &mut TypeRegistry,
+    function: &mut AstFunctionStatement,
+    names: &Names,
+) -> CompileResult<()>
 {
     let Some(id) = function.receiver_type else { return Ok(()); };
     let definition = registry.get(id);
     if function.name != "new" && !function.name.starts_with("get_")
         && !function.name.starts_with("set_") { return Ok(()); }
-    if !matches!(definition.kind, TypeKind::Struct(_) | TypeKind::Enum(_))
+    let getter_extension = function.name.starts_with("get_")
+        && matches!(definition.kind, TypeKind::Named(_) | TypeKind::Builtin);
+    if !getter_extension
+        && !(function.name == "new" && matches!(definition.kind, TypeKind::Named(_)))
+        && !matches!(definition.kind, TypeKind::Struct(_) | TypeKind::Enum(_))
     { return Err(error(&function.location,
         "Struct/enum protocols require their owning type".into())); }
     for parameter in &mut function.parameters
@@ -2493,7 +2694,7 @@ pub(crate) fn check_protocol(registry: &mut TypeRegistry, function: &mut AstFunc
         let result = function.return_type.ok_or_else(|| error(&function.location,
             "::new must declare its result type".into()))?;
         let nullable = registry.intern(TypeKind::Optional(id));
-        if result != id && result != nullable
+        if !registry.valid_factory_result(id, result) && result != nullable
         { return Err(error(&function.location,
             "::new must return its own type or that type | ()".into())); }
         if matches!(definition.kind, TypeKind::Enum(_))
@@ -2518,7 +2719,7 @@ pub(crate) fn check_protocol(registry: &mut TypeRegistry, function: &mut AstFunc
         registry.constructor_permissions.insert(id);
         return Ok(());
     }
-    if !matches!(definition.kind, TypeKind::Struct(_))
+    if !getter_extension && !matches!(definition.kind, TypeKind::Struct(_))
     { return Err(error(&function.location, "Enums do not support getters/setters".into())); }
     let getter = function.name.starts_with("get_");
     if !getter && function.return_type.is_none()
@@ -2550,4 +2751,168 @@ fn optional_constructor_result(registry: &TypeRegistry, id: TypeId) -> bool
         TypeKind::Union(items) => items.iter().any(|id| optional_constructor_result(registry, *id)),
         _ => false,
     }
+}
+
+// Lexical control flow may finish loops created in finally, but cannot escape its boundary.
+fn check_finally(statements: &AstTopLevel, loops: usize) -> CompileResult<()>
+{
+    for statement in statements
+    {
+        match statement
+        {
+            AstStatement::ReturnStatement(item) =>
+            {
+                return Err(error(&item.location, "return cannot escape finally".into()));
+            }
+            AstStatement::BreakStatement(location) | AstStatement::ContinueStatement(location)
+                if loops == 0 =>
+            {
+                return Err(error(location, "loop control cannot escape finally".into()));
+            }
+            AstStatement::ExpressionStatement(value)
+            | AstStatement::DiscardStatement(value)
+            | AstStatement::ThrowStatement(value) => check_finally_expression(value, loops)?,
+            AstStatement::LetStatement(item) => check_finally_expression(&item.expression, loops)?,
+            AstStatement::SetStatement(item) => check_finally_expression(&item.expression, loops)?,
+            AstStatement::ExecuteStatement(item) =>
+            {
+                check_finally_expression(&item.executable, loops)?;
+                for argument in &item.arguments
+                {
+                    check_finally_expression(argument, loops)?;
+                }
+            }
+            AstStatement::BlockStatement(item) => check_finally(&item.body, loops)?,
+            AstStatement::LoopStatement(item) => check_finally(&item.body, loops + 1)?,
+            AstStatement::ConditionalLoopStatement(item) =>
+            {
+                check_finally_expression(&item.condition, loops)?;
+                check_finally(&item.body.body, loops + 1)?;
+            }
+            AstStatement::ForStatement(item) =>
+            {
+                check_finally_expression(&item.iterable, loops)?;
+                check_finally(&item.body.body, loops + 1)?;
+            }
+            AstStatement::TryStatement(item) =>
+            {
+                check_finally(&item.body.body, loops)?;
+                for catch in &item.catches
+                {
+                    check_finally(&catch.body.body, loops)?;
+                }
+                if let Some(finally) = &item.finally
+                {
+                    check_finally(&finally.body, loops)?;
+                }
+            }
+            _ =>
+            {}
+        }
+    }
+    Ok(())
+}
+
+fn check_finally_expression(expression: &AstExpression, loops: usize) -> CompileResult<()>
+{
+    match &expression.kind
+    {
+        AstExpressionKind::IfExpression(item) =>
+        {
+            for branch in &item.branches
+            {
+                check_finally_expression(&branch.condition, loops)?;
+                check_finally(&branch.body.body, loops)?;
+            }
+            if let Some(body) = &item.else_body
+            {
+                check_finally(&body.body, loops)?;
+            }
+        }
+        AstExpressionKind::MatchExpression(item) =>
+        {
+            check_finally_expression(&item.value, loops)?;
+            for arm in &item.arms
+            {
+                if let Some(pattern) = &arm.pattern
+                {
+                    check_finally_expression(pattern, loops)?;
+                }
+                check_finally(&arm.body.body, loops)?;
+            }
+        }
+        AstExpressionKind::Grouped(value)
+        | AstExpressionKind::TryExecute(value)
+        | AstExpressionKind::Splat(value)
+        | AstExpressionKind::BooleanNot(value)
+        | AstExpressionKind::MathNegate(value)
+        | AstExpressionKind::ExecutableReference(value)
+        | AstExpressionKind::Field(value, _, _)
+        | AstExpressionKind::TypeConversion(_, value, _, _) =>
+        {
+            check_finally_expression(value, loops)?
+        }
+        AstExpressionKind::Index(left, right)
+        | AstExpressionKind::MathExpression(_, left, right)
+        | AstExpressionKind::BooleanExpression(_, left, right) =>
+        {
+            check_finally_expression(left, loops)?;
+            check_finally_expression(right, loops)?;
+        }
+        AstExpressionKind::Array(items) =>
+        {
+            for item in items
+            {
+                check_finally_expression(item, loops)?;
+            }
+        }
+        AstExpressionKind::HashMap(items) =>
+        {
+            for (key, value) in items
+            {
+                check_finally_expression(key, loops)?;
+                check_finally_expression(value, loops)?;
+            }
+        }
+        AstExpressionKind::StructConstructor(item) =>
+        {
+            for (_, _, value) in &item.fields
+            {
+                check_finally_expression(value, loops)?;
+            }
+        }
+        AstExpressionKind::Execute(item) =>
+        {
+            check_finally_expression(&item.executable, loops)?;
+            for argument in &item.arguments
+            {
+                check_finally_expression(argument, loops)?;
+            }
+        }
+        AstExpressionKind::Pipeline(item) =>
+        {
+            for stage in &item.stages
+            {
+                check_finally_expression(stage, loops)?;
+            }
+        }
+        AstExpressionKind::Redirect(value, redirects) =>
+        {
+            check_finally_expression(value, loops)?;
+            for redirect in redirects
+            {
+                check_finally_expression(&redirect.target, loops)?;
+            }
+        }
+        AstExpressionKind::Range(start, end, _) =>
+        {
+            for value in start.iter().chain(end.iter())
+            {
+                check_finally_expression(value, loops)?;
+            }
+        }
+        _ =>
+        {}
+    }
+    Ok(())
 }

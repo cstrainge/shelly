@@ -67,6 +67,7 @@ impl PartialEq for Executable
 pub enum Value
 {
     None,
+    Native(crate::language::data::native_value::NativeValue),
     Terminal(Rc<Terminal>),
     Enum(Rc<EnumValue>),
     Struct(Rc<StructValue>),
@@ -82,7 +83,7 @@ pub enum Value
     Array(Rc<Collection<Vec<Value>>>),
     HashMap(Rc<Collection<HashMap<MapKey, Value>>>),
     Range(Range),
-    ArgumentExpansion(Rc<Collection<Vec<Value>>>)
+    ArgumentExpansion(Rc<Collection<Vec<Value>>>),
 }
 
 
@@ -119,6 +120,7 @@ impl Value
     {
         match self
         {
+            Value::Native(value) => return value.0.type_name().into(),
             Value::None => "None",
             Value::Terminal(_) => "Terminal",
             Value::Integer(_) => "Integer",
@@ -198,6 +200,7 @@ impl Value
     {
         match self
         {
+            Value::Native(value) => value.0.display(),
             Value::Named(item) => item.value.as_text(),
             Value::Callable(item) => item.target.as_text(),
             Value::Closure(_) => "<anonymous>".into(),
@@ -279,7 +282,7 @@ impl Value
         {
             Value::Named(item) => item.value.as_integer(),
             Value::Callable(_) | Value::Closure(_) | Value::Type(_) => 0,
-            Value::None | Value::Terminal(_) => 0,
+            Value::None | Value::Terminal(_) | Value::Native(_) => 0,
             Value::HashMap(_) | Value::Range(_) | Value::Enum(_) | Value::Struct(_) => 0,
             Value::ExecResult(code) => match code
                 {
@@ -302,7 +305,7 @@ impl Value
             Value::Named(item) => item.value.as_bool(),
             Value::Callable(_) | Value::Closure(_) | Value::Type(_) => true,
             Value::None => false,
-            Value::Enum(_) | Value::Struct(_) | Value::Terminal(_) => true,
+            Value::Enum(_) | Value::Struct(_) | Value::Terminal(_) | Value::Native(_) => true,
             Value::Range(range) => !range.is_empty(),
             Value::ExecResult(ExecResult::Value(code)) => *code == 0,
             Value::ExecResult(ExecResult::Signaled) => false,
@@ -325,6 +328,7 @@ impl Value
             (Value::Type(left), Value::Type(right)) => left == right,
             (Value::Named(left), Value::Named(right)) =>
                 left.definition.id == right.definition.id && left.value.equals(&right.value),
+            (Value::Native(left), Value::Native(right)) => left == right,
             (Value::None, Value::None) => true,
             (Value::Terminal(left), Value::Terminal(right)) => left == right,
             (Value::Enum(left), Value::Enum(right)) => left == right,
@@ -359,6 +363,7 @@ impl Value
     {
         match self
         {
+            Value::Native(_) => Some("Native values cannot be used in arithmetic"),
             Value::Named(item) => item.value.arithmetic_error(),
             Value::Callable(_) | Value::Closure(_) =>
                 Some("Functions cannot be used in arithmetic"),

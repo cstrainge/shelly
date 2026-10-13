@@ -5,6 +5,7 @@ use crate::language::{ text::location::Location,
                        tokenizer::{ TokenKind, TokenizerError },
                        ast::AstError };
 
+#[derive(Clone)]
 pub enum ParserErrorKind
 {
     TokenizerError(TokenizerError),
@@ -100,6 +101,7 @@ impl Display for ParserErrorKind
 }
 
 
+#[derive(Clone)]
 pub struct ParserError
 {
     pub location: Option<Location>,

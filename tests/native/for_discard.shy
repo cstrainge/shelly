@@ -20,7 +20,7 @@ fn discard_case($source: String, $expected: String, $diagnostic: String)
 }
 discard_case 'let $n = 0; for _ in 0..3 { $n = $n + 1 }; echo $n' "3\n" ""
 discard_case 'for _ in 0..=1 { echo tick }; for _ in 3..1 { echo wrong }; for _ in [] { echo wrong }' "tick\ntick\n" ""
-discard_case 'for _ in [[1,2], [3,4]] { echo item }; for _ in [1, (), 2] { echo unit-stop }' "item\nitem\nunit-stop\n" ""
+discard_case 'for _ in [[1,2], [3,4]] { echo item }; for _ in [1, (), 2] { echo unit-stop }' "item\nitem\nunit-stop\nunit-stop\nunit-stop\n" ""
 discard_case 'let $_ = "outer"; for _ in [1,2] { echo $_ }; echo $_; for $_ in [3] { echo $_ }; echo $_' "outer\nouter\nouter\n3\nouter\n" ""
 discard_case 'for (_, _, $value) in [[1,2,3],[4,5,6]] { echo $value }; for (_, _) in [[1,2]] { echo both }' "3\n6\nboth\n" ""
 discard_case 'for ($key, _) in ["x": 7] { echo $key }; for (_, $value) in ["x": 7] { echo $value }; for _, _ in ["x": 7] { echo pair }' "x\n7\npair\n" ""

@@ -7,9 +7,12 @@ use crate::language::data::{ types::{ StructValue, TypeId, TypeKind, TypeRegistr
 
 // Shared structural mapping for decoded objects and header-described tabular rows.
 // Explicit scripted from_<source> factories take precedence in the interpreter.
-pub fn map_value(types: &TypeRegistry, target: TypeId, value: Value,
-                 factory: &mut impl FnMut(TypeId, &Value) -> Result<Option<Value>, String>)
-    -> Result<Value, String>
+pub fn map_value(
+    types: &TypeRegistry,
+    target: TypeId,
+    value: Value,
+    factory: &mut impl FnMut(TypeId, &Value) -> Result<Option<Value>, String>,
+) -> Result<Value, String>
 {
     if let Some(converted) = factory(target, &value)? { return Ok(converted); }
     let definition = types.get(target);
@@ -66,7 +69,7 @@ pub fn map_value(types: &TypeRegistry, target: TypeId, value: Value,
                     if !remaining.is_empty()
                     { return Err("Unknown constructor parameters in decoded object".into()); }
                     let inputs = Value::Struct(Rc::new(StructValue
-                        { definition, fields: mapped, constructing: true }));
+                        { definition, fields: mapped, constructing: true, failure: None }));
                     return factory(target, &inputs)?
                         .ok_or_else(|| "Constructor factory is unavailable".into());
                 }
@@ -90,7 +93,7 @@ pub fn map_value(types: &TypeRegistry, target: TypeId, value: Value,
                 }
                 if !remaining.is_empty() { return Err("Unknown fields in decoded object".into()); }
                 let value = Value::Struct(Rc::new(StructValue
-                    { definition, fields: mapped, constructing: false }));
+                    { definition, fields: mapped, constructing: false, failure: None }));
                 types.coerce(target, value)
             },
         TypeKind::Array(item) =>

@@ -1,3 +1,5 @@
+import std::json
+
 # History preserves submitted source and restores multiline entries without executing them.
 fn history_commands($path: String): Array
 {
@@ -6,7 +8,7 @@ fn history_commands($path: String): Array
     let $commands = []
     for $line in $text.split "\n"
     {
-        if $line != "" { $commands = [$commands..., (json::from_string $line)["command"]] }
+        if $line != "" { $commands = [$commands..., (std::json::decode $line)["command"]] }
     }
     $commands
 }

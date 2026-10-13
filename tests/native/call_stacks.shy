@@ -57,8 +57,8 @@ trace_case 'fn stage($value: any): any { let $a = []; $a[0] }; fn outer() { let 
 # Conversion context must preserve the structured trace rather than stringify it.
 trace_case 'struct Foo { pub seed: Integer }; fn Foo::new($seed: Integer): Foo { let $a = []; $a[0]; Foo(seed: $seed) }; fn outer() { let $out: [Foo]; printf "seed\\n1\\n" csv:|:Foo $out }; outer' [
     "    at Foo::new (", "    at outer ("] "out of bounds"
-trace_case 'fn String::from_json($value: any): String { let $a = []; $a[0]; "" }; fn outer() { let $out: String; [1] |:json cat | $out }; outer' [
-    "    at String::from_json (", "    at outer ("] "out of bounds"
+trace_case 'visible "__JsonDocument"; visible `__json; struct Thing { pub n: Integer }; fn Thing::to_json(): __JsonDocument { let $a = []; $a[0]; __json "wrap" [:] }; fn outer() { let $out: String; Thing(n: 1) |:json cat | $out }; outer' [
+    "    at Thing::to_json (", "    at outer ("] "out of bounds"
 
 # Frozen native references use their registered names too.
 trace_case 'let $native = `run_process; fn outer($call: any) { $call [] }; outer $native' [

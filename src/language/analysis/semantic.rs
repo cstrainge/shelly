@@ -446,6 +446,32 @@ impl Classifier<'_>
                     self.paint_region(&item.location);
                     if let Some(value) = &item.expression { self.expression(value, false); }
                 },
+            AstStatement::ThrowStatement(item) =>
+                { self.paint_region(&item.location); self.expression(item, false); },
+            AstStatement::TryStatement(item) =>
+                {
+                    self.paint_region(&item.location);
+                    self.enter_scope();
+                    self.statements(&item.body.body);
+                    self.exit_scope();
+                    for catch in &item.catches
+                    {
+                        self.enter_scope();
+                        if let Some(name) = &catch.stack
+                        { self.bind(name, SymbolDescriptor::new(SymbolKind::Variable,
+                            self.type_name("CallStack"))); }
+                        let ty = catch.annotation.as_ref().and_then(|ty| self.annotation(ty));
+                        self.bind(&catch.error, SymbolDescriptor::new(SymbolKind::Variable, ty));
+                        self.statements(&catch.body.body);
+                        self.exit_scope();
+                    }
+                    if let Some(finally) = &item.finally
+                    {
+                        self.enter_scope();
+                        self.statements(&finally.body);
+                        self.exit_scope();
+                    }
+                },
             AstStatement::FunctionDefinition(item) => self.function(item),
             AstStatement::BlockStatement(item) | AstStatement::LoopStatement(item) =>
                 self.block(item),

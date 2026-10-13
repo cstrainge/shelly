@@ -1,13 +1,20 @@
 
-pub mod value;
-pub mod collection;
-pub mod conversion;
-pub mod formats;
-pub mod methods;
-pub mod range;
-pub mod map_key;
-pub mod scoped_variables;
-pub mod types;
-mod receiver_types;
 pub mod callable;
 pub mod closure;
+pub mod collection;
+pub mod conversion;
+mod error_types;
+pub mod failure;
+pub mod formats;
+pub mod io;
+pub mod map_key;
+pub mod methods;
+pub mod native_value;
+pub mod net;
+pub mod range;
+mod receiver_types;
+pub mod scoped_variables;
+pub mod types;
+pub mod value;
+
+pub mod retained;

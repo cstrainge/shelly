@@ -165,8 +165,11 @@ impl<'a> BoundaryStream<'a>
 
 impl Stream for BoundaryStream<'_>
 {
-    fn poll(&mut self, interpreter: &mut Interpreter, context: &mut Context)
-        -> InterpreterResult<Step>
+    fn poll(
+        &mut self,
+        interpreter: &mut Interpreter,
+        context: &mut Context,
+    ) -> InterpreterResult<Step>
     {
         if let Some(rows) = self.rows.as_mut()
         {
@@ -196,7 +199,13 @@ impl Stream for BoundaryStream<'_>
                           Data::Value(value) => return Err(error(self.boundary, value.type_name(),
                               "A decoder requires String or byte data")) };
                     if let Some(rows) = self.rows.as_mut() { rows.push(&bytes); }
-                    else { self.bytes.extend(bytes); }
+                    else
+                    {
+                        if self.bytes.len().saturating_add(bytes.len()) > 16 * 1024 * 1024
+                        { return Err(error(self.boundary, "bytes",
+                            "Decoder buffer exceeds 16 MiB")); }
+                        self.bytes.extend(bytes);
+                    }
                     Ok(Step::Pending)
                 },
             Step::End =>
@@ -253,17 +262,40 @@ impl Interpreter
         else { Some(value.clone()) }
     }
 
-    pub(super) fn pipeline_format_supported(&self, boundary: &PipelineBoundary,
-                                           format: &str, encode: bool) -> bool
+    pub(super) fn pipeline_format_supported(
+        &self,
+        boundary: &PipelineBoundary,
+        format: &str,
+        encode: bool,
+    ) -> bool
     {
+        if format == "json"
+        {
+            return true;
+        }
         let (owner, name) = if encode { ("String", format!("from_{}", format.to_lowercase())) }
             else { (format, "from_string".into()) };
         self.pipeline_factory(boundary, owner, &name).is_some()
     }
 
-    pub(super) fn pipeline_codec(&mut self, boundary: &PipelineBoundary, format: &str,
-                                 encode: bool, value: Value) -> InterpreterResult<Value>
+    pub(super) fn pipeline_codec(
+        &mut self,
+        boundary: &PipelineBoundary,
+        format: &str,
+        encode: bool,
+        value: Value,
+    ) -> InterpreterResult<Value>
     {
+        if format == "json"
+        {
+            return self.pipeline_json_codec(
+                &boundary.location,
+                encode,
+                boundary.type_id.is_some(),
+                value,
+                &boundary.conversions,
+            );
+        }
         let (owner, name) = if encode { ("String", format!("from_{}", format.to_lowercase())) }
             else { (format, "from_string".into()) };
         let factory = self.pipeline_factory(boundary, owner, &name).ok_or_else(||
@@ -273,9 +305,22 @@ impl Interpreter
         Ok(self.last_result.take().unwrap_or(Value::None))
     }
 
-    pub(super) fn pipeline_target(&mut self, boundary: &PipelineBoundary, target: TypeId,
-                                  value: Value) -> InterpreterResult<Value>
+    pub(super) fn pipeline_target(
+        &mut self,
+        boundary: &PipelineBoundary,
+        target: TypeId,
+        value: Value,
+    ) -> InterpreterResult<Value>
     {
+        if boundary.decode.as_deref() == Some("json")
+        {
+            return self.pipeline_json_target(
+                &boundary.location,
+                target,
+                &value,
+                &boundary.conversions,
+            );
+        }
         let types = self.scope().types.clone();
         let mut failure = None;
         map_value(&types, target, value, &mut |target, value|
@@ -325,9 +370,17 @@ impl Interpreter
     }
 
 
-    pub(super) fn pipeline_bytes(&mut self, stage: &PipelineStage, value: Value)
-        -> InterpreterResult<Vec<u8>>
+    pub(super) fn pipeline_bytes(
+        &mut self,
+        stage: &PipelineStage,
+        value: Value,
+    ) -> InterpreterResult<Vec<u8>>
     {
+        if let Value::Native(native) = value.underlying()
+            && let Some(bytes) = native.downcast::<crate::language::data::io::Bytes>()
+        {
+            return Ok(bytes.0.to_vec());
+        }
         if let Value::String(text, Executable::No) = &value
         { return Ok(text.as_bytes().to_vec()); }
         let source = self.scope().types.inferred_value_type(&value);

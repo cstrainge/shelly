@@ -18,3 +18,7 @@ require ("abc".contains "") "empty substring"
 require (!("abc".starts_with "bc")) "prefix negative"
 require (!("abc".ends_with "ab")) "suffix negative"
 require ($s == "  héllo 世界\n") "string methods mutated receiver"
+
+let $unicode = "aλ💜z"
+require (($unicode[1] == "λ") && ($unicode[1..3] == "λ💜")) "Unicode String slicing"
+require (($unicode[2..2] == "") && ($unicode[4..] == "")) "Empty String slices"

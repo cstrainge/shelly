@@ -20,6 +20,12 @@ pub fn method_key(receiver: TypeId, name: &str) -> String
     format!("\0method:{}:{}", receiver.0, name)
 }
 
+// Conversion overloads retain the original spelling but dispatch by source TypeID.
+pub fn conversion_key(receiver: TypeId, name: &str, source: TypeId) -> String
+{
+    format!("{}#{}", method_key(receiver, name), source.0)
+}
+
 pub struct NativeMethodError
 {
     pub message: String,
@@ -117,6 +123,28 @@ pub fn register_methods(registry: &mut TypeRegistry)
                 });
         }
     }
+    let hashmap = registry.builtin_id("HashMap").unwrap();
+    registry.register_method(
+        hashmap,
+        BuiltinMethod {
+            name: "count",
+            receiver_type: hashmap,
+            argument_count: 0,
+            return_type: integer,
+            body: |receiver, _| {
+                if let Value::HashMap(items) = receiver
+                {
+                    Ok(Value::Integer(items.len() as i64))
+                }
+                else
+                {
+                    Err("Expected HashMap".into())
+                }
+            },
+            mutates_receiver: false,
+            native_iterator: false,
+        },
+    );
     let any = registry.builtin_id("any").unwrap();
     let properties_type = registry.intern(TypeKind::Map(string, any));
     registry.register_method(any, BuiltinMethod

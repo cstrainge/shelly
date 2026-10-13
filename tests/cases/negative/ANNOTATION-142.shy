@@ -1,13 +1,13 @@
-# ANNOTATION-142: struct default
+# ANNOTATION-142: struct read before initialization
 check ["id": "ANNOTATION-142",
-    "name": "struct default",
-    "source": "struct S {}; let \$x: S",
+    "name": "struct read before initialization",
+    "source": "struct S {}; let \$x: S; echo \$x",
     "mode": "code",
     "args": [],
     "stdout": "",
     "status": 1,
     "valid": false,
-    "error": "Type error:",
-    "stderr_contains": [],
+    "error": "Binding has not been initialized",
+    "stderr_contains": ["Binding has not been initialized"],
     "stderr_excludes": ["Parser error:"],
     "stdout_excludes": []]

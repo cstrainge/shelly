@@ -8,21 +8,27 @@ use std::{ cell::RefCell,
            path::{ Path, PathBuf },
            rc::Rc };
 
-use crate::language::{ ast::{ AstExpression, AstExpressionKind, AstImportStatement,
-                              AstStatement, AstTopLevel },
-                       bytecode::{ FunctionRef, Instruction },
-                       data::{ scoped_variables::{ ScopedValue, ValueReference, ValueVisibility },
-                               types::TypeId, value::Value,
-                               methods::method_key, conversion::is_conversion_method },
-                       native::NativeFunction,
-                       interpreter::{ bundled_std::source as bundled_source,
-                                      ErrorWhat, Interpreter, InterpreterError,
-                                      InterpreterResult,
-                                      scope::{ Alias, Scope } },
-                       exclusions::exclude_statements,
-                       parser::parse_text,
-                       text::{ location::Location, read_buffer::ReadBuffer },
-                       tokenizer::Tokenizer };
+use crate::language::{
+    ast::{AstExpression, AstExpressionKind, AstImportStatement, AstStatement, AstTopLevel},
+    bytecode::{FunctionRef, Instruction},
+    data::{
+        scoped_variables::{ScopedValue, ValueReference, ValueVisibility},
+        types::TypeId,
+        value::Value,
+        methods::{method_key, conversion_key},
+        conversion::is_conversion_method,
+    },
+    native::NativeFunction,
+    interpreter::{
+        bundled_std::{source as bundled_source, has_children as bundled_has_children},
+        ErrorWhat, Interpreter, InterpreterError, InterpreterResult,
+        scope::{Alias, Scope},
+    },
+    exclusions::exclude_statements,
+    parser::parse_text,
+    text::{location::Location, read_buffer::ReadBuffer},
+    tokenizer::Tokenizer,
+};
 
 mod parent;
 
@@ -104,9 +110,25 @@ impl ModuleSource
         }
     }
 
-    fn files(files: &[PathBuf], library: &Path, location: &Location)
-        -> InterpreterResult<Option<Self>>
+    fn files(
+        files: &[PathBuf],
+        library: &Path,
+        location: &Location,
+    ) -> InterpreterResult<Option<Self>>
     {
+        if let [file, entry] = files
+            && file.is_file()
+            && entry.parent().is_some_and(Path::is_dir)
+        {
+            return Err(module_error(
+                location,
+                format!(
+                    "Ambiguous module: both '{}' and directory '{}' exist; use its init.shy root",
+                    file.display(),
+                    entry.parent().unwrap().display()
+                ),
+            ));
+        }
         let mut found: Option<(PathBuf, &PathBuf)> = None;
         for file in files
         {
@@ -136,9 +158,20 @@ impl ModuleSource
     }
 
     fn bundled(name: &str, directory: &Path, location: &Location)
-        -> InterpreterResult<Option<Self>>
+    -> InterpreterResult<Option<Self>>
     {
         let path = directory.join(name.replace("::", "/"));
+        let prefix = path.to_string_lossy().replace('\\', "/");
+        if bundled_source(&prefix).is_some() && bundled_has_children(&prefix)
+        {
+            return Err(module_error(
+                location,
+                format!(
+                    "Ambiguous module: bundled '{}.shy' conflicts with directory '{}'",
+                    prefix, prefix
+                ),
+            ));
+        }
         let mut found: Option<Self> = None;
         for path in [path.clone(), path.join("init")]
         {
@@ -735,9 +768,14 @@ impl Interpreter
 
     fn refresh_module_names(&mut self) -> InterpreterResult<()>
     {
-        fn collect(scopes: &HashMap<String, Scope>, scope: &Scope, prefix: &str,
-                   bindings: &mut ModuleBindings,
-                   visiting: &mut HashSet<String>, local: bool) -> InterpreterResult<()>
+        fn collect(
+            scopes: &HashMap<String, Scope>,
+            scope: &Scope,
+            prefix: &str,
+            bindings: &mut ModuleBindings,
+            visiting: &mut HashSet<String>,
+            local: bool,
+        ) -> InterpreterResult<()>
         {
             for (name, key) in &scope.modules
             {
@@ -762,6 +800,21 @@ impl Interpreter
                             if    let Some(previous) = bindings.methods.get(name)
                                && !Rc::ptr_eq(previous, &function)
                             {
+                                let member = name.rsplit(':').next().unwrap();
+                                if is_conversion_method(member)
+                                    && let (Some(source), Some(previous_source)) =
+                                        (function.argument_types.first().copied().flatten(),
+                                         previous.argument_types.first().copied().flatten())
+                                    && source != previous_source
+                                {
+                                    let receiver = function.receiver_type.unwrap();
+                                    let previous = previous.clone();
+                                    bindings.methods.insert(conversion_key(receiver, member,
+                                        previous_source), previous);
+                                    bindings.methods.insert(conversion_key(receiver, member,
+                                        source), function);
+                                    continue;
+                                }
                                 // Scripted factories override typedef defaults regardless
                                 // of import order. Distinct scripted methods still conflict.
                                 if function.implied_conversion { continue; }
@@ -831,7 +884,20 @@ impl Interpreter
             }).collect();
         let native_factories: Vec<_> = self.scope().native_functions.keys()
             .filter(|name| name.contains("::")).cloned().collect();
+        let signatures: Vec<_> = functions
+            .iter()
+            .filter_map(|name| {
+                self.module_function(name)
+                    .map(|function| (name.clone(), function.argument_types.clone()))
+            })
+            .collect();
         let types = &mut self.scope_mut().types;
+        types.argument_signatures.extend(signatures);
+        types.argument_signatures.extend(
+            methods
+                .iter()
+                .map(|(name, function)| (name.clone(), function.argument_types.clone())),
+        );
         for (id, source, exports) in extensions
         {
             types.import_extensions(&source, id,

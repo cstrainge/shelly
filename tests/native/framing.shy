@@ -1,0 +1,22 @@
+import std::io
+import std::net::framing
+let $one = std::io::Bytes([0,255,1])
+let $frame = std::net::framing::encode_length $one 4
+let $empty = std::net::framing::encode_length std::io::Bytes("") 4
+let $source = std::io::memory_reader (($frame.concat $empty).concat $frame)
+let $frames = std::net::framing::read_length $source 4
+require ($frames.next_item.to_array == $one.to_array) "Length-prefixed frame"
+require ($frames.next_item.count == 0) "Empty frame treated as EOF"
+require ($frames.next_item.to_array == $one.to_array) "Frame reader dropped extra bytes"
+require ($frames.next_item == ()) "Framed EOF"
+let $frame = std::net::framing::encode_length $one 2 std::net::framing::ByteOrder::LittleEndian
+require ($frame.to_array == [3,0,0,255,1]) "Little-endian prefix"
+let $source = std::io::memory_reader std::io::Bytes([0,0,0,8,1])
+let $frames = std::net::framing::read_length $source
+try { $frames.next_item; fail "Truncated frame succeeded" }
+catch ($error: std::io::ShortReadError)
+{
+    require (($error.expected == 8) && ($error.received.count == 1)) "Short read lost partial bytes"
+}
+try { $source.read 1; fail "Desynchronized source was reusable" }
+catch ($error: std::io::ClosedError) {}

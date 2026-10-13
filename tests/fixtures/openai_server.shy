@@ -1,0 +1,24 @@
+import std::io
+import std::json
+import std::net::http
+import std::net::http::server
+let $server = std::net::http::server::listen "127.0.0.1" 0
+echo ready $server.address.port
+fn handle($request: std::net::http::server::Incoming): std::net::http::server::Response | ErrorValue
+{
+    let $input = $request.read_document
+    if ($input.require_string "/input") == "fail"
+    {
+        return std::net::http::server::Response(status:400, headers:["x-request-id":"req_error"],
+            body:(std::net::http::json_body ["error":["message":"fixture rejected"]]))
+    }
+    if ($input.find "/stream") != () && ($input.require_boolean "/stream")
+    {
+        return std::net::http::server::Response(status:200, headers:["x-request-id":"req_fixture"],
+            body:std::net::http::Body(value:(std::io::read_bytes "events.txt"), content_type:"text/event-stream"))
+    }
+    std::net::http::server::Response(status:200, headers:["x-request-id":"req_fixture"],
+        body:(std::net::http::json_body (std::json::parse '{"id":"resp_test","status":"completed","output":[{"id":"msg_1","type":"message","content":[{"type":"output_text","text":"Hello"}]}]}')))
+}
+try { $server.serve `handle 3 }
+finally { $server.close }

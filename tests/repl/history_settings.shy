@@ -1,3 +1,5 @@
+import std::json
+
 # Startup controls select the session's path and limit before history is loaded.
 fn configured_history($fixture: String, $source: String): Terminal
 {
@@ -30,7 +32,7 @@ $path -> $text
 let $commands = []
 for $line in $text.split "\n"
 {
-    if $line != "" { $commands = [$commands..., (json::from_string $line)["command"]] }
+    if $line != "" { $commands = [$commands..., (std::json::decode $line)["command"]] }
 }
 require ($commands == ["echo RETAIN-2", "echo RETAIN-3", "echo RETAIN-4"]) "history limit did not trim oldest entries"
 require (!(test -e "${fixture}/.shelly_history.jsonl")) "history ignored the configured path"

@@ -1,3 +1,5 @@
+import std::json
+
 # Drive the real stdio server with LSP frames; no interpreter code may run in that process.
 let $fixture = $args[0]
 
@@ -11,7 +13,7 @@ fn frame_text($body: String): String
     "Content-Length: ${length}\r\n\r\n${body}"
 }
 
-fn frame($message: any): String { frame_text (String::from_json $message) }
+fn frame($message: any): String { frame_text (std::json::encode $message) }
 
 fn request($id: any, $method: String, $params: any): String
 { frame ["jsonrpc": "2.0", "id": $id, "method": $method, "params": $params] }
@@ -91,7 +93,7 @@ fn inspect($source: String, $queries: Array, $extra: String, $file: String | (),
     for $index in 1..$chunks.count
     {
         let $parts = $chunks[$index].split "\r\n\r\n"
-        $messages = [$messages..., (json::from_string $parts[1])]
+        $messages = [$messages..., (std::json::decode $parts[1])]
     }
     let $capabilities = (response_for $messages 1)["result"]["capabilities"]
     require ($capabilities["hoverProvider"] == true) "hover capability missing"

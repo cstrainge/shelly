@@ -1,3 +1,5 @@
+import std::json
+
 # Two live shells merge their submissions and closing one cannot erase the other.
 let $fixture = $args[0]
 let $path = "${fixture}/.shelly_history.jsonl"
@@ -22,7 +24,7 @@ let $ids = []
 for $line in $text.split "\n"
 {
     if $line == "" { continue }
-    let $record = json::from_string $line
+    let $record = std::json::decode $line
     $commands = [$commands..., $record["command"]]
     $ids = [$ids..., $record["id"]]
 }
@@ -69,7 +71,7 @@ require ($text.contains "FIRST-0") "later session flush erased older history"
 let $duplicates = 0
 for $line in $text.split "\n"
 {
-    if $line != "" && (json::from_string $line)["command"] == "echo SAME-COMMAND"
+    if $line != "" && (std::json::decode $line)["command"] == "echo SAME-COMMAND"
     { $duplicates = $duplicates + 1 }
 }
 require ($duplicates == 1) "concurrent identical submissions were retained twice"

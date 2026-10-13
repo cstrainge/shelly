@@ -1,0 +1,254 @@
+# Marked results use the success path automatically, with explicit scalar capture when needed.
+error struct FirstFailure { pub message: String }
+error struct SecondFailure { pub code: Integer }
+type Failures = FirstFailure | SecondFailure | RuntimeError
+
+fn produce_failure($message: String): FirstFailure
+{
+    FirstFailure(message: $message)
+}
+
+let $handled = 0
+let $cleaned = false
+try
+{
+    let $value = produce_failure "ordinary binding"
+    fail "a failed ordinary binding continued"
+}
+catch ($stack CallStack, $error: Failures)
+{
+    require ($error.type == FirstFailure) "catch wrapped a concrete error"
+    require ($error.message == "ordinary binding") "failure payload changed"
+    require ($stack.error_type == FirstFailure) "stack lost its concrete type"
+    require ($stack.frames[0].name == "produce_failure") "returned failure lost producer"
+    $handled = $handled + 1
+}
+finally { $cleaned = true }
+require (($handled == 1) && $cleaned) "catch/finally did not complete"
+
+try
+{
+    let $value: Integer = produce_failure "typed binding"
+    fail "a failed typed binding continued"
+}
+catch ($error: FirstFailure) { $handled = $handled + 1 }
+
+try
+{
+    let $value: FirstFailure = produce_failure "scope exit"
+    let $alias: FirstFailure = $value
+}
+catch (_, $error: FirstFailure)
+{
+    require ($error.message == "scope exit") "capture did not retain failure"
+    $handled = $handled + 1
+}
+
+try
+{
+    {
+        let $value: FirstFailure = produce_failure "inner scope"
+    }
+    fail "an inner scope dropped a failure"
+}
+catch ($error: FirstFailure) { $handled = $handled + 1 }
+
+fn forward_failure(): Integer | FirstFailure
+{
+    let $value: FirstFailure = produce_failure "forwarded"
+    let $alias: FirstFailure = $value
+    $value
+}
+try { let $value = forward_failure }
+catch ($stack, $error: FirstFailure)
+{
+    require ($stack.frames.count == 2) "return duplicated or lost frames"
+    require ($stack.frames[1].name == "forward_failure") "wrapper frame missing"
+    $handled = $handled + 1
+}
+
+try
+{
+    let $first: FirstFailure = produce_failure "first"
+    let $second: SecondFailure = SecondFailure(code: 2)
+}
+catch ($stack, $error: FirstFailure)
+{
+    require ($error.message == "first") "simultaneous primary was not deterministic"
+    require ($stack.related.count == 1) "secondary failure was lost"
+    require ($stack.related[0].relation == "Unhandled") "secondary relation is wrong"
+    require ($stack.related[0].error.original_type == SecondFailure) "secondary type lost"
+    $handled = $handled + 1
+}
+
+let $outside: any = ()
+try
+{
+    let $value: FirstFailure = produce_failure "escape"
+    $outside = $value
+}
+catch ($error: FirstFailure) { $handled = $handled + 1 }
+require ($outside == ()) "failed escape mutated outside storage"
+
+try
+{
+    let $value: FirstFailure = produce_failure "closure"
+    let $saved = fn () { $value }
+}
+catch ($error: FirstFailure) { $handled = $handled + 1 }
+
+try { let $map = ["failure": produce_failure "container"] }
+catch ($error: FirstFailure) { $handled = $handled + 1 }
+
+let $recorded = []
+try { produce_failure "history" }
+catch ($stack, $error: FirstFailure) { $recorded = [$stack, $error] }
+require ($recorded[1].message == "history") "caught payload was not retainable data"
+let $copied = $recorded[1]
+require ($copied.type == FirstFailure) "history copy reactivated or lost its type"
+
+try
+{
+    try { produce_failure "primary" }
+    finally { throw SecondFailure(code: 2) }
+}
+catch ($stack, $error: FirstFailure)
+{
+    require ($error.message == "primary") "cleanup replaced primary failure"
+    require ($stack.related[0].relation == "Cleanup") "cleanup failure not inspectable"
+    $handled = $handled + 1
+}
+
+let $cleanup_count = 0
+fn return_through_finally(): Integer
+{
+    try { return 42 }
+    finally { $cleanup_count = $cleanup_count + 1 }
+    99
+}
+require ((return_through_finally) == 42) "finally replaced successful return"
+let $iterations = 0
+for $item in 0..3
+{
+    try
+    {
+        if $item == 1 { continue }
+        if $item == 2 { break }
+        $iterations = $iterations + 10
+    }
+    finally { $cleanup_count = $cleanup_count + 1 }
+}
+require (($iterations == 10) && ($cleanup_count == 4)) "loop transfer bypassed finally"
+
+try { let $mixed = [1, "two"]; $mixed.sort }
+catch ($stack, $error: RuntimeError)
+{
+    require ($stack.native_origin != ()) "native failure origin missing"
+    require ($stack.frames[0].native) "native frame missing"
+    require ($stack.frames[0].native_boundary != ()) "native boundary missing"
+    $handled = $handled + 1
+}
+require ($handled == 11) "unexpected handling count"
+
+# A conversion replaces responsibility and retains causes without caller plumbing.
+error struct DomainFailure { pub message: String }
+fn DomainFailure::from_firstfailure($error: FirstFailure): DomainFailure
+{
+    DomainFailure(message: "Domain: ${error.message}")
+}
+try
+{
+    let $source: FirstFailure = produce_failure "conversion"
+    let $replacement: DomainFailure = DomainFailure($source)
+}
+catch ($stack, $error: DomainFailure)
+{
+    require ($error.message == "Domain: conversion") "domain conversion failed"
+    require ($stack.related.count == 1) "source obligation was duplicated"
+    require ($stack.related[0].relation == "Cause") "conversion cause missing"
+    require ($stack.related[0].error.original_type == FirstFailure) "source type lost"
+}
+
+fn fallible_callback($value: any): Integer | FirstFailure
+{
+    produce_failure "callback"
+}
+try
+{
+    let $callback: fn(any): Integer = `fallible_callback
+    let $value = $callback 1
+    fail "prototype adapter suppressed an error"
+}
+catch ($error: FirstFailure)
+{
+    require ($error.message == "callback") "prototype adapter replaced error"
+}
+
+let $destination: [Integer] = [99]
+try { [1] | fallible_callback | $destination }
+catch ($error: FirstFailure) {}
+require ($destination == [99]) "pipeline published a failed collection"
+
+type DomainFailures = SecondFailure | RuntimeError
+fn DomainFailures::from_firstfailure($source: FirstFailure): DomainFailures
+{
+    SecondFailure(code: 42)
+}
+try
+{
+    let $source: Failures = produce_failure "group source"
+    require ($source.type == FirstFailure) "error group wrapped a captured concrete error"
+    let $converted: DomainFailures = DomainFailures($source)
+    require ($converted.type == SecondFailure) "error conversion group changed concrete identity"
+    throw $converted
+}
+catch ($stack, $error: DomainFailures)
+{
+    require ($error.type == SecondFailure) "group conversion did not replace source"
+    require ($stack.related[0].relation == "Cause") "group conversion lost its source cause"
+}
+
+struct FailureHolder { pub failure: FirstFailure }
+try
+{
+    let $holder = FailureHolder(failure: produce_failure "struct child")
+    fail "active error entered a struct"
+}
+catch ($error: FirstFailure) {}
+
+
+# Nominal pipeline destinations can be declared before their first successful assignment.
+struct Deferred { pub value: Integer }
+let $deferred: Deferred
+$deferred = Deferred(value:7)
+require ($deferred.value == 7) "Deferred struct binding"
+enum DeferredEnum { Ready }
+let $deferred_enum: DeferredEnum
+$deferred_enum = DeferredEnum::Ready
+require ($deferred_enum == DeferredEnum::Ready) "Deferred enum binding"
+
+# A second Ctrl+C keeps the original primary, bypasses catch, and skips outer finally.
+let $fixture = $args[0]
+let $terminal = open_terminal [`$shelly,"-m","${fixture}/cleanup_interrupt.shy"] [
+    "cwd":$fixture,"env":["HOME":$fixture,"PATH":"/usr/bin:/bin","SHELLY_STD_PATH":"bundled","TERM":"dumb"]]
+let $ready = false
+for _ in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    if $reply["text"].contains "ready" { $ready = true; break }
+}
+require $ready "Cleanup interrupt fixture was not ready"
+# The readiness echo is an external command; let it finish before interrupting VM work.
+terminal_read $terminal 100
+terminal_write $terminal "\x03"
+let $text = (terminal_read $terminal 20)["text"]
+terminal_write $terminal "\x03"
+for _ in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    $text = $text + $reply["text"]
+    if $reply["eof"] { break }
+}
+let $status = terminal_close $terminal
+require ($status["signal"] == 2) "Cleanup abort changed original interrupt status"
+require (($text.contains "control handled=false outer=false") && ($text.contains "Cleanup aborted")) ("Cleanup abort output: " + $text)

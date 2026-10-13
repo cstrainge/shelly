@@ -1,13 +1,13 @@
-# ANNOTATION-143: enum default
+# ANNOTATION-143: enum read before initialization
 check ["id": "ANNOTATION-143",
-    "name": "enum default",
-    "source": "enum E { A }; let \$x: E",
+    "name": "enum read before initialization",
+    "source": "enum E { A }; let \$x: E; echo \$x",
     "mode": "code",
     "args": [],
     "stdout": "",
     "status": 1,
     "valid": false,
-    "error": "Type error:",
-    "stderr_contains": [],
+    "error": "Binding has not been initialized",
+    "stderr_contains": ["Binding has not been initialized"],
     "stderr_excludes": ["Parser error:"],
     "stdout_excludes": []]

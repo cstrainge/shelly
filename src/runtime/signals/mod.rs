@@ -2,7 +2,9 @@
 mod unix;
 
 #[cfg(unix)]
-pub use crate::runtime::signals::unix::{ InteractiveInterrupts, take_interrupt };
+pub use crate::runtime::signals::unix::{
+    InteractiveInterrupts, take_interrupt, terminate_interrupted, generation,
+};
 
 #[cfg(not(unix))]
 pub struct InteractiveInterrupts;
@@ -15,3 +17,12 @@ impl InteractiveInterrupts
 
 #[cfg(not(unix))]
 pub fn take_interrupt() -> bool { false }
+
+#[cfg(not(unix))]
+pub fn terminate_interrupted() {}
+
+#[cfg(not(unix))]
+pub fn generation() -> u64
+{
+    0
+}

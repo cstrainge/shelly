@@ -1,3 +1,5 @@
+import std::json
+
 # Editor fixtures run in Node, while Shelly owns the checks and test orchestration.
 fn require($condition: Boolean, $message: String)
 {
@@ -9,9 +11,9 @@ fn editor_case($source: String, $data: Array, $actions: Array): any
     let $output: String
     let $request = ["source": $source, "data": $data,
         "legend": ["string", "shellyDelimiter", "comment", "variable", "property"], "actions": $actions]
-    let $result = (String::from_json $request) | node tests/brackets.cjs -> $output
+    let $result = (std::json::encode $request) | node tests/brackets.cjs -> $output
     require Boolean($result) "editor fixture failed"
-    json::from_string $output
+    std::json::decode $output
 }
 
 let $empty = [[], [], [], []]

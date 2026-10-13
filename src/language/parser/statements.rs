@@ -42,7 +42,147 @@ fn expect_statement_end(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<()>
     Ok(())
 }
 
-
+fn parse_try_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
+{
+    let keyword = expect_token(buffer, TokenKind::Try)?;
+    while try_expect_token(buffer, TokenKind::LineBreak)?.is_some()
+    {}
+    let body = parse_block(buffer)?;
+    let mut catches = Vec::new();
+    let mut finally = None;
+    loop
+    {
+        let clause = {
+            let mut probe = Lookahead::new(buffer);
+            while try_expect_token(probe.buffer, TokenKind::LineBreak)?.is_some()
+            {}
+            let kind = probe.buffer.next()?.map(|token| token.kind);
+            if matches!(kind, Some(TokenKind::Catch | TokenKind::Finally))
+            {
+                probe.commit();
+            }
+            kind
+        };
+        match clause
+        {
+            Some(TokenKind::Catch) =>
+            {
+                expect_token(buffer, TokenKind::ParenOpen)?;
+                let first = buffer.next()?.ok_or(ParserError {
+                    location: Some(keyword.location.clone()),
+                    kind: ParserErrorKind::ExpectedExpression,
+                })?;
+                let first_name = first.token_value_text();
+                if first.kind != TokenKind::Identifier && first_name != "_"
+                {
+                    return Err(ParserError {
+                        location: Some(first.location),
+                        kind: ParserErrorKind::InvalidType("Expected catch binding".into()),
+                    });
+                }
+                buffer.annotate(first.span, SyntaxRole::VariableDeclaration);
+                let typed = try_expect_token(buffer, TokenKind::TypeDelimiter)?.is_some();
+                let stack_type = if typed
+                {
+                    false
+                }
+                else
+                {
+                    let probe = Lookahead::new(buffer);
+                    probe
+                        .buffer
+                        .next()?
+                        .is_some_and(|token| token.token_value_text() == "CallStack")
+                };
+                let annotation = if typed || stack_type
+                {
+                    Some(parse_type(buffer)?)
+                }
+                else
+                {
+                    None
+                };
+                let (stack, error, annotation) = if try_expect_token(buffer, TokenKind::Comma)?
+                    .is_some()
+                {
+                    if annotation.as_ref().is_some_and(
+                        |ty| !matches!(ty, AstType::Named(name) if name == "CallStack"),
+                    )
+                    {
+                        return Err(ParserError {
+                            location: Some(first.location),
+                            kind: ParserErrorKind::InvalidType(
+                                "The first catch binding must be CallStack".into(),
+                            ),
+                        });
+                    }
+                    let error = expect_token(buffer, TokenKind::Identifier)?;
+                    buffer.annotate(error.span, SyntaxRole::VariableDeclaration);
+                    let annotation = if try_expect_token(buffer, TokenKind::TypeDelimiter)?
+                        .is_some()
+                    {
+                        Some(parse_type(buffer)?)
+                    }
+                    else
+                    {
+                        None
+                    };
+                    (
+                        (first_name != "_").then_some(first_name),
+                        error.token_value_text(),
+                        annotation,
+                    )
+                }
+                else
+                {
+                    if first_name == "_"
+                    {
+                        return Err(ParserError {
+                            location: Some(first.location),
+                            kind: ParserErrorKind::InvalidType(
+                                "A catch needs an error binding".into(),
+                            ),
+                        });
+                    }
+                    (None, first_name, annotation)
+                };
+                expect_token(buffer, TokenKind::ParenClose)?;
+                while try_expect_token(buffer, TokenKind::LineBreak)?.is_some()
+                {}
+                catches.push(AstCatch {
+                    location: first.location,
+                    stack,
+                    error,
+                    annotation,
+                    type_id: None,
+                    body: parse_block(buffer)?,
+                });
+            }
+            Some(TokenKind::Finally) =>
+            {
+                while try_expect_token(buffer, TokenKind::LineBreak)?.is_some()
+                {}
+                finally = Some(parse_block(buffer)?);
+                break;
+            }
+            _ => break,
+        }
+    }
+    if catches.is_empty() && finally.is_none()
+    {
+        return Err(ParserError {
+            location: Some(keyword.location),
+            kind: ParserErrorKind::InvalidType("try needs catch or finally".into()),
+        });
+    }
+    expect_statement_end(buffer)?;
+    Ok(Some(AstStatement::TryStatement(Box::new(AstTry {
+        location: keyword.location,
+        body,
+        catches,
+        finally,
+    }))))
+}
 
 fn parse_return_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
@@ -390,8 +530,12 @@ pub(super) fn parse_anonymous_function(buffer: &mut TokenBuffer<'_, '_>, locatio
     parse_function_body(buffer, location, "<anonymous>".into(), None)
 }
 
-fn parse_function_body(buffer: &mut TokenBuffer<'_, '_>, location: Location,
-                       name: String, receiver: Option<String>) -> ParseResult<AstFunctionStatement>
+fn parse_function_body(
+    buffer: &mut TokenBuffer<'_, '_>,
+    location: Location,
+    name: String,
+    receiver: Option<String>,
+) -> ParseResult<AstFunctionStatement>
 {
     expect_token(buffer, TokenKind::ParenOpen)?;
     let mut parameters = Vec::new();
@@ -466,6 +610,7 @@ fn parse_function_body(buffer: &mut TokenBuffer<'_, '_>, location: Location,
         };
     if    let Some(receiver) = &function.receiver
        && !is_conversion_method(&function.name) && function.name != "new"
+       && function.name != "json_codec"
     {
         function.parameters.insert(0, AstParameter
             {
@@ -699,6 +844,7 @@ fn parse_for_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
 
 fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
+    let error = try_expect_token(buffer, TokenKind::Error)?.is_some();
     expect_token(buffer, TokenKind::Struct)?;
     let name = expect_type_name(buffer)?;
     buffer.annotate(name.span, SyntaxRole::TypeDeclaration);
@@ -750,7 +896,7 @@ fn parse_struct_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
     }
     expect_statement_end(buffer)?;
     Ok(Some(AstStatement::StructDeclaration(Box::new(AstStructDeclaration
-        { public: false, location: name.location.clone(), name: name.token_value_text(),
+        { public: false, error, location: name.location.clone(), name: name.token_value_text(),
           fields }))))
 }
 
@@ -956,7 +1102,7 @@ fn parse_public_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
         {
             Some(TokenKind::Let) => parse_let_statement(buffer)?,
             Some(TokenKind::Function) => parse_function_statement(buffer)?,
-            Some(TokenKind::Struct) => parse_struct_statement(buffer)?,
+            Some(TokenKind::Struct | TokenKind::Error) => parse_struct_statement(buffer)?,
             Some(TokenKind::Enum) => parse_enum_statement(buffer)?,
             Some(TokenKind::Type) => parse_type_statement(buffer)?,
             Some(TokenKind::Alias) => parse_alias_statement(buffer)?,
@@ -1012,7 +1158,24 @@ fn parse_statement_inner(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
 
     if next_kind == TokenKind::Import { return parse_import_statement(buffer); }
 
-    if next_kind == TokenKind::Struct { return parse_struct_statement(buffer); }
+    if matches!(next_kind, TokenKind::Struct | TokenKind::Error)
+    {
+        return parse_struct_statement(buffer);
+    }
+    if next_kind == TokenKind::Try
+    {
+        return parse_try_statement(buffer);
+    }
+    if next_kind == TokenKind::Throw
+    {
+        let keyword = expect_token(buffer, TokenKind::Throw)?;
+        let value = parse_value_expression(buffer)?.ok_or(ParserError {
+            location: Some(keyword.location),
+            kind: ParserErrorKind::ExpectedExpression,
+        })?;
+        expect_statement_end(buffer)?;
+        return Ok(Some(AstStatement::ThrowStatement(value)));
+    }
 
     if next_kind == TokenKind::Enum { return parse_enum_statement(buffer); }
     if next_kind == TokenKind::Type { return parse_type_statement(buffer); }

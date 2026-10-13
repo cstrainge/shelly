@@ -1,19 +1,39 @@
+use std::{
+    io,
+    mem::zeroed,
+    ptr::null_mut,
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+};
 
-use std::{ io, mem::zeroed, ptr::null_mut, sync::atomic::{ AtomicBool, Ordering } };
+use libc::{raise, sigaction, sigemptyset, signal, SA_RESTART, SIGINT, SIG_DFL};
 
-use libc::{ sigaction, sigemptyset, SA_RESTART, SIGINT };
-
+static GENERATION: AtomicU64 = AtomicU64::new(0);
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 
 extern "C" fn interrupt(_: i32)
 {
     // The handler only touches a lock-free atomic; cleanup runs outside signal context.
     INTERRUPTED.store(true, Ordering::Relaxed);
+    GENERATION.fetch_add(1, Ordering::Release);
+}
+
+pub fn generation() -> u64
+{
+    GENERATION.load(Ordering::Acquire)
 }
 
 pub fn take_interrupt() -> bool
 {
     INTERRUPTED.load(Ordering::Relaxed) && INTERRUPTED.swap(false, Ordering::Relaxed)
+}
+
+// Run after script unwinding and diagnostics, preserving the supervisor's signal status.
+pub fn terminate_interrupted()
+{
+    unsafe {
+        signal(SIGINT, SIG_DFL);
+        raise(SIGINT);
+    }
 }
 
 pub struct InteractiveInterrupts

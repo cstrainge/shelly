@@ -1,19 +1,27 @@
 
 use std::{ cell::RefCell, collections::HashMap, fmt::{ self, Display, Formatter }, rc::Rc };
 
-use crate::language::{ ast::*,
-                       bytecode::{ Code, Instruction, Function, FunctionBlock,
-                                   FunctionBlockRef, FunctionRef, CompiledPipeline,
-                                   PipelineStage, PipelineBoundary, PipelineRedirection },
-                       data::{ closure::free_variables, value::{ Value, Executable },
-                               types::{ TypeId, TypeRegistry },
-                               methods::method_key, map_key::MapKey,
-                               scoped_variables::ScopedVariables },
-                       text::location::Location,
-                       parser::ParserError,
-                       typecheck::check_ast };
+use crate::language::{
+    ast::*,
+    bytecode::{
+        Code, Instruction, Function, FunctionBlock, FunctionBlockRef, FunctionRef,
+        CompiledPipeline, PipelineStage, PipelineBoundary, PipelineRedirection, CompiledTry,
+        CompiledCatch,
+    },
+    data::{
+        closure::free_variables,
+        value::{Value, Executable},
+        types::{TypeId, TypeRegistry},
+        methods::method_key,
+        map_key::MapKey,
+        scoped_variables::ScopedVariables,
+    },
+    text::location::Location,
+    parser::ParserError,
+    typecheck::check_ast,
+};
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CompileTarget
 {
     Toplevel,
@@ -21,6 +29,7 @@ pub enum CompileTarget
 }
 
 
+#[derive(Clone)]
 pub enum ErrorWhat
 {
     ParserError(ParserError),
@@ -29,6 +38,7 @@ pub enum ErrorWhat
 }
 
 
+#[derive(Clone)]
 pub struct CompileError
 {
     pub location: Option<Location>,
@@ -829,8 +839,10 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
 }
 
 
-fn compile_pipeline(block: &FunctionBlockRef, pipeline: &AstPipeline)
-    -> CompileResult<CompiledPipeline>
+fn compile_pipeline(
+    block: &FunctionBlockRef,
+    pipeline: &AstPipeline,
+) -> CompileResult<CompiledPipeline>
 {
     let mut stages = Vec::new();
     for (index, expression) in pipeline.stages.iter().enumerate()
@@ -888,6 +900,11 @@ fn compile_pipeline(block: &FunctionBlockRef, pipeline: &AstPipeline)
         {
             match &inner.kind
             {
+                AstExpressionKind::Execute(_) if matches!(expression.kind,
+                    AstExpressionKind::Grouped(_))
+                    && !expression.uses_pipeline_input() =>
+                    compile_expression_mode(&mut code, block, expression,
+                        ExpressionMode::Argument)?,
                 AstExpressionKind::Execute(item) =>
                     {
                         compile_execute_statement(&mut code, block, item)?;
@@ -979,10 +996,31 @@ fn compile_return_statement(instructions: &mut Vec<Instruction>,
 }
 
 
-fn compile_let_statement(instructions: &mut Vec<Instruction>,
-                         function_block: &FunctionBlockRef,
-                         let_statement: &AstLetStatement) -> CompileResult<()>
+fn compile_let_statement(
+    instructions: &mut Vec<Instruction>,
+    function_block: &FunctionBlockRef,
+    let_statement: &AstLetStatement,
+) -> CompileResult<()>
 {
+    if let_statement.deferred_initialize
+    {
+        if let_statement.export_flag == AstExportFlag::Exported
+        {
+            return Err(CompileError {
+                location: Some(let_statement.location.clone()),
+                what: ErrorWhat::TypeError("An exported binding requires an initializer".into()),
+            });
+        }
+        instructions.push(Instruction {
+            location: Some(let_statement.location.clone()),
+            code: Code::NewVariable,
+            operand: Some(Value::from_array(vec![
+                Value::from_string(let_statement.identifier.clone()),
+                Value::Integer(let_statement.type_id.unwrap().0 as i64),
+            ])),
+        });
+        return Ok(());
+    }
     // Evaluate before changing the binding so self-reference and failed initializers are safe.
     compile_expression(instructions, function_block, &let_statement.expression)?;
     instructions.push(Instruction
@@ -1363,7 +1401,9 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     // On successful continuation, both instructions consume the result.
                     Code::PushResult | Code::CheckResult | Code::EndIteration => true,
 
-                    Code::PopResult | Code::Execute | Code::PreparePipelineCall | Code::Pipeline(_)
+                    Code::Try(_) | Code::Throw
+                    | Code::PopResult | Code::Execute | Code::PreparePipelineCall |
+                        Code::Pipeline(_)
                     | Code::PublishSymbol | Code::TryExecute
                     | Code::RedirectSource
                     | Code::ExecuteIfExecutable | Code::MakeExecutable | Code::MakeClosure
@@ -1697,11 +1737,29 @@ fn compile_loop_statement(instructions: &mut Vec<Instruction>,
     Ok(())
 }
 
+fn compile_protected(
+    function_block: &FunctionBlockRef,
+    block: &AstBlockStatement,
+) -> CompileResult<Vec<Instruction>>
+{
+    let mut code = Vec::new();
+    compile_statements(
+        &mut code,
+        function_block,
+        &block.body,
+        CompileTarget::Toplevel,
+    )?;
+    optimize_instructions(&mut code);
+    link_instructions(&mut code)?;
+    Ok(code)
+}
 
-fn compile_block(instructions: &mut Vec<Instruction>,
-                  function_block: &FunctionBlockRef,
-                  block: &AstBlockStatement,
-                  target: CompileTarget) -> CompileResult<()>
+fn compile_block(
+    instructions: &mut Vec<Instruction>,
+    function_block: &FunctionBlockRef,
+    block: &AstBlockStatement,
+    target: CompileTarget,
+) -> CompileResult<()>
 {
     instructions.push(Instruction
         {
@@ -1714,7 +1772,7 @@ fn compile_block(instructions: &mut Vec<Instruction>,
         {
             location: Some(block.location.clone()),
             code: Code::ExitScope,
-            operand: None
+            operand: Some(Value::Boolean(target == CompileTarget::Function))
         });
     Ok(())
 }
@@ -1866,10 +1924,12 @@ fn compile_if_expression(instructions: &mut Vec<Instruction>,
 
 // Inline scoped blocks into their enclosing code vector. Optimize and link only
 // after the entire vector has been emitted, so nested labels remain unique.
-fn compile_statements(instructions: &mut Vec<Instruction>,
-                       function_block: &FunctionBlockRef,
-                       ast: &AstTopLevel,
-                       target: CompileTarget) -> CompileResult<()>
+fn compile_statements(
+    instructions: &mut Vec<Instruction>,
+    function_block: &FunctionBlockRef,
+    ast: &AstTopLevel,
+    target: CompileTarget,
+) -> CompileResult<()>
 {
     // A forward local declaration shadows an outer function even before its
     // body is compiled. Once a local version exists, calls bind that version.
@@ -1896,6 +1956,33 @@ fn compile_statements(instructions: &mut Vec<Instruction>,
 
         match ast_item
         {
+            AstStatement::TryStatement(item) =>
+                {
+                    let body = compile_protected(function_block, &item.body)?;
+                    let catches = item.catches.iter().map(|catch| Ok(CompiledCatch
+                        {
+                            location: catch.location.clone(), stack: catch.stack.clone(),
+                            error: catch.error.clone(), type_id: catch.type_id,
+                            code: compile_protected(function_block, &catch.body)?,
+                        })).collect::<CompileResult<Vec<_>>>()?;
+                    let finally = item.finally.as_ref()
+                        .map(|block| compile_protected(function_block, block)).transpose()?;
+                    instructions.push(Instruction
+                        {
+                            location: Some(item.location.clone()),
+                            code: Code::Try(Rc::new(CompiledTry { body, catches, finally })),
+                            operand: None,
+                        });
+                    add_check = false;
+                },
+            AstStatement::ThrowStatement(expression) =>
+                {
+                    compile_expression(instructions, function_block, expression)?;
+                    instructions.push(Instruction
+                        { location: Some(expression.location.clone()), code: Code::Throw,
+                          operand: None });
+                    add_check = false;
+                },
             AstStatement::ImportStatement(import) => return Err(CompileError
                 {
                     location: Some(import.location.clone()),

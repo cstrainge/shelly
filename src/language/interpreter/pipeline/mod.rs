@@ -72,7 +72,7 @@ pub(super) trait Stream
 impl Interpreter
 {
     pub(super) fn execute_pipeline(&mut self, pipeline: &CompiledPipeline)
-        -> InterpreterResult<()>
+    -> InterpreterResult<()>
     {
         // Each layer pulls at most one item/chunk. External descriptors use nonblocking
         // reads/writes, so upstream and downstream processes can progress concurrently.
@@ -89,33 +89,37 @@ impl Interpreter
             let input = BoundaryStream::new(self, boundary, stream)?;
             stream = Box::new(StageStream::new(stage, index, Some(Box::new(input)), false));
         }
-        let result = (||
-            {
+        let result = (|| {
                 let mut value = Value::None;
                 loop
-                {
+            {
                     if self.halted { stream.cancel(self, &mut context)?; break; }
-                    if take_interrupt()
+                if take_interrupt()
+                    { return Err(InterpreterError::new(pipeline.stages[0].location.clone(),
+                        ErrorWhat::Interrupted)); }
+                let step = stream.poll(self, &mut context)?;
+                match step
                     {
-                        context.record(0, ExecResult::Signaled);
-                        stream.cancel(self, &mut context)?;
-                        break;
-                    }
-                    let step = match stream.poll(self, &mut context)
-                    {
-                        Err(InterpreterError { what: ErrorWhat::Interrupted, .. }) =>
+                        Step::Pending =>
                             {
-                                context.record(0, ExecResult::Signaled);
-                                stream.cancel(self, &mut context)?;
-                                break;
+                                if crate::runtime::tasks::active()
+                                { crate::runtime::tasks::cooperate().map_err(|error|
+                                    InterpreterError::new(pipeline.stages[0].location.clone(),
+                                        match error.kind.as_str()
+                                        {
+                                            "Interrupted" => ErrorWhat::Interrupted,
+                                            "CleanupAbort" => ErrorWhat::CleanupAbort,
+                                            _ => ErrorWhat::UnsupportedSuspension(error.message),
+                                        }))?; }
+                                else { sleep(Duration::from_millis(1)); }
                             },
-                        other => other?,
-                    };
-                    match step
-                    {
-                        Step::Pending => sleep(Duration::from_millis(1)),
                         Step::End => break,
-                        Step::Data(Data::Value(item)) => value = item,
+                        Step::Data(Data::Value(item)) =>
+                            {
+                                self.consume_success(&pipeline.stages.last().unwrap().location,
+                                                     &item)?;
+                                value = item;
+                            },
                         Step::Data(Data::Bytes(bytes)) =>
                             {
                                 let location = &pipeline.stages.last().unwrap().location;
@@ -125,8 +129,16 @@ impl Interpreter
                 }
                 self.last_result = Some(context.status().map(Value::ExecResult).unwrap_or(value));
                 Ok(())
-            })();
-        if result.is_err() { let _ = stream.cancel(self, &mut context); }
+        })();
+        let result = if result.is_err()
+        {
+            let cleanup = stream.cancel(self, &mut context);
+            self.combine_failure(result, cleanup, "Cleanup")
+        }
+        else
+        {
+            result
+        };
         self.pipeline_inputs.truncate(depth);
         result
     }

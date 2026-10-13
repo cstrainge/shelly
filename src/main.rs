@@ -193,12 +193,15 @@ fn run_as_repl(tab_width: usize,
 /**
  * Interpret the source code from the given buffer using the interpreter.
  */
-fn interpret(buffer: &mut dyn Buffer,
-             startup: Startup,
-             color_mode: TtyColorMode,
-             tab_width: usize,
-             script_args: Vec<String>) -> RuntimeResult<ExitCode>
+fn interpret(
+    buffer: &mut dyn Buffer,
+    startup: Startup,
+    color_mode: TtyColorMode,
+    tab_width: usize,
+    script_args: Vec<String>,
+) -> RuntimeResult<ExitCode>
 {
+    let _interrupts = InteractiveInterrupts::install().map_err(RuntimeError::SignalError)?;
     let mut interpreter = Interpreter::new(startup,
                                            Interactive::No,
                                            color_mode,
@@ -206,7 +209,15 @@ fn interpret(buffer: &mut dyn Buffer,
                                            RcFile::None,
                                            script_args);
 
-    interpreter.execute_from_buffer(buffer)?;
+    if let Err(error) = interpreter.execute_from_buffer(buffer)
+    {
+        interpreter.report_uncaught(&error);
+        if error.was_interrupted()
+        {
+            crate::runtime::signals::terminate_interrupted();
+        }
+        return Ok(ExitCode::from(1));
+    }
 
     Ok(ExitCode::from(interpreter.exit_code))
 }

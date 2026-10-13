@@ -10,7 +10,7 @@ check_repl ["id": "PIPELINES", "name": "Pipeline bindings and recovery across su
     ["printf \"\" csv:| \$rows; echo \$rows.count", "output", "0"],
     ["echo \$", "error", "Bare $ is only available"],
     ["echo (2 | (\$ + 1))", "output", "3"],
-    ["printf invalid json:| \$out", "error", "format 'json'"],
+    ["printf invalid json:| \$out", "error", "SyntaxError"],
     ["let \$captured = \"old\"", "quiet", ""],
     ["printf \"a\\\"b\\n\" ~-> \$captured csv:| \$rows", "error", "Quote inside"],
     ["echo \$captured.chars.count", "output", "0"],
@@ -41,5 +41,5 @@ check_repl ["id": "PIPELINES", "name": "Pipeline bindings and recovery across su
     ["type Count = Integer; fn Count::from_integer(\$n: Integer): Count { \$n + 10 }; struct Reply { pub n: Count }", "quiet", ""],
     ["fn decoded(): Reply { let \$reply = Reply(n: 0); printf \"{\\\"n\\\":7}\" json:|:Reply \$reply; \$reply }", "quiet", ""],
     ["type Count = String; fn Count::from_integer(\$n: Integer): Count { \"new\" }", "quiet", ""],
-    ["echo Integer((decoded).n)", "output", "17"],
+    ["echo Integer((decoded).n)", "output", "7"],
 ], "exit": 0]

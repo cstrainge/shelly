@@ -1,3 +1,5 @@
+import std::json
+
 # Drive the real stdio server with LSP frames; no interpreter code may run in that process.
 let $fixture = $args[0]
 
@@ -11,7 +13,10 @@ fn frame_text($body: String): String
     "Content-Length: ${length}\r\n\r\n${body}"
 }
 
-fn frame($message: any): String { frame_text (String::from_json $message) }
+fn frame($message: any): String
+{
+    frame_text (std::json::encode $message (std::json::EncodeOptions(max_scalar: 16777216)))
+}
 
 fn request($id: any, $method: String, $params: any): String
 { frame ["jsonrpc": "2.0", "id": $id, "method": $method, "params": $params] }
@@ -131,7 +136,7 @@ for $index in 1..$chunks.count
     let $parts = $chunks[$index].split "\r\n\r\n"
     require ($parts.count == 2) "bad response framing"
     require ($parts[1].chars.count == Integer($parts[0])) "response Content-Length is wrong"
-    $messages = [$messages..., (json::from_string $parts[1])]
+    $messages = [$messages..., (std::json::decode $parts[1])]
 }
 require ((response_for $messages 0)["error"]["code"] == -32002) "request before initialize accepted"
 require ((response_for $messages 2)["error"]["code"] == -32601) "unknown request not rejected"
@@ -216,7 +221,7 @@ for $limited in [false, true]
     let $messages = []
     let $chunks = $output.split "Content-Length: "
     for $index in 1..$chunks.count
-    { $messages = [$messages..., (json::from_string ($chunks[$index].split "\r\n\r\n")[1])] }
+    { $messages = [$messages..., (std::json::decode ($chunks[$index].split "\r\n\r\n")[1])] }
     let $diagnostics = $messages[1]["params"]["diagnostics"]
     let $data = (response_for $messages 2)["result"]["data"]
     if $limited

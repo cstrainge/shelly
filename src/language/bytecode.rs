@@ -6,6 +6,8 @@ use crate::language::{ data::{ value::Value, types::TypeId }, text::location::Lo
 pub enum Code
 {
     Push,
+    Try(Rc<CompiledTry>),
+    Throw,
     Execute,
     // Evaluate a pipeline invocation without launching it; leave [callable, arguments].
     PreparePipelineCall,
@@ -116,7 +118,7 @@ pub enum Code
     JumpIfFalse,
     JumpIfTrue,
     // A labeled landing point during compilation; linking removes its operand.
-    JumpTarget
+    JumpTarget,
 }
 
 
@@ -127,6 +129,21 @@ pub struct Instruction
     pub operand: Option<Value>
 }
 
+pub struct CompiledCatch
+{
+    pub location: Location,
+    pub stack: Option<String>,
+    pub error: String,
+    pub type_id: Option<TypeId>,
+    pub code: Vec<Instruction>,
+}
+
+pub struct CompiledTry
+{
+    pub body: Vec<Instruction>,
+    pub catches: Vec<CompiledCatch>,
+    pub finally: Option<Vec<Instruction>>,
+}
 
 pub struct PipelineBoundary
 {

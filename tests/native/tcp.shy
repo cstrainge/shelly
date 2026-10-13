@@ -1,0 +1,48 @@
+import std::io
+import std::net::tcp
+
+let $fixture = $args[0]
+let $source = "import std::io\nimport std::net::tcp\nlet \$listener = std::net::tcp::listen \"127.0.0.1\" 0\necho ready \$listener.address.port\nlet \$peer = \$listener.accept\ntry\n{\n    let \$bytes = \$peer.reader.read_exact 5\n    \$peer.writer.write \$bytes\n}\nfinally { \$peer.close; \$listener.close }\n"
+std::io::write_text "${fixture}/server.shy" $source
+let $terminal = open_terminal [`$shelly, "-m", "${fixture}/server.shy"] [
+    "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+        "SHELLY_STD_PATH": "bundled", "TERM": "dumb", "LANG": "C.UTF-8"]]
+let $port = ()
+for _ in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    if $reply["text"].contains "ready "
+    {
+        let $text = ($reply["text"].split "ready ")[1]
+        $port = Integer(($text.split "\r")[0].trim)
+        break
+    }
+}
+require ($port != ()) "TCP server did not become ready"
+let $peer = std::net::tcp::connect "127.0.0.1" $port
+try
+{
+    let $bytes = std::io::Bytes([0, 255, 1, 2, 3])
+    require (($peer.writer.write $bytes) == 5) "TCP write count"
+    require (($peer.reader.read_exact 5).to_array == $bytes.to_array) "TCP binary echo"
+    require (($peer.peer.host == "127.0.0.1") && ($peer.peer.port == $port)) "TCP peer address"
+}
+finally { $peer.close }
+let $eof = false
+for _ in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    if $reply["eof"] { $eof = true; break }
+}
+require $eof "TCP server did not finish"
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "TCP server failed"
+let $addresses = std::net::tcp::resolve "localhost"
+require ($addresses.count > 0) "DNS resolve returned nothing"
+
+let $listener = std::net::tcp::listen "127.0.0.1" 0
+$listener.close
+$listener.close
+try { $listener.accept; fail "closed listener accepted" }
+catch ($error: std::net::tcp::Error)
+{ require ($error.type == std::io::ClosedError) "closed listener category" }

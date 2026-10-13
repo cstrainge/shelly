@@ -25,31 +25,48 @@ use crossterm::event::Event;
 
 use hostname::get as get_hostname;
 
-use crate::{ language::{ bytecode::{ Code, Instruction, FunctionRef },
-                         compiler::CompileError,
-                         interpreter::CallFrame,
-                         native::{ NativeFunction, NativeFunctions, NativeVisibility },
-                         data::{ value::{ ExecResult, Executable, Value },
-                                 closure::ClosureValue,
-                                 formats::{ FACTORIES, encode, decode },
-                                 map_key::MapKey,
-                                 methods::{ BoundMethod, MethodDefinition, method_key },
-                                 range::Range,
-                                 conversion::is_conversion_method,
-                                 scoped_variables::{ PropertyReference, ScopedValue,
-                                                     ScopedVariables, ValueReference,
-                                                     ValueVisibility },
-                                 types::{ StructValue, TypeId, TypeKind, TypeRegistry } },
-                         parser::{ ParserError, parse_text },
-                         tokenizer::Tokenizer,
-                         text::{ interpolation::interpolation_references, buffer::Buffer,
-                                 location::Location, read_buffer::ReadBuffer },
-                         interpreter::{ Alias, iteration::Iteration, scope::Scope,
-                                        modules::{ Prelude, ModuleSource, PendingModule },
-                                        redirection::{ Redirection, Output, configure } } },
-             runtime::{ color::TtyColorMode, process::{ COMMANDS, invoke },
-                        terminal::detect_capabilities, sixel::banner as sixel_banner,
-                        iterm2::banner as iterm2_banner, signals::take_interrupt } };
+use crate::{
+    language::{
+        bytecode::{Code, Instruction, FunctionRef},
+        compiler::CompileError,
+        interpreter::CallFrame,
+        native::{NativeFunction, NativeFunctions, NativeVisibility, NativeOutcome},
+        data::{
+            value::{ExecResult, Executable, Value},
+            closure::ClosureValue,
+            formats::{FACTORIES, encode, decode},
+            map_key::MapKey,
+            methods::{BoundMethod, MethodDefinition, method_key},
+            range::Range,
+            conversion::is_conversion_method,
+            scoped_variables::{
+                PropertyReference, ScopedValue, ScopedVariables, ValueReference, ValueVisibility,
+            },
+            types::{StructValue, TypeId, TypeKind, TypeRegistry},
+        },
+        parser::{ParserError, parse_text},
+        tokenizer::Tokenizer,
+        text::{
+            interpolation::interpolation_references, buffer::Buffer, location::Location,
+            read_buffer::ReadBuffer,
+        },
+        interpreter::{
+            Alias,
+            iteration::Iteration,
+            scope::Scope,
+            modules::{Prelude, ModuleSource, PendingModule},
+            redirection::{Redirection, Output, configure},
+        },
+    },
+    runtime::{
+        color::TtyColorMode,
+        process::{COMMANDS, invoke},
+        terminal::detect_capabilities,
+        sixel::banner as sixel_banner,
+        iterm2::banner as iterm2_banner,
+        signals::take_interrupt,
+    },
+};
 
 const MAIN_SCOPE: &str = "main";
 
@@ -68,11 +85,20 @@ struct LoopFrame
     iteration_depth: usize,
     reference_depth: usize,
     redirection_depth: usize,
+    failure_depth: usize,
 }
 
-
+#[derive(Clone)]
 pub enum ErrorWhat
 {
+    Raised(String),
+    CleanupTimeout,
+    HookTimeout,
+    ReceiverBusy(String),
+    OperationCancelled,
+    CleanupAbort,
+    CleanupControl,
+    UnsupportedSuspension(String),
     ParserError(ParserError),
     CompileError(CompileError),
     InvalidOperand(String),
@@ -85,6 +111,7 @@ pub enum ErrorWhat
     IterationError(String),
     LoopControlError(String),
     ArgumentMismatch(String),
+    ReturnContract(String, usize),
     FileGlobError(String),
     StackUnderflow,
     NoResult,
@@ -95,7 +122,7 @@ pub enum ErrorWhat
     ExecutableBadReturn(u8),
     ExecutableSignaled,
     Interrupted,
-    InitialScopePopAttempt
+    InitialScopePopAttempt,
 }
 
 
@@ -105,6 +132,15 @@ impl Display for ErrorWhat
     {
         match self
         {
+            ErrorWhat::Raised(message) => write!(f, "{}", message),
+            ErrorWhat::OperationCancelled => write!(f,
+                "Operation was cancelled or exceeded its deadline."),
+            ErrorWhat::ReceiverBusy(message) => write!(f, "{}", message),
+            ErrorWhat::HookTimeout => write!(f, "Conversion hook budget exhausted."),
+            ErrorWhat::CleanupTimeout => write!(f, "Cleanup budget exhausted."),
+            ErrorWhat::CleanupAbort => write!(f, "Cleanup aborted by another interruption."),
+            ErrorWhat::CleanupControl => write!(f, "Control flow cannot escape finally."),
+            ErrorWhat::UnsupportedSuspension(message) => write!(f, "{}", message),
             ErrorWhat::ParserError(error) => write!(f, "Parser error: {}.", error),
             ErrorWhat::CompileError(error) => write!(f, "Compile error: {}.", error),
             ErrorWhat::InvalidOperand(message) => write!(f, "Invalid operand: {}.", message),
@@ -138,6 +174,7 @@ impl Display for ErrorWhat
                 },
 
             ErrorWhat::ArgumentMismatch(message) => write!(f, "{}", message),
+            ErrorWhat::ReturnContract(message, _) => write!(f, "{}", message),
             ErrorWhat::Interrupted => write!(f, "Execution interrupted."),
             ErrorWhat::InitialScopePopAttempt => write!(f, "Attempted to pop the initial scope.")
         }
@@ -145,6 +182,7 @@ impl Display for ErrorWhat
 }
 
 
+#[derive(Clone)]
 pub struct InterpreterError
 {
     pub(super) location: Location,
@@ -152,9 +190,15 @@ pub struct InterpreterError
     pub(super) trace: Box<ErrorTrace>,
 }
 
-
+#[derive(Clone)]
 pub(super) struct ErrorTrace
 {
+    pub(super) abort_cleanup: bool,
+    pub(super) cleanup: Option<crate::language::interpreter::exceptions::CleanupGuard>,
+    pub(super) raised: Option<Value>,
+    pub(super) related: Vec<crate::language::data::failure::RelatedFailure>,
+    pub(super) resolved: Vec<crate::language::data::failure::FailureRef>,
+    pub(super) rethrow_source: Option<u64>,
     pub(super) call_stack: Vec<CallFrame>,
     pub(super) native_location: Option<Location>,
 }
@@ -179,12 +223,47 @@ impl InterpreterError
         let trace = Box::new(ErrorTrace
             {
                 call_stack: Vec::new(),
+                raised: None, related: Vec::new(), resolved: Vec::new(), rethrow_source: None,
+                cleanup: None,
+                abort_cleanup: matches!(what, ErrorWhat::CleanupAbort | ErrorWhat::CleanupTimeout),
                 native_location,
             });
         Self { location, what, trace }
     }
 
+    pub(super) fn category(&self) -> &str
+    {
+        match self.what
+        {
+            ErrorWhat::Raised(_) => "Raised",
+            ErrorWhat::Interrupted => "Interrupted",
+            ErrorWhat::CleanupTimeout => "CleanupTimeout",
+            ErrorWhat::HookTimeout => "BudgetExceeded",
+            ErrorWhat::ReceiverBusy(_) => "ReceiverBusy",
+            ErrorWhat::OperationCancelled => "CancelledError",
+            ErrorWhat::CleanupAbort => "CleanupAbort",
+            ErrorWhat::CleanupControl => "CleanupControlError",
+            ErrorWhat::UnsupportedSuspension(_) => "UnsupportedSuspension",
+            ErrorWhat::ArithmeticError(_) => "ArithmeticError",
+            ErrorWhat::ArrayError(_) | ErrorWhat::HashMapError(_) => "BoundsError",
+            ErrorWhat::IterationError(_) => "IterationError",
+            ErrorWhat::ModuleError(_) => "ModuleError",
+            ErrorWhat::ArgumentMismatch(_) => "ArgumentMismatch",
+            ErrorWhat::ReturnContract(_, _) => "ReturnContractError",
+            ErrorWhat::ExecutableNotFound(_) => "ExecutableNotFound",
+            ErrorWhat::ExecutableIoError(_) => "ExecutableIoError",
+            ErrorWhat::ExecutableBadReturn(_) => "ExecutableBadReturn",
+            ErrorWhat::ExecutableSignaled => "ExecutableSignaled",
+            ErrorWhat::RedirectionError(_) => "RedirectionError",
+            _ => "RuntimeError",
+        }
+    }
+
     pub fn call_stack(&self) -> &[CallFrame] { &self.trace.call_stack }
+    pub fn was_interrupted(&self) -> bool
+    {
+        matches!(self.what, ErrorWhat::Interrupted | ErrorWhat::CleanupAbort)
+    }
 
     pub fn native_location(&self) -> Option<&Location> { self.trace.native_location.as_ref() }
 
@@ -193,12 +272,22 @@ impl InterpreterError
         context.location = self.location;
         context.trace.native_location = self.trace.native_location;
         context.trace.call_stack = self.trace.call_stack;
+        context.trace.raised = self.trace.raised;
+        context.trace.related = self.trace.related;
+        context.trace.resolved = self.trace.resolved;
+        context.trace.rethrow_source = self.trace.rethrow_source;
+        context.trace.cleanup = self.trace.cleanup;
+        context.trace.abort_cleanup |= self.trace.abort_cleanup;
         context
     }
 
     #[track_caller]
     pub(super) fn through_call(mut self, name: &str, location: &Location, native: bool) -> Self
     {
+        if self.trace.raised.is_some()
+        {
+            return self;
+        }
         let caller = NativeLocation::caller();
         let native_location = native.then(||
             Location::new(caller.file(), caller.line() as usize, caller.column() as usize));
@@ -295,6 +384,9 @@ pub enum Interactive
 
 pub struct Interpreter
 {
+    pub(super) interactive: bool,
+    pub(super) reactor: Option<Rc<crate::runtime::tasks::Reactor>>,
+    pub(super) exceptions: crate::language::interpreter::exceptions::ExceptionState,
     protocol_context: Vec<(Option<TypeId>, String)>,
     active_factories: Vec<TypeId>,
     pub(super) scopes: HashMap<String, Scope>,
@@ -319,7 +411,7 @@ pub struct Interpreter
     startup_input: Vec<Event>,
     pub last_result: Option<Value>,
     pub exit_code: u8,
-    pub halted: bool
+    pub halted: bool,
 }
 
 
@@ -334,6 +426,42 @@ pub enum RcFile
 
 impl Interpreter
 {
+    pub(super) fn fork_task(&self) -> Self
+    {
+        Self {
+            interactive: self.interactive,
+            reactor: None,
+            exceptions: Default::default(),
+            protocol_context: self.protocol_context.clone(),
+            active_factories: Vec::new(),
+            scopes: self
+                .scopes
+                .iter()
+                .map(|(name, scope)| (name.clone(), scope.checkpoint()))
+                .collect(),
+            current_scope: self.current_scope.clone(),
+            loading_modules: self.loading_modules.clone(),
+            module_sources: self.module_sources.clone(),
+            pending_modules: HashMap::new(),
+            prelude: self.prelude.clone(),
+            prelude_loading: false,
+            prelude_generation: self.prelude_generation,
+            type_scopes: self.type_scopes.clone(),
+            special_vars: self.special_vars.clone(),
+            native_functions: self.native_functions.clone(),
+            widget_environment: None,
+            prompt_widgets: None,
+            pipeline_inputs: Vec::new(),
+            captured_stdout: None,
+            redirections: Vec::new(),
+            last_cmd_time: Duration::default(),
+            color_mode: self.color_mode,
+            startup_input: Vec::new(),
+            last_result: None,
+            exit_code: 0,
+            halted: false,
+        }
+    }
     pub fn take_startup_input(&mut self) -> Vec<Event>
     {
         take(&mut self.startup_input)
@@ -419,6 +547,7 @@ impl Interpreter
                 {
                     let environment = interpreter.exported_environment(location)?;
                     let mut capture = None;
+                    let interruption = crate::runtime::signals::generation();
                     let result = invoke(name, args, &environment,
                         |path| interpreter.eval_path_from(path),
                         |command|
@@ -446,6 +575,12 @@ impl Interpreter
                             .map_err(|error| Self::redirection_error(location, error))?;
                         if let Some(output) = interpreter.captured_stdout.as_mut()
                         { output.extend_from_slice(&bytes); }
+                    }
+                    if !interpreter.interactive && crate::runtime::signals::generation() !=
+                        interruption
+                    {
+                        take_interrupt();
+                        return Err(InterpreterError::new(location.clone(), ErrorWhat::Interrupted));
                     }
                     let result = result.map_err(|error| InterpreterError::new(
                         location.clone(),
@@ -482,6 +617,166 @@ impl Interpreter
 
         let mut native_functions: NativeFunctions = bodies.into_iter().map(|(name, body)|
             (name, NativeFunction::new(name, NativeVisibility::Visible, body))).collect();
+        native_functions.insert(
+            "__report_error",
+            NativeFunction::new(
+                "__report_error",
+                NativeVisibility::Hidden,
+                Rc::new(Interpreter::handle_report_error),
+            ),
+        );
+        native_functions.insert(
+            "__json",
+            NativeFunction::new(
+                "__json",
+                NativeVisibility::Hidden,
+                Rc::new(Interpreter::handle_json),
+            ),
+        );
+        native_functions.insert(
+            "__json_bind",
+            NativeFunction::new(
+                "__json_bind",
+                NativeVisibility::Hidden,
+                Rc::new(Interpreter::handle_json_bind),
+            ),
+        );
+        native_functions.insert(
+            "__json_apply",
+            NativeFunction::new(
+                "__json_apply",
+                NativeVisibility::Hidden,
+                Rc::new(Interpreter::handle_json_apply),
+            ),
+        );
+        native_functions.insert(
+            "__json_reader",
+            NativeFunction::suspending(
+                "__json_reader",
+                NativeVisibility::Hidden,
+                Self::handle_json_reader,
+            ),
+        );
+        native_functions.insert(
+            "__json_source",
+            NativeFunction::suspending(
+                "__json_source",
+                NativeVisibility::Hidden,
+                Interpreter::handle_json_source,
+            ),
+        );
+        native_functions.insert(
+            "__stream",
+            NativeFunction::new(
+                "__stream",
+                NativeVisibility::Hidden,
+                Rc::new(Interpreter::handle_stream),
+            ),
+        );
+        native_functions.insert(
+            "__bytes",
+            NativeFunction::suspending(
+                "__bytes",
+                NativeVisibility::Hidden,
+                Interpreter::handle_bytes,
+            ),
+        );
+        native_functions.insert(
+            "__io",
+            NativeFunction::suspending("__io", NativeVisibility::Hidden, Interpreter::handle_io),
+        );
+        native_functions.insert(
+            "__io_close",
+            NativeFunction::new(
+                "__io_close",
+                NativeVisibility::Hidden,
+                Rc::new(Interpreter::handle_io_close),
+            ),
+        );
+        native_functions.insert(
+            "__socket",
+            NativeFunction::suspending("__socket", NativeVisibility::Hidden, Self::handle_socket),
+        );
+        native_functions.insert(
+            "__socket_close",
+            NativeFunction::new(
+                "__socket_close",
+                NativeVisibility::Hidden,
+                Rc::new(Self::handle_socket_close),
+            ),
+        );
+        native_functions.insert(
+            "__tcp",
+            NativeFunction::suspending("__tcp", NativeVisibility::Hidden, Interpreter::handle_tcp),
+        );
+        native_functions.insert(
+            "__tcp_close",
+            NativeFunction::new(
+                "__tcp_close",
+                NativeVisibility::Hidden,
+                Rc::new(Interpreter::handle_tcp_close),
+            ),
+        );
+        native_functions.insert(
+            "__http_upload",
+            NativeFunction::suspending(
+                "__http_upload",
+                NativeVisibility::Hidden,
+                Self::handle_http_upload,
+            ),
+        );
+        native_functions.insert(
+            "__server",
+            NativeFunction::suspending("__server", NativeVisibility::Hidden, Self::handle_server),
+        );
+        native_functions.insert(
+            "__server_close",
+            NativeFunction::suspending(
+                "__server_close",
+                NativeVisibility::Hidden,
+                Self::handle_server_close,
+            ),
+        );
+        native_functions.insert(
+            "__server_invoke",
+            NativeFunction::new(
+                "__server_invoke",
+                NativeVisibility::Hidden,
+                Rc::new(Self::handle_server_invoke),
+            ),
+        );
+        native_functions.insert(
+            "__http_apply",
+            NativeFunction::new(
+                "__http_apply",
+                NativeVisibility::Hidden,
+                Rc::new(Self::handle_http_apply),
+            ),
+        );
+        native_functions.insert(
+            "__http",
+            NativeFunction::suspending(
+                "__http",
+                NativeVisibility::Hidden,
+                Interpreter::handle_http,
+            ),
+        );
+        native_functions.insert(
+            "__http_close",
+            NativeFunction::new(
+                "__http_close",
+                NativeVisibility::Hidden,
+                Rc::new(Interpreter::handle_http_close),
+            ),
+        );
+        native_functions.insert(
+            "__http_header",
+            NativeFunction::new(
+                "__http_header",
+                NativeVisibility::Hidden,
+                Rc::new(Interpreter::handle_http_header),
+            ),
+        );
         native_functions.insert("__source_spans", NativeFunction::new("__source_spans",
             NativeVisibility::Hidden, Rc::new(Interpreter::handle_source_spans)));
         native_functions.insert("__syntax_spans", NativeFunction::new("__syntax_spans",
@@ -562,6 +857,7 @@ impl Interpreter
                             MAIN_SCOPE.to_string(), TypeRegistry::new(), color_mode))
                     ]),
                 current_scope: MAIN_SCOPE.to_string(),
+                exceptions: Default::default(),
                 protocol_context: Vec::new(),
                 active_factories: Vec::new(),
                 loading_modules: HashSet::new(),
@@ -573,6 +869,8 @@ impl Interpreter
                 type_scopes: HashMap::new(),
                 special_vars,
                 native_functions,
+                interactive: false,
+                reactor: None,
                 widget_environment: None,
                 prompt_widgets: None,
                 pipeline_inputs: Vec::new(),
@@ -590,13 +888,15 @@ impl Interpreter
     /**
      * Load login profiles, then the prelude, then interactive initialization and the banner.
      */
-    fn initialize_startup(&mut self,
-                          startup: Startup,
-                          interactive: Interactive,
-                          color_mode: TtyColorMode,
-                          tab_width: usize,
-                          rc_file: RcFile,
-                          script_args: Vec<String>)
+    fn initialize_startup(
+        &mut self,
+        startup: Startup,
+        interactive: Interactive,
+        color_mode: TtyColorMode,
+        tab_width: usize,
+        rc_file: RcFile,
+        script_args: Vec<String>,
+    )
     {
         let graphics = if    matches!(interactive, Interactive::Yes)
                       && color_mode != TtyColorMode::TtyMonochrome
@@ -631,6 +931,7 @@ impl Interpreter
             Interactive::Yes | Interactive::YesWithoutBanner
         );
 
+        self.interactive = is_interactive;
         self.set_variable("$build_date", Value::from_string(env!("SHELLY_BUILD_DATE").to_string()));
         self.set_variable("$build_time", Value::from_string(env!("SHELLY_BUILD_TIME").to_string()));
         self.set_variable("$version", Value::from_string(env!("CARGO_PKG_VERSION").to_string()));
@@ -792,17 +1093,48 @@ impl Interpreter
         self.execute_submission(statements, &origin)
     }
 
-    pub fn execute_instructions(&mut self, instructions: &Vec<Instruction>) -> InterpreterResult<()>
+    pub fn execute_instructions(&mut self, instructions: &Vec<Instruction>)
+    -> InterpreterResult<()>
     {
-        self.execute_instructions_with_arguments(instructions, &[], None, &[])
+        if !crate::runtime::tasks::active()
+        {
+            if self.reactor.is_none()
+            {
+                self.reactor = Some(crate::runtime::tasks::Reactor::new().map_err(|error| {
+                    InterpreterError::new(
+                        Location::default(),
+                        ErrorWhat::InvalidOperand(format!("Cannot create I/O reactor: {}", error)),
+                    )
+                })?);
+            }
+            let reactor = self.reactor.as_ref().unwrap().clone();
+            return reactor
+                .run(|| {
+                    self.execute_instructions_with_arguments(instructions, &[], None, &[], false)
+                })
+                .map_err(|error| {
+                    InterpreterError::new(
+                        Location::default(),
+                        ErrorWhat::InvalidOperand(format!(
+                            "Cannot allocate VM continuation: {}",
+                            error
+                        )),
+                    )
+                })?;
+        }
+        self.execute_instructions_with_arguments(instructions, &[], None, &[], false)
     }
 
-    fn execute_instructions_with_arguments(&mut self, instructions: &Vec<Instruction>,
-                                           arguments: &[Value],
-                                           receiver: Option<&ValueReference>,
-                                           parameter_types: &[Option<TypeId>])
-                                           -> InterpreterResult<()>
+    fn execute_instructions_with_arguments(
+        &mut self,
+        instructions: &Vec<Instruction>,
+        arguments: &[Value],
+        receiver: Option<&ValueReference>,
+        parameter_types: &[Option<TypeId>],
+        function: bool,
+    ) -> InterpreterResult<()>
     {
+        let region = self.enter_failure_region();
         let initial_scope = self.scope().variables.current_scope();
         let initial_redirections = self.redirections.len();
         let result =
@@ -810,7 +1142,8 @@ impl Interpreter
                                              parameter_types);
 
         let cleanup = self.finish_redirections(initial_redirections);
-        let result = result.and(cleanup);
+        let result = self.combine_failure(result, cleanup, "Cleanup");
+        let result = self.leave_failure_region(region, result, function);
 
         self.scope_mut().variables.reset_to_scope(initial_scope);
         if result.is_err() { self.last_result = None; }
@@ -818,12 +1151,14 @@ impl Interpreter
         result
     }
 
-    fn execute_instructions_scoped(&mut self,
-                                   instructions: &Vec<Instruction>,
-                                   initial_scope: usize,
-                                   function_arguments: &[Value],
-                                   receiver: Option<&ValueReference>,
-                                   parameter_types: &[Option<TypeId>]) -> InterpreterResult<()>
+    fn execute_instructions_scoped(
+        &mut self,
+        instructions: &Vec<Instruction>,
+        initial_scope: usize,
+        function_arguments: &[Value],
+        receiver: Option<&ValueReference>,
+        parameter_types: &[Option<TypeId>],
+    ) -> InterpreterResult<()>
     {
         let mut stack: VecDeque<Value> = VecDeque::new();
         let mut references: Vec<ValueReference> = Vec::new();
@@ -831,6 +1166,11 @@ impl Interpreter
         let mut loops: Vec<LoopFrame> = Vec::new();
         let mut instruction_pointer: usize = 0;
         let mut location: Location = Location::default();
+        if self.exceptions.transfer.is_none() && self.exceptions.cleanup.is_none()
+        {
+            self.exceptions.transfer_cleanup = None;
+        }
+        let mut quantum = 0usize;
 
         while    instruction_pointer < instructions.len()
               && !self.halted
@@ -841,14 +1181,75 @@ impl Interpreter
             {
                 location = new_location;
             }
+            self.exceptions.last_location = location.clone();
 
+            self.check_cleanup_budget(&location)?;
+            if self.exceptions.cleanup.as_ref().is_none_or(|guard| guard.hook) &&
+                self.exceptions.operation.as_ref().is_some_and(|(cancel, deadline)|
+                cancel.iter().any(|flag| flag.load(std::sync::atomic::Ordering::Acquire)) ||
+                    std::time::Instant::now() >= *deadline)
+            { return Err(InterpreterError::new(location.clone(), ErrorWhat::OperationCancelled)); }
+            quantum += 1;
+            if quantum == 1024 && self.exceptions.cleanup.as_ref().is_none_or(|guard| guard.hook)
+                && crate::runtime::tasks::active()
+            {
+                quantum = 0;
+                crate::runtime::tasks::cooperate().map_err(|error|
+                    InterpreterError::new(location.clone(), match error.kind.as_str()
+                    {
+                        "Interrupted" => ErrorWhat::Interrupted,
+                        "CleanupAbort" => ErrorWhat::CleanupAbort,
+                        _ => ErrorWhat::UnsupportedSuspension(error.message),
+                    }))?;
+            }
             if take_interrupt()
             {
-                return Err(InterpreterError::new(location.clone(), ErrorWhat::Interrupted));
+                let what = if let Some(guard) = self.exceptions.cleanup.as_mut()
+                    {
+                        if guard.interrupted { ErrorWhat::CleanupAbort }
+                        else { guard.interrupted = true; ErrorWhat::Interrupted }
+                    }
+                    else { ErrorWhat::Interrupted };
+                return Err(InterpreterError::new(location.clone(), what));
             }
 
             match instruction.code
             {
+                Code::Try(ref protected) =>
+                    {
+                        self.execute_try(&location, protected)?;
+                        if let Some(transfer) = self.exceptions.transfer
+                        {
+                            if transfer ==
+                                crate::language::interpreter::exceptions::Transfer::Return
+                                { return Ok(()); }
+                            if loops.is_empty()
+                            {
+                                if self.exceptions.protected.last() ==
+                                    Some(&self.exceptions.frames.len()) { return Ok(()); }
+                                return Err(InterpreterError::new(location.clone(),
+                                    ErrorWhat::LoopControlError("Cannot transfer outside a loop".into())));
+                            }
+                            let frame = loops.last().unwrap();
+                            self.leave_control_scopes(frame.failure_depth)?;
+                            self.finish_redirections(frame.redirection_depth)?;
+                            self.scope_mut().variables.reset_to_scope(frame.scope);
+                            stack.truncate(frame.stack_depth);
+                            iterations.truncate(frame.iteration_depth);
+                            references.truncate(frame.reference_depth);
+                            self.exceptions.transfer = None;
+                            instruction_pointer = if transfer ==
+                                crate::language::interpreter::exceptions::Transfer::Break
+                                { frame.break_target } else { frame.continue_target };
+                            continue;
+                        }
+                    },
+                Code::Throw =>
+                    {
+                        let mut value = self.last_result.take().unwrap_or(Value::None);
+                        self.activate_failure(&location, &mut value, true)?;
+                        return Err(self.raise_failure(&location, value)?);
+                    },
                 Code::Pipeline(ref pipeline) => self.execute_pipeline(pipeline)?,
                 Code::BeginRedirect =>
                     {
@@ -904,6 +1305,9 @@ impl Interpreter
 
                 Code::ExitFunction =>
                     {
+                        self.check_cleanup_return(&location)?;
+                        self.exceptions.transfer = Some(
+                            crate::language::interpreter::exceptions::Transfer::Return);
                         if !self.scope().in_function()
                         {
                             return Err(InterpreterError::new(
@@ -950,7 +1354,12 @@ impl Interpreter
                         {
                             let Value::String(name, _) = name else { unreachable!(); };
                             if let Some(binding) = self.variable_binding(name)
-                            { captures.import(name.clone(), binding); }
+                            {
+                                let value = binding.borrow().value.clone();
+                                self.consume_success(&location, &value)?;
+                                self.exceptions.captures.insert(Rc::as_ptr(&binding) as usize);
+                                captures.import(name.clone(), binding);
+                            }
                         }
                         self.last_result = Some(Value::Closure(Rc::new(ClosureValue::new(
                             function.clone(), captures))));
@@ -1198,6 +1607,7 @@ impl Interpreter
                                 _ => return Err(invalid("Invalid parameter constraint".to_string()))
                             },
                         };
+                        self.prepare_failure_value(&location, &mut value, type_id)?;
                         if let Some(id) = type_id
                         {
                             value = self.scope().types.coerce(id, value).map_err(|message|
@@ -1229,6 +1639,7 @@ impl Interpreter
                                     },
                             )
                             .map_err(invalid)?;
+                        self.register_failure_binding(name);
                     },
 
                 Code::NewVariable | Code::BindIteration =>
@@ -1275,7 +1686,7 @@ impl Interpreter
                         {
                             *path = self.eval_path_from(path);
                         }
-                        if let Err(error) = self.scope_mut().variables.create(variable_name,
+                        if let Err(error) = self.scope_mut().variables.create(variable_name.clone(),
                             ScopedValue
                                 {
                                     value,
@@ -1291,6 +1702,7 @@ impl Interpreter
                                 )
                             ));
                         }
+                        self.register_failure_binding(&variable_name);
                     },
 
                 Code::ValidateType =>
@@ -1311,6 +1723,7 @@ impl Interpreter
                                 "Missing value for type validation".to_string()
                             )
                         ))?;
+                        self.prepare_failure_value(&location, value, Some(TypeId(id as usize)))?;
                         *value = self.scope().types
                             .coerce(TypeId(id as usize), value.clone())
                             .map_err(|message| InterpreterError::new(
@@ -1360,6 +1773,7 @@ impl Interpreter
                 Code::StartIteration =>
                     {
                         let value = Self::pop(&location, &mut stack)?;
+                        self.consume_success(&location, &value)?;
                         let snapshot = instruction.operand.as_ref().unwrap_or(&Value::None);
                         let iteration = Iteration::new(self, &location, value, snapshot)?;
                         iterations.push(iteration);
@@ -1454,6 +1868,8 @@ impl Interpreter
                         {
                             let value = Self::pop(&location, &mut stack)?;
                             let key = Self::pop(&location, &mut stack)?;
+                            self.consume_success(&location, &value)?;
+                            self.consume_success(&location, &key)?;
                             pairs.push((MapKey::from_value(&key), value));
                         }
                         // Restore source order so the last duplicate key wins.
@@ -1519,6 +1935,7 @@ impl Interpreter
                         let mut array = Vec::new();
                         for element in elements
                         {
+                            self.consume_success(&location, &element)?;
                             match element
                             {
                                 Value::ArgumentExpansion(values) =>
@@ -1589,15 +2006,17 @@ impl Interpreter
                         }
                         else
                         {
+                            for value in &values { self.consume_success(&location, value)?; }
                             value = Value::Struct(Rc::new(StructValue
                                 {
                                     definition: definition.clone(), fields: values,
-                                    constructing: raw,
+                                    constructing: raw, failure: None,
                                 }));
                             if !raw { seal_constructed(&mut value); }
                             value = self.scope().types.coerce(id, value)
                                 .map_err(|message| invalid(format!("Type error: {}", message)))?;
                         }
+                        self.activate_failure(&location, &mut value, false)?;
                         Self::push(&mut stack, value);
                     },
 
@@ -1792,6 +2211,7 @@ impl Interpreter
                     {
                         // Extract and clear the last result.
                         let result = self.last_result.take();
+                        if let Some(value) = &result { self.consume_success(&location, value)?; }
 
                         // If there was an actual value stored in the last result, check it. If the
                         // value was an execution result, check its return code. If it's bad, halt
@@ -1931,6 +2351,7 @@ impl Interpreter
                 Code::EnterScope =>
                     {
                         self.scope_mut().variables.push_scope();
+                        self.enter_failure_region();
                     },
 
                 Code::ExitScope =>
@@ -1943,6 +2364,9 @@ impl Interpreter
                             ));
                         }
 
+                        let region = *self.exceptions.regions.last().unwrap();
+                        let expression = matches!(instruction.operand, Some(Value::Boolean(true)));
+                        self.leave_scope_region(region, Ok(()), false, expression)?;
                         self.scope_mut().variables.pop_scope();
                     },
 
@@ -1980,6 +2404,7 @@ impl Interpreter
                                 iteration_depth: iterations.len(),
                                 reference_depth: references.len(),
                                 redirection_depth: self.redirections.len(),
+                                failure_depth: self.exceptions.regions.len(),
                             });
                     },
 
@@ -1995,6 +2420,17 @@ impl Interpreter
 
                 Code::Break | Code::Continue =>
                     {
+                        if loops.is_empty() && self.exceptions.protected.last() ==
+                            Some(&self.exceptions.frames.len())
+                        {
+                            self.check_cleanup_return(&location)?;
+                            self.exceptions.transfer = Some(if matches!(instruction.code,
+                                Code::Break)
+                                { crate::language::interpreter::exceptions::Transfer::Break }
+                                else {
+                                    crate::language::interpreter::exceptions::Transfer::Continue });
+                            return Ok(());
+                        }
                         let frame = loops.last().ok_or_else(|| InterpreterError::new(
                             location.clone(),
                             ErrorWhat::LoopControlError(
@@ -2013,6 +2449,7 @@ impl Interpreter
                         ))?;
                         // A transfer may abandon nested blocks and partially evaluated
                         // expressions. Restore the state saved before the iteration body.
+                        self.leave_control_scopes(frame.failure_depth)?;
                         self.finish_redirections(frame.redirection_depth)?;
                         self.scope_mut().variables.reset_to_scope(frame.scope);
                         stack.truncate(frame.stack_depth);
@@ -2077,6 +2514,8 @@ impl Interpreter
 
                 Code::ToBoolean | Code::BooleanNot =>
                     {
+                        if let Some(value) = self.last_result.clone()
+                        { self.consume_success(&location, &value)?; }
                         let value = self.last_result.take().ok_or_else(|| InterpreterError::new(
                             location.clone(),
                             ErrorWhat::NoResult
@@ -2101,6 +2540,7 @@ impl Interpreter
                             ErrorWhat::ArithmeticError(message.to_string())
                         );
                         let mut value = self.last_result.take().unwrap_or(Value::None);
+                        self.consume_success(&location, &value)?;
                         let mut named = Vec::new();
                         while let Value::Named(item) = value
                         {
@@ -2125,7 +2565,11 @@ impl Interpreter
                         self.last_result = Some(value);
                     },
 
-                Code::Discard => { Self::pop(&location, &mut stack)?; },
+                Code::Discard =>
+                    {
+                        let value = Self::pop(&location, &mut stack)?;
+                        self.consume_success(&location, &value)?;
+                    },
 
                 Code::MatchFail => return Err(InterpreterError::new(
                     location.clone(),
@@ -2175,6 +2619,8 @@ impl Interpreter
                     {
                         let rhs = Self::pop(&location, &mut stack)?;
                         let lhs = Self::pop(&location, &mut stack)?;
+                        self.consume_success(&location, &lhs)?;
+                        self.consume_success(&location, &rhs)?;
                         let order = lhs.numeric_order(&rhs).map_err(|message| InterpreterError::new(
                             location.clone(),
                             ErrorWhat::ArithmeticError(message.to_string())
@@ -2199,6 +2645,8 @@ impl Interpreter
                         );
                         let mut rhs = Self::pop(&location, &mut stack)?;
                         let mut lhs = Self::pop(&location, &mut stack)?;
+                        self.consume_success(&location, &lhs)?;
+                        self.consume_success(&location, &rhs)?;
                         let mut named = Vec::new();
                         while matches!(lhs, Value::Named(_)) || matches!(rhs, Value::Named(_))
                         {
@@ -2462,9 +2910,24 @@ impl Interpreter
         Ok(value)
     }
 
-    fn read_reference(&self, location: &Location,
-                      reference: &ValueReference) -> InterpreterResult<Value>
+    fn read_reference(
+        &self,
+        location: &Location,
+        reference: &ValueReference,
+    ) -> InterpreterResult<Value>
     {
+        let binding = reference.root.borrow();
+        if matches!(binding.value, Value::None)
+            && binding
+                .type_id
+                .is_some_and(|id| self.scope().types.validate(id, &Value::None).is_err())
+        {
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::InvalidOperand("Binding has not been initialized".into()),
+            ));
+        }
+        drop(binding);
         let root = reference.root.borrow().value.clone();
         for (depth, id) in &reference.constraints
         {
@@ -2486,8 +2949,12 @@ impl Interpreter
         Ok(value)
     }
 
-    pub(super) fn write_variable(&mut self, location: &Location, name: &str,
-                      mut value: Value) -> InterpreterResult<()>
+    pub(super) fn write_variable(
+        &mut self,
+        location: &Location,
+        name: &str,
+        mut value: Value,
+    ) -> InterpreterResult<()>
     {
         let invalid = |message| InterpreterError::new(
             location.clone(),
@@ -2495,7 +2962,10 @@ impl Interpreter
         );
         let variable = self.variable_binding(name)
             .ok_or_else(|| invalid("Variable not found for SetVariable instruction.".to_string()))?;
-        if let Some(id) = variable.borrow().type_id
+        let expected = variable.borrow().type_id;
+        self.prepare_failure_value(location, &mut value, expected)?;
+        self.check_failure_write(location, &variable, &value)?;
+        if let Some(id) = expected
         {
             value = self.scope().types.coerce(id, value).map_err(|message|
                 invalid(format!("Type error for '{}': {}", name, message)))?;
@@ -2505,13 +2975,49 @@ impl Interpreter
         self.write_receiver(location, name, &reference, value)
     }
 
-    fn write_receiver(&mut self, location: &Location, name: &str,
-                      reference: &ValueReference, mut value: Value) -> InterpreterResult<()>
+    fn write_receiver(
+        &mut self,
+        location: &Location,
+        name: &str,
+        reference: &ValueReference,
+        mut value: Value,
+    ) -> InterpreterResult<()>
     {
+        crate::runtime::tasks::check_write(Rc::as_ptr(&reference.root) as usize).map_err(
+            |error| InterpreterError::new(location.clone(), ErrorWhat::ReceiverBusy(error.message)),
+        )?;
         let invalid = |message| InterpreterError::new(
             location.clone(),
             ErrorWhat::InvalidOperand(message)
         );
+        if self.exceptions.reporting
+        {
+            let key = Rc::as_ptr(&reference.root) as usize;
+            let local = self.exceptions.bindings.get(&key).is_some_and(|owner| {
+                self.exceptions
+                    .regions
+                    .iter()
+                    .position(|region| region == owner)
+                    .is_some_and(|position| position >= self.exceptions.report_floor)
+            });
+            if !local
+            {
+                return Err(protocol_error(
+                    location,
+                    "Reporting cannot mutate module or caller bindings",
+                ));
+            }
+        }
+        let original = reference.root.borrow().value.clone();
+        if reference.indexes.is_empty()
+        {
+            self.check_failure_write(location, &reference.root, &value)?;
+        }
+        else
+        {
+            self.consume_success(location, &value)?;
+            self.consume_success(location, &original)?;
+        }
         let root = reference.root.borrow();
         let root_type = root.type_id;
         if let Some(id) = Self::read_projection(location, root.value.clone(),
@@ -2574,6 +3080,7 @@ impl Interpreter
             self.write_receiver(location, name, &property.getter.receiver, owner)?;
         }
         reference.root.borrow_mut().value = updated;
+        self.commit_failure_write(&reference.root, &original);
         Ok(())
     }
 
@@ -2622,7 +3129,10 @@ impl Interpreter
     }
 
     pub(super) fn execute_value(
-        &mut self, location: &Location, value: Value, args: Vec<Value>,
+        &mut self,
+        location: &Location,
+        value: Value,
+        args: Vec<Value>,
     ) -> InterpreterResult<()>
     {
         if    let Value::Named(item) = &value
@@ -2664,13 +3174,18 @@ impl Interpreter
                 return Err(error(format!("Expected {} arguments, got {}",
                     parameters.len(), args.len())));
             }
-            let args = parameters.iter().zip(args).enumerate()
-                .map(|(index, (id, value))| self.scope().types.coerce(*id, value)
-                    .map_err(|message| error(format!("Argument {}: {}", index + 1, message))))
-                .collect::<InterpreterResult<Vec<_>>>()?;
+            let mut checked = Vec::new();
+            for (index, (id, mut value)) in parameters.iter().zip(args).enumerate()
+            {
+                self.prepare_failure_value(location, &mut value, Some(*id))?;
+                checked.push(self.scope().types.coerce(*id, value).map_err(|message|
+                    error(format!("Argument {}: {}", index + 1, message)))?);
+            }
+            let args = checked;
             self.execute_value(location, callable.target.clone(), args)?;
             if self.halted { return Ok(()); }
-            let value = self.last_result.take().unwrap_or(Value::None);
+            let mut value = self.last_result.take().unwrap_or(Value::None);
+            self.prepare_failure_value(location, &mut value, Some(*result))?;
             let value = self.scope().types.coerce(*result, value)
                 .map_err(|message| error(format!("Return value: {}", message)))?;
             self.last_result = Some(value);
@@ -2747,9 +3262,34 @@ impl Interpreter
         None
     }
 
-    pub(super) fn execute_method(&mut self, location: &Location, method: &BoundMethod,
-                      arguments: &[Value]) -> InterpreterResult<()>
+    pub(super) fn execute_method(
+        &mut self,
+        location: &Location,
+        method: &BoundMethod,
+        arguments: &[Value],
+    ) -> InterpreterResult<()>
     {
+        let native_receiver = matches!(
+            self.read_reference(location, &method.receiver)?
+                .underlying(),
+            Value::Native(_)
+        );
+        let _pin = if !native_receiver && matches!(method.definition, MethodDefinition::User(_))
+        {
+            Some(
+                crate::runtime::tasks::pin_receiver(Rc::as_ptr(&method.receiver.root) as usize)
+                    .map_err(|error| {
+                        InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::ReceiverBusy(error.message),
+                        )
+                    })?,
+            )
+        }
+        else
+        {
+            None
+        };
         let property = method.receiver.property.clone();
         if let Some(property) = &property
             && !property.active.get() && !property.fresh.replace(false)
@@ -2783,11 +3323,15 @@ impl Interpreter
             })
     }
 
-    fn execute_method_body(&mut self, location: &Location, method: &BoundMethod,
-                           arguments: &[Value]) -> InterpreterResult<()>
+    fn execute_method_body(
+        &mut self,
+        location: &Location,
+        method: &BoundMethod,
+        arguments: &[Value],
+    ) -> InterpreterResult<()>
     {
         if    let MethodDefinition::User(function) = &method.definition
-           && is_conversion_method(&method.name)
+           && (is_conversion_method(&method.name) || method.name == "json_codec")
            && function.receiver_type.is_some()
         {
             return Err(InterpreterError::new(
@@ -2832,6 +3376,7 @@ impl Interpreter
         {
             MethodDefinition::Builtin(definition) =>
                 {
+                    for argument in arguments { self.consume_success(location, argument)?; }
                     let mut value = (definition.body)(&mut receiver, arguments)
                         .map_err(|error|
                             {
@@ -2915,12 +3460,63 @@ impl Interpreter
         self.execute_function_with_receiver(location, name, function, args, None)
     }
 
-    fn execute_function_with_receiver(&mut self, location: &Location, name: &str,
-                                      function: &FunctionRef, args: &[Value],
-                                      receiver: Option<&ValueReference>) -> InterpreterResult<()>
+    fn execute_function_with_receiver(
+        &mut self,
+        location: &Location,
+        name: &str,
+        function: &FunctionRef,
+        args: &[Value],
+        receiver: Option<&ValueReference>,
+    ) -> InterpreterResult<()>
     {
-        self.execute_function_body(location, name, function, args, receiver)
-            .map_err(|error|
+        if self.exceptions.frames.len() >= 512
+        {
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::InvalidOperand("Function call depth limit exceeded".into()),
+            ));
+        }
+        let previous_transfer = self.exceptions.transfer.take();
+        let display = function
+            .receiver_type
+            .map(|id| {
+                let binding = function.functions.borrow();
+                let method = binding
+                    .function_name
+                    .as_deref()
+                    .unwrap_or(name)
+                    .rsplit(':')
+                    .next()
+                    .unwrap_or(name);
+                format!("{}::{}", self.scope().types.get(id).name, method)
+            })
+            .unwrap_or_else(|| name.into());
+        self.exceptions.frames.push(CallFrame {
+            name: display,
+            location: location.clone(),
+            native: false,
+            native_location: None,
+        });
+        self.exceptions.returns.push(function.return_type);
+        self.exceptions.callers.push(self.current_scope.clone());
+        let mut result = self.execute_function_body(location, name, function, args, receiver);
+        let converts_error = function.receiver_type.is_some_and(|id| {
+            self.scope().types.has_error_type(id) && self.scope().types.success_type(id).is_none()
+        }) && function
+            .functions
+            .borrow()
+            .function_name
+            .as_ref()
+            .is_some_and(|name| name.rsplit(':').next().is_some_and(is_conversion_method));
+        if converts_error
+        {
+            self.conversion_causes(location, args, &mut result);
+        }
+        self.exceptions.returns.pop();
+        self.exceptions.callers.pop();
+        self.exceptions.frames.pop();
+        self.exceptions.transfer = previous_transfer;
+        result.map_err(|error|
                 {
                     let display = function.receiver_type.map(|id|
                         {
@@ -2933,9 +3529,14 @@ impl Interpreter
                 })
     }
 
-    fn execute_function_body(&mut self, location: &Location, name: &str,
-                             function: &FunctionRef, args: &[Value],
-                             receiver: Option<&ValueReference>) -> InterpreterResult<()>
+    fn execute_function_body(
+        &mut self,
+        location: &Location,
+        name: &str,
+        function: &FunctionRef,
+        args: &[Value],
+        receiver: Option<&ValueReference>,
+    ) -> InterpreterResult<()>
     {
         if    args.len() < function.minimum_arguments
            || !function.variadic
@@ -3017,7 +3618,7 @@ impl Interpreter
         let owner = function.functions.borrow().protocol_owner;
         self.protocol_context.push((owner, origin));
         let call_result = self.execute_instructions_with_arguments(
-            &function.code, args, receiver, &parameter_types);
+            &function.code, args, receiver, &parameter_types, true);
         self.protocol_context.pop();
         self.scope_mut().types.allow_candidates = previous_candidates;
         if factory { self.active_factories.pop(); }
@@ -3033,12 +3634,12 @@ impl Interpreter
             self.last_result = Some(self.scope().types.coerce(id, value).map_err(|message|
                 InterpreterError::new(
                     location.clone(),
-                    ErrorWhat::ArgumentMismatch(
+                    ErrorWhat::ReturnContract(
                         format!(
                             "Type error for return value of '{}': {}",
                             name,
                             message
-                        )
+                        ), Rc::as_ptr(function) as usize
                     )
                 ))?);
         }
@@ -3081,10 +3682,263 @@ impl Interpreter
         result
     }
 
-    fn execute_native(&mut self, location: &Location, function: &NativeFunction,
-                      args: &[Value]) -> InterpreterResult<()>
+    fn execute_native(
+        &mut self,
+        location: &Location,
+        function: &NativeFunction,
+        args: &[Value],
+    ) -> InterpreterResult<()>
     {
-        (function.body)(self, location, args)
+        if function.name != "__report_error"
+        {
+            for argument in args
+            {
+                self.consume_success(location, argument)?;
+            }
+        }
+        if self.exceptions.cleanup.is_some() && function.name == "exit"
+        {
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::CleanupControl,
+            ));
+        }
+        let http_metadata = function.name == "__http" && args.first().is_some_and(|value|
+            matches!(value, Value::String(command, _) if matches!(command.as_str(), "status" |
+                "headers" | "url" | "diagnostic_complete" | "diagnostic_reason" |
+                    "diagnostic_bytes" | "diagnostic_received")));
+        let pure = http_metadata
+            || matches!(
+                function.name,
+                "__json"
+                    | "__json_bind"
+                    | "__json_apply"
+                    | "__http_apply"
+                    | "__bytes"
+                    | "__http_header"
+            )
+            || FACTORIES.iter().any(|(name, _, _)| *name == function.name);
+        let stream_close = matches!(function.name, "__stream" | "__json_reader")
+            && args.first().is_some_and(
+                |value| matches!(value, Value::String(command, _) if command == "close"),
+            );
+        let cleanup = (matches!(
+            function.name,
+            "__io_close"
+                | "__tcp_close"
+                | "__http_close"
+                | "__socket_close"
+                | "__server_close"
+                | "terminal_close"
+        ) || stream_close)
+            && !self.exceptions.reporting
+            && self.exceptions.json_calls == 0;
+        if (self.exceptions.reporting || self.exceptions.cleanup.is_some())
+            && !pure
+            && !cleanup
+            && function.name != "__report_error"
+        {
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::UnsupportedSuspension(format!(
+                    "Native '{}' is not admitted during cleanup/reporting",
+                    function.name
+                )),
+            ));
+        }
+        if crate::runtime::tasks::managed()
+            && function.operation.is_none()
+            && !pure
+            && !cleanup
+            && !matches!(function.name, "__stream" | "__report_error")
+        {
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::UnsupportedSuspension(format!(
+                    "Native '{}' has no managed suspension contract",
+                    function.name
+                )),
+            ));
+        }
+        let result = if let Some(operation) = function.operation
+        {
+            let outcome = operation(self, location, args);
+            let outcome = if matches!(outcome, NativeOutcome::Wait(_))
+                && !crate::runtime::tasks::active()
+            {
+                NativeOutcome::Failed(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::UnsupportedSuspension(
+                        "Native wait requires a running VM task".into(),
+                    ),
+                ))
+            }
+            else
+            {
+                outcome
+            };
+            let value = match outcome
+            {
+                NativeOutcome::Ready(value) => Ok(value),
+                NativeOutcome::Failed(error) => Err(error),
+                NativeOutcome::Wait(wait) =>
+                {
+                    let operation = self.exceptions.operation.clone().filter(|_| {
+                        self.exceptions
+                            .cleanup
+                            .as_ref()
+                            .is_none_or(|guard| guard.hook)
+                    });
+                    let cleanup_deadline = self
+                        .exceptions
+                        .cleanup
+                        .as_ref()
+                        .filter(|guard| !guard.hook)
+                        .map(|guard| guard.deadline);
+                    let future = if operation.is_some() || cleanup_deadline.is_some()
+                    {
+                        let mut future = wait.future;
+                        Box::pin(async move {
+                            let mut tick = tokio::time::interval(Duration::from_millis(10));
+                            loop
+                            {
+                                tokio::select! {
+                                    reply = &mut future => return reply,
+                                    _ = tick.tick() =>
+                                        {
+                                            if cleanup_deadline.is_some_and(|deadline|
+                                                std::time::Instant::now() >= deadline)
+                                            { return
+                                                Err(crate::runtime::tasks::NativeFault::new("CleanupTimeout", "Cleanup budget exhausted")); }
+                                            if operation.as_ref().is_some_and(|(cancel, deadline)|
+                                                cancel.iter().any(|flag|
+                                                    flag.load(std::sync::atomic::Ordering::Acquire))
+                                                || std::time::Instant::now() >= *deadline)
+                                            { return
+                                                Err(crate::runtime::tasks::NativeFault::new("OperationCancelled", "Operation cancelled")); }
+                                        },
+                                }
+                            }
+                        }) as crate::runtime::tasks::NativeFuture
+                    }
+                    else
+                    {
+                        wait.future
+                    };
+                    let reply = crate::runtime::tasks::wait(future);
+                    if reply
+                        .as_ref()
+                        .err()
+                        .is_some_and(|error| error.kind == "OperationCancelled")
+                    {
+                        return Err(InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::OperationCancelled,
+                        ));
+                    }
+                    if reply
+                        .as_ref()
+                        .err()
+                        .is_some_and(|error| error.kind == "CleanupTimeout")
+                    {
+                        return Err(InterpreterError::new(
+                            location.clone(),
+                            ErrorWhat::CleanupTimeout,
+                        ));
+                    }
+                    if reply.as_ref().err().is_some_and(|error| {
+                        matches!(error.kind.as_str(), "Interrupted" | "CleanupAbort")
+                    })
+                    {
+                        let abort = reply
+                            .as_ref()
+                            .err()
+                            .is_some_and(|error| error.kind == "CleanupAbort")
+                            || self
+                                .exceptions
+                                .cleanup
+                                .as_ref()
+                                .is_some_and(|guard| guard.interrupted);
+                        if let Some(guard) = self.exceptions.cleanup.as_mut()
+                        {
+                            guard.interrupted = true;
+                        }
+                        return Err(InterpreterError::new(
+                            location.clone(),
+                            if abort
+                            {
+                                ErrorWhat::CleanupAbort
+                            }
+                            else
+                            {
+                                ErrorWhat::Interrupted
+                            },
+                        )
+                        .through_call(function.name, location, true));
+                    }
+                    (wait.finish)(self, reply)
+                }
+            };
+            value.and_then(|mut value| {
+                let native_created = crate::language::data::failure::occurrence(&value)
+                    .is_none_or(|failure| failure.borrow().native_origin.is_some());
+                self.activate_failure(location, &mut value, false)?;
+                if native_created
+                    && let Some(failure) = crate::language::data::failure::occurrence(&value)
+                {
+                    let mut failure = failure.borrow_mut();
+                    let boundary = Location::new(file!(), line!() as usize, column!() as usize);
+                    if failure.native_origin.is_none()
+                    {
+                        failure.native_origin = Some(boundary.clone());
+                    }
+                    if !failure.frames.first().is_some_and(|frame| {
+                        frame.native && frame.name == function.name && frame.location == *location
+                    })
+                    {
+                        failure.frames.insert(
+                            0,
+                            CallFrame {
+                                name: function.name.into(),
+                                location: location.clone(),
+                                native: true,
+                                native_location: Some(boundary),
+                            },
+                        );
+                    }
+                    failure.frames.truncate(128);
+                }
+                if let Value::Native(native) = value.underlying()
+                    && native.0.operation()
+                {
+                    self.exceptions
+                        .resources
+                        .retain(|(_, native)| native.0.operation());
+                    if self.exceptions.resources.len() >= 256
+                    {
+                        native.0.release();
+                        value = self.io_fault(
+                            "LimitError",
+                            function.name,
+                            "Too many active operation resources".into(),
+                        );
+                        self.activate_failure(location, &mut value, false)?;
+                    }
+                    else
+                    {
+                        let region = *self.exceptions.regions.last().unwrap_or(&0);
+                        self.exceptions.resources.push((region, native.clone()));
+                    }
+                }
+                self.last_result = Some(value);
+                Ok(())
+            })
+        }
+        else
+        {
+            (function.body)(self, location, args)
+        };
+        result
             .map_err(|error| error.through_call(function.name, location, true))
     }
 
@@ -3118,12 +3972,30 @@ impl Interpreter
         self.execute_external(location, executable, args)
     }
 
-    fn execute_external(&mut self, location: &Location, executable: String, args: Vec<Value>)
-        -> InterpreterResult<()>
+    fn execute_external(
+        &mut self,
+        location: &Location,
+        executable: String,
+        args: Vec<Value>,
+    ) -> InterpreterResult<()>
     {
         let env_vars = self.exported_environment(location)?;
 
-
+        for argument in &args
+        {
+            self.consume_success(location, argument)?;
+        }
+        if self.exceptions.cleanup.is_some()
+            || self.exceptions.reporting
+            || crate::runtime::tasks::managed()
+        {
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::UnsupportedSuspension(
+                    "External commands are not admitted during cleanup/reporting".into(),
+                ),
+            ));
+        }
         let mut command = Command::new(&executable);
 
         command.args(args.iter().map(|argument| self.eval_path_from(&argument.as_text())))
@@ -3152,9 +4024,6 @@ impl Interpreter
                 command.status()
             };
 
-        // The foreground child received this signal too. Keep its status available
-        // for explicit capture rather than interrupting the following assignment.
-        take_interrupt();
         let status = status_result
             .map_err(|error| InterpreterError::new(
                 location.clone(),
@@ -3168,6 +4037,19 @@ impl Interpreter
                 }
             ))?;
 
+        // Only acknowledge an interruption that actually terminated this child. A signal
+        // arriving after a successful child's exit still belongs to the running script.
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::ExitStatusExt;
+            if status.signal() == Some(libc::SIGINT) && take_interrupt() && !self.interactive
+            {
+                return Err(InterpreterError::new(
+                    location.clone(),
+                    ErrorWhat::Interrupted,
+                ));
+            }
+        }
         // Set the `last_result` to indicate the result of the executed command.
         let value = Value::from_status_code(status.code());
         self.last_result = Some(value);
@@ -3462,13 +4344,40 @@ impl Interpreter
         ))
     }
 
-    fn resolve_field(&mut self, location: &Location, mut reference: ValueReference,
-                     value: Value, field: &Value, snapshot: &Value, bind: bool)
-        -> InterpreterResult<(Value, ValueReference)>
+    fn resolve_field(
+        &mut self,
+        location: &Location,
+        mut reference: ValueReference,
+        value: Value,
+        field: &Value,
+        snapshot: &Value,
+        bind: bool,
+    ) -> InterpreterResult<(Value, ValueReference)>
     {
+        if !matches!(value.underlying(), Value::Struct(_))
+            && !field.as_text().starts_with("::")
+            && field.as_text() != "type"
+            && let Some(getter) = self.resolve_method(
+                &value,
+                reference.clone(),
+                &format!("get_{}", field.as_text()),
+                snapshot,
+            )
+        {
+            let previous = self.last_result.take();
+            let result = self.execute_method(location, &getter, &[]);
+            let value = self.last_result.take().unwrap_or(Value::None);
+            self.last_result = previous;
+            result?;
+            return Ok((value.clone(), ValueReference::temporary(value)));
+        }
         if let Value::Struct(item) = value.underlying()
         {
             let text = field.as_text();
+            if crate::language::data::failure::pending(&value).is_some()
+                && text != "type" && Self::struct_field_index(location, item, field).is_err()
+                && self.resolve_method(&value, reference.clone(), &text, snapshot).is_none()
+            { self.consume_success(location, &value)?; }
             let raw = text.starts_with("::");
             let name = text.strip_prefix("::").unwrap_or(&text);
             if !raw
@@ -3588,7 +4497,9 @@ impl Interpreter
     }
 
     fn get_element(
-        location: &Location, collection: &Value, index: &Value,
+        location: &Location,
+        collection: &Value,
+        index: &Value,
     ) -> InterpreterResult<Value>
     {
         match collection.underlying()
@@ -3597,6 +4508,43 @@ impl Interpreter
                 .get(&MapKey::from_value(index))
                 .cloned()
                 .unwrap_or(Value::None)),
+            Value::String(text, _) =>
+                {
+                    // String helpers in the prelude use Unicode scalar offsets. Do not
+                    // materialize one heap-allocated Value per character to implement a slice.
+                    let length = text.chars().count();
+                    let bound = |value: i64, inclusive: bool| -> InterpreterResult<usize>
+                        {
+                            usize::try_from(value).ok().filter(|index|
+                                if inclusive { *index < length } else { *index <= length })
+                                .ok_or_else(|| InterpreterError::new(location.clone(),
+                                    ErrorWhat::ArrayError("String index is out of bounds".into())))
+                        };
+                    match index.underlying()
+                    {
+                        Value::Integer(index) =>
+                            {
+                                let index = bound(*index, true)?;
+                                Ok(Value::from_string(text.chars().nth(index).unwrap().to_string()))
+                            },
+                        Value::Range(range) =>
+                            {
+                                let start = range.start.map(|value| bound(value,
+                                    false)).transpose()?.unwrap_or(0);
+                                let end = range.end.map(|value| bound(value, range.inclusive)
+                                    .map(|value| value +
+                                        usize::from(range.inclusive))).transpose()?.unwrap_or(length);
+                                let start =
+                                    text.char_indices().nth(start.min(end)).map_or(text.len(),
+                                    |(offset, _)| offset);
+                                let end = text.char_indices().nth(end).map_or(text.len(),
+                                    |(offset, _)| offset);
+                                Ok(Value::from_string(text[start..end].to_string()))
+                            },
+                        _ => Err(InterpreterError::new(location.clone(),
+                            ErrorWhat::ArrayError("String index must be an Integer or range".into()))),
+                    }
+                },
             Value::Array(values) => match index
                 {
                     Value::Range(range) => Self::array_slice(location, values, range).map(|value|
@@ -3613,8 +4561,14 @@ impl Interpreter
         }
     }
 
-    fn set_element(&mut self, location: &Location, collection: &mut Value,
-                    indexes: &[Value], fields: &[Value], value: Value) -> InterpreterResult<()>
+    fn set_element(
+        &mut self,
+        location: &Location,
+        collection: &mut Value,
+        indexes: &[Value],
+        fields: &[Value],
+        value: Value,
+    ) -> InterpreterResult<()>
     {
         let Some((index, rest)) = indexes.split_first() else
         {
@@ -3717,6 +4671,11 @@ impl Interpreter
                     )
                 ));
             };
+            if item.definition.location.as_ref().is_some_and(|location|
+                location.origin.as_ref() == "<native>") && matches!(item.definition.name.as_str(),
+                    "SourceLocation" | "CallFrame" | "CallStack" | "ErrorSnapshot" |
+                        "RelatedFailure")
+            { return Err(protocol_error(location, "Diagnostic snapshots are immutable")); }
             let index = Self::struct_field_index(location, item, index)?;
             self.check_private_field(location, item, index)?;
             let TypeKind::Struct(definitions) = &item.definition.kind else { unreachable!(); };
@@ -4124,6 +5083,13 @@ impl Interpreter
 
     fn handle_exit(&mut self, location: &Location, args: &[Value]) -> InterpreterResult<()>
     {
+        if self.exceptions.cleanup.is_some()
+        {
+            return Err(InterpreterError::new(
+                location.clone(),
+                ErrorWhat::CleanupControl,
+            ));
+        }
         let args = args.iter().map(Value::as_text).collect::<Vec<_>>();
         let args = args.as_slice();
         self.exit_code = match args

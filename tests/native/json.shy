@@ -1,0 +1,220 @@
+# Exact documents, strict mappings and conversion protocols compose without result boilerplate.
+import std::json::{ Document, Error, parse, decode, encode, wrap, convert, decode_as,
+                   ParseOptions, MappingOptions, EncodeOptions, NumberMode, DuplicateNames,
+                   UnknownFields, Kind, number, set, remove, append }
+import std::json::{ Codec, enum_codec, struct_codec, StructOptions }
+
+let $document = parse '{"n":9007199254740993,"decimal":1.00e+2,"a/b":{"~":null},"list":[null,2]}'
+require ($document.kind == Kind::Object) "document kind"
+require (($document.require_integer "/n") == 9007199254740993) "integer lost precision"
+require (($document.require_integer "/decimal") == 100) "exact integral decimal"
+require (($document.at "/decimal").number_text == "1.00e+2") "number spelling"
+require (($document.at "/a~1b/~0").kind == Kind::Null) "escaped pointer"
+require (($document.find "/missing") == ()) "missing pointer"
+require (($document.find "/a~1b/~0") != ()) "null confused with missing"
+require (($document.array_items "/list").count == 2) "array views lost null item"
+require ((encode $document) == '{"n":9007199254740993,"decimal":1.00e+2,"a/b":{"~":null},"list":[null,2]}') "exact encoding"
+
+let $changed = set $document "/added" ["text": "hello"]
+require (!( $document.has "/added" )) "set mutated input"
+require (($changed.require_string "/added/text") == "hello") "set result"
+let $changed = append $changed "/list" 3
+require (($changed.array_items "/list").count == 3) "append result"
+let $changed = remove $changed "/added"
+require (!( $changed.has "/added" )) "remove result"
+require ((encode ($document.at "/decimal").detach) == "1.00e+2") "detached view changed"
+require ((decode (encode "{\"x\":1}")) == "{\"x\":1}") "encoded String was interpreted as JSON"
+require ((encode ()) == "null") "null encode"
+
+let $exact = decode "1.23e-1000" ParseOptions(number_mode: NumberMode::Exact)
+require ($exact.text == "1.23e-1000") "exact materialization"
+let $number = number "100.000e-2"
+require (($number.require_integer) == 1) "Number exact Integer conversion"
+
+let $caught = 0
+try { parse '{"name":1,"na\\u006de":2}' }
+catch ($stack, $error: Error)
+{
+    require ($error.message == "Duplicate JSON object name") "duplicate category"
+    require ($stack.native_origin != ()) "JSON native origin missing"
+    $caught = $caught + 1
+}
+try { decode "1e1000" }
+catch ($error: Error) { $caught = $caught + 1 }
+try { decode "1e-1000" }
+catch ($error: Error) { $caught = $caught + 1 }
+try { parse "[] true" }
+catch ($error: Error) { $caught = $caught + 1 }
+try { parse '"\\ud800"' }
+catch ($error: Error) { $caught = $caught + 1 }
+try { parse "[1,2]" ParseOptions(max_members: 1) }
+catch ($error: Error) { $caught = $caught + 1 }
+try { parse '"λλλλ"' ParseOptions(max_scalar: 1) }
+catch ($error: Error) { $caught = $caught + 1 }
+try { $document.find "/list/01" }
+catch ($error: Error) { $caught = $caught + 1 }
+require ($caught == 8) "expected JSON errors were missed"
+let $first = parse '{"x":1,"x":2}' ParseOptions(duplicate_names: DuplicateNames::FirstWins)
+let $last = parse '{"x":1,"x":2}' ParseOptions(duplicate_names: DuplicateNames::LastWins)
+require (($first.require_integer "/x") == 1) "FirstWins"
+require (($last.require_integer "/x") == 2) "LastWins"
+
+enum Role { User, Assistant }
+struct User { pub name: String, pub age: Integer, pub role: Role, pub nickname: optional String }
+let $user = decode_as '{"name":"Ada","age":3,"role":"User"}' User
+require (($user.type == User) && ($user.role == Role::User)) "derived struct mapping"
+require ($user.nickname == ()) "optional missing field"
+let $copy: User = convert (wrap $user) User
+require (($copy.name == "Ada") && ($copy.age == 3)) "derived round trip"
+let $mapped = convert ["name": "Grace", "age": 4, "role": "Assistant"] User
+require ($mapped.role == Role::Assistant) "hash to struct"
+try { decode_as '{"name":"Ada","age":"3","role":"User"}' User; fail "parsed numeric string" }
+catch ($error: Error) {}
+try { decode_as '{"name":"Ada","age":3,"role":"User","extra":1}' User; fail "ignored unknown field" }
+catch ($error: Error) {}
+let $ignored = decode_as '{"name":"Ada","age":3,"role":"User","extra":1}' User (MappingOptions(unknown_fields: UnknownFields::Ignore))
+require ($ignored.name == "Ada") "explicit unknown-field policy"
+
+type Count = Integer
+fn Count::from_integer($n: Integer): Count { $n + 10 }
+let $count = convert 3 Count
+require (($count.type == Count) && ($count == Count(3))) "original source factory"
+let $wire_count = convert (parse "3") Count
+require (Integer($wire_count) == 3) "document unexpectedly selected ordinary source factory"
+
+struct Custom { pub value: String }
+fn Custom::to_json(): Document | Error { wrap ["wire": $self.value] }
+fn Custom::from_json($document: Document): Custom | Error
+{
+    Custom(value: $document.require_string "/wire")
+}
+let $custom = decode_as '{"wire":"works"}' Custom
+require ($custom.value == "works") "from_json hook"
+require ((encode $custom) == '{"wire":"works"}') "to_json hook"
+
+struct Constructed { hidden: Integer }
+fn Constructed::new($seed: Integer): Constructed { Constructed(hidden: $seed + 1) }
+fn Constructed::get_value(): Integer { $self.::hidden }
+let $constructed = decode_as '{"seed":4}' Constructed
+require ($constructed.value == 5) "constructor parameters were not used"
+try { encode $constructed; fail "private representation escaped" }
+catch ($error: Error) {}
+
+let $keys = [Role::User: 1, Role::Assistant: 2]
+type Counts = [Role: Integer]
+let $mapped: Counts = convert (wrap $keys) Counts
+require ($mapped[Role::User] == 1) "enum map keys"
+let $output: String
+[Custom(value: "one"), Custom(value: "two")] | encode | $output
+require ($output == '{"wire":"two"}') "JSON pipeline mapping"
+
+enum WireRole { Developer, User }
+fn WireRole::json_codec(): Codec
+{
+    enum_codec WireRole [WireRole::Developer: "developer", WireRole::User: "user"]
+}
+struct Request { pub role: WireRole, pub input: String, pub note: optional String }
+fn Request::json_codec(): Codec
+{
+    struct_codec Request StructOptions(rename_fields: ["input": "content"],
+        omit_null_fields: ["note"], unknown_fields: UnknownFields::Ignore)
+}
+let $request = Request(role: WireRole::Developer, input: "hello")
+require ((encode $request) == '{"role":"developer","content":"hello"}') "codec encoding"
+let $request = decode_as '{"role":"user","content":"hi","extra":true}' Request
+require (($request.role == WireRole::User) && ($request.input == "hi")) "codec decoding"
+try { decode_as '{"role":"user","content":"hi","extra":true}' Request (MappingOptions(unknown_fields: UnknownFields::Reject)); fail "explicit mapping policy was ignored" }
+catch ($error: Error) {}
+try { enum_codec WireRole [WireRole::Developer: "same", WireRole::User: "same"]; fail "duplicate wire names accepted" }
+catch ($error: Error) {}
+
+let $pipeline = Custom(value: "old")
+printf '%s' '{"wire":"pipeline"}' json:|:Custom $pipeline
+require ($pipeline.value == "pipeline") "typed JSON pipeline skipped from_json"
+let $encoded: String
+$custom |:json cat | $encoded
+require ($encoded == '{"wire":"works"}') "JSON boundary skipped to_json"
+
+let $encoded: String
+std::json::array_source [1, (), "two"] | cat | $encoded
+require ($encoded == '[1,null,"two"]') "incremental JSON array source"
+let $encoded: String
+std::json::lines_source [["n": 1], ["n": 2]] | cat | $encoded
+require ($encoded == '{"n":1}\n{"n":2}\n') "incremental JSON lines source"
+
+error struct EncodingFailure { pub message: String }
+struct BrokenPayload { pub value: Integer }
+fn BrokenPayload::to_json(): Document | EncodingFailure
+{
+    EncodingFailure(message: "script encoder failed")
+}
+try
+{
+    let $source = std::json::array_source [BrokenPayload(value: 1)]
+    let $text: String
+    $source | cat | $text
+    fail "script source error was swallowed"
+}
+catch ($stack, $error: EncodingFailure)
+{
+    require ($error.message == "script encoder failed") "script source lost concrete payload"
+    require ($stack.frames[0].name == "BrokenPayload::to_json") "script source lost producer frame"
+}
+
+import std::io
+import std::stream
+let $reader = std::io::memory_reader std::io::Bytes('{"skip":{"x":[1]},"data":[null,{"n":2},[3]],"after":true}')
+let $array = std::json::read_array $reader "/data"
+let $elements = std::stream::collect $array
+require (($elements.count == 3) && ($elements[0].kind == Kind::Null)) "Selected array streaming lost null"
+require (($elements[1].require_integer "/n") == 2) "Selected array mapping"
+let $reader = std::io::memory_reader std::io::Bytes('[1,2] trailing')
+let $array = std::json::read_array $reader
+require ($array.next_item.require_integer == 1) "Array did not emit first element"
+require ($array.next_item.require_integer == 2) "Array did not emit second element"
+try { $array.next_item; fail "Array accepted invalid trailing input" }
+catch ($error: Error) {}
+let $reader = std::io::memory_reader std::io::Bytes("null\r\n1\n")
+let $lines = std::json::read_lines $reader
+require ($lines.next_item.kind == Kind::Null) "JSON Lines null"
+require ($lines.next_item.require_integer == 1) "JSON Lines CRLF"
+require ($lines.next_item == ()) "JSON Lines EOF"
+let $reader = std::io::memory_reader std::io::Bytes("[null,1]")
+let $mapped = (std::json::read_array $reader).read_as (any) () true
+require ($mapped.next_item.value == ()) "Boxed null mapping"
+require ($mapped.next_item.value == 1) "Boxed nonnull mapping"
+require ($mapped.next_item == ()) "Boxed mapping EOF"
+
+
+# Transport chunks can end inside UTF-8 and number tokens without becoming records.
+let $decoder = std::json::Decoder()
+$decoder.feed std::io::Bytes("1e")
+require ($decoder.poll == std::json::DecodeState::NeedInput) "Chunk boundary terminated number"
+$decoder.feed std::io::Bytes("2")
+$decoder.finish
+require ($decoder.poll.require_integer == 100) "Chunk decoder number"
+require ($decoder.poll == std::json::DecodeState::End) "Decoder repeated document"
+let $decoder = std::json::Decoder()
+$decoder.feed std::io::Bytes([34,206])
+$decoder.feed std::io::Bytes([187,34])
+$decoder.finish
+require ($decoder.poll.require_string == "λ") "Chunk decoder split UTF-8"
+try { $decoder.feed std::io::Bytes(" "); fail "Decoder accepted input after finish" }
+catch ($error: Error) {}
+let $reader = std::io::memory_reader std::io::Bytes("\x1enull\n\x1e{\"n\":2}\n")
+let $sequence = std::json::read_sequence $reader
+require ($sequence.next_item.kind == Kind::Null) "JSON sequence null"
+require (($sequence.next_item.require_integer "/n") == 2) "JSON sequence record"
+require ($sequence.next_item == ()) "JSON sequence EOF"
+let $reader = std::io::memory_reader std::io::Bytes("\x1e1")
+try { (std::json::read_sequence $reader).next_item; fail "Truncated JSON sequence accepted" }
+catch ($error: Error) {}
+let $reader = std::io::memory_reader std::io::Bytes("\x1e")
+try { (std::json::read_sequence $reader).next_item; fail "Empty final RS was skipped" }
+catch ($error: Error) {}
+let $events = std::stream::collect (std::json::events (parse '{"a/b":[null,2]}'))
+require (($events.count == 7) && ($events[1].name == "a/b") && ($events[3].path == "/a~1b/0")) "Structural event paths/order"
+require ($events[3].value.kind == Kind::Null) "Structural event lost null document"
+
+let $events = std::stream::collect (std::json::events (parse '{"z":1,"a":2}'))
+require (($events[1].name == "z") && ($events[3].name == "a")) "Structural events changed document member order"

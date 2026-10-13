@@ -14,6 +14,7 @@ use crate::{ runtime::process::Terminal,
 pub enum MapKey
 {
     None,
+    Native(Rc<NativeKey>),
     Terminal(Rc<Terminal>),
     Enum(Rc<EnumValue>),
     Struct(Rc<StructKey>),
@@ -30,7 +31,7 @@ pub enum MapKey
     Range(Range),
     Array(Rc<Vec<MapKey>>),
     ArgumentExpansion(Rc<Vec<MapKey>>),
-    HashMap(Rc<Vec<(MapKey, MapKey)>>)
+    HashMap(Rc<Vec<(MapKey, MapKey)>>),
 }
 
 
@@ -45,6 +46,8 @@ impl MapKey
             Value::Callable(value) => Self::Callable(value.clone()),
             Value::Named(value) => Self::Named(Rc::new(NamedKey
                 { value: value.clone(), contents: Self::from_value(&value.value) })),
+            Value::Native(value) => Self::Native(Rc::new(NativeKey
+                { name: value.0.type_name(), key: value.key(), value: value.clone() })),
             Value::None => Self::None,
             Value::Terminal(value) => Self::Terminal(value.clone()),
             Value::Enum(value) => Self::Enum(value.clone()),
@@ -103,6 +106,7 @@ impl MapKey
             Self::Type(value) => Value::Type(value.clone()),
             Self::Callable(value) => Value::Callable(value.clone()),
             Self::Named(key) => Value::Named(key.value.clone()),
+            Self::Native(key) => Value::Native(key.value.clone()),
             Self::None => Value::None,
             Self::Terminal(value) => Value::Terminal(value.clone()),
             Self::Enum(value) => Value::Enum(value.clone()),
@@ -194,5 +198,44 @@ impl Hash for StructKey
     {
         self.value.definition.id.hash(state);
         self.fields.hash(state);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NativeKey
+{
+    name: &'static str,
+    key: Vec<u8>,
+    value: crate::language::data::native_value::NativeValue,
+}
+
+impl PartialEq for NativeKey
+{
+    fn eq(&self, other: &Self) -> bool
+    {
+        self.name == other.name && self.key == other.key
+    }
+}
+impl Eq for NativeKey {}
+impl PartialOrd for NativeKey
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering>
+    {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for NativeKey
+{
+    fn cmp(&self, other: &Self) -> Ordering
+    {
+        (self.name, &self.key).cmp(&(other.name, &other.key))
+    }
+}
+impl Hash for NativeKey
+{
+    fn hash<H: Hasher>(&self, state: &mut H)
+    {
+        self.name.hash(state);
+        self.key.hash(state);
     }
 }

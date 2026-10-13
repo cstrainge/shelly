@@ -57,6 +57,12 @@ impl Hash for CallableValue
 
 impl TypeRegistry
 {
+    pub fn accepts_result_signature(&self, expected: TypeId, actual: TypeId) -> bool
+    {
+        self.success_type(actual)
+            .is_none_or(|actual| self.accepts_signature_type(expected, actual))
+    }
+
     // Unlike the conservative overlap check, every known alternative must fit.
     // Explicit any on either side opts into call-time validation.
     pub fn accepts_signature_type(&self, expected: TypeId, actual: TypeId) -> bool
@@ -89,19 +95,26 @@ impl TypeRegistry
             (TypeKind::Function(a, result), TypeKind::Function(b, returned)) =>
                 a.len() == b.len() && a.iter().zip(b)
                     .all(|(a, b)| self.accepts_signature_type(*b, *a))
-                    && self.accepts_signature_type(*result, *returned),
+                    && self.accepts_result_signature(*result, *returned),
             (TypeKind::Function(_, _), _) => false,
             (TypeKind::Builtin, TypeKind::Named(_)) => false,
             _ => self.may_assign(expected, actual),
         }
     }
 
-    pub fn check_callable(&self, parameters: &[TypeId], result: TypeId,
-                          value: &Value) -> Result<(), String>
+    pub fn check_callable(
+        &self,
+        parameters: &[TypeId],
+        result: TypeId,
+        value: &Value,
+    ) -> Result<(), String>
     {
         let mismatch = || "Function signature is incompatible with prototype".to_string();
-        let check_result = |actual| if self.accepts_signature_type(result, actual)
-            { Ok(()) } else { Err(mismatch()) };
+        let check_result = |actual|
+            {
+                if self.accepts_result_signature(result, actual) { Ok(()) }
+                else { Err(mismatch()) }
+            };
         match value
         {
             Value::Callable(value) =>
@@ -135,9 +148,14 @@ impl TypeRegistry
         }
     }
 
-    fn check_function(&self, parameters: &[TypeId], result: TypeId,
-                      function: &Function, skip: usize,
-                      members: (Option<TypeId>, Option<TypeId>)) -> Result<(), String>
+    fn check_function(
+        &self,
+        parameters: &[TypeId],
+        result: TypeId,
+        function: &Function,
+        skip: usize,
+        members: (Option<TypeId>, Option<TypeId>),
+    ) -> Result<(), String>
     {
         let count = parameters.len() + skip;
         if    count < function.minimum_arguments
@@ -164,7 +182,7 @@ impl TypeRegistry
             { return Err(format!("Function parameter {} is incompatible with prototype",
                 index + 1)); }
         }
-        if !self.accepts_signature_type(result, specialize(function.return_type.unwrap_or(any)))
+        if !self.accepts_result_signature(result, specialize(function.return_type.unwrap_or(any)))
         { return Err("Function return type is incompatible with prototype".into()); }
         Ok(())
     }

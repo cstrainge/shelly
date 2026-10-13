@@ -1,13 +1,13 @@
-# ARRAY-071: non-array / "text" / echo $a[0]
+# ARRAY-071: Unicode String scalar indexing
 check ["id": "ARRAY-071",
-    "name": "non-array / \"text\" / echo \$a[0]",
+    "name": "Unicode String scalar indexing",
     "source": "let \$a = \"text\"; echo \$a[0]; echo \"AFTER_ERROR\"",
     "mode": "code",
     "args": [],
-    "stdout": "",
-    "status": 1,
-    "valid": false,
-    "error": "Array error:",
+    "stdout": "t\nAFTER_ERROR\n",
+    "status": 0,
+    "valid": true,
+    "error": "",
     "stderr_contains": [],
     "stderr_excludes": ["Parser error:"],
     "stdout_excludes": []]

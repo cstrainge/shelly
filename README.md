@@ -2817,9 +2817,10 @@ imports and re-exports.
 On the Rust side, `NativeFunction::new(name, visibility, body)` creates a native
 function registration, and `TypeRegistry::register_native(name, kind, visibility)`
 registers a native type. The registry retains hidden entries while new module
-scopes copy only initially visible names. This lets a future `std/json.shy`
-select native JSON exports with `pub visible` and implement its remaining
-interface in Shelly; a native JSON API is not implemented yet.
+scopes copy only initially visible names. The networking and JSON libraries use hidden native primitives behind Shelly wrappers.
+See the [executable API reference](docs/networking-json-api-implementation.md) for exact JSON,
+conversion protocols, byte pipelines, sockets, HTTP, SSE, RPC and marked errors.
+The OpenAI client is an [ordinary sample module](examples/openai.shy), outside the standard library.
 
 Standard-library imports use a separate search path:
 
@@ -2831,9 +2832,9 @@ import std::foo when $OS == "linux"
 std::net::ping "host"
 ```
 
-`std::net` resolves to `net.shy` or `net/init.shy` inside a standard-library directory.
-Nested imports such as `std::net::http` resolve to `net/http.shy` or
-`net/http/init.shy` there. If both forms exist in the same search directory,
+The shipped `std::net` uses `net/init.shy`; `std::net::http` uses `net/http/init.shy`.
+Single-file modules use `name.shy`, and multi-file modules use `name/init.shy`.
+A sibling `name.shy` and `name/` conflict even when the directory has no `init.shy`;
 the import fails as ambiguous. The first directory containing a module wins.
 It never searches beside the importing file or through `$SHELLY_MODULE_PATH`.
 `$SHELLY_STD_PATH` is a colon-separated String; a set value replaces all default

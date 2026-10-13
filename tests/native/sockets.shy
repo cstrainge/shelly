@@ -1,0 +1,77 @@
+import std::io
+import std::net::udp
+import std::net::tcp
+import std::net::unix
+import std::net::tls
+
+let $a = std::net::udp::bind "127.0.0.1" 0
+let $b = std::net::udp::bind "127.0.0.1" 0
+try
+{
+    require (($a.send std::io::Bytes("") $b.address) == 0) "Empty UDP send"
+    let $empty = $b.receive
+    require (($empty.bytes.count == 0) && !$empty.truncated && ($empty.peer.port == $a.address.port)) "Empty datagram treated as EOF"
+    $a.send std::io::Bytes([0,255,1,2,3]) $b.address
+    let $packet = $b.receive 3
+    require (($packet.bytes.to_array == [0,255,1]) && $packet.truncated) "Datagram truncation"
+}
+finally { $a.close; $b.close }
+try { $b.receive; fail "Closed datagram socket received" }
+catch ($error: std::io::ClosedError) {}
+
+[when $os != "windows"]
+{
+    let $fixture = $args[0]
+    let $path = "${fixture}/socket"
+    let $listener = std::net::unix::listen $path
+    let $client = std::net::unix::connect $path
+    let $server = $listener.accept
+    try
+    {
+        $client.writer.write std::io::Bytes([0,255,1])
+        require (($server.reader.read_exact 3).to_array == [0,255,1]) "Unix stream bytes"
+    }
+    finally { $server.close; $client.close; $listener.close }
+    rm -- $path
+}
+
+
+[when $os != "windows"]
+{
+    let $fixture = $args[0]
+    let $available = run_process ["openssl", "version"] ["timeout_ms": 1000]
+    if $available["exit_code"] == 0
+    {
+        std::io::write_text "${fixture}/tls.cnf" "[req]\nprompt=no\ndistinguished_name=dn\nx509_extensions=server\n[dn]\nCN=localhost\n[server]\nsubjectAltName=DNS:localhost\nbasicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\n"
+        let $generated = run_process ["openssl","req","-x509","-newkey","rsa:2048","-nodes","-days","1",
+            "-config","${fixture}/tls.cnf","-keyout","${fixture}/tls.key","-out","${fixture}/tls.pem"] ["timeout_ms":5000,"stdout_file":"${fixture}/tls.out","stderr_file":"${fixture}/tls.err"]
+        require ($generated["exit_code"] == 0) "TLS test certificate generation"
+        require ((run_process ["openssl","x509","-in","${fixture}/tls.pem","-outform","DER","-out","${fixture}/tls.der"] ["timeout_ms":1000])["exit_code"] == 0) "TLS DER certificate"
+        let $reservation = std::net::tcp::listen "127.0.0.1" 0
+        let $port = $reservation.address.port
+        $reservation.close
+        let $terminal = open_terminal ["openssl","s_server","-accept",String($port),
+            "-cert","${fixture}/tls.pem","-key","${fixture}/tls.key","-www","-quiet"] ["cwd":$fixture,"env":["HOME":$fixture,"PATH":"/usr/bin:/bin","TERM":"dumb"]]
+        let $ready = terminal_read $terminal 200
+        require (!($ready["eof"])) ("TLS fixture exited: " + $ready["text"])
+        try
+        {
+            let $trust = std::io::read_bytes "${fixture}/tls.der"
+            let $tls = std::net::tls::connect "localhost" $port $trust
+            try
+            {
+                $tls.writer.write std::io::Bytes("GET / HTTP/1.0\r\n\r\n")
+                require ((String($tls.reader.read 4096)).starts_with "HTTP/1.0 200") "Verified TLS did not carry bytes"
+            }
+            finally { $tls.close }
+            let $transport = std::net::tcp::connect "127.0.0.1" $port
+            try { std::net::tls::wrap $transport "wrong.example" $trust; fail "TLS accepted wrong hostname" }
+            catch ($error: std::net::tls::Error) {}
+            finally { $transport.close }
+            try { std::net::tls::connect "localhost" $port; fail "TLS accepted untrusted certificate" }
+            catch ($error: std::net::tls::Error) {}
+        }
+        finally { terminal_close $terminal }
+    }
+    else { echo "SKIP TLS certificate fixture: openssl unavailable" }
+}

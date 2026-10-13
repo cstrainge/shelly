@@ -2,6 +2,13 @@
 # The prelude of the Shelly standard library. Everything published from here is included in every
 # loaded module.
 
+visible `__report_error
+
+pub fn report_error($stack: CallStack, $error: ErrorValue): ()
+{
+    __report_error $stack $error
+}
+
 
 # Helper function to return the min of the list of supplied parameters.
 pub fn min($values: Number...): Number | ()

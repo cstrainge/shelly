@@ -1,17 +1,25 @@
-
-use crate::language::{ data::{ map_key::MapKey,
-                               methods::method_key,
-                               types::{ TypeId, TypeKind },
-                               value::{ Executable, Value } },
-                       interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult },
-                       text::location::Location };
+use crate::language::{
+    data::{
+        map_key::MapKey,
+        methods::{method_key, conversion_key},
+        types::{TypeId, TypeKind},
+        value::{Executable, Value},
+    },
+    interpreter::{ErrorWhat, Interpreter, InterpreterError, InterpreterResult},
+    text::location::Location,
+};
 
 
 impl Interpreter
 {
-    pub(super) fn convert_value(&mut self, location: &Location, target: TypeId,
-                               value: Value, snapshot: &Value, hint: &Value)
-        -> InterpreterResult<()>
+    pub(super) fn convert_value(
+        &mut self,
+        location: &Location,
+        target: TypeId,
+        value: Value,
+        snapshot: &Value,
+        hint: &Value,
+    ) -> InterpreterResult<()>
     {
         let declared = match hint
         {
@@ -32,7 +40,17 @@ impl Interpreter
         let source = declared.and_then(|id| self.scope().types.collection_source_type(id, &value))
             .unwrap_or_else(|| self.scope().types.inferred_value_type(&value));
         let name = self.scope().types.conversion_method_name(source);
-        let key = method_key(target, &name);
+        let plain = method_key(target, &name);
+        let typed = conversion_key(target, &name, source);
+        let key = if let Value::HashMap(methods) = snapshot
+            && methods.contains_key(&MapKey::String(typed.clone()))
+        {
+            typed
+        }
+        else
+        {
+            plain
+        };
         let bound = match snapshot
             {
                 Value::HashMap(methods) => methods.get(&MapKey::String(key.clone())),
@@ -67,6 +85,8 @@ impl Interpreter
             self.execute_function(location, &display, &function, &[value])?;
             if self.halted { return Ok(()); }
             let result = self.last_result.take().unwrap_or(Value::None);
+            if crate::language::data::failure::pending(&result).is_some()
+            { self.last_result = Some(result); return Ok(()); }
             self.scope().types.coerce(target, result)
         }
         else

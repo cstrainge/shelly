@@ -708,7 +708,7 @@ impl Repl
 
                         if let Err(error) = result
                         {
-                            println!("Error processing text: {}", error);
+                            self.interpreter.report_repl_error(&error);
                             continue;
                         }
 

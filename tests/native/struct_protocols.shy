@@ -53,6 +53,7 @@ protocol_case 'import secret; let $x: [secret::Foo]; printf "init\\n21\\n" csv:|
 protocol_case 'import secret; fn secret::Foo::steal(): Integer { $self.::value }; let $x = secret::make 21; echo ($x.steal)' "" "private"
 protocol_case 'import secret; fn secret::Foo::new($init: Integer): secret::Foo { secret::Foo(value: $init) }' "" "defining module"
 mkdir "${fixture}/secret"
+mv "${fixture}/secret.shy" "${fixture}/secret/init.shy"
 printf "%s" 'import super; pub fn make_child(): super::Foo { super::Foo(init: 12) }' -> "${fixture}/secret/child.shy"
 protocol_case 'import secret::child; let $x = secret::child::make_child; echo $x.value' "12\n" ""
 protocol_case 'struct Foo { value: Integer }; pub fn Foo::new($value: Integer): Foo { Foo(value: $value) }; fn Foo::get_value(): Integer { $self.::value }; let $x: [Foo]; printf "value\\n8\\n" csv:|:Foo $x; echo $x[0].value' "8\n" ""

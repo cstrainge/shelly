@@ -1,13 +1,26 @@
+use std::{
+    rc::Rc,
+    mem::take,
+    sync::{Arc, atomic::Ordering},
+};
 
-use std::mem::take;
-
-use crate::language::{ bytecode::PipelineStage,
-                       data::{ types::{ TypeId, TypeKind, TypeRegistry },
-                               value::{ ExecResult, Executable, Value },
-                               methods::MethodDefinition },
-                       interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult },
-                       interpreter::iteration::Iteration,
-                       interpreter::pipeline::{ Context, Data, Step, Stream, process::External } };
+use crate::language::{
+    bytecode::PipelineStage,
+    data::{
+        types::{TypeId, TypeKind, TypeRegistry},
+        io::{
+            Bytes,
+            handles::{Reader, Writer},
+            adapters::{ByteSource, ByteSink},
+        },
+        native_value::NativeValue,
+        value::{ExecResult, Executable, Value},
+        methods::MethodDefinition,
+    },
+    interpreter::{ErrorWhat, Interpreter, InterpreterError, InterpreterResult},
+    interpreter::iteration::Iteration,
+    interpreter::pipeline::{Context, Data, Step, Stream, process::External},
+};
 
 
 fn array_type(types: &TypeRegistry, id: TypeId) -> Option<TypeId>
@@ -31,9 +44,12 @@ pub(super) struct StageStream<'a>
     bytes: Vec<u8>,
     pending: Option<Data>,
     source_done: bool,
+    source_value: Option<Value>,
+    acquired_input: bool,
     ended: bool,
     destination: Option<Vec<Value>>,
     destination_ready: bool,
+    retained: crate::language::data::retained::Budget,
     buffering: bool,
     flushed: bool,
     prepared: Option<(Value, Vec<Value>)>,
@@ -41,18 +57,27 @@ pub(super) struct StageStream<'a>
     external_started: bool,
     iterate_source: bool,
     iteration: Option<Iteration>,
+    byte_source: Option<ByteSource>,
+    byte_sink: Option<ByteSink>,
+    upload: Option<Value>,
 }
 
 
 impl<'a> StageStream<'a>
 {
-    pub fn new(stage: &'a PipelineStage, index: usize, input: Option<Box<dyn Stream + 'a>>,
-               iterate_source: bool) -> Self
+    pub fn new(
+        stage: &'a PipelineStage,
+        index: usize,
+        input: Option<Box<dyn Stream + 'a>>,
+        iterate_source: bool,
+    ) -> Self
     {
         Self { stage, index, input, external: None, bytes: Vec::new(), pending: None,
-            source_done: false, ended: false, destination: None, destination_ready: false,
+            source_done: false, source_value: None, acquired_input: false, ended: false,
+                destination: None, destination_ready: false, retained: Default::default(),
             buffering: false, flushed: false, prepared: None, per_item_external: false,
-            external_started: false, iterate_source, iteration: None }
+            external_started: false, iterate_source, iteration: None, byte_source: None,
+            byte_sink: None, upload: None }
     }
 
     #[track_caller]
@@ -83,18 +108,139 @@ impl<'a> StageStream<'a>
         else { Ok((value, Vec::new())) }
     }
 
-    fn invoke(&mut self, interpreter: &mut Interpreter, context: &mut Context,
-              data: Option<Data>) -> InterpreterResult<Step>
+    fn sink(
+        &mut self,
+        interpreter: &mut Interpreter,
+        value: &Value,
+    ) -> InterpreterResult<Option<ByteSink>>
     {
-        if self.stage.destination.is_some()
+        if let Some(sink) = &self.byte_sink
+        {
+            return Ok(Some(sink.clone()));
+        }
+        let Value::Native(native) = value.underlying()
+        else
+        {
+            return Ok(None);
+        };
+        if let Some(sink) = native.downcast::<ByteSink>()
+        {
+            return Ok(Some(sink.clone()));
+        }
+        if let Some(sink) = Interpreter::http_upload_sink(value)
+        {
+            return Ok(Some(sink));
+        }
+        let Some(writer) = native.downcast::<Writer>()
+        else
+        {
+            return Ok(None);
+        };
+        match ByteSink::new(writer.clone(), false)
+        {
+            Ok(sink) =>
+            {
+                self.byte_sink = Some(sink.clone());
+                Ok(Some(sink))
+            }
+            Err(error) =>
+            {
+                let mut value = interpreter.io_fault(&error.kind, "pipeline.writer", error.message);
+                interpreter.activate_failure(&self.stage.location, &mut value, false)?;
+                Err(interpreter.raise_failure(&self.stage.location, value)?)
+            }
+        }
+    }
+
+    fn invoke(
+        &mut self,
+        interpreter: &mut Interpreter,
+        context: &mut Context,
+        data: Option<Data>,
+    ) -> InterpreterResult<Step>
+    {
+        let sink_value = self.stage.destination.as_ref().and_then(|name|
+            interpreter.variable_binding(name)).map(|binding| binding.borrow().value.clone())
+            .filter(|value| matches!(value.underlying(), Value::Native(native)
+                if native.downcast::<ByteSink>().is_some() ||
+                    native.downcast::<Writer>().is_some() ||
+                    Interpreter::http_upload_sink(value).is_some()));
+        if self.stage.destination.is_some() && sink_value.is_none()
         {
             let Some(Data::Value(value)) = data else { unreachable!(); };
             self.assign(interpreter, value.clone())?;
             return Ok(Step::Data(Data::Value(value)));
         }
         let input = match &data { Some(Data::Value(value)) => Some(value.clone()), _ => None };
-        let (mut executable, mut arguments) = if let Some(prepared) = self.prepared.take()
+        let (mut executable, mut arguments) = if let Some(sink) = sink_value { (sink, Vec::new()) }
+            else if let Some(prepared) = self.prepared.take()
             { prepared } else { self.prepare(interpreter, input.as_ref())? };
+        if let Some(sink) = self.sink(interpreter, &executable)?
+        {
+            if Interpreter::http_upload_sink(&executable).is_some()
+            {
+                self.upload = Some(executable.clone());
+            }
+            if self
+                .upload
+                .as_ref()
+                .is_some_and(Interpreter::http_upload_ready)
+            {
+                if let Some(input) = &mut self.input
+                {
+                    input.cancel(interpreter, context)?;
+                }
+                return self.finish(interpreter);
+            }
+            if sink.0.closed.load(Ordering::Acquire)
+            {
+                return Err(self.error("Byte sink is closed"));
+            }
+            self.byte_sink = Some(sink.clone());
+            self.prepared = Some((executable.clone(), Vec::new()));
+            if let Some(data) = data
+            {
+                let bytes = match data
+                {
+                    Data::Bytes(bytes) => bytes,
+                    Data::Value(value) => interpreter.pipeline_bytes(self.stage, value)?,
+                };
+                let function = interpreter.native_functions["__io"].clone();
+                interpreter.execute_value(
+                    &self.stage.location,
+                    Value::String("__io".into(), Executable::Native(function)),
+                    vec![
+                        Value::from_string("write".into()),
+                        Value::Native(NativeValue::new(sink.0.writer.clone())),
+                        Value::Native(NativeValue::new(Bytes(Arc::from(bytes)))),
+                    ],
+                )?;
+                let result = interpreter.last_result.take().unwrap_or(Value::None);
+                if self
+                    .upload
+                    .as_ref()
+                    .is_some_and(Interpreter::http_upload_ready)
+                {
+                    if let Some(failure) = crate::language::data::failure::occurrence(&result)
+                    {
+                        let mut failure = failure.borrow_mut();
+                        failure.status =
+                            crate::language::data::failure::FailureStatus::Acknowledged;
+                        interpreter.exceptions.pending.remove(&failure.id);
+                    }
+                    if let Some(input) = &mut self.input
+                    {
+                        input.cancel(interpreter, context)?;
+                    }
+                    return self.finish(interpreter);
+                }
+                interpreter.consume_success(&self.stage.location, &result)?;
+                sink.0
+                    .count
+                    .fetch_add(result.as_integer() as u64, Ordering::AcqRel);
+            }
+            return Ok(Step::Pending);
+        }
         if    self.stage.call && !executable.is_callable()
            && (self.stage.command_word || self.stage.explicit_arguments
                 || executable.is_executable())
@@ -128,6 +274,8 @@ impl<'a> StageStream<'a>
         if let Some(Data::Bytes(bytes)) = data
         {
             // Unannotated byte streams become one String at a Shelly value boundary.
+            if self.bytes.len().saturating_add(bytes.len()) > 16 * 1024 * 1024
+            { return Err(self.error("Pipeline byte buffer exceeds 16 MiB")); }
             self.bytes.extend(bytes);
             self.buffering = true;
             self.prepared = Some((executable, arguments));
@@ -190,6 +338,7 @@ impl<'a> StageStream<'a>
             result.and(finished)?;
             executable = interpreter.last_result.take().unwrap_or(Value::None);
         }
+        interpreter.consume_success(&self.stage.location, &executable)?;
         Ok(Step::Data(Data::Value(executable)))
     }
 
@@ -248,6 +397,12 @@ impl<'a> StageStream<'a>
                         ))?;
                 }
             }
+            if let Err(message) = self.retained.value(&value)
+            {
+                let mut error = interpreter.io_fault("LimitError", "pipeline.collect", message);
+                interpreter.activate_failure(&self.stage.location, &mut error, false)?;
+                return Err(interpreter.raise_failure(&self.stage.location, error)?);
+            }
             values.push(value);
             Ok(())
         }
@@ -256,6 +411,44 @@ impl<'a> StageStream<'a>
 
     fn finish(&mut self, interpreter: &mut Interpreter) -> InterpreterResult<Step>
     {
+        if let Some(source) = self.byte_source.take()
+        {
+            source.close();
+        }
+        if let Some(upload) = self.upload.take()
+        {
+            let function = interpreter.native_functions["__http_upload"].clone();
+            interpreter.execute_value(
+                &self.stage.location,
+                Value::String("__http_upload".into(), Executable::Native(function)),
+                vec![upload],
+            )?;
+            let response = interpreter.last_result.take().unwrap_or(Value::None);
+            interpreter.consume_success(&self.stage.location, &response)?;
+            self.byte_sink.take();
+            self.ended = true;
+            return Ok(Step::Data(Data::Value(response)));
+        }
+        if let Some(sink) = self.byte_sink.clone()
+        {
+            let function = interpreter.native_functions["__io"].clone();
+            interpreter.execute_value(
+                &self.stage.location,
+                Value::String("__io".into(), Executable::Native(function)),
+                vec![
+                    Value::from_string("flush".into()),
+                    Value::Native(NativeValue::new(sink.0.writer.clone())),
+                ],
+            )?;
+            let result = interpreter.last_result.take().unwrap_or(Value::None);
+            interpreter.consume_success(&self.stage.location, &result)?;
+            sink.close();
+            self.byte_sink.take();
+            self.ended = true;
+            return Ok(Step::Data(Data::Value(Value::Integer(
+                sink.0.count.load(Ordering::Acquire) as i64,
+            ))));
+        }
         if self.stage.destination.is_some() && !self.destination_ready
         { self.initialize_destination(interpreter)?; }
         if let Some(values) = self.destination.take()
@@ -272,10 +465,78 @@ impl<'a> StageStream<'a>
 
 impl Stream for StageStream<'_>
 {
-    fn poll(&mut self, interpreter: &mut Interpreter, context: &mut Context)
-        -> InterpreterResult<Step>
+    fn poll(
+        &mut self,
+        interpreter: &mut Interpreter,
+        context: &mut Context,
+    ) -> InterpreterResult<Step>
     {
         if self.ended { return Ok(Step::End); }
+        if self.index > 0 && !self.acquired_input
+        {
+            let input = self.input.as_mut().unwrap().poll(interpreter, context)?;
+            match input
+            {
+                Step::Pending => return Ok(Step::Pending),
+                Step::Data(data) => self.pending = Some(data),
+                Step::End =>
+                {}
+            }
+            self.acquired_input = true;
+        }
+        if self.byte_sink.is_none()
+            && let Some(value) = self
+                .stage
+                .destination
+                .as_ref()
+                .and_then(|name| interpreter.variable_binding(name))
+                .map(|binding| binding.borrow().value.clone())
+            && let Some(sink) = self.sink(interpreter, &value)?
+        {
+            self.byte_sink = Some(sink);
+            if Interpreter::http_upload_sink(&value).is_some()
+            {
+                self.upload = Some(value);
+            }
+        }
+        if self.index > 0
+            && !self.stage.input_used
+            && self.stage.destination.is_none()
+            && self.prepared.is_none()
+            && !self.external_started
+        {
+            let mut prepared = self.prepare(interpreter, None)?;
+            if let Value::String(_, Executable::Function(function)) = &prepared.0
+                && function
+                    .return_type
+                    .and_then(|id| interpreter.scope().types.success_type(id))
+                    .is_some_and(|id| {
+                        matches!(
+                            interpreter
+                                .scope()
+                                .types
+                                .get(interpreter.scope().types.underlying_type(id))
+                                .name
+                                .as_str(),
+                            "__io_ByteSink" | "__io_Writer" | "__http_Upload"
+                        )
+                    })
+            {
+                interpreter.execute_value(&self.stage.location, prepared.0, prepared.1)?;
+                let value = interpreter.last_result.take().unwrap_or(Value::None);
+                interpreter.consume_success(&self.stage.location, &value)?;
+                prepared = (value, Vec::new());
+            }
+            if let Some(sink) = self.sink(interpreter, &prepared.0)?
+            {
+                self.byte_sink = Some(sink);
+                if Interpreter::http_upload_sink(&prepared.0).is_some()
+                {
+                    self.upload = Some(prepared.0.clone());
+                }
+            }
+            self.prepared = Some(prepared);
+        }
         if self.external.is_some()
         {
             let result = self.external.as_mut().unwrap().poll(interpreter, context, self.index)?;
@@ -323,7 +584,15 @@ impl Stream for StageStream<'_>
             {
                 return match iteration.next(interpreter, &self.stage.location)
                     {
-                        Ok(Some(value)) => Ok(Step::Data(Data::Value(value))),
+                        Ok(Some(value)) =>
+                            {
+                                interpreter.consume_success(&self.stage.location, &value)?;
+                                if self.byte_source.is_some()
+                                    && let Value::Native(native) = value.underlying()
+                                    && let Some(bytes) = native.downcast::<Bytes>()
+                                { return Ok(Step::Data(Data::Bytes(bytes.0.to_vec()))); }
+                                Ok(Step::Data(Data::Value(value)))
+                            },
                         Ok(None) => self.finish(interpreter),
                         Err(InterpreterError { what: ErrorWhat::ExecutableBadReturn(code), .. }) =>
                             {
@@ -343,6 +612,40 @@ impl Stream for StageStream<'_>
             let result = self.invoke(interpreter, context, None)?;
             if self.iterate_source && let Step::Data(Data::Value(value)) = result
             {
+                interpreter.adopt_stream_operation(&value);
+                self.source_value = Some(value.clone());
+                if let Value::Native(native) = value.underlying()
+                {
+                    if let Some(source) = native.downcast::<ByteSource>()
+                    { self.byte_source = Some(source.clone()); }
+                    else if let Some(reader) = native.downcast::<Reader>()
+                    {
+                        match ByteSource::new(reader.clone(), false)
+                        {
+                            Ok(source) => self.byte_source = Some(source),
+                            Err(error) =>
+                                {
+                                    let mut value = interpreter.io_fault(&error.kind,
+                                        "pipeline.reader", error.message);
+                                    interpreter.activate_failure(&self.stage.location, &mut
+                                        value, false)?;
+                                    return Err(interpreter.raise_failure(&self.stage.location,
+                                        value)?);
+                                },
+                        }
+                    }
+                }
+                let value = if let Some(source) = &self.byte_source
+                    && let Value::Native(native) = value.underlying()
+                    && native.downcast::<Reader>().is_some()
+                {
+                    if let Value::Named(alias) = &value
+                    { Value::Named(Rc::new(crate::language::data::types::NamedValue {
+                        definition: alias.definition.clone(), value:
+                            Value::Native(NativeValue::new(source.0.reader.clone())) })) }
+                    else { Value::Native(NativeValue::new(source.0.reader.clone())) }
+                }
+                else { value.clone() };
                 self.iteration = Iteration::try_new(interpreter, &self.stage.location,
                     value.clone(), &self.stage.conversions)?;
                 if self.iteration.is_some() { return Ok(Step::Pending); }
@@ -350,7 +653,14 @@ impl Stream for StageStream<'_>
             }
             return Ok(result);
         }
-        let next = self.input.as_mut().unwrap().poll(interpreter, context)?;
+        let next = if let Some(data) = self.pending.take()
+        {
+            Step::Data(data)
+        }
+        else
+        {
+            self.input.as_mut().unwrap().poll(interpreter, context)?
+        };
         match next
         {
             Step::Pending => Ok(Step::Pending),
@@ -361,31 +671,66 @@ impl Stream for StageStream<'_>
                     {
                         self.flushed = true;
                         let bytes = take(&mut self.bytes);
-                        let text = String::from_utf8(bytes)
-                            .map_err(|error| self.error(error.to_string()))?;
+                        let binary = self.stage.destination.as_ref().and_then(|name|
+                            interpreter.variable_binding(name)).and_then(|binding|
+                            binding.borrow().type_id).is_some_and(|id|
+                                interpreter.scope().types.get(
+                                    interpreter.scope().types.underlying_type(id)).name ==
+                                        "__io_Bytes");
+                        let value = if binary {
+                            Value::Native(NativeValue::new(Bytes(Arc::from(bytes)))) }
+                            else { Value::from_string(String::from_utf8(bytes)
+                                .map_err(|error| self.error(error.to_string()))?) };
                         return self.invoke(interpreter, context,
-                            Some(Data::Value(Value::from_string(text))));
+                            Some(Data::Value(value)));
                     }
                     self.finish(interpreter)
                 },
-            Step::Data(Data::Bytes(bytes)) if self.buffering || self.stage.input_used
-                || self.stage.destination.is_some() =>
-                { self.bytes.extend(bytes); self.buffering = true; Ok(Step::Pending) },
+            Step::Data(Data::Bytes(bytes)) if self.byte_sink.is_none()
+                && (self.buffering || self.stage.input_used || self.stage.destination.is_some()) =>
+                {
+                    if self.bytes.len().saturating_add(bytes.len()) > 16 * 1024 * 1024
+                    { return Err(self.error("Pipeline byte buffer exceeds 16 MiB")); }
+                    self.bytes.extend(bytes); self.buffering = true; Ok(Step::Pending)
+                },
             Step::Data(data) => self.invoke(interpreter, context, Some(data)),
         }
     }
 
-    fn cancel(&mut self, interpreter: &mut Interpreter, context: &mut Context)
-        -> InterpreterResult<()>
+    fn cancel(
+        &mut self,
+        interpreter: &mut Interpreter,
+        context: &mut Context,
+    ) -> InterpreterResult<()>
     {
         let result = if let Some(external) = self.external.as_mut()
             { external.cancel(interpreter, context, self.index) } else { Ok(()) };
         let upstream = if let Some(input) = self.input.as_mut()
             { input.cancel(interpreter, context) } else { Ok(()) };
         self.iteration = None;
+        let script_cleanup = if let Some(value) = self.source_value.take()
+        {
+            interpreter.cancel_stream_source(&self.stage.location, &value)
+        }
+        else
+        {
+            Ok(())
+        };
+        if let Some(source) = &self.byte_source
+        {
+            source.close();
+        }
+        if let Some(sink) = &self.byte_sink
+        {
+            sink.close();
+        }
         self.ended = true;
-        result.and(upstream)
+        let result = interpreter.combine_failure(result, upstream, "Cleanup");
+        interpreter.combine_failure(result, script_cleanup, "Cleanup")
     }
 
-    fn bytes_output(&self) -> bool { self.external_started }
+    fn bytes_output(&self) -> bool
+    {
+        self.external_started || self.byte_source.is_some()
+    }
 }

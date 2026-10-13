@@ -1,0 +1,51 @@
+import std::net::http
+import std::net::http::pagination
+import std::json
+import std::stream
+let $fixture = $args[0]
+let $terminal = open_terminal [`$shelly, "-m", "${fixture}/managed_http_server.shy"] [
+    "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin", "SHELLY_STD_PATH": "bundled", "TERM": "dumb"]]
+let $port = ()
+for _ in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    if $reply["text"].contains "ready "
+    { $port = Integer((($reply["text"].split "ready ")[1].split "\r")[0].trim); break }
+    require (!$reply["eof"]) "Managed HTTP server exited before ready"
+}
+require ($port != ()) "Managed HTTP server was not ready"
+let $client = std::net::http::Client(base_url: "http://127.0.0.1:${port}/")
+try
+{
+    require (((($client.get "ok").require_success.read_document).require_string "/path") == "/ok") "Managed server GET"
+    require ((($client.get "stream").require_success.read_text) == "[1,null,3]") "Script-produced server response stalled"
+    let $response = $client.post "post" (std::net::http::json_body ["hello":"server"])
+    require (($response.read_document.require_string "/hello") == "server") "Managed server POST"
+    let $response = $client.get "fail"
+    require (($response.status == 500) && !($response.read_text.contains "private handler detail")) "Handler exception leaked to peer"
+    fn decode_page($reply: std::net::http::Response): std::net::http::pagination::Page | ErrorValue
+    {
+        let $document = $reply.read_document
+        let $next = $document.at "/next"
+        std::net::http::pagination::Page(items: ($document.at "/items").value,
+            next: (if $next.kind == std::json::Kind::Null { () }
+                else { std::net::http::Request(method:"GET", path:$next.require_string) }))
+    }
+    let $pages = std::net::http::pagination::pages $client (std::net::http::Request(method:"GET", path:"page1")) `decode_page
+    let $items = std::stream::collect (std::net::http::pagination::items $pages)
+    require (($items == [1,(),2]) && ($pages.result == 2)) "Lazy pagination lost null/items/completion"
+    let $cycle = std::net::http::pagination::pages $client (std::net::http::Request(method:"GET", path:"cycle")) `decode_page
+    $cycle.next_item
+    try { $cycle.next_item; fail "Pagination repeated a cursor" }
+    catch ($error: std::net::http::pagination::PaginationError) {}
+
+}
+finally { $client.close }
+let $eof = false
+for _ in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    if $reply["eof"] { $eof = true; break }
+}
+require $eof "Managed HTTP server did not finish"
+require ((terminal_close $terminal)["exit_code"] == 0) "Managed HTTP server failed"

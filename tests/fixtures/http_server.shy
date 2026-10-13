@@ -1,0 +1,71 @@
+import std::io
+import std::net::tcp
+
+let $listener = std::net::tcp::listen "127.0.0.1" 0
+echo ready $listener.address.port
+fn read_line($reader: std::io::Reader): String | std::io::Error
+{
+    let $text = ""
+    while !($text.ends_with "\r\n") { $text = $text + String($reader.read_exact 1) }
+    $text.trim_end
+}
+fn hex_integer($text: String): Integer
+{
+    let $result = 0
+    for $character in $text.chars
+    {
+        let $index = 0
+        for $candidate in "0123456789abcdef".chars
+        { if $candidate == $character { break }; $index = $index + 1 }
+        $result = ($result * 16) + $index
+    }
+    $result
+}
+for _ in 0..11
+{
+    let $peer = $listener.accept
+    try
+    {
+        let $head = ""
+        while !($head.ends_with "\r\n\r\n")
+        {
+            $head = $head + String($peer.reader.read_exact 1)
+            if $head.count > 16384 { exit 2 }
+        }
+        let $path = ($head.split " ")[1]
+        let $length = 0
+        let $chunked = false
+        for $line in $head.split "\r\n"
+        {
+            if $line.starts_with "content-length: "
+            { $length = Integer(($line.split ": ")[1]) }
+            if $line == "transfer-encoding: chunked" { $chunked = true }
+        }
+        let $request_body = std::io::Bytes("")
+        if $chunked
+        {
+            loop
+            {
+                let $count = hex_integer (read_line $peer.reader)
+                if $count == 0 { read_line $peer.reader; break }
+                $request_body = $request_body.concat ($peer.reader.read_exact $count)
+                $peer.reader.read_exact 2
+            }
+        }
+        else { $request_body = $peer.reader.read_exact $length }
+        let $status = "200 OK"
+        let $body = '{"value":7}'
+        if $path == "/error"
+        { $status = "400 Bad Request"; $body = '{"error":{"message":"bad request"}}' }
+        else if $path == "/post"
+        { $body = String($request_body) }
+        else if $path == "/empty"
+        { $status = "204 No Content"; $body = "" }
+        let $bytes = std::io::Bytes($body)
+        let $head = "HTTP/1.1 ${status}\r\nContent-Length: ${bytes.count}\r\nContent-Type: application/json\r\nConnection: close\r\nX-Request-Id: test-request\r\nX-Multi: one\r\nX-Multi: two\r\n\r\n"
+        $peer.writer.write std::io::Bytes($head)
+        $peer.writer.write $bytes
+    }
+    finally { $peer.close }
+}
+$listener.close

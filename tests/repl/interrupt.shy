@@ -46,7 +46,7 @@ require ($probe["exit_code"] != 0) "interrupted child was not reaped"
 
 interrupt $terminal "/bin/sleep 30 | /bin/cat"
 let $captured = interrupt $terminal "let \$status = /bin/sleep 30 | /bin/cat; echo \$status"
-require ($captured.contains "ExecResult(Signaled)") "pipeline lost interrupted status"
+require ($captured.contains "Execution interrupted.") "pipeline lost marked interruption"
 
 let $run = "let \$status = run_process [\"/bin/sleep\", \"30\"] [:]"
 let $report = "echo CHILD-SIGNAL \$status[\"signal\"]"
@@ -60,7 +60,7 @@ require ($captured.contains "Execution interrupted.") "interactive loop was not 
 let $reply = submit $terminal "fn frozen(\$item: any): any { loop {} }"
 require (!$reply["eof"]) "function definition exited the shell"
 let $captured = interrupt $terminal "let \$status = [1] | frozen; echo \$status"
-require ($captured.contains "ExecResult(Signaled)") "scripted pipeline lost interruption"
+require ($captured.contains "Execution interrupted.") "scripted pipeline lost marked interruption"
 
 # Raw-editor Ctrl+C still cancels input, and a second command can be interrupted too.
 terminal_write $terminal "unfinished command\x03"

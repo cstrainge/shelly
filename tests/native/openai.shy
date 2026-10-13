@@ -1,0 +1,111 @@
+import std::stream
+import openai
+import std::json
+import std::io
+import std::net::sse
+
+let $request = openai::Request(model: "test", input: [openai::Message(role: openai::Role::User, content: "Hello")], store: false)
+let $wire = std::json::wrap $request
+require (($wire.require_string "/input/0/role") == "user") "OpenAI enum codec"
+require (!($wire.has "/instructions")) "OpenAI null options were serialized"
+let $terminal = std::json::parse '{"id":"resp_test","status":"completed","output":[{"id":"msg_1","type":"message","content":[{"type":"output_text","text":"Hello"}]}]}'
+let $response: openai::Response = std::json::convert $terminal openai::Response
+require ($response.require_text == "Hello") "OpenAI response text"
+require ((std::json::encode $response) == (std::json::encode $terminal)) "OpenAI raw response round trip"
+
+let $raw = [
+    ["type":"response.created", "sequence_number":0, "response":["id":"resp_test"]],
+    ["type":"response.output_item.added", "sequence_number":1, "output_index":0, "item":["id":"msg_1", "type":"message"]],
+    ["type":"response.content_part.added", "sequence_number":2, "item_id":"msg_1", "output_index":0, "content_index":0, "part":["type":"output_text", "text":""]],
+    ["type":"response.output_text.delta", "sequence_number":3, "item_id":"msg_1", "output_index":0, "content_index":0, "delta":"Hel"],
+    ["type":"response.output_text.delta", "sequence_number":4, "item_id":"msg_1", "output_index":0, "content_index":0, "delta":"lo"],
+    ["type":"response.output_text.done", "sequence_number":5, "item_id":"msg_1", "output_index":0, "content_index":0, "text":"Hello"],
+    ["type":"response.content_part.done", "sequence_number":6, "item_id":"msg_1", "output_index":0, "content_index":0, "part":["type":"output_text", "text":"Hello"]],
+    ["type":"response.output_item.done", "sequence_number":7, "output_index":0, "item":($terminal.at "/output/0")],
+    ["type":"response.completed", "sequence_number":8, "response":$terminal],
+]
+let $bytes = ""
+for $event in $raw { $bytes = $bytes + "data: " + (std::json::encode $event) + "\n\n" }
+fn events($text: String): std::stream::Reader | ErrorValue
+{
+    let $input = std::io::memory_reader std::io::Bytes($text)
+    (std::net::sse::read $input).read_as openai::Event
+}
+let $chunks = openai::text_stream (events $bytes) "req_test"
+let $answer = ""
+for $chunk in $chunks { $answer = $answer + $chunk }
+require ($answer == "Hello") "OpenAI deltas"
+require (($chunks.result.id == "resp_test") && ($chunks.result.request_id == "req_test")) "OpenAI cached terminal"
+
+let $truncated = openai::text_stream (events "data: {\"type\":\"response.created\",\"sequence_number\":0,\"response\":{\"id\":\"resp_test\"}}\n\n")
+try { for $chunk in $truncated {}; fail "Truncated generation succeeded" }
+catch ($error: openai::ResponseError) { require ($error.what == openai::ResponseFailure::Truncated) "Truncation category" }
+
+let $bad = $raw
+$bad[5] = ["type":"response.output_text.done", "sequence_number":5, "item_id":"msg_1", "output_index":0, "content_index":0, "text":"different"]
+let $bytes = ""
+for $event in $bad { $bytes = $bytes + "data: " + (std::json::encode $event) + "\n\n" }
+let $chunks = openai::text_stream (events $bytes)
+try { for $chunk in $chunks {}; fail "Contradictory generation succeeded" }
+catch ($error: openai::ResponseError) { require ($error.what == openai::ResponseFailure::Protocol) "Reconciliation category" }
+
+
+fn reject_events($records: Array)
+{
+    let $bytes = ""
+    for $record in $records { $bytes = $bytes + "data: " + (std::json::encode $record) + "\n\n" }
+    let $chunks = openai::text_stream (events $bytes)
+    try { for $chunk in $chunks {}; fail "Corrupt lifecycle succeeded" }
+    catch ($error: openai::ResponseError)
+    { require ($error.what == openai::ResponseFailure::Protocol) "Lifecycle category" }
+}
+let $bad = $raw
+$bad[8] = ["type":"response.completed","sequence_number":8,
+    "response":(std::json::set $terminal "/output/0/id" "different_message")]
+reject_events $bad
+let $bad = $raw
+$bad[4] = std::json::set (std::json::wrap $bad[4]) "/sequence_number" 3
+reject_events $bad
+let $bad = [$raw[0..8]..., (std::json::set (std::json::wrap $raw[7]) "/sequence_number" 8),
+    (std::json::set (std::json::wrap $raw[8]) "/sequence_number" 9)]
+reject_events $bad
+
+# The same external sample runs over the real HTTP/SSE layers against a local fixture.
+let $fixture = $args[0]
+let $sse = ""
+for $record in $raw { $sse = $sse + "data: " + (std::json::encode $record) + "\n\n" }
+std::io::write_text "${fixture}/events.txt" $sse
+let $terminal = open_terminal [`$shelly,"-m","${fixture}/openai_server.shy"] [
+    "cwd":$fixture,"env":["HOME":$fixture,"PATH":"/usr/bin:/bin","SHELLY_STD_PATH":"bundled","TERM":"dumb"]]
+let $port = ()
+for _ in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    if $reply["text"].contains "ready "
+    { $port = Integer((($reply["text"].split "ready ")[1].split "\r")[0].trim); break }
+    require (!($reply["eof"])) "OpenAI fixture exited before ready"
+}
+require ($port != ()) "OpenAI fixture was not ready"
+let $ai = openai::Client(api_key:"fixture-key", model:"fixture", base_url:"http://127.0.0.1:${port}/")
+try
+{
+    require (($ai.text "hello") == "Hello") "Sample HTTP response"
+    let $chunks = $ai.stream_text openai::Request(model:"fixture", input:"hello")
+    let $answer = ""
+    for $chunk in $chunks { $answer = $answer + $chunk }
+    require (($answer == "Hello") && ($chunks.result.request_id == "req_fixture")) "Sample HTTP streaming metadata"
+    try { $ai.text "fail"; fail "Sample swallowed API error" }
+    catch ($stack, $error: openai::ApiError)
+    {
+        require (($error.message == "fixture rejected") && ($error.request_id == "req_error")) "Sample pinned error decoder"
+        require ($stack.related[0].relation == "Cause") "Sample discarded HTTP cause"
+    }
+}
+finally { $ai.close }
+let $eof = false
+for _ in 0..50
+{
+    if (terminal_read $terminal 100)["eof"] { $eof = true; break }
+}
+require $eof "OpenAI fixture did not finish"
+require ((terminal_close $terminal)["exit_code"] == 0) "OpenAI fixture failed"

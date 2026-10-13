@@ -1,0 +1,137 @@
+import std::io
+import std::json
+import std::net::http
+
+let $fixture = $args[0]
+let $terminal = open_terminal [`$shelly, "-m", "${fixture}/http_server.shy"] [
+    "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+        "SHELLY_STD_PATH": "bundled", "TERM": "dumb", "LANG": "C.UTF-8"]]
+let $port = ()
+for _ in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    if $reply["text"].contains "ready "
+    {
+        let $text = ($reply["text"].split "ready ")[1]
+        $port = Integer(($text.split "\r")[0].trim)
+        break
+    }
+}
+require ($port != ()) "HTTP server did not become ready"
+let $base = "http://127.0.0.1:${port}/"
+let $client = std::net::http::Client(base_url: $base)
+
+struct Reply { pub value: Integer }
+fn Reply::from_json($document: std::json::Document): Reply | std::json::Error
+{ Reply(value: ($document.require_integer "/value") + 1) }
+let $reply = $client.get "ok"
+require ($reply.status == 200) "HTTP status"
+require (($reply.headers.get "X-Request-ID") == "test-request") "case-insensitive header"
+require (($reply.headers.all "x-multi") == ["one", "two"]) "repeated headers lost"
+require (($reply.require_success) == $reply) "successful status changed response identity"
+let $value: Reply = $reply.read_as Reply
+require ($value.value == 8) "read_as did not preserve the conversion caller's private hook"
+try { $reply.take_body; fail "HTTP body was consumed twice" }
+catch ($error: std::net::http::Error) {}
+
+let $reply = $client.post "post" (std::net::http::json_body ["hello": "world"])
+require ((($reply.read_document).require_string "/hello") == "world") "JSON POST body"
+
+let $source = std::json::array_source [1, (), 3]
+let $reply = $client.post "post" (std::net::http::source_body $source)
+require (($reply.read_text) == "[1,null,3]") "script-produced HTTP upload stalled or changed data"
+
+let $reply: std::net::http::Response
+std::json::array_source [1, (), 3] | ($client.upload std::net::http::Request(method: "POST", path: "post")) | $reply
+require (($reply.read_text) == "[1,null,3]") "Pipeline upload did not finish one response"
+let $reply: std::net::http::Response
+[] | ($client.upload std::net::http::Request(method: "POST", path: "post")) | $reply
+require (($reply.read_text) == "") "Empty pipeline did not send an empty body"
+
+let $reply = $client.get "error"
+try { $reply.require_success; fail "failed HTTP status was successful" }
+catch ($error: std::net::http::Error)
+{
+    require ($error.type == std::net::http::StatusError) "status category"
+    require ($error.response.capture_complete) "diagnostic was incomplete"
+    require ((($error.response.read_document).require_string "/error/message") == "bad request") "diagnostic JSON"
+    require (($error.response.read_text) == ($error.response.read_text)) "diagnostic was not replayable"
+}
+try { $reply.take_body; fail "live body survived diagnostic capture" }
+catch ($error: std::net::http::Error) {}
+
+error struct ApiError { pub message: String }
+fn ApiError::from_statuserror($status: std::net::http::StatusError): ApiError | std::json::Error | std::net::http::Error
+{
+    let $document = $status.response.read_document
+    ApiError(message: $document.require_string "/error/message")
+}
+let $domain = std::net::http::Client(base_url: $base, error_decoder: ApiError)
+try { ($domain.get "error").require_success; fail "domain error was not raised" }
+catch ($stack, $error: ApiError)
+{
+    require ($error.message == "bad request") "domain decoder payload"
+    require ($stack.related[0].relation == "Cause") "domain status cause missing"
+    require ($stack.related[0].error.original_type == std::net::http::StatusError) "domain cause type"
+}
+$domain.close
+
+error struct BadDecoder { pub message: String }
+fn BadDecoder::from_statuserror($status: std::net::http::StatusError): BadDecoder | std::json::Error
+{
+    let $document = std::json::parse "invalid"
+    BadDecoder(message: "unreachable")
+}
+let $domain = std::net::http::Client(base_url: $base, error_decoder: BadDecoder)
+try { ($domain.get "error").require_success; fail "decoder failure was hidden" }
+catch ($stack, $error: std::net::http::StatusError)
+{
+    require ($stack.related[0].relation == "Decoding") "decoder failure replaced primary status"
+    require ($error.response.capture_complete) "decoder failure lost diagnostic"
+}
+$domain.close
+
+let $reply = $client.get "empty"
+require ($reply.status == 204) "empty response status"
+try { $reply.read_document; fail "empty body became JSON null" }
+catch ($error: std::json::Error) {}
+let $reply = $client.get "ok"
+$reply.close
+$client.close
+try { $client.get "ok"; fail "closed client sent a request" }
+catch ($error: std::net::http::Error) {}
+# A body's completion does not reset the total operation budget for conversion hooks.
+struct SlowReply { pub value: Integer }
+fn SlowReply::from_json($document: std::json::Document): SlowReply | std::json::Error
+{
+    let $count = 0
+    for _ in 0..10000000 { $count = $count + 1 }
+    SlowReply(value:$count)
+}
+let $timed = std::net::http::Client(base_url:$base, timeout_ms:100)
+try { ($timed.get "ok").read_as SlowReply; fail "Conversion reset the HTTP deadline" }
+catch ($error: std::io::TimeoutError) {}
+finally { $timed.close }
+let $eof = false
+for _ in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    if $reply["eof"] { $eof = true; break }
+}
+require $eof "HTTP server did not finish"
+let $status = terminal_close $terminal
+require ($status["exit_code"] == 0) "HTTP server failed"
+
+
+require ((std::net::http::path ["a/b", "x ?"]) == "a%2Fb/x%20%3F") "Path segments were syntax"
+require ((String((std::net::http::form_body [["a+b","x&y"]]).value)) == "a%2Bb=x%26y") "Form pairs were syntax"
+let $body = std::net::http::multipart_body [std::net::http::Part(name:"file", data:std::io::Bytes([0,255,1]), filename:"f.bin")]
+require ($body.content_type.starts_with "multipart/form-data; boundary=") "Multipart boundary missing"
+require ($body.value.count > 3) "Multipart payload missing"
+try { std::net::http::multipart_body [std::net::http::Part(name:"injected\r\nheader", data:std::io::Bytes(""))]; fail "Multipart header injection" }
+catch ($error: std::net::http::Error) {}
+let $headers = std::net::http::Headers(values:["x-multi":["one","two"]])
+try { $headers.get "x-multi"; fail "Singleton header returned arbitrary first value" }
+catch ($error: std::net::http::ProtocolError) {}
+let $client = std::net::http::Client(base_url:"http://127.0.0.1/", timeout_ms:std::net::http::TimeoutPolicy::Unbounded)
+$client.close

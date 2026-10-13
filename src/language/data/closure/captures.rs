@@ -40,6 +40,20 @@ fn statements(items: &AstTopLevel, parent: &HashSet<String>, free: &mut HashSet<
     {
         match item
         {
+            AstStatement::TryStatement(item) =>
+                {
+                    statements(&item.body.body, &bound, free);
+                    for catch in &item.catches
+                    {
+                        let mut handler = bound.clone();
+                        handler.insert(catch.error.clone());
+                        if let Some(stack) = &catch.stack { handler.insert(stack.clone()); }
+                        statements(&catch.body.body, &handler, free);
+                    }
+                    if let Some(finally) = &item.finally { statements(&finally.body, &bound,
+                        free); }
+                },
+            AstStatement::ThrowStatement(item) => expression(item, &bound, free),
             AstStatement::LetStatement(item) =>
                 {
                     expression(&item.expression, &bound, free);

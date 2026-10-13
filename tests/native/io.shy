@@ -1,0 +1,101 @@
+import std::io
+let $fixture = $args[0]
+
+let $bytes = std::io::Bytes([0, 1, 127, 128, 255])
+require ($bytes.count == 5) "byte count"
+require (($bytes.to_array) == [0, 1, 127, 128, 255]) "binary bytes changed"
+require (((std::io::decode_base64 $bytes.encode_base64).to_array) == $bytes.to_array) "base64 round trip"
+require (($bytes.slice 1 3).to_array == [1, 127]) "byte slice"
+let $text = std::io::Bytes("héllo")
+require (String($text) == "héllo") "UTF-8 round trip"
+try { String($bytes); fail "invalid UTF-8 decoded" }
+catch ($error: std::io::Error) {}
+
+let $reader = std::io::memory_reader $bytes
+let $alias = $reader
+require (($reader.read_exact 0).count == 0) "zero-length read_exact"
+require (($reader.read_exact 2).to_array == [0, 1]) "read_exact first chunk"
+require (($alias.read_all).to_array == [127, 128, 255]) "reader alias rewound"
+require (($reader.read) == ()) "EOF missing"
+$reader.close
+$alias.close
+
+let $reader = std::io::memory_reader std::io::Bytes("closed")
+let $alias = $reader
+$reader.close
+try { $alias.read; fail "closed alias remained readable" }
+catch ($stack, $error: std::io::Error)
+{
+    require ($error.type == std::io::ClosedError) "closed category"
+    require ($stack.frames[0].name == "__io") "native boundary frame missing"
+    require ($stack.native_origin != ()) "native origin missing"
+}
+
+let $reader = std::io::memory_reader std::io::Bytes("long")
+try { $reader.read_all 2; fail "read limit ignored" }
+catch ($error: std::io::Error) { require ($error.type == std::io::LimitError) "limit category" }
+finally { $reader.close }
+let $reader = std::io::memory_reader std::io::Bytes("short")
+try { $reader.read_exact 10; fail "truncated exact read accepted" }
+catch ($error: std::io::Error) { require ($error.type == std::io::ShortReadError) "truncated read category" }
+finally { $reader.close }
+
+let $file = "${fixture}/bytes.bin"
+require ((std::io::write_bytes $file $bytes) == 5) "write count"
+require ((std::io::read_bytes $file).to_array == $bytes.to_array) "file byte round trip"
+let $file = "${fixture}/text.txt"
+std::io::write_text $file "héllo\n"
+require ((std::io::read_text $file) == "héllo\n") "file text round trip"
+
+try { std::io::open_reader "${fixture}/absent"; fail "missing file opened" }
+catch ($error: std::io::Error)
+{
+    require ($error.type == std::io::OpenError) "open error category"
+    require ($error.code != ()) "native code missing"
+}
+
+let $reader = std::io::memory_reader $text
+let $chunks = []
+for $chunk in $reader { $chunks = [$chunks..., $chunk] }
+require (($chunks.count == 1) && (String($chunks[0]) == "héllo")) "reader iteration"
+$reader.close
+
+# Finite collection iteration distinguishes an actual null item from the end of a cursor.
+let $items = []
+for $item in [1, (), 2] { $items = [$items..., $item] }
+require ($items == [1, (), 2]) "null item ended finite iteration"
+
+let $reader = std::io::memory_reader std::io::Bytes("reserved")
+let $source = std::io::byte_source $reader
+try { $reader.read; fail "reserved reader was read through another alias" }
+catch ($error: std::io::Error) { require ($error.type == std::io::LeaseError) "lease category" }
+$source.close
+require (String($reader.read_all) == "reserved") "closing a borrowed source closed its reader"
+$reader.close
+
+let $file = "${fixture}/pipeline.bin"
+let $count = $bytes | std::io::write_file $file
+require ($count == 5) "byte sink count"
+let $capture: std::io::Bytes = std::io::Bytes("")
+std::io::read_file $file | cat | $capture
+require ($capture.to_array == $bytes.to_array) "byte source or capture changed binary data"
+let $count = [] | std::io::write_file $file
+require (($count == 0) && ((std::io::read_bytes $file).count == 0)) "empty byte sink acquisition"
+
+let $reader = std::io::memory_reader std::io::Bytes('{"n":7}')
+let $decoded: HashMap
+(std::io::byte_source $reader) json:| $decoded
+require ($decoded["n"] == 7) "byte source JSON boundary"
+$reader.close
+
+
+# Raw handles acquire pipeline leases and remain caller-owned afterwards.
+let $reader = std::io::memory_reader std::io::Bytes([0,255,1])
+let $writer = std::io::open_writer "${fixture}/direct.bin"
+try
+{
+    $reader | $writer
+    $writer.write std::io::Bytes([2])
+}
+finally { $reader.close; $writer.close }
+require ((std::io::read_bytes "${fixture}/direct.bin").to_array == [0,255,1,2]) "Direct handle pipeline changed bytes or closed borrowed writer"

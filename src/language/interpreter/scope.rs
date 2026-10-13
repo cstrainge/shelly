@@ -183,6 +183,9 @@ impl Scope
 
     pub fn import_function(&mut self, name: String, function: FunctionRef)
     {
+        self.types
+            .argument_signatures
+            .insert(name.clone(), function.argument_types.clone());
         self.base_function_block.borrow_mut().functions.insert(name, function);
     }
 
@@ -321,6 +324,33 @@ impl Scope
                 };
             block = parent?;
         }
+    }
+
+    pub(super) fn conversion_snapshot(&self) -> HashMap<String, FunctionRef>
+    {
+        let mut functions = HashMap::new();
+        let mut block = Some(
+            self.current_function_block
+                .clone()
+                .unwrap_or_else(|| self.base_function_block.clone()),
+        );
+        while let Some(current) = block
+        {
+            let current = current.borrow();
+            for (name, function) in &current.functions
+            {
+                if name.starts_with("\0method:")
+                {
+                    functions.entry(name.clone()).or_insert(function.clone());
+                }
+            }
+            block = current.parent.clone();
+        }
+        for (name, function) in &self.imported_methods
+        {
+            functions.entry(name.clone()).or_insert(function.clone());
+        }
+        functions
     }
 
     // Enumerate names without resolving or invoking their bodies.

@@ -102,6 +102,11 @@ pub enum TokenKind
      * The `return` keyword used for returning a value from a function.
      */
     Return,
+    Error,
+    Try,
+    Catch,
+    Finally,
+    Throw,
 
     /**
      * Keyword used for defining a function.
@@ -281,7 +286,7 @@ pub enum TokenKind
     /**
      * Represents the splat operator, `...`, used for argument expansion.
      */
-    Splat
+    Splat,
 }
 
 
@@ -476,6 +481,11 @@ impl Token
             TokenKind::Loop              => "loop".to_string(),
             TokenKind::Match             => "match".to_string(),
             TokenKind::Return            => "return".to_string(),
+            TokenKind::Error             => "error".to_string(),
+            TokenKind::Try               => "try".to_string(),
+            TokenKind::Catch             => "catch".to_string(),
+            TokenKind::Finally           => "finally".to_string(),
+            TokenKind::Throw             => "throw".to_string(),
             TokenKind::Function          => "fn".to_string(),
             TokenKind::Struct            => "struct".to_string(),
             TokenKind::Enum              => "enum".to_string(),
@@ -537,6 +547,7 @@ impl Display for Token
 /**
  * Represents an error encountered during tokenization.
  */
+#[derive(Clone)]
 pub struct TokenizerError
 {
     /**
@@ -936,6 +947,11 @@ impl<'a> Tokenizer<'a>
                 "loop"   => TokenKind::Loop,
                 "match"  => TokenKind::Match,
                 "return" => TokenKind::Return,
+                "error" => TokenKind::Error,
+                "try" => TokenKind::Try,
+                "catch" => TokenKind::Catch,
+                "finally" => TokenKind::Finally,
+                "throw" => TokenKind::Throw,
                 "fn"     => TokenKind::Function,
                 "struct" => TokenKind::Struct,
                 "enum"   => TokenKind::Enum,

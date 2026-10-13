@@ -37,7 +37,7 @@ collection_case "let \$a = [1,true,\"x\"]; for \$v in \$a { echo \$v }" "1\ntrue
 collection_case "let \$a = [1,2.0]; for \$v in \$a { echo \$v }" "1\n2.0\n" ""
 collection_case "let \$a = []; for \$v in \$a { let \$x: Boolean = \$v }; echo done" "done\n" ""
 collection_case "let \$h = [:]; for (\$k,\$v) in \$h { let \$x: Boolean = \$v }; echo done" "done\n" ""
-collection_case "let \$a = [()]; for \$v in \$a { let \$bad: Boolean = \$v }; echo done" "done\n" ""
+collection_case "let \$a = [()]; for \$v in \$a { let \$bad: Boolean = \$v }; echo done" "" "Expected Boolean"
 collection_case "let \$a = [1]; \$a[0] = true; for \$v in \$a { let \$b: Boolean = \$v; echo \$b }" "true\n" ""
 collection_case "let \$h = [\"x\": 1]; \$h[\"x\"] = true; for (\$k,\$v) in \$h { let \$b: Boolean = \$v; echo \$b }" "true\n" ""
 collection_case "let \$a = [1]; \$a = [true]; for \$v in \$a { let \$b: Boolean = \$v; echo \$b }" "true\n" ""

@@ -5,7 +5,7 @@ fn pipeline_case($source: String, $stdout: String, $diagnostic: String)
     $source = $source.replace "<FIXTURE>" $fixture
     let $reply = run_process [`$shelly, "-m", "-c", $source] [
         "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "${fixture}/bin:/usr/bin:/bin",
-            "SHELLY_STD_PATH": "${fixture}/std", "TERM": "dumb", "LANG": "C.UTF-8"],
+            "SHELLY_STD_PATH": "${fixture}/std:bundled", "TERM": "dumb", "LANG": "C.UTF-8"],
         "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
         "stderr_file": "${fixture}/err", "timeout_ms": 5000]
     let $out: String
@@ -57,14 +57,14 @@ pipeline_case "[\"a b\",\"c\"] |:ssv cat ssv:|:csv cat" "a b,c\n" ""
 pipeline_case "let \$rows: [[String]]; printf \"%s\" \"\\\"a,b\\\",\\\"hello\\nworld\\\"\\r\\nc,d\\n\" csv:| \$rows; echo \$rows.count \$rows[0][0] \$rows[0][1]" "2 a,b hello\nworld\n" ""
 pipeline_case "let \$rows: [[String]]; printf \"%s\" \"\\\"a\\\"\\\"b\\\",,z\\n\" csv:| \$rows; echo \$rows[0][0] \$rows[0][1].chars.count \$rows[0][2]" "a\"b 0 z\n" ""
 pipeline_case "echo (csv::from_string \"a,b\")...; echo (String::from_csv [\"x,y\",\"z\"])" "a b\n\"x,y\",z\n\n" ""
-pipeline_case "echo (json::from_string \"42\"); echo (String::from_json [1,true,()])" "42\n[1,true,null]\n" ""
+pipeline_case "import std::json; echo (std::json::decode \"42\"); echo (std::json::encode [1,true,()])" "42\n[1,true,null]\n" ""
 pipeline_case "let \$out: HashMap; printf \"%s\" \"{\\\"n\\\":42}\" json:| \$out; echo \$out[\"n\"]" "42\n" ""
 pipeline_case "[\"n\":42] |:json cat" "{\"n\":42}" ""
 pipeline_case "struct Reply { pub n: Integer }; let \$out = Reply(n: 0); printf \"%s\" \"{\\\"n\\\":42}\" json:|:Reply \$out; echo \$out.n" "42\n" ""
 pipeline_case "struct Inner { pub n: Integer }; struct Reply { pub inner: Inner, pub ok: Boolean }; let \$out = Reply(inner: Inner(n: 0), ok: true); printf \"%s\" \"{\\\"inner\\\":{\\\"n\\\":42},\\\"ok\\\":false}\" json:|:Reply \$out; echo \$out.inner.n \$out.ok" "42 false\n" ""
 pipeline_case "struct Row { pub name: String, pub n: Integer, pub ok: Boolean }; let \$rows: [Row]; printf \"name,n,ok\\nx,7,false\\ny,8,true\\n\" csv:|:Row \$rows; echo \$rows.count \$rows[0].n \$rows[0].ok \$rows[1].ok" "2 7 false true\n" ""
 pipeline_case "type Count = Integer; let \$out: Count; printf 7 json:|:Count \$out; echo \$out.type \$out" "Count 7\n" ""
-pipeline_case "type Count = Integer; fn Count::from_integer(\$n: Integer): Count { \$n + 1 }; let \$out: Count; printf 7 json:|:Count \$out; echo \$out" "8\n" ""
+pipeline_case "type Count = Integer; fn Count::from_integer(\$n: Integer): Count { \$n + 1 }; let \$out: Count; printf 7 json:|:Count \$out; echo \$out" "7\n" ""
 pipeline_case "type wire = String; fn String::from_wire(\$x: Integer): String { \"n=\" + String(\$x) }; fn wire::from_string(\$x: String): wire { \$x }; let \$out: wire; 7 |:wire cat wire:| \$out; echo \$out" "n=7\n" ""
 pipeline_case "fn noisy(\$x: Integer): Integer { echo side; \$x + 1 }; let \$captured: String; let \$out: Integer; 7 | noisy -> \$captured | \$out; echo \$out \$captured" "8 side\n\n" ""
 pipeline_case "let \$captured: String; let \$out: String; printf hello -> \$captured | \$out; echo \$captured \$out.chars.count" "hello 0\n" ""
@@ -76,7 +76,7 @@ pipeline_case "echo \$" "" "Bare \$ is only available"
 pipeline_case "[1] |:missing cat" "" "Unsupported format"
 pipeline_case "printf x missing:| cat" "" "Unsupported format"
 pipeline_case "printf 7 json:|:Missing cat" "" "Unsupported format"
-pipeline_case "printf bad json:| cat" "" "format 'json'"
+pipeline_case "printf bad json:| cat" "" "SyntaxError"
 pipeline_case "7 json:| cat" "" "source Integer"
 pipeline_case "struct Box { pub n: Integer }; Box(n: 7) | cat" "" "specify an encoding format"
 pipeline_case "printf \"%s\" \"\\\"bad\" csv:| cat" "" "Unterminated quoted field"
@@ -113,16 +113,16 @@ pipeline_case "let \$items = [1,2,3]; let \$out: [Integer]; [4,5] | \$items.coun
 pipeline_case "let \$out: String; [1,2] |:json cat | \$out; echo \$out" "[1,2]\n" ""
 pipeline_case "let \$out: [String]; [1,2] | printf \"%s\" \$ | cat | \$out; echo \$out..." "12\n" ""
 pipeline_case "let \$out: [String]; [1,2] | (String(\$) + \"\\n\") | cat csv:| \$[0] | \$out; echo \$out..." "1 2\n" ""
-pipeline_case "type Count = Integer; fn Count::from_integer(\$n: Integer): Count { \$n + 10 }; struct Box { pub n: Count }; let \$out = Box(n: Count(0)); printf \"%s\" \"{\\\"n\\\":7}\" json:|:Box \$out; echo \$out.n" "17\n" ""
+pipeline_case "type Count = Integer; fn Count::from_integer(\$n: Integer): Count { \$n + 10 }; struct Box { pub n: Count }; let \$out = Box(n: Count(0)); printf \"%s\" \"{\\\"n\\\":7}\" json:|:Box \$out; echo \$out.n" "7\n" ""
 pipeline_case "enum State { Ready, Done }; fn State::from_string(\$v: String): State { if \$v == \"ready\" { State::Ready } else { State::Done } }; struct Row { pub state: State }; let \$out: [Row]; printf \"state\\nready\\n\" csv:|:Row \$out; echo \$out[0].state" "State::Ready\n" ""
-pipeline_case "fn String::from_json(\$v: any): any { `echo }; 7 |:json cat" "" "encoder must return String"
+pipeline_case "fn String::from_json(\$v: any): any { `echo }; 7 |:json cat" "" "JSON protocol ABI 1"
 pipeline_case "fn String::from_broken(\$v: any): any { `echo }; printf \"a,b\" csv:|:broken cat" "" "format 'broken'"
 pipeline_case "`echo | \$ | cat" "" "specify an encoding format"
 pipeline_case "struct Counter { pub n: Integer }; fn Counter::next_item(): Integer | () { /usr/bin/false; \$self.n }; let \$out: [Integer]; let \$status = Counter(n: 1) | \$out; echo \$status \$out.count" "ExecResult(1) 0\n" ""
 pipeline_case "struct Counter { pub n: Integer }; fn Counter::next_item(): Integer | () { /usr/bin/false; \$self.n }; let \$out: [Integer]; Counter(n: 1) | \$out" "" "Executable returned error code: 1"
 pipeline_case "fn inc(\$v: Integer): Integer { \$v + 1 }; let \$out: [Integer]; [1,2] | (\$ | inc) | \$out; echo \$out..." "2 3\n" ""
 pipeline_case "fn String::next_item(): String | () { if \$self == \"\" { return () }; let \$v = \$self; \$self = \"\"; \$v }; let \$text = \"hello\"; let \$out: [String]; \$text | \$out; echo \$out... \$text" "hello hello\n" ""
-pipeline_case "struct Box { pub n: Integer }; fn Box::from_hash_string_integer(\$v: [String: Integer]): Box { Box(n: 99) }; let \$out = Box(n: 0); printf \"%s\" \"{\\\"n\\\":7}\" json:|:Box \$out; echo \$out.n" "99\n" ""
+pipeline_case "struct Box { pub n: Integer }; fn Box::from_hash_string_integer(\$v: [String: Integer]): Box { Box(n: 99) }; let \$out = Box(n: 0); printf \"%s\" \"{\\\"n\\\":7}\" json:|:Box \$out; echo \$out.n" "7\n" ""
 
 let $fixture = $args[0]
 printf "%s" "echo \"a,b\"\nlet \$marker = \$args[0]\nfor \$attempt in 0..100\n{\n    if (test -f \$marker) { echo \"c,d\"; exit 0 }\n    sleep 0.01\n}\nexit 8\n" -> "${fixture}/producer.shy"

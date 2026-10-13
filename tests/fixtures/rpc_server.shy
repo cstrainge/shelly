@@ -1,0 +1,22 @@
+import std::io
+import std::json
+import std::net::tcp
+import std::net::framing
+import std::net::rpc
+let $listener = std::net::tcp::listen "127.0.0.1" 0
+echo ready $listener.address.port
+let $peer = $listener.accept
+let $router = std::net::rpc::Router()
+$router.register "echo" fn ($params: optional std::json::Document): any { $params }
+let $frames = std::net::framing::read_length $peer.reader
+try
+{
+    for _ in 0..3
+    {
+        let $request = $frames.next_item
+        let $reply = $router.dispatch_text (String($request))
+        if $reply != ()
+        { std::net::framing::write_length $peer.writer (std::io::Bytes(std::json::encode $reply)) }
+    }
+}
+finally { $frames.close; $peer.close; $listener.close }

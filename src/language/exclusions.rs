@@ -6,15 +6,25 @@ use crate::language::ast::*;
 
 // This compilation prepass runs before imports and name/type registration. Its evaluator
 // belongs to the interpreter, so conditions use the same values and errors as import when.
-pub fn exclude_statements<E>(statements: &mut AstTopLevel,
-                             evaluate: &mut impl FnMut(AstExpression) -> Result<bool, E>)
-    -> Result<(), E>
+pub fn exclude_statements<E>(
+    statements: &mut AstTopLevel,
+    evaluate: &mut impl FnMut(AstExpression) -> Result<bool, E>,
+) -> Result<(), E>
 {
     let mut included = Vec::new();
     for mut statement in take(statements)
     {
         match &mut statement
         {
+            AstStatement::TryStatement(item) =>
+                {
+                    exclude_statements(&mut item.body.body, evaluate)?;
+                    for catch in &mut item.catches
+                    { exclude_statements(&mut catch.body.body, evaluate)?; }
+                    if let Some(finally) = &mut item.finally
+                    { exclude_statements(&mut finally.body, evaluate)?; }
+                },
+            AstStatement::ThrowStatement(item) => exclude_expression(item, evaluate)?,
             AstStatement::FunctionDefinition(function) =>
                 {
                     if let Some(mut condition) = function.condition.take()

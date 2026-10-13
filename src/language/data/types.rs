@@ -17,7 +17,7 @@ use crate::language::{ text::location::Location,
 pub struct TypeId(pub usize);
 
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct EnumVariant
 {
     pub name: String,
@@ -25,7 +25,7 @@ pub struct EnumVariant
 }
 
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum TypeKind
 {
     Builtin,
@@ -43,18 +43,18 @@ pub enum TypeKind
     Enum(Vec<EnumVariant>)
 }
 
-
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TypeDefinition
 {
     pub id: TypeId,
     pub name: String,
     pub kind: TypeKind,
-    pub location: Option<Location>
+    pub error: bool,
+    pub location: Option<Location>,
 }
 
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FieldDefinition
 {
     pub public: bool,
@@ -71,6 +71,7 @@ pub struct StructValue
     pub definition: Rc<TypeDefinition>,
     pub fields: Vec<Value>,
     pub constructing: bool,
+    pub failure: Option<crate::language::data::failure::FailureRef>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -215,6 +216,7 @@ pub struct TypeRegistry
     definitions: Rc<RefCell<Vec<Rc<TypeDefinition>>>>,
     pub native_types: HashMap<String, NativeType>,
     pub qualified_functions: HashSet<String>,
+    pub argument_signatures: HashMap<String, Vec<Option<TypeId>>>,
     pub module_names: HashSet<String>,
     methods: HashMap<TypeId, HashMap<&'static str, Rc<BuiltinMethod>>>,
     extensions: HashSet<(TypeId, String)>,
@@ -598,7 +600,8 @@ impl TypeRegistry
     {
         let mut registry = Self { definitions: Rc::new(RefCell::new(Vec::new())),
             native_types: HashMap::new(),
-            qualified_functions: HashSet::new(), module_names: HashSet::new(),
+            qualified_functions: HashSet::new(), argument_signatures: HashMap::new(),
+            module_names: HashSet::new(),
             methods: HashMap::new(),
             extensions: HashSet::new(),
             implied_conversions: HashSet::new(),
@@ -609,6 +612,20 @@ impl TypeRegistry
         {
             registry.register_native(name.to_string(), TypeKind::Builtin, NativeVisibility::Visible);
         }
+        registry.register_native(
+            "ErrorValue".into(),
+            TypeKind::Builtin,
+            NativeVisibility::Visible,
+        );
+        registry.register_error_types();
+        registry.register_json_types();
+        registry.register_io_types();
+        registry.register_network_types();
+        registry.register_native(
+            "__stream_Reader".into(),
+            TypeKind::Builtin,
+            NativeVisibility::Hidden,
+        );
         let string = registry.builtin_id("String").unwrap();
         let widget_function = registry.intern(TypeKind::Function(Vec::new(), string));
         registry.register_native("WidgetFn".to_string(), TypeKind::Named(widget_function),
@@ -629,6 +646,7 @@ impl TypeRegistry
         registry.extensions.clear();
         registry.implied_conversions.clear();
         registry.qualified_functions.clear();
+        registry.argument_signatures.clear();
         registry.module_names.clear();
         registry
     }
@@ -665,8 +683,136 @@ impl TypeRegistry
     {
         let mut definitions = self.definitions.borrow_mut();
         let id = TypeId(definitions.len());
-        definitions.push(Rc::new(TypeDefinition { id, name, kind, location }));
+        definitions.push(Rc::new(TypeDefinition {
+            id,
+            name,
+            kind,
+            error: false,
+            location,
+        }));
         id
+    }
+
+    pub fn mark_error(&self, id: TypeId)
+    {
+        let mut definitions = self.definitions.borrow_mut();
+        definitions[id.0] = Rc::new(TypeDefinition {
+            error: true,
+            ..(*definitions[id.0]).clone()
+        });
+    }
+
+    pub fn valid_factory_result(&self, target: TypeId, result: TypeId) -> bool
+    {
+        let definition = self.get(result);
+        if result == target || definition.error || Some(result) == self.builtin_id("ErrorValue")
+        {
+            return true;
+        }
+        match &definition.kind
+        {
+            TypeKind::Optional(inner) => self.valid_factory_result(target, *inner),
+            TypeKind::Union(items) => items
+                .iter()
+                .all(|id| self.get(*id).name == "None" || self.valid_factory_result(target, *id)),
+            TypeKind::Named(inner) => self.valid_factory_result(target, *inner),
+            _ => false,
+        }
+    }
+
+    pub fn valid_conversion_result(&self, target: TypeId, result: TypeId) -> bool
+    {
+        if result == target
+            || self.get(result).error
+            || Some(result) == self.builtin_id("ErrorValue")
+        {
+            return true;
+        }
+        match &self.get(result).kind
+        {
+            TypeKind::Union(items) => items
+                .iter()
+                .all(|id| self.valid_conversion_result(target, *id)),
+            TypeKind::Named(inner) => self.valid_conversion_result(target, *inner),
+            _ => false,
+        }
+    }
+
+    pub fn has_error_type(&self, id: TypeId) -> bool
+    {
+        let definition = self.get(id);
+        if definition.error || Some(id) == self.builtin_id("ErrorValue")
+        {
+            return true;
+        }
+        match &definition.kind
+        {
+            TypeKind::Named(inner) | TypeKind::Optional(inner) => self.has_error_type(*inner),
+            TypeKind::Union(items) => items.iter().any(|id| self.has_error_type(*id)),
+            _ => false,
+        }
+    }
+
+    pub fn catch_matches(&self, filter: TypeId, concrete: TypeId) -> bool
+    {
+        let definition = self.get(filter);
+        if Some(filter) == self.builtin_id("ErrorValue")
+        {
+            return self.get(concrete).error;
+        }
+        match &definition.kind
+        {
+            TypeKind::Named(inner) | TypeKind::Optional(inner) =>
+            {
+                self.catch_matches(*inner, concrete)
+            }
+            TypeKind::Union(items) => items.iter().any(|id| self.catch_matches(*id, concrete)),
+            _ => definition.error && filter == concrete,
+        }
+    }
+
+    pub fn catch_type(&self, filter: TypeId) -> TypeId
+    {
+        match &self.get(filter).kind
+        {
+            TypeKind::Named(inner) | TypeKind::Optional(inner) => self.catch_type(*inner),
+            TypeKind::Union(items) => self.union_type(
+                items
+                    .iter()
+                    .filter(|id| self.has_error_type(**id))
+                    .map(|id| self.catch_type(*id))
+                    .collect(),
+            ),
+            _ => filter,
+        }
+    }
+
+    pub fn success_type(&self, id: TypeId) -> Option<TypeId>
+    {
+        let definition = self.get(id);
+        if definition.error || Some(id) == self.builtin_id("ErrorValue")
+        {
+            return None;
+        }
+        match &definition.kind
+        {
+            TypeKind::Named(inner) if self.has_error_type(id) => self.success_type(*inner),
+            TypeKind::Union(items) =>
+            {
+                let members: Vec<_> = items
+                    .iter()
+                    .filter_map(|id| self.success_type(*id))
+                    .collect();
+                (!members.is_empty()).then(|| self.union_type(members))
+            }
+            TypeKind::Optional(inner) => Some(
+                self.success_type(*inner)
+                    .map_or(self.builtin_id("None").unwrap(), |inner| {
+                        self.intern(TypeKind::Optional(inner))
+                    }),
+            ),
+            _ => Some(id),
+        }
     }
 
     pub fn definition_count(&self) -> usize
@@ -754,6 +900,16 @@ impl TypeRegistry
     // Assignment compatibility is directional: an Integer may widen to Float.
     pub fn may_assign(&self, expected: TypeId, actual: TypeId) -> bool
     {
+        if !self.has_error_type(expected) && self.has_error_type(actual)
+        {
+            return self
+                .success_type(actual)
+                .is_none_or(|id| self.may_assign(expected, id));
+        }
+        if Some(expected) == self.builtin_id("ErrorValue") && self.get(actual).error
+        {
+            return true;
+        }
         if self.native_types.get("Prompt").is_some_and(|item| item.id == expected)
         {
             let underlying = self.underlying_type(actual);
@@ -792,7 +948,7 @@ impl TypeRegistry
         let mut definitions = self.definitions.borrow_mut();
         let old = &definitions[id.0];
         definitions[id.0] = Rc::new(TypeDefinition
-            { id, name: old.name.clone(), location: old.location.clone(), kind });
+            { id, name: old.name.clone(), location: old.location.clone(), error: old.error, kind });
     }
 
     pub fn intern(&self, kind: TypeKind) -> TypeId
@@ -838,6 +994,13 @@ impl TypeRegistry
     // Callers stage the value so failed conversions cannot mutate existing bindings.
     pub fn coerce(&self, id: TypeId, mut value: Value) -> Result<Value, String>
     {
+        if let TypeKind::Named(inner) = self.get(id).kind
+            && self.has_error_type(id)
+            && crate::language::data::failure::marked(&value)
+        {
+            self.validate(inner, value.underlying())?;
+            return Ok(value.underlying().clone());
+        }
         // Function references use String storage, but Prompt must enforce their prototype.
         if    self.native_types.get("Prompt").is_some_and(|item| item.id == id)
            && value.is_callable()
@@ -967,6 +1130,9 @@ impl TypeRegistry
         let definition = self.get(id);
         let valid = match &definition.kind
             {
+                TypeKind::Named(inner) if self.has_error_type(id)
+                    && crate::language::data::failure::marked(value) =>
+                        self.validate(*inner, value.underlying()).is_ok(),
                 TypeKind::Named(inner) => if let Value::Named(item) = value
                     { item.definition.id == id && self.validate(*inner, &item.value).is_ok() }
                     else { false },
@@ -974,6 +1140,8 @@ impl TypeRegistry
                 TypeKind::Builtin => match definition.name.as_str()
                     {
                         "any" => true,
+                        "ErrorValue" => matches!(value.underlying(),
+                            Value::Struct(item) if item.definition.error),
                         "Number" => matches!(value, Value::Integer(_) | Value::Float(_, _)),
                         "Integer" => matches!(value, Value::Integer(_)),
                         "Float" => matches!(value, Value::Float(_, _)),
@@ -987,7 +1155,8 @@ impl TypeRegistry
                         "HashMap" => matches!(value, Value::HashMap(_)),
                         "Range" => matches!(value, Value::Range(_)),
                         "ArgumentExpansion" => matches!(value, Value::ArgumentExpansion(_)),
-                        _ => false
+                        _ => matches!(value.underlying(), Value::Native(item)
+                            if item.0.type_name() == definition.name)
                     },
                 TypeKind::Enum(_) => matches!(value, Value::Enum(item) if item.definition.id == id),
                 TypeKind::Struct(fields) => if let Value::Struct(item) = value

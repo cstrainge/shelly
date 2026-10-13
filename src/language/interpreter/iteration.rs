@@ -45,19 +45,19 @@ impl NativeIteration
         })
     }
 
-    fn next(&mut self) -> Value
+    fn next(&mut self) -> Option<Value>
     {
         match self
         {
             Self::Array { values, index } =>
                 {
-                    let value = values.get(*index).cloned().unwrap_or(Value::None);
+                    let value = values.get(*index).cloned();
                     *index += 1;
                     value
                 },
             Self::Map(values) => values.next().map(|(key, value)|
-                Value::from_array(vec![key.to_value(), value])).unwrap_or(Value::None),
-            Self::Range(values) => values.next().map(Value::Integer).unwrap_or(Value::None),
+                Value::from_array(vec![key.to_value(), value])),
+            Self::Range(values) => values.next().map(Value::Integer),
         }
     }
 }
@@ -68,6 +68,7 @@ pub(super) struct Iteration
     method: BoundMethod,
     native: Option<NativeIteration>,
     ended: bool,
+    lease: Option<super::streams::IterationLease>,
 }
 
 impl Iteration
@@ -80,8 +81,12 @@ impl Iteration
             iteration_error(location, format!("Type '{}' has no next_item method", name)))
     }
 
-    pub fn try_new(interpreter: &Interpreter, location: &Location, value: Value, snapshot: &Value)
-        -> InterpreterResult<Option<Self>>
+    pub fn try_new(
+        interpreter: &Interpreter,
+        location: &Location,
+        value: Value,
+        snapshot: &Value,
+    ) -> InterpreterResult<Option<Self>>
     {
         let reference = ValueReference::temporary(value.clone());
         let Some(method) = interpreter.resolve_method(&value, reference, "next_item", snapshot)
@@ -98,26 +103,54 @@ impl Iteration
                         (function.return_type, false)
                     },
             };
-        if !return_type.is_some_and(|id|
-            matches!(interpreter.scope().types.get(id).kind, TypeKind::Optional(_)))
+        if !return_type
+            .and_then(|id| interpreter.scope().types.success_type(id))
+            .is_some_and(
+                |id| matches!(interpreter.scope().types.get(id).kind, TypeKind::Optional(_)),
+            )
         { return Err(iteration_error(location, "next_item must declare a return type T | ()")); }
+        let lease = super::streams::iteration_lease(&value, location)?;
         let native = if native
             { Some(NativeIteration::new(value.underlying().clone(), location)?) } else { None };
-        Ok(Some(Self { method, native, ended: false }))
+        Ok(Some(Self {
+            method,
+            native,
+            ended: false,
+            lease,
+        }))
     }
 
-    pub fn next(&mut self, interpreter: &mut Interpreter, location: &Location)
-        -> InterpreterResult<Option<Value>>
+    pub fn next(
+        &mut self,
+        interpreter: &mut Interpreter,
+        location: &Location,
+    ) -> InterpreterResult<Option<Value>>
     {
         if self.ended { return Ok(None); }
-        let value = if let Some(native) = &mut self.native { native.next() }
+        if let Some(lease) = &self.lease
+        {
+            lease.enter();
+        }
+        let value = if let Some(native) = &mut self.native
+            {
+                let value = native.next();
+                if value.is_none() { self.ended = true; }
+                if let Some(value) = &value { interpreter.consume_success(location, value)?; }
+                return Ok(value);
+            }
             else
             {
                 interpreter.execute_method(location, &self.method, &[])?;
                 if interpreter.halted { self.ended = true; return Ok(None); }
                 interpreter.last_result.take().unwrap_or(Value::None)
             };
-        if matches!(value, Value::None) { self.ended = true; return Ok(None); }
+        interpreter.consume_success(location, &value)?;
+        if matches!(value, Value::None)
+        {
+            self.ended = true;
+            self.lease.take();
+            return Ok(None);
+        }
         Ok(Some(value))
     }
 }
