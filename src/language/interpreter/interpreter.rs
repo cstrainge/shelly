@@ -612,6 +612,8 @@ impl Interpreter
                 Rc::new(Interpreter::handle_env),
             ),
         );
+        native_functions.insert("__get_env", NativeFunction::new(
+            "__get_env", NativeVisibility::Hidden, Rc::new(Interpreter::handle_get_env)));
         native_functions.insert(
             "__report_error",
             NativeFunction::new(
@@ -3789,6 +3791,7 @@ impl Interpreter
                 function.name,
                 "__json"
                     | "__env"
+                    | "__get_env"
                     | "__json_bind"
                     | "__json_apply"
                     | "__http_apply"

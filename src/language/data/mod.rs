@@ -3,6 +3,7 @@ pub mod callable;
 pub mod closure;
 pub mod collection;
 pub mod conversion;
+mod environment;
 mod error_types;
 pub mod failure;
 pub mod formats;

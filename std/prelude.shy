@@ -4,6 +4,15 @@
 
 visible `__report_error
 visible `__env
+visible `__get_env
+pub visible "VariableVisibility"
+pub visible "VariableInfo"
+
+# Inspect the caller's visible variables without converting their values to process text.
+pub fn get_env(): [String: VariableInfo]
+{
+    __get_env
+}
 
 # Read the caller's exported environment without launching a process. Missing names
 # return (), or the supplied fallback; an existing empty value remains an empty String.

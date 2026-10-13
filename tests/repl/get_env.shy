@@ -1,0 +1,10 @@
+check_repl ["id": "GET-ENV", "exit": 0, "steps": [
+    ['let $local = 7; echo (get_env)["local"].name (get_env)["local"].value (get_env)["local"].visibility.index', "output", "local 7 0"],
+    ['let export $shared = "hello"; echo (get_env)["shared"].value (get_env)["shared"].visibility.index', "output", "hello 1"],
+    ['let $saved = get_env; $local = 9; echo $saved["local"].value (get_env)["local"].value', "output", "7 9"],
+    ['fn inspect($n: Integer): Integer { let $local = 11; echo (get_env)["local"].value; (get_env)["n"].value }; echo (inspect 3)', "output", "11\n3"],
+    ['echo (get_env)["local"].value ((get_env)["n"] == ())', "output", "9 true"],
+    ['get_env 7', "error", "expected 0 arguments, but got 1"],
+    ['echo (get_env)["local"].value (get_env)["local"].visibility.index', "output", "9 0"],
+    ['echo ((get_env)["pid"].value == $pid)', "output", "true"],
+]]

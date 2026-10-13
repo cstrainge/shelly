@@ -1,0 +1,54 @@
+# Variable inspection preserves scope, values, and child-environment visibility.
+let $fixture = $args[0]
+let $suite = $args[1]
+
+fn get_env_case($source: String, $diagnostic: String, $library: String)
+{
+    let $fixture = $args[0]
+    let $source = 'fn ensure($ok: Boolean) { if !$ok { exit 23 } }; ' + $source
+    let $result = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture,
+        "env": ["HOME": $fixture, "PATH": "${fixture}/no-executables",
+            "SHELLY_STD_PATH": $library, "ENV_PRESENT": "initial", "ENV_EMPTY": ""],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/env.out",
+        "stderr_file": "${fixture}/env.err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/env.out" -> $out
+    "${fixture}/env.err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if    ($result["exit_code"] != $status) || ($result["error"] != ())
+       || ($result["signal"] != ()) || $result["timed_out"] || ($out != "")
+       || (($diagnostic == "") && ($err != ""))
+       || (($diagnostic != "") && !($err.contains $diagnostic))
+    { echo $source $result $out $err; fail "variable information differs" }
+}
+
+for $library in ["bundled", "${suite}/std"]
+{
+    get_env_case 'let $local = 7; let export $shared = 1.5; let $env: [String: VariableInfo] = get_env; ensure ($env.key_type == String); ensure ($env.value_type == VariableInfo); ensure ($env["local"].name == "local"); ensure ($env["local"].value == 7); ensure ($env["local"].visibility == VariableVisibility::Local); ensure ($env["shared"].value.type == Float); ensure ($env["shared"].visibility == VariableVisibility::Exported); ensure ($env["$local"] == ()); ensure ($env["MISSING"] == ())' "" $library
+    get_env_case 'let $env = get_env; ensure ($env["ENV_PRESENT"].value == "initial"); ensure ($env["ENV_PRESENT"].visibility == VariableVisibility::Exported); ensure ($env["ENV_EMPTY"].value == ""); ensure ($env["pid"].value == $pid); ensure ($env["pid"].visibility == VariableVisibility::Local); ensure ($env["pwd"].value == $pwd); ensure ($env["SHELLY_STD_FOUND"].value == $SHELLY_STD_FOUND)' "" $library
+    get_env_case 'let $local = 7; fn inspect($argument: String): [String: VariableInfo] { let $inside = true; get_env }; let $env = inspect "hello"; ensure ($env["argument"].value == "hello"); ensure ($env["inside"].value == true); ensure ($env["inside"].visibility == VariableVisibility::Local); ensure ($env["local"].value == 7); ensure ((get_env)["argument"] == ()); ensure ((get_env)["inside"] == ())' "" $library
+    get_env_case 'let export $ENV_PRESENT = "outer"; if true { let $ENV_PRESENT = 9; let $env = get_env; ensure ($env["ENV_PRESENT"].value == 9); ensure ($env["ENV_PRESENT"].visibility == VariableVisibility::Local) }; ensure ((get_env)["ENV_PRESENT"].value == "outer"); ensure ((get_env)["ENV_PRESENT"].visibility == VariableVisibility::Exported)' "" $library
+    get_env_case 'for ($key, $item) in ["entry": 7] { let $env = get_env; ensure ($env["key"].value == "entry"); ensure ($env["item"].value == 7) }; ensure ((get_env)["key"] == ())' "" $library
+    get_env_case 'fn make($captured: Integer): fn(): [String: VariableInfo] { fn(): [String: VariableInfo] { let _ = $captured; let $inside = "closure"; get_env } }; let $saved = make 9; let $env = ($saved); ensure ($env["captured"].value == 9); ensure ($env["inside"].value == "closure")' "" $library
+    get_env_case 'fn Integer::inspect(): [String: VariableInfo] { $self = $self + 1; get_env }; let $n = 7; let $env = $n.inspect; ensure ($n == 8); ensure ($env["self"].value == 8); ensure ($env["self"].visibility == VariableVisibility::Local)' "" $library
+    get_env_case 'struct Item { pub value: Integer }; enum Choice { First }; type Count = Integer; fn answer(): Integer { 7 }; let $item = Item(value: 1); let $choice = Choice::First; let $count: Count = 3; let $callback = `answer; let $env = get_env; ensure ($env["item"].value.type == Item); ensure ($env["choice"].value.type == Choice); ensure ($env["count"].value.type == Count); ensure (($env["callback"].value) == 7)' "" $library
+    get_env_case 'let $items = [1, 2]; let $env = get_env; $env["items"].value[0] = 9; ensure ($items[0] == 1); $items[1] = 3; ensure ($env["items"].value[1] == 2); $env["items"].visibility = VariableVisibility::Exported; ensure ((get_env)["items"].visibility == VariableVisibility::Local)' "" $library
+    get_env_case 'fn Array::to_string(): String { let _ = 1 / 0; "" }; let export $ENV_ITEMS = "a:b"; let type $ENV_ITEMS = [String]; let $env = get_env; ensure ($env["ENV_ITEMS"].value == ["a", "b"]); ensure ($env["ENV_ITEMS"].visibility == VariableVisibility::Exported)' "" $library
+    get_env_case 'fn inspect($number: Float): any { (get_env)["number"].value }; let $items = []; [1, 2] | inspect | $items; ensure ($items == [1.0, 2.0]); ensure ($items[0].type == Float)' "" $library
+    get_env_case 'try { let _ = 1 / 0 } finally { let $cleanup = true; ensure ((get_env)["cleanup"].value) }' "zero" $library
+    get_env_case 'let $saved = `get_env; let $local = 7; ensure (($saved)["local"].value == 7); ensure ((std::prelude::get_env)["local"].value == 7)' "" $library
+    get_env_case 'struct VariableInfo { pub other: String }; enum VariableVisibility { Other }; let $local = 7; let $env = get_env; ensure ($env["local"].type != VariableInfo); ensure ($env["local"].visibility.type != VariableVisibility)' "" $library
+    get_env_case '__get_env' "Executable not found" $library
+    get_env_case 'get_env 7' "expected 0 arguments, but got 1" $library
+    get_env_case 'visible `__get_env; __get_env 7' "__get_env expects no arguments" $library
+}
+
+# Imported functions inspect their own module, including its private bindings.
+printf "%s" 'let $private = "module"; pub let export $shared = 3; pub fn inspect($argument: Integer): [String: VariableInfo] { let $inside = "function"; get_env }' -> "${fixture}/env_scope.shy"
+get_env_case 'let $private = "caller"; let $only_caller = true; import env_scope; let $env = env_scope::inspect 9; ensure ($env["private"].value == "module"); ensure ($env["shared"].visibility == VariableVisibility::Exported); ensure ($env["argument"].value == 9); ensure ($env["inside"].value == "function"); ensure ($env["only_caller"] == ()); ensure ((get_env)["private"].value == "caller")' "" "bundled"
+
+# Native types remain hidden until the prelude publishes its interface.
+get_env_case 'let $info: VariableInfo' "Unknown type 'VariableInfo'" ""
+get_env_case 'let $visibility: VariableVisibility' "Unknown type 'VariableVisibility'" ""

@@ -1,15 +1,67 @@
 
-use std::{ cell::Cell, mem::replace, rc::Rc };
+use std::{ cell::Cell, collections::HashMap, mem::replace, rc::Rc };
 
 use crate::language::{ data::{ map_key::MapKey,
                                scoped_variables::{ EnvironmentConversion, ValueVisibility },
-                               types::{ TypeId, TypeKind }, value::{ Executable, Value } },
+                               types::{ EnumValue, StructValue, TypeId, TypeKind },
+                               value::{ Executable, Value } },
                        interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult },
                        text::location::Location };
 
 
 impl Interpreter
 {
+    fn variable_information(&self, location: &Location) -> InterpreterResult<Value>
+    {
+        let registry = &self.scope().types;
+        let info = registry.get(registry.native_types["VariableInfo"].id);
+        let visibility = registry.get(registry.native_types["VariableVisibility"].id);
+        let bindings = self.scope().variables.get_all_flattened();
+        let mut variables = HashMap::new();
+        for name in self.variable_names()
+        {
+            let exported = bindings.get(&name)
+                .is_some_and(|binding| binding.exported == ValueVisibility::Exported);
+            let value = self.read_raw_variable(&name, location)?;
+            let name = name.strip_prefix('$').unwrap_or(&name).to_string();
+            let entry = Value::Struct(Rc::new(StructValue
+                {
+                    definition: info.clone(),
+                    fields: vec![
+                            Value::from_string(name.clone()), value,
+                            Value::Enum(Rc::new(EnumValue
+                                {
+                                    definition: visibility.clone(),
+                                    variant: usize::from(exported),
+                                })),
+                        ],
+                    constructing: false,
+                    failure: None,
+                }));
+            variables.insert(name, entry);
+        }
+        Ok(Value::from_hash_map(variables.into_iter()
+            .map(|(name, entry)| (MapKey::String(name), entry)).collect()))
+    }
+
+    pub(super) fn handle_get_env(&mut self, location: &Location, args: &[Value])
+        -> InterpreterResult<()>
+    {
+        if !args.is_empty()
+        {
+            return Err(InterpreterError::new(location.clone(), ErrorWhat::ArgumentMismatch(
+                "__get_env expects no arguments".into())));
+        }
+        // The prelude is a separate module. Its bridge must inspect the calling scope.
+        let caller = self.exceptions.callers.last().cloned()
+            .unwrap_or_else(|| self.current_scope.clone());
+        let home = replace(&mut self.current_scope, caller);
+        let result = self.variable_information(location);
+        self.current_scope = home;
+        self.last_result = Some(result?);
+        Ok(())
+    }
+
     fn environment_converter_required(&self, source: TypeId) -> bool
     {
         let definition = self.scope().types.get(source);

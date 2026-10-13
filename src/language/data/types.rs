@@ -656,6 +656,7 @@ impl TypeRegistry
             NativeVisibility::Visible,
         );
         registry.register_error_types();
+        registry.register_environment_types();
         registry.register_json_types();
         registry.register_io_types();
         registry.register_network_types();

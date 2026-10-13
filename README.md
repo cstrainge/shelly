@@ -2630,6 +2630,38 @@ in a variable follows Shelly's usual home-path display rules when that variable 
 Widgets read the captured environment for that prompt evaluation. The Rust helper `__env`
 is hidden; scripts normally use `optional_env`.
 
+The prelude's `get_env(): [String: VariableInfo]` returns the variables visible
+where it is called, including local variables, parameters, outer bindings, and
+built-in variables. Inner bindings shadow outer ones. Imported functions inspect
+their own module's scope; closures include their captured bindings. Keys and
+`name` omit the leading `$`, and `value` preserves the actual Shelly value rather
+than converting it to child-process text.
+
+The prelude publishes these native type definitions:
+
+```shy
+pub enum VariableVisibility { Local, Exported }
+pub struct VariableInfo
+{
+    pub name: String,
+    pub value: any,
+    pub visibility: VariableVisibility,
+}
+```
+
+Use them directly when inspecting variables:
+
+```shy
+let $count = 7
+let $environment: [String: VariableInfo] = get_env
+echo $environment["count"].value       # 7
+echo ($environment["count"].visibility == VariableVisibility::Local) # true
+```
+
+`Local` identifies a private binding; `Exported` identifies one inherited by child
+processes. The returned records are snapshots: assigning their fields does not
+rebind the original variables. Values follow Shelly's ordinary copy semantics.
+
 Useful predefined variables include `$args`, `$pid`, `$pwd`, `$HOSTNAME`, `$HOME`, `$PATH`,
 `$shelly` (an executable reference to this binary), `$version`, `$os` (also `$OS`),
 `$build_date`, `$build_time`, `$interactive`, `$login`, and `$rc_path`.
