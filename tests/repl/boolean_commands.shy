@@ -8,4 +8,11 @@ check_repl ["id": "BOOLEAN-COMMANDS", "exit": 0, "steps": [
     ['if explode && true { echo BAD }', "error", "zero"],
     ['if true || explode { echo SAFE }', "output", "SAFE"],
     ['echo ff', "output", "ff"],
+    ['if shelly_missing_condition_command { echo BAD } else { echo BAD }', "error", "Executable not found: shelly_missing_condition_command"],
+    ['if (shelly_missing_condition_command) { echo BAD }', "error", "Executable not found: shelly_missing_condition_command"],
+    ['if true && shelly_missing_condition_command { echo BAD }', "error", "Executable not found: shelly_missing_condition_command"],
+    ['if false || shelly_missing_condition_command { echo BAD }', "error", "Executable not found: shelly_missing_condition_command"],
+    ['if !shelly_missing_condition_command { echo BAD }', "error", "Executable not found: shelly_missing_condition_command"],
+    ['if false && shelly_missing_condition_command { echo BAD } else { echo SAFE }; if true || shelly_missing_condition_command { echo SAFE }', "output", "SAFE\nSAFE"],
+    ['echo recovered', "output", "recovered"],
 ]]

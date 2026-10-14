@@ -20,6 +20,7 @@ pub enum Code
     // Execute a command reference/name, or read bytes from a file path.
     RedirectSource,
     // Pop a command name; leave its result, or the unresolved string, in last_result.
+    // Boolean(true) requires a command instead of falling back to text in a condition.
     TryExecute,
     // Execute last_result only when it is a string marked executable; preserve other values.
     // Boolean(true) rejects collections in a standalone variable statement whose value is

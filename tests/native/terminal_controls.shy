@@ -1,0 +1,99 @@
+let $fixture = $args[0]
+let $import = 'import std::terminal::{ term_size, cursor_position, move_cursor, clear }; '
+
+# Redirected output has no terminal metadata or cursor effects, even in color mode.
+for ($source, $expected, $diagnostic) in [
+    [$import + 'echo (term_size) (cursor_position); echo (move_cursor 1 1) (clear)',
+        "() ()\n() ()\n", ""],
+    [$import + 'move_cursor 0 1', "", "Cursor row and column"],
+    [$import + 'move_cursor 1 0', "", "Cursor row and column"],
+    [$import + 'move_cursor -1 1', "", "Cursor row and column"],
+    [$import + 'move_cursor 1 65536', "", "Cursor row and column"],
+    [$import + 'move_cursor "1" 1', "", "Expected Integer"],
+    [$import + 'move_cursor 1.0 1', "", "Expected Integer"],
+    [$import + 'move_cursor 1', "", "expected 2 arguments"],
+    ['__terminal_control "size"', "", "Executable not found"],
+    ['import std::terminal; std::terminal::__terminal_control "size"', "", "unavailable"],
+]
+{
+    let $result = run_process [`$shelly, "-c", $source] ["cwd": $fixture,
+        "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin", "SHELLY_STD_PATH": "bundled",
+            "FORCE_COLOR": "3"], "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $exit = if $diagnostic == "" { 0 } else { 1 }
+    if    ($result["exit_code"] != $exit) || ($result["signal"] != ())
+       || $result["timed_out"] || ($out != $expected)
+       || (($diagnostic == "") && ($err != ""))
+       || (($diagnostic != "") && !($err.contains $diagnostic))
+    { echo $source $result $out $err; fail "nonterminal control behavior differs" }
+}
+
+fn control_terminal($source: String): Terminal
+{
+    open_terminal [`$shelly, "-m", "-c", $source] ["cwd": $args[0],
+        "env": ["HOME": $args[0], "PATH": "/usr/bin:/bin", "SHELLY_STD_PATH": "bundled",
+            "TERM": "dumb", "LANG": "C.UTF-8"], "rows": 35, "columns": 110]
+}
+
+fn control_output($terminal: Terminal, $prefix: String): String
+{
+    let $raw = $prefix
+    let $eof = false
+    for _ in 0..20
+    {
+        let $reply = terminal_read $terminal 50
+        $raw = $raw + $reply["text"]
+        if $reply["eof"] { $eof = true; break }
+    }
+    require $eof "terminal control child did not exit within its deadline"
+    let $status = terminal_close $terminal
+    if ($status["exit_code"] != 0) || ($status["signal"] != ())
+    { echo $status $raw; fail "terminal control child failed" }
+    $raw.replace "\r\n" "\n"
+}
+
+# Size is [rows, columns]; cursor movement and clearing work on monochrome TTYs.
+let $terminal = control_terminal ($import + 'let $s = term_size; echo $s...; move_cursor 2 7; clear; echo DONE')
+let $raw = control_output $terminal ""
+require ($raw == "35 110\n\x1b[2;7H\x1b[2J\x1b[HDONE\n") "wrong size or cursor sequences"
+
+# Cursor reports stay one based, including row six, DEC replies and the u16 edges.
+# Invalid reports and unsupported terminals return (), without panicking or hanging.
+for ($response, $expected, $fragment) in [
+    ["\x1b[1;1R", "1 1", false], ["\x1b[6;11R", "6 11", false],
+    ["\x1b[?7;12R", "7 12", false], ["\x1b[65535;65535R", "65535 65535", false],
+    ["\x1b[8;23R", "8 23", true], ["", "unavailable", false],
+    ["\x1b[0;1R", "unavailable", false], ["\x1b[1;0R", "unavailable", false],
+    ["\x1b[65536;1R", "unavailable", false],
+    ["\x1b[1;2;3R", "unavailable", false], ["\x1b[badR", "unavailable", false],
+    ["\x1b[12;", "unavailable", false],
+]
+{
+    let $source = $import + 'let $p = cursor_position; if $p == () { echo unavailable } else { echo $p... }'
+    let $terminal = control_terminal $source
+    let $raw = ""
+    for _ in 0..40
+    {
+        let $reply = terminal_read $terminal 25
+        $raw = $raw + $reply["text"]
+        if $raw.contains "\x1b[6n" { break }
+        require (!$reply["eof"]) "cursor query child exited before querying"
+    }
+    require ($raw.contains "\x1b[6n") "cursor query was not emitted"
+    if $fragment
+    {
+        terminal_write $terminal "\x1b[8;"
+        let $pause = terminal_read $terminal 20
+        require $pause["timed_out"] "partial cursor reply was accepted"
+        $raw = $raw + $pause["text"]
+        terminal_write $terminal "23R"
+    }
+    else if $response != "" { terminal_write $terminal $response }
+    let $raw = control_output $terminal $raw
+    if $raw != "\x1b[6n${expected}\n"
+    { echo $response $raw; fail "cursor query returned the wrong position" }
+}

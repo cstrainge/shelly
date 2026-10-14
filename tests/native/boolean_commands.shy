@@ -33,7 +33,28 @@ boolean_command_case ($functions + 'alias nope = no; if nope && unused { echo BA
 boolean_command_case 'if /usr/bin/false && /usr/bin/true { echo BAD } else { echo false }; if /usr/bin/true || /usr/bin/false { echo TRUE }' "false\nTRUE\n" ""
 
 # Argument words, quoted strings, variables and explicit references are still data.
-boolean_command_case 'fn unused(): Boolean { exit 9 }; fn take($value: any): any { $value }; echo unused (take unused && unused); if "unused" && "unused" { echo QUOTED }; let $reference = `unused; if $reference && true { echo REFERENCE }; if `unused && true { echo ESCAPED }; if unknown_boolean_word && true { echo WORD }' "unused true\nQUOTED\nREFERENCE\nESCAPED\nWORD\n" ""
+boolean_command_case 'fn unused(): Boolean { exit 9 }; fn take($value: any): any { $value }; echo unused (take unused && unused); if "unused" && "unused" { echo QUOTED }; let $reference = `unused; if $reference && true { echo REFERENCE }; if `unused && true { echo ESCAPED }' "unused true\nQUOTED\nREFERENCE\nESCAPED\n" ""
+
+# A reached command word must resolve; missing names are not truthy strings.
+for $source in [
+    'if shelly_missing_condition_command { echo BAD } else { echo BAD }',
+    'if (shelly_missing_condition_command) { echo BAD }',
+    'if ((shelly_missing_condition_command)) { echo BAD }',
+    'if !shelly_missing_condition_command { echo BAD }',
+    'if shelly_missing_condition_command && true { echo BAD }',
+    'if true && shelly_missing_condition_command { echo BAD }',
+    'if false || shelly_missing_condition_command { echo BAD }',
+    'while shelly_missing_condition_command { break }',
+    'until shelly_missing_condition_command { break }',
+    'let $value = shelly_missing_condition_command && true',
+    'let $value = !shelly_missing_condition_command',
+    'alias missing = shelly_missing_condition_command; if missing { echo BAD }',
+]
+{
+    boolean_command_case $source "" "Executable not found: shelly_missing_condition_command."
+}
+boolean_command_case 'if false && shelly_missing_condition_command { echo BAD } else { echo SAFE }; if true || shelly_missing_condition_command { echo SAFE }' "SAFE\nSAFE\n" ""
+boolean_command_case 'let $word = shelly_missing_condition_command; if $word { echo VALUE }; if "shelly_missing_condition_command" { echo QUOTED }; if shelly_missing_condition_command == shelly_missing_condition_command { echo TEXT }; echo shelly_missing_condition_command' "VALUE\nQUOTED\nTEXT\nshelly_missing_condition_command\n" ""
 boolean_command_case 'enum Choice { First }; if Choice::First && true { echo ENUM }; let $value = 7; if $value.type == Integer && $value == 7 { echo TYPE }' "ENUM\nTYPE\n" ""
 boolean_command_case 'fn check($value: Integer): Boolean { true }; if check && true { echo BAD }' "" "expected 1 arguments, but got 0"
 boolean_command_case 'fn explode(): Boolean { let $zero = 0; let _ = 1 / $zero; false }; if explode && true { echo BAD }' "" "zero"

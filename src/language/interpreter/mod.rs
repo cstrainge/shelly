@@ -21,6 +21,7 @@ mod readline;
 mod scope;
 mod source;
 mod streams;
+mod terminal;
 mod visibility;
 
 pub use crate::language::interpreter::interpreter::*;

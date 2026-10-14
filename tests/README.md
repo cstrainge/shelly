@@ -149,6 +149,12 @@ callback budgets and errors, isolated persistent history, stdout routing and man
 `repl/readline.shy` checks a custom REPL running within a shell submission and returning its
 terminal to the built-in editor.
 
+`native/terminal_controls.shy` checks native dimensions, one-based cursor reports,
+fragmented and invalid replies, bounded timeouts, monochrome cursor effects,
+non-TTY behavior, coordinate validation and hidden native visibility.
+`repl/terminal_controls.shy` checks terminal restoration and preservation of ordinary
+and Unicode input across cursor queries during an existing REPL session.
+
 `native/openai_chat.shy` exercises the runnable OpenAI chat sample through real readline PTYs
 and a loopback HTTP/SSE fixture. It checks key/model flag precedence and environment fallback,
 cached model completion, Unicode multiline streaming, follow-up context, API-error recovery,

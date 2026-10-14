@@ -194,6 +194,41 @@ else
 }
 ```
 
+`std::terminal::color` joins its String arguments with spaces and colors the result
+for the detected terminal mode:
+
+```shy
+import std::terminal::{ color }
+echo (color "#00d2be" "Hello," "world!")
+echo (color "0, 210, 190" "Comma-separated RGB")
+echo (color [0, 210, 190] "RGB array")
+```
+
+Hex colors use `#RRGGBB`; RGB channels must be integers from 0 through 255.
+True-color mode preserves the requested RGB value. The 256- and 16-color modes
+choose the closest standard palette entry by RGB distance; equal distances choose
+the lowest index. Monochrome mode returns plain text. Colored output resets only
+the foreground afterward, and empty text produces no escape codes.
+
+`bk_color` accepts the same colors and sets the background instead, resetting only
+that channel afterward. The other formatting helpers are `bold`, `dim`, `italic`,
+`underline`, `reverse`, and `strikethrough`. They accept String arguments and return
+a String with spaces between them. Non-color styles remain active on monochrome
+TTYs; when `is_tty` is false they return plain text.
+
+```shy
+import std::terminal::{ color, bk_color, bold, underline }
+echo (bk_color "#302060" (bold (color "#00d2be" "Shelly")))
+echo (underline "Underlined" "text")
+```
+
+`std::terminal` also provides `term_size` and `cursor_position`, returning
+`[rows, columns]` and `[row, column]` respectively, or `()` when unavailable.
+Cursor coordinates are one-based: `[1, 1]` is the top-left cell. `move_cursor row column`
+moves immediately; `clear` clears the visible screen and moves to the top-left,
+preserving scrollback. Both return `()` and do nothing when stdout is not a TTY.
+Cursor-position queries wait at most 250 ms and preserve input for the editor.
+
 In the REPL, Ctrl+Enter switches to multiline entry without changing prompt width.
 The prompt marker and continuation `>` turn yellow on 256-color and true-color
 terminals while multiline entry is active. Monochrome mode disables editor and
@@ -1726,6 +1761,10 @@ fn ff(): Boolean { echo "ff called"; false }
 if ff && ff { echo TRUE } else { echo false } # Calls ff once; skips the second call.
 if !ff { echo TRUE }                         # Calls ff, then negates its result.
 ```
+
+An undefined bare command in a condition raises an executable-not-found error when
+that operand is reached. Quote a word to test it as a string: `if "hello" { ... }`.
+Short-circuited operands are not resolved or called.
 
 Use parentheses for calls with arguments: `(foo 3) && (bar 4)`.
 These are value expressions, not shell command chains: `echo true && false`

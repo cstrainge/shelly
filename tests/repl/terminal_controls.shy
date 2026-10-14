@@ -1,0 +1,62 @@
+let $terminal = session $args[0]
+let _ = drain $terminal
+let $reply = submit $terminal 'import std::terminal::{ term_size, cursor_position, move_cursor, clear }'
+require (repl_matches "quiet" "" $reply["output"]) "terminal import failed"
+let $reply = submit $terminal 'let $size = term_size; echo $size...'
+require (repl_matches "output" "40 140" $reply["output"]) "REPL terminal size differs"
+let $reply = submit $terminal 'fn λ() { echo unicode-kept }'
+require (repl_matches "quiet" "" $reply["output"]) "Unicode command declaration failed"
+
+fn query_prompt($terminal: Terminal, $prefix: String): String
+{
+    let $raw = $prefix.replace "\x1b[6n" ""
+    for _ in 0..50
+    {
+        let $reply = terminal_read $terminal 50
+        require (!$reply["eof"]) "cursor query closed the REPL"
+        $raw = $raw + $reply["text"]
+        if $raw.contains "\x1b[6n"
+        {
+            terminal_write $terminal "\x1b[1;1R"
+            $raw = $raw.replace "\x1b[6n" ""
+        }
+        let $text = strip_ansi $raw
+        if    $reply["timed_out"] && ($text.contains "\n()\n")
+           && (($text.contains "\n$ ") || ($text.contains "\n# "))
+        { return $text }
+    }
+    echo $raw
+    fail "cursor query did not return to a prompt"
+}
+
+for ($keys, $suffix, $expected) in [["e", "cho input-kept\r", "input-kept"],
+                                  ["λ", "\r", "unicode-kept"],
+                                  ["", "echo timeout-restored\r", "timeout-restored"]]
+{
+    # Read the application query directly; drain would answer it automatically.
+    terminal_write $terminal "\x1b[200~echo (cursor_position)\x1b[201~\r"
+    let $raw = ""
+    for _ in 0..40
+    {
+        let $reply = terminal_read $terminal 10
+        require (!$reply["eof"]) "shell exited during cursor query"
+        $raw = $raw + $reply["text"]
+        if $raw.contains "\x1b[6n" { break }
+    }
+    require ($raw.contains "\x1b[6n") "REPL cursor query was not emitted"
+    if $keys != "" { terminal_write $terminal "${keys}\x1b[7;11R" }
+    let $output = query_prompt $terminal $raw
+    require (repl_matches "output" "()" $output) "query did not return unavailable"
+    terminal_write $terminal $suffix
+    let $reply = drain $terminal
+    if !(repl_matches "output" $expected $reply["output"])
+    { echo $reply; fail "cursor query lost input or failed to restore terminal settings" }
+}
+
+let $reply = submit $terminal 'clear; move_cursor 1 1; echo controls-restored'
+require (repl_matches "output" "controls-restored" $reply["output"]) "terminal controls broke REPL"
+terminal_write $terminal "\x04"
+let $closed = drain $terminal
+require $closed["eof"] "Ctrl+D did not close shell after terminal controls"
+let $status = terminal_close $terminal
+require (($status["exit_code"] == 0) && ($status["signal"] == ())) "terminal controls session failed"

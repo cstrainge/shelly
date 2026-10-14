@@ -1,0 +1,89 @@
+# The standard-library function returns data, with exact escapes for each color mode.
+fn terminal_color_case($force: String, $mono: Boolean, $source: String,
+                       $expected: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $flags = if $mono { ["-m"] } else { [] }
+    let $result = run_process [`$shelly, $flags..., "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "bundled", "TERM": "dumb", "LANG": "C.UTF-8",
+            "FORCE_COLOR": $force],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if    ($result["exit_code"] != $status) || ($result["signal"] != ())
+       || $result["timed_out"] || ($result["error"] != ()) || ($out != $expected)
+       || (($diagnostic == "") && ($err != ""))
+       || (($diagnostic != "") && !($err.contains $diagnostic))
+    { echo $source $result $out $err; fail "terminal color differs" }
+}
+
+let $import = 'import std::terminal::{ color, bk_color, bold, dim, italic, underline, reverse, strikethrough }; '
+for ($force, $foreground, $background) in [["0", "", ""], ["1", "\x1b[96m", "\x1b[106m"],
+    ["2", "\x1b[38;5;43m", "\x1b[48;5;43m"],
+    ["3", "\x1b[38;2;0;210;190m", "\x1b[48;2;0;210;190m"]]
+{
+    for ($function, $prefix, $code) in [["color", $foreground, "39"], ["bk_color", $background, "49"]]
+    {
+        let $reset = if $force == "0" { "" } else { "\x1b[${code}m" }
+        for $color in ['"#00d2be"', '"#00D2BE"', '"0, 210, 190"', '[0, 210, 190]']
+        {
+            let $source = $import + "echo (${function} ${color} \"Hello,\" \"world!\")"
+            terminal_color_case $force false $source "${prefix}Hello, world!${reset}\n" ""
+            $source = $import + "echo (${function} ${color} \"λ猫\" \"\" \"line\\nend\")"
+            terminal_color_case $force false $source "${prefix}λ猫  line\nend${reset}\n" ""
+            terminal_color_case $force false ($import + "echo (${function} ${color})") "\n" ""
+            terminal_color_case $force false ($import + "echo (${function} ${color} \"\")") "\n" ""
+        }
+    }
+}
+
+# Exact palette entries, grayscale, neutral approximations, and equal-distance ties.
+for ($force, $color, $code) in [["2", "#5f87af", "38;5;67"], ["2", "#767676", "38;5;243"],
+                              ["2", "#ff0000", "38;5;9"], ["1", "#ff0000", "91"],
+                              ["1", "#800000", "31"], ["1", "#c08c8c", "90"],
+                              ["3", "#000000", "38;2;0;0;0"], ["3", "#ffffff", "38;2;255;255;255"]]
+{
+    let $source = $import + "echo (color \"${color}\" \"sample\")"
+    terminal_color_case $force false $source "\x1b[${code}msample\x1b[39m\n" ""
+}
+terminal_color_case "3" true ($import + 'echo (color "#00d2be" "plain" "text")') "plain text\n" ""
+terminal_color_case "3" false ($import + 'let $value: String = color "#00d2be" "left" "right"; echo $value') "\x1b[38;2;0;210;190mleft right\x1b[39m\n" ""
+terminal_color_case "3" false 'import std::terminal; echo (std::terminal::color "#00d2be" "qualified")' "\x1b[38;2;0;210;190mqualified\x1b[39m\n" ""
+
+# Malformed colors are rejected in every mode; Float channels never truncate to Integer.
+for $force in ["0", "1", "2", "3"]
+{
+    for $color in ['"#123"', '"#12345g"', '"#猫猫"', '"red"', '"1,2"', '"1,2,3,4"',
+                  '"-1,2,3"', '"256,2,3"', '"1.0,2,3"', '"1,,3"', '[]', '[1,2]',
+                  '[1,2,3,4]', '[-1,2,3]', '[256,2,3]']
+    {
+        let $source = $import + "echo (color ${color} \"bad\")"
+        terminal_color_case $force false $source "" "Color must be"
+    }
+    for $color in ['[1.0,2,3]', '["1",2,3]', '1', '()']
+    {
+        for $function in ["color", "bk_color"]
+        {
+            let $source = $import + "echo (${function} ${color} \"bad\")"
+            terminal_color_case $force false $source "" "Expected String | [Integer]"
+        }
+    }
+    for $function in ["bold", "dim", "italic", "underline", "reverse", "strikethrough"]
+    {
+        let $source = $import + "echo (${function} \"plain\" \"text\")"
+        terminal_color_case $force false $source "plain text\n" ""
+        terminal_color_case $force false ($import + "echo (${function})") "\n" ""
+        terminal_color_case $force false ($import + "echo (${function} 7)") "" "Expected String"
+    }
+}
+terminal_color_case "3" false ($import + 'echo (bk_color "bad" "text")') "" "Color must be"
+terminal_color_case "3" false ($import + 'echo (bk_color "#00d2be" 7)') "" "Expected String"
+terminal_color_case "3" false ($import + 'echo (color "#00d2be" 7)') "" "Expected String"
+terminal_color_case "3" false 'echo (__terminal_color "#00d2be" ["hidden"])' "" "Executable not found"
+terminal_color_case "3" false 'echo (__terminal_style "bold" ["hidden"])' "" "Executable not found"
+terminal_color_case "3" false 'echo (color "#00d2be" "not imported")' "" "Executable not found"

@@ -1,7 +1,8 @@
 
 use reedline::Color;
 
-use crate::{ language::analysis::highlight::HighlightKind, runtime::color::TtyColorMode };
+use crate::{ language::analysis::highlight::HighlightKind,
+             runtime::color::{ TtyColorMode, basic_color, nearest_color } };
 
 
 pub const COLOR_COUNT: usize = HighlightKind::Error as usize + 1;
@@ -79,74 +80,12 @@ fn foreground(value: &str, mode: TtyColorMode) -> Option<Option<Color>>
     Some(match mode
         {
             TtyColorMode::TtyMonochrome => None,
-            TtyColorMode::TtyBasic => Some(nearest(color, 16)),
+            TtyColorMode::TtyBasic => Some(nearest_color(color, 16)),
             TtyColorMode::Tty256 => Some(match color
                 {
-                    Color::Rgb(..) => nearest(color, 256),
+                    Color::Rgb(..) => nearest_color(color, 256),
                     color => color,
                 }),
             TtyColorMode::TtyTrueColor => Some(color),
         })
-}
-
-
-fn basic_color(index: u8) -> Color
-{
-    match index
-    {
-        0 => Color::Black, 1 => Color::Red, 2 => Color::Green, 3 => Color::Yellow,
-        4 => Color::Blue, 5 => Color::Purple, 6 => Color::Cyan, 7 => Color::White,
-        8 => Color::DarkGray, 9 => Color::LightRed, 10 => Color::LightGreen,
-        11 => Color::LightYellow, 12 => Color::LightBlue, 13 => Color::LightPurple,
-        14 => Color::LightCyan, _ => Color::LightGray,
-    }
-}
-
-
-fn rgb(index: u8) -> (u8, u8, u8)
-{
-    const BASIC: [(u8, u8, u8); 16] = [
-            (0, 0, 0), (128, 0, 0), (0, 128, 0), (128, 128, 0),
-            (0, 0, 128), (128, 0, 128), (0, 128, 128), (192, 192, 192),
-            (128, 128, 128), (255, 0, 0), (0, 255, 0), (255, 255, 0),
-            (0, 0, 255), (255, 0, 255), (0, 255, 255), (255, 255, 255),
-        ];
-    if index < 16 { return BASIC[index as usize]; }
-    if index >= 232 { let gray = 8 + (index - 232) * 10; return (gray, gray, gray); }
-    let index = index - 16;
-    let levels = [0, 95, 135, 175, 215, 255];
-    (levels[(index / 36) as usize], levels[(index / 6 % 6) as usize], levels[(index % 6) as usize])
-}
-
-
-fn nearest(color: Color, count: u16) -> Color
-{
-    let wanted = match color
-        {
-            Color::Rgb(red, green, blue) => (red, green, blue),
-            Color::Fixed(index) => rgb(index),
-            color => return color,
-        };
-    let chromatic = wanted.0.max(wanted.1).max(wanted.2)
-        - wanted.0.min(wanted.1).min(wanted.2) > 32;
-    let index = (0..count).filter(|index|
-        count != 16 || !chromatic || !matches!(*index, 0 | 7 | 8 | 15)).min_by_key(|index|
-        {
-            let candidate = rgb(*index as u8);
-            let delta = |left: u8, right: u8| (left as i32 - right as i32).pow(2);
-            delta(wanted.0, candidate.0) + delta(wanted.1, candidate.1)
-                + delta(wanted.2, candidate.2)
-        }).unwrap() as u8;
-    if count == 16 { basic_color(index) } else { Color::Fixed(index) }
-}
-
-pub(crate) fn adapt_color(color: Color, mode: TtyColorMode) -> Option<Color>
-{
-    match mode
-    {
-        TtyColorMode::TtyMonochrome => None,
-        TtyColorMode::TtyBasic => Some(nearest(color, 16)),
-        TtyColorMode::Tty256 => Some(nearest(color, 256)),
-        TtyColorMode::TtyTrueColor => Some(color),
-    }
 }

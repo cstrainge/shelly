@@ -7,9 +7,63 @@ use std::{ env,
 
 use crossterm::{ event::{ Event, KeyCode, KeyEvent, KeyModifiers }, terminal::window_size };
 
-use libc::{ FIONREAD, ICANON, POLLIN, STDIN_FILENO, TCSANOW, VEOL, VEOL2, VEOF,
+use libc::{ FIONREAD, ICANON, ISIG, POLLIN, STDIN_FILENO, STDOUT_FILENO, TCSANOW,
+            VEOL, VEOL2, VEOF,
             VERASE, VKILL, _POSIX_VDISABLE, cfmakeraw, getpgrp, ioctl,
-            poll, pollfd, read, tcgetattr, tcgetpgrp, tcsetattr, termios };
+            fstat, poll, pollfd, read, tcgetattr, tcgetpgrp, tcsetattr, termios };
+
+
+// Read dimensions without crossterm::size's external tput fallback.
+pub(crate) fn term_size() -> Option<(u16, u16)>
+{
+    if !stdout().is_terminal() { return None; }
+    let size = window_size().ok()?;
+    (size.rows > 0 && size.columns > 0).then_some((size.rows, size.columns))
+}
+
+
+pub(crate) fn cursor_position(input: &mut Vec<Event>) -> Option<(u16, u16)>
+{
+    if !stdin().is_terminal() || !stdout().is_terminal() { return None; }
+    if unsafe { tcgetpgrp(STDIN_FILENO) } != unsafe { getpgrp() } { return None; }
+    let mut input_stat = MaybeUninit::uninit();
+    let mut output_stat = MaybeUninit::uninit();
+    // The reply must arrive on the same terminal that receives the query.
+    if    unsafe { fstat(STDIN_FILENO, input_stat.as_mut_ptr()) } != 0
+       || unsafe { fstat(STDOUT_FILENO, output_stat.as_mut_ptr()) } != 0
+       || unsafe { input_stat.assume_init() }.st_rdev
+            != unsafe { output_stat.assume_init() }.st_rdev
+    { return None; }
+    let mut pending = 0;
+    if unsafe { ioctl(STDIN_FILENO, FIONREAD as _, &mut pending) } != 0 || pending != 0
+    { return None; }
+    let mut original = MaybeUninit::<termios>::uninit();
+    if unsafe { tcgetattr(STDIN_FILENO, original.as_mut_ptr()) } != 0 { return None; }
+    let original = unsafe { original.assume_init() };
+    let mut query_mode = original;
+    unsafe { cfmakeraw(&mut query_mode); }
+    // Leave partial replies in the kernel on timeout and preserve terminal interrupts.
+    query_mode.c_lflag |= ICANON | ISIG;
+    for control in [VEOF, VEOL2, VERASE, VKILL]
+    { query_mode.c_cc[control] = _POSIX_VDISABLE; }
+    query_mode.c_cc[VEOL] = b'R';
+    if unsafe { tcsetattr(STDIN_FILENO, TCSANOW, &query_mode) } != 0 { return None; }
+    let _mode = TerminalMode(original);
+    let mut output = stdout().lock();
+    output.write_all(b"\x1b[6n").and_then(|_| output.flush()).ok()?;
+    drop(output);
+    let deadline = Instant::now() + Duration::from_millis(250);
+    // If a keystroke arrives first, preserve it and leave the remaining input for the editor.
+    let reply = read_reply(deadline, input)?;
+    if !reply.starts_with(b"\x1b[") || reply.last() != Some(&b'R') { return None; }
+    let parameters = from_utf8(&reply[2..reply.len() - 1]).ok()?;
+    let parameters = parameters.strip_prefix('?').unwrap_or(parameters);
+    let mut parts = parameters.split(';');
+    let row = parts.next()?.parse::<u16>().ok()?;
+    let column = parts.next()?.parse::<u16>().ok()?;
+    if row == 0 || column == 0 || parts.next().is_some() { return None; }
+    Some((row, column))
+}
 
 #[derive(Default)]
 pub struct TerminalCapabilities
@@ -239,11 +293,11 @@ fn read_reply(deadline: Instant, input: &mut Vec<Event>) -> Option<Vec<u8>>
         response.push(byte);
         if response.starts_with(b"\x1b[?")
         {
-            if byte == b'c' { break; }
+            if byte == b'c' || byte == b'R' { break; }
         }
         else if response.starts_with(b"\x1b[6;")
         {
-            if byte == b't' { break; }
+            if byte == b't' || byte == b'R' { break; }
         }
         else if response.len() >= 3 && (0x40..=0x7e).contains(&byte) { break; }
         if response.len() == 2 && byte != b'[' && byte != b'O'
@@ -263,7 +317,8 @@ fn read_reply(deadline: Instant, input: &mut Vec<Event>) -> Option<Vec<u8>>
             break;
         }
     }
-    if response.starts_with(b"\x1b[?") || response.starts_with(b"\x1b[6;")
+    if    response.starts_with(b"\x1b[?") || response.starts_with(b"\x1b[6;")
+       || (response.starts_with(b"\x1b[") && response.last() == Some(&b'R'))
     { Some(response) }
     else
     {

@@ -1,0 +1,43 @@
+# Raw PTY output proves that non-color attributes survive monochrome mode.
+let $import = 'import std::terminal::{ color, bk_color, bold, dim, italic, underline, reverse, strikethrough }; '
+for ($force, $mono, $foreground, $background) in [
+    ["0", false, "", ""], ["1", false, "\x1b[96m", "\x1b[106m"],
+    ["2", false, "\x1b[38;5;43m", "\x1b[48;5;43m"],
+    ["3", false, "\x1b[38;2;0;210;190m", "\x1b[48;2;0;210;190m"],
+    ["3", true, "", ""],
+]
+{
+    let $source = $import + 'echo (is_tty); '
+    let $expected = "true\n"
+    for ($function, $code, $reset) in [["bold", 1, 22], ["dim", 2, 22], ["italic", 3, 23],
+                                      ["underline", 4, 24], ["reverse", 7, 27],
+                                      ["strikethrough", 9, 29]]
+    {
+        $source = $source + "echo (${function} \"λ\" \"\" \"text\"); "
+        $source = $source + "echo (${function}); echo (${function} \"\"); "
+        $expected = $expected + "\x1b[${code}mλ  text\x1b[${reset}m\n\n\n"
+    }
+    # Closing a foreground, background, or underline must not clear the other attributes.
+    $source = $source + 'echo (bk_color "#00d2be" (bold (underline (color "#00d2be" "nested"))))'
+    let $fg_reset = if $foreground == "" { "" } else { "\x1b[39m" }
+    let $bg_reset = if $background == "" { "" } else { "\x1b[49m" }
+    $expected = $expected + "${background}\x1b[1m\x1b[4m${foreground}nested${fg_reset}\x1b[24m\x1b[22m${bg_reset}\n"
+    let $flags = if $mono { ["-m"] } else { [] }
+    let $terminal = open_terminal [`$shelly, $flags..., "-c", $source] [
+        "cwd": $args[0], "env": ["HOME": $args[0], "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "bundled", "TERM": "dumb", "LANG": "C.UTF-8",
+            "FORCE_COLOR": $force], "rows": 40, "columns": 140]
+    let $raw = ""
+    let $eof = false
+    for _ in 0..50
+    {
+        let $reply = terminal_read $terminal 100
+        $raw = $raw + $reply["text"]
+        if $reply["eof"] { $eof = true; break }
+    }
+    require $eof "terminal styling child did not exit"
+    let $status = terminal_close $terminal
+    if (($raw.replace "\r\n" "\n") != $expected) || ($status["exit_code"] != 0)
+    { echo $force $mono $status $raw $expected; fail "terminal style output differs" }
+    require ($status["signal"] == ()) "terminal styling child was signalled"
+}

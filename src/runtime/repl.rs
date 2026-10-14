@@ -1,6 +1,7 @@
 
 use std::{ borrow::Cow,
            collections::{ BTreeMap, BTreeSet, VecDeque },
+           mem::take,
            sync::{ Arc, Mutex, atomic::{ AtomicBool, Ordering } },
            process::ExitCode,
            path::{ Path, PathBuf },
@@ -465,7 +466,7 @@ struct ShellyEditMode
     emacs: Emacs,
     previous_tab: bool,
     multiline: Arc<AtomicBool>,
-    startup_keys: VecDeque<ReedlineRawEvent>,
+    startup_keys: Arc<Mutex<VecDeque<ReedlineRawEvent>>>,
 }
 
 impl ShellyEditMode
@@ -511,9 +512,10 @@ impl EditMode for ShellyEditMode
 {
     fn parse_event(&mut self, event: ReedlineRawEvent) -> ReedlineEvent
     {
-        if self.startup_keys.is_empty() { return self.parse_key(event); }
+        let mut pending = take(&mut *self.startup_keys.lock().unwrap());
+        if pending.is_empty() { return self.parse_key(event); }
         let mut events = Vec::new();
-        while let Some(key) = self.startup_keys.pop_front()
+        while let Some(key) = pending.pop_front()
         { events.push(self.parse_key(key)); }
         events.push(self.parse_key(event));
         ReedlineEvent::Multiple(events)
@@ -583,7 +585,7 @@ impl Repl
 
         let mut startup_mode = Emacs::new(keybindings.clone());
         let mut startup_input = VecDeque::new();
-        let mut startup_keys = VecDeque::new();
+        let startup_keys = Arc::new(Mutex::new(VecDeque::new()));
         for event in self.interpreter.take_startup_input()
         {
             let Ok(key) = ReedlineRawEvent::try_from(event.clone()) else { continue; };
@@ -596,7 +598,7 @@ impl Repl
                 _ =>
                     {
                         if let Ok(key) = ReedlineRawEvent::try_from(event)
-                        { startup_keys.push_back(key); }
+                        { startup_keys.lock().unwrap().push_back(key); }
                     },
             }
         }
@@ -620,7 +622,7 @@ impl Repl
                     emacs: Emacs::new(keybindings),
                     previous_tab: false,
                     multiline: multiline.clone(),
-                    startup_keys,
+                    startup_keys: startup_keys.clone(),
                 }));
         drop(initialization);
 
@@ -674,6 +676,19 @@ impl Repl
                     });
 
             // A key typed during the capability query precedes the keys still in the TTY.
+            // Runtime cursor queries can also preserve keys after the REPL has started.
+            for event in self.interpreter.take_startup_input()
+            {
+                let Ok(key) = ReedlineRawEvent::try_from(event.clone()) else { continue; };
+                let Ok(raw) = ReedlineRawEvent::try_from(event) else { continue; };
+                let parsed = startup_mode.parse_event(key);
+                match parsed
+                {
+                    ReedlineEvent::Edit(_) | ReedlineEvent::Enter | ReedlineEvent::CtrlC
+                        | ReedlineEvent::CtrlD => startup_input.push_back(parsed),
+                    _ => startup_keys.lock().unwrap().push_back(raw),
+                }
+            }
             let mut startup_signal = None;
             let mut accept_startup = false;
             while let Some(event) = startup_input.pop_front()

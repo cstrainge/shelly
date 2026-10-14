@@ -6,7 +6,7 @@ use std::{
     io::{self, IsTerminal},
     path::PathBuf,
     sync::{
-        Arc, Mutex, OnceLock,
+        Arc, Mutex, MutexGuard, OnceLock, TryLockError,
         atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{self, SyncSender},
     },
@@ -27,7 +27,7 @@ use reedline::{
 
 use tokio::sync::{mpsc as asynchronous, oneshot};
 
-use crate::runtime::{color::TtyColorMode, history::ReplHistory};
+use crate::runtime::{color::{TtyColorMode, adapt_color}, history::ReplHistory};
 
 pub(crate) mod output;
 mod terminal;
@@ -41,6 +41,16 @@ pub(crate) fn mode_lock() -> std::sync::MutexGuard<'static, ()>
 {
     MODE.lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+pub(crate) fn try_mode_lock() -> Option<MutexGuard<'static, ()>>
+{
+    match MODE.try_lock()
+    {
+        Ok(guard) => Some(guard),
+        Err(TryLockError::Poisoned(error)) => Some(error.into_inner()),
+        Err(TryLockError::WouldBlock) => None,
+    }
 }
 
 pub(crate) fn editing() -> bool
@@ -133,10 +143,10 @@ impl Text
                     let mut style = *style;
                     style.foreground = style
                         .foreground
-                        .and_then(|color| crate::runtime::highlighting::adapt_color(color, mode));
+                        .and_then(|color| adapt_color(color, mode));
                     style.background = style
                         .background
-                        .and_then(|color| crate::runtime::highlighting::adapt_color(color, mode));
+                        .and_then(|color| adapt_color(color, mode));
                     style.paint(text).to_string()
                 }
             })
@@ -600,10 +610,10 @@ impl Highlighter for HighlightAdapter
         {
             style.foreground = style
                 .foreground
-                .and_then(|color| crate::runtime::highlighting::adapt_color(color, self.0.mode));
+                .and_then(|color| adapt_color(color, self.0.mode));
             style.background = style
                 .background
-                .and_then(|color| crate::runtime::highlighting::adapt_color(color, self.0.mode));
+                .and_then(|color| adapt_color(color, self.0.mode));
             result.push((Style::default(), text[offset..span.start].into()));
             result.push((style, text[span.start..span.end].into()));
             offset = span.end;

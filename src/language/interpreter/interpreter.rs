@@ -467,6 +467,11 @@ impl Interpreter
         take(&mut self.startup_input)
     }
 
+    pub(super) fn queue_terminal_input(&mut self, input: Vec<Event>)
+    {
+        self.startup_input.extend(input);
+    }
+
     pub(super) fn scope(&self) -> &Scope
     {
         self.scopes.get(&self.current_scope)
@@ -614,6 +619,15 @@ impl Interpreter
         );
         native_functions.insert("__get_env", NativeFunction::new(
             "__get_env", NativeVisibility::Hidden, Rc::new(Interpreter::handle_get_env)));
+        native_functions.insert("__terminal_color", NativeFunction::new(
+            "__terminal_color", NativeVisibility::Hidden,
+            Rc::new(Interpreter::handle_terminal_color)));
+        native_functions.insert("__terminal_style", NativeFunction::new(
+            "__terminal_style", NativeVisibility::Hidden,
+            Rc::new(Interpreter::handle_terminal_style)));
+        native_functions.insert("__terminal_control", NativeFunction::new(
+            "__terminal_control", NativeVisibility::Hidden,
+            Rc::new(Interpreter::handle_terminal_control)));
         native_functions.insert(
             "__test",
             NativeFunction::new(
@@ -910,7 +924,7 @@ impl Interpreter
                 let banner = if capabilities.iterm2 { iterm2_banner(&capabilities) } else { None }
                     .or_else(|| capabilities.sixel.then(|| sixel_banner(&capabilities)
                         .unwrap_or_else(|| BANNER_SIXEL.to_string())));
-                self.startup_input = capabilities.input;
+                self.startup_input.extend(capabilities.input);
                 banner
             }
             else
@@ -1327,7 +1341,8 @@ impl Interpreter
                 Code::TryExecute =>
                     {
                         let value = Self::pop(&location, &mut stack)?;
-                        if value.is_callable() || value.is_external()
+                        if    value.is_callable() || value.is_external()
+                           || matches!(instruction.operand, Some(Value::Boolean(true)))
                         {
                             self.execute_value(&location, value, Vec::new())?;
                             instruction_pointer += 1;
@@ -3794,12 +3809,16 @@ impl Interpreter
             matches!(value, Value::String(command, _) if matches!(command.as_str(),
                 "text" | "color" | "styled" | "concat" | "slice" | "words" | "draft"
                     | "history_status")));
-        let pure = http_metadata || readline_metadata
+        let terminal_metadata = function.name == "__terminal_control"
+            && matches!(args.first(), Some(Value::String(command, _)) if command == "size");
+        let pure = http_metadata || readline_metadata || terminal_metadata
             || matches!(
                 function.name,
                 "__json"
                     | "__env"
                     | "__get_env"
+                    | "__terminal_color"
+                    | "__terminal_style"
                     | "__json_bind"
                     | "__json_apply"
                     | "__http_apply"

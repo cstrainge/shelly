@@ -133,6 +133,7 @@ fn bind_known_function(block: &FunctionBlockRef, value: Value) -> Value
 enum ExpressionMode
 {
     Value,
+    Condition,
     BindMethod,
     Argument
 }
@@ -488,7 +489,9 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
             {
                 compile_expression_mode(instructions, function_block, inner,
                     if matches!(inner.kind, AstExpressionKind::Field(_, _, _))
-                    { ExpressionMode::BindMethod } else { ExpressionMode::Value })?;
+                    { ExpressionMode::BindMethod }
+                    else if mode == ExpressionMode::Condition { ExpressionMode::Condition }
+                    else { ExpressionMode::Value })?;
 
                 // Calls already execute, and nested groups handle their own value. Only a
                 // variable or string literal can supply an unevaluated executable reference.
@@ -614,7 +617,7 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                     {
                         location: None,
                         code: Code::TryExecute,
-                        operand: None
+                        operand: (mode == ExpressionMode::Condition).then_some(Value::Boolean(true))
                     });
                 return Ok(());
             },
@@ -698,7 +701,9 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
 
         AstExpressionKind::BooleanNot(inner) | AstExpressionKind::MathNegate(inner) =>
             {
-                compile_expression(instructions, function_block, inner)?;
+                compile_expression_mode(instructions, function_block, inner,
+                    if matches!(expression.kind, AstExpressionKind::BooleanNot(_))
+                    { ExpressionMode::Condition } else { ExpressionMode::Value })?;
                 instructions.push(Instruction
                     {
                         location: Some(expression.location.clone()),
@@ -711,9 +716,11 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
 
         AstExpressionKind::BooleanExpression(operator, lhs, rhs) =>
             {
-                compile_expression(instructions, function_block, lhs)?;
+                let logical = matches!(operator, AstBooleanOperator::And | AstBooleanOperator::Or);
+                compile_expression_mode(instructions, function_block, lhs,
+                    if logical { ExpressionMode::Condition } else { ExpressionMode::Value })?;
 
-                if matches!(operator, AstBooleanOperator::And | AstBooleanOperator::Or)
+                if logical
                 {
                     instructions.push(Instruction
                         {
@@ -732,7 +739,8 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                                 { Code::JumpIfFalse } else { Code::JumpIfTrue },
                             operand: Some(target.clone())
                         });
-                    compile_expression(instructions, function_block, rhs)?;
+                    compile_expression_mode(instructions, function_block, rhs,
+                                            ExpressionMode::Condition)?;
                     instructions.push(Instruction
                         {
                             location: Some(expression.location.clone()),
@@ -859,7 +867,7 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
 
     // Qualified names resolve after parsing, when the checker can distinguish
     // functions from enum variants. Apply the usual call rule only in value positions.
-    let qualified_call = mode == ExpressionMode::Value
+    let qualified_call = matches!(mode, ExpressionMode::Value | ExpressionMode::Condition)
         && matches!(&expression.kind, AstExpressionKind::Symbol(symbol)
             if symbol.name.contains("::") || symbol.name.starts_with("\0method:"));
     instructions.push(Instruction
@@ -1763,7 +1771,7 @@ fn compile_loop_statement(instructions: &mut Vec<Instruction>,
         });
     if let Some(condition) = condition
     {
-        compile_expression(instructions, function_block, condition)?;
+        compile_expression_mode(instructions, function_block, condition, ExpressionMode::Condition)?;
         instructions.push(Instruction
             {
                 location: location.clone(),
@@ -1924,7 +1932,8 @@ fn compile_if_expression(instructions: &mut Vec<Instruction>,
     for branch in &conditional.branches
     {
         let location = Some(branch.condition.location.clone());
-        compile_expression(instructions, function_block, &branch.condition)?;
+        compile_expression_mode(instructions, function_block, &branch.condition,
+                                ExpressionMode::Condition)?;
         instructions.push(Instruction
             {
                 location: location.clone(),
