@@ -58,7 +58,7 @@ for ($term, $color_term, $mono, $no_color, $grey, $cyan) in [
     {
         let $raw = widget_raw_submit $terminal $source
         require ($raw.contains $expected) "wrong widget colors or foreground reset"
-        require (!(($raw.contains "Error processing text:"))) "widget prompt failed"
+        require (!(($raw.contains "Interpreter error at "))) "widget prompt failed"
         require ((strip_ansi $raw).contains "\n[first][λ] tail\n") "widget text changed"
     }
     for ($source, $color) in [
@@ -71,7 +71,7 @@ for ($term, $color_term, $mono, $no_color, $grey, $cyan) in [
         let $expected = "${grey}[${contents}first${grey}]${reset}${grey}[${contents}λ${grey}]${reset} tail\n"
         let $raw = widget_raw_submit $terminal $source
         require ($raw.contains $expected) "widget color override ignored or leaked into brackets"
-        require (!($raw.contains "Error processing text:")) "widget color assignment failed"
+        require (!($raw.contains "Interpreter error at ")) "widget color assignment failed"
     }
     let $raw = widget_raw_submit $terminal '$widget_color = 7'
     require ((strip_ansi $raw).contains "Expected String") "non-string widget color accepted"

@@ -108,11 +108,11 @@ fn repl_matches($kind: String, $expected: String, $output: String): Boolean
 {
     if ($output.contains "panicked at") || ($output.contains "stack overflow") { return false }
     let $lines = "\n${output}"
-    let $error = $lines.contains "\nError processing text:"
+    let $error = $lines.contains "\nInterpreter error at "
     if $kind == "error"
     {
         if !$error { return false }
-        let $diagnostic = ($lines.split "\nError processing text:")[1]
+        let $diagnostic = ($lines.split "\nInterpreter error at ")[1]
         return $diagnostic.contains $expected
     }
     if $error { return false }
@@ -348,7 +348,7 @@ fn banner_case_graphics($fixture: String, $response: String, $options: [String],
         let $visible = if $expect_sixel || $expect_iterm2 { $raw.replace "\r" "" } else { strip_ansi $raw }
         require ($visible.contains $marker) "lost startup input or banner override: $marker"
     }
-    require (!($raw.contains "Error processing text:")) "capability reply leaked into source"
+    require (!($raw.contains "Interpreter error at ")) "capability reply leaked into source"
     # A real command and Ctrl+D prove that the terminal mode was restored.
     let $command = submit $terminal "echo mode-restored"
     require ($command["output"].contains "\nmode-restored\n") "terminal mode not restored"

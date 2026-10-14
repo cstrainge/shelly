@@ -24,11 +24,11 @@ let $paste_end = "\x1b[201~"
 let _ = edit_keys $terminal "${paste_start}fn multiline_value()${paste_end}"
 let $output = edit_keys $terminal $ctrl_enter
 require (!($output.contains "[multiline]")) "mode toggle changed prompt alignment"
-require (!($output.contains "Error processing text:")) "toggle submitted incomplete text"
+require (!($output.contains "Interpreter error at ")) "toggle submitted incomplete text"
 for $line in ["{", "42", "}"]
 {
     let $output = edit_keys $terminal "\r${paste_start}${line}${paste_end}"
-    require (!($output.contains "Error processing text:")) "Enter submitted multiline buffer"
+    require (!($output.contains "Interpreter error at ")) "Enter submitted multiline buffer"
 }
 terminal_write $terminal $ctrl_enter
 let $reply = drain $terminal

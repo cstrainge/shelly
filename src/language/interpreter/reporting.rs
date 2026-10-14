@@ -437,7 +437,7 @@ impl Interpreter
         let previous = self
             .exceptions
             .report_prefix
-            .replace("Error processing text: ".into());
+            .replace("".into());
         self.report_uncaught(error);
         self.exceptions.report_prefix = previous;
     }

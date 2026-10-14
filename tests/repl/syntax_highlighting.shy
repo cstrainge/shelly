@@ -61,7 +61,7 @@ terminal_write $terminal "\x03"
 let _ = drain $terminal
 let $raw = syntax_edit $terminal "${paste_start}echo \"hi \${missing_value}\"${paste_end}"
 require ($raw.contains "\x1b[38;2;255;205;110m\${missing_value}") "string variable styling missing"
-require (!((strip_ansi $raw).contains "Error processing text:")) "interpolation was evaluated"
+require (!((strip_ansi $raw).contains "Interpreter error at ")) "interpolation was evaluated"
 terminal_write $terminal "\x03"
 let _ = drain $terminal
 
