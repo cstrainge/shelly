@@ -304,6 +304,13 @@ pub fn Array::unique(): [$self.value_type]
 }
 
 
+# Combine this array with another array and return the results as a new array.
+pub fn Array::combine($other: [$self.value_type]): [$self.value_type]
+{
+    [$self..., $other...]
+}
+
+
 # Let the array be treated as a stack, push a new item to the beginning of the array.
 pub fn Array::push($value: $self.value_type)
 {
@@ -315,13 +322,6 @@ pub fn Array::push($value: $self.value_type)
 pub fn Array::push_many($values: $self.value_type...)
 {
     $self = [$values.reverse..., $self...]
-}
-
-
-# Combine this array with another array and return the results as a new array.
-pub fn Array::combine($other: [$self.value_type]): [$self.value_type]
-{
-    [$self..., $other...]
 }
 
 
@@ -337,6 +337,18 @@ pub fn Array::pop(): $self.value_type | ()
     $self = $self[1..]
 
     $item
+}
+
+
+# Peek at the item at the top of the stack without removing it. Returns () if the stack is empty.
+pub fn Array::peek(): $self.value_type | ()
+{
+    if $self.empty
+    {
+        return ()
+    }
+
+    $self[0]
 }
 
 
