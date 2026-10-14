@@ -34,8 +34,9 @@ impl Interpreter
                 {
                     return Err(mismatch(format!("__test {flag} expects a path string")));
                 };
+                // Variable reads shorten home paths; resolve them as other filesystem APIs do.
                 // metadata follows symlinks, matching test -d/-f/-e.
-                match std::fs::metadata(path)
+                match std::fs::metadata(self.eval_path_from(path))
                 {
                     Ok(metadata) => match flag.as_str()
                     {

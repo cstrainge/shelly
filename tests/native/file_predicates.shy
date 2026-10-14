@@ -1,0 +1,40 @@
+# File predicates resolve home-shortened paths even after passing through script bindings.
+let $fixture = $args[0]
+let $suite = $args[1]
+mkdir -p -- "${fixture}/home/λ directory" "${fixture}/home-neighbor"
+printf "%s" "fixture" -> "${fixture}/home/λ file"
+ln -s -- "λ directory" "${fixture}/home/directory-link"
+ln -s -- "λ file" "${fixture}/home/file-link"
+ln -s -- "missing" "${fixture}/home/broken-link"
+
+fn predicate_case($source: String, $library: String)
+{
+    let $fixture = $args[0]
+    let $source = 'fn ensure($ok: Boolean) { if !$ok { exit 23 } }; ' + $source
+    let $result = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture,
+        "env": ["HOME": "${fixture}/home", "PATH": "${fixture}/no-executables",
+            "SHELLY_STD_PATH": $library],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/predicate.out",
+        "stderr_file": "${fixture}/predicate.err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/predicate.out" -> $out
+    "${fixture}/predicate.err" -> $err
+    if    ($result["exit_code"] != 0) || ($result["error"] != ())
+       || ($result["signal"] != ()) || $result["timed_out"] || ($out != "") || ($err != "")
+    { echo $source $result $out $err; fail "file predicate mismatch" }
+}
+
+for $library in ["bundled", "${suite}/std"]
+{
+    # A script parameter read shortens the absolute path before the native helper sees it.
+    predicate_case 'ensure (dir_exists "${HOME}/λ directory"); ensure (dir_exists $HOME); ensure (file_exists "${HOME}/λ file")' $library
+    predicate_case 'let $directory = "${HOME}/λ directory"; let $file = "${HOME}/λ file"; ensure (dir_exists $directory); ensure (file_exists $file); ensure !(file_exists $directory); ensure !(dir_exists $file)' $library
+    predicate_case 'let type $PATH = [String]; $PATH = ["${HOME}/λ directory", "${HOME}/λ directory", $PATH...].unique; ensure ($PATH.count == 2); ensure (dir_exists $PATH[0])' $library
+    predicate_case 'for $path in ["${HOME}/λ directory"] { ensure (dir_exists $path) }; ensure (dir_exists "home/λ directory"); ensure (file_exists "home/λ file")' $library
+    predicate_case 'ensure (dir_exists "${HOME}/directory-link"); ensure (file_exists "${HOME}/file-link"); ensure !(dir_exists "${HOME}/broken-link"); ensure !(file_exists "${HOME}/broken-link")' $library
+    predicate_case 'ensure !(dir_exists "${HOME}/missing"); ensure !(file_exists "${HOME}/missing"); ensure !(dir_exists ""); ensure !(file_exists "")' $library
+    predicate_case "ensure (dir_exists \"${fixture}/home-neighbor\"); ensure !(dir_exists \"~someone\"); ensure !(dir_exists \"prefix~/missing\")" $library
+    predicate_case 'visible `__test; let $directory = "${HOME}/λ directory"; let $file = "${HOME}/λ file"; ensure (__test "-d" $directory); ensure (__test "-f" $file); ensure (__test "-e" $directory); ensure (__test "-e" $file); ensure !(__test "-e" "${HOME}/broken-link")' $library
+}

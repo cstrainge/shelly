@@ -89,6 +89,8 @@ availability in the user's init file before the first prompt.
 
 `native/typed_environment.shy` checks `let type`, prelude colon conversions, export
 status, collection mutations, all process-launch APIs, and conversion failures.
+`native/file_predicates.shy` checks native directory/file tests with home-shortened
+bindings, typed PATH entries, relative paths, missing paths, and symlinks.
 `repl/typed_environment.shy` checks live closures, inherited module environments,
 retained method versions, and recovery after failed retyping across submissions.
 The conversion-protocol and pipeline tests cover source-side `to_<type>` methods,
