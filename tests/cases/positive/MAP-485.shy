@@ -1,7 +1,7 @@
 # MAP-485: key equality / (/usr/bin/false) / `ref
 check ["id": "MAP-485",
     "name": "key equality / (/usr/bin/false) / `ref",
-    "source": "let \$m = [(/usr/bin/false):7]; echo \$m[`ref]",
+    "source": "fn ref() { exit 91 }; let \$m = [(/usr/bin/false):7]; echo \$m[`ref]",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

@@ -1,7 +1,7 @@
-# C076: Unknown bare value falls back to string
+# C076: Quoted command name remains a string
 check ["id": "C076",
-    "name": "Unknown bare value falls back to string",
-    "source": "let \$x = shelly_audit_unknown ; echo \$x",
+    "name": "Quoted command name remains a string",
+    "source": "let \$x = \"shelly_audit_unknown\" ; echo \$x",
     "mode": "code",
     "args": [],
     "stdout": "shelly_audit_unknown\n",

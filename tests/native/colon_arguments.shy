@@ -2,6 +2,8 @@
 let $fixture = $args[0]
 printf "%s\n%s\n" "#!${shelly}" '/usr/bin/printf "<%s>\\n" $args...' -> "${fixture}/bin/npm"
 chmod +x "${fixture}/bin/npm"
+printf "%s\n%s\n" "#!${shelly}" '/usr/bin/printf "<%s>\\n" $args...' -> "${fixture}/bin/git"
+chmod +x "${fixture}/bin/git"
 
 fn colon_case($source: String, $expected: String)
 {
@@ -22,6 +24,9 @@ colon_case 'npm run publish:marketplace' "<run>\n<publish:marketplace>\n"
 colon_case 'npm run "publish:marketplace"' "<run>\n<publish:marketplace>\n"
 colon_case 'npm publish:marketplace:test host:22 01:02 let:false' "<publish:marketplace:test>\n<host:22>\n<01:02>\n<let:false>\n"
 colon_case 'npm arg:value host:/tmp/file https://example.com:8080/a' "<arg:value>\n<host:/tmp/file>\n<https://example.com:8080/a>\n"
+colon_case 'git clone https://github.com/cstrainge/shelly.wiki.git ./wiki' "<clone>\n<https://github.com/cstrainge/shelly.wiki.git>\n<./wiki>\n"
+colon_case 'git clone "https://github.com/cstrainge/shelly.wiki.git" ./wiki' "<clone>\n<https://github.com/cstrainge/shelly.wiki.git>\n<./wiki>\n"
+colon_case 'alias clone_wiki = git clone https://github.com/cstrainge/shelly.wiki.git; clone_wiki ./wiki' "<clone>\n<https://github.com/cstrainge/shelly.wiki.git>\n<./wiki>\n"
 colon_case 'npm é:猫 a:b c:d' "<é:猫>\n<a:b>\n<c:d>\n"
 colon_case 'npm publish : marketplace' "<publish>\n<:>\n<marketplace>\n"
 colon_case 'fn count($args: any...): Integer { $args.count }; echo (count a:b:c host:22)' "2\n"

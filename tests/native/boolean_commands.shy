@@ -54,7 +54,7 @@ for $source in [
     boolean_command_case $source "" "Executable not found: shelly_missing_condition_command."
 }
 boolean_command_case 'if false && shelly_missing_condition_command { echo BAD } else { echo SAFE }; if true || shelly_missing_condition_command { echo SAFE }' "SAFE\nSAFE\n" ""
-boolean_command_case 'let $word = shelly_missing_condition_command; if $word { echo VALUE }; if "shelly_missing_condition_command" { echo QUOTED }; if shelly_missing_condition_command == shelly_missing_condition_command { echo TEXT }; echo shelly_missing_condition_command' "VALUE\nQUOTED\nTEXT\nshelly_missing_condition_command\n" ""
+boolean_command_case 'let $word = "shelly_missing_condition_command"; if $word { echo VALUE }; if "shelly_missing_condition_command" { echo QUOTED }; if shelly_missing_condition_command == shelly_missing_condition_command { echo TEXT }; echo shelly_missing_condition_command' "VALUE\nQUOTED\nTEXT\nshelly_missing_condition_command\n" ""
 boolean_command_case 'enum Choice { First }; if Choice::First && true { echo ENUM }; let $value = 7; if $value.type == Integer && $value == 7 { echo TYPE }' "ENUM\nTYPE\n" ""
 boolean_command_case 'fn check($value: Integer): Boolean { true }; if check && true { echo BAD }' "" "expected 1 arguments, but got 0"
 boolean_command_case 'fn explode(): Boolean { let $zero = 0; let _ = 1 / $zero; false }; if explode && true { echo BAD }' "" "zero"

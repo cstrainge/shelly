@@ -1423,14 +1423,16 @@ impl Interpreter
                                 )
                             ));
                         }
-                        self.last_result = Some(match value
+                        let value = match value
                             {
                                 value if value.is_callable() || value.is_external() =>
                                         value,
                                 value =>
                                     self.bind_executable(
                                         Value::from_executable_string(value.as_text()))
-                            });
+                            };
+                        self.validate_executable_reference(&location, &value)?;
+                        self.last_result = Some(value);
                     },
 
                 Code::ExecuteIfExecutable =>
@@ -3533,6 +3535,48 @@ impl Interpreter
             return Ok(true);
         }
 
+        self.external_exists(location, executable)
+    }
+
+    // Creating a reference checks its target without calling it. Bound methods and
+    // functions retain their identities; external names still use PATH when called.
+    fn validate_executable_reference(&mut self, location: &Location, value: &Value)
+        -> InterpreterResult<()>
+    {
+        if value.is_callable() { return Ok(()); }
+        let external = value.is_external();
+        let name = value.as_text();
+        let (name, _, home) = if external
+            { (name, Vec::new(), self.current_scope.clone()) }
+            else { self.resolve_alias(location, &name)? };
+        let caller = replace(&mut self.current_scope, home);
+        let result = (||
+            {
+                // Hidden registrations remain valid inputs to visible, without binding
+                // their implementations into modules that have not exposed them.
+                if    !external
+                   && (self.module_native_function(&name).is_some()
+                       || self.module_function(&name).is_some()
+                       || self.native_functions.contains_key(name.as_str()))
+                { return Ok(()); }
+                if    !external && name.contains("::")
+                   && self.scope().types.module_names
+                        .contains(name.split("::").next().unwrap())
+                {
+                    return Err(InterpreterError::new(location.clone(), ErrorWhat::ModuleError(
+                        format!("Module function '{}' is unavailable", name))));
+                }
+                if self.external_exists(location, &name)? { return Ok(()); }
+                Err(InterpreterError::new(location.clone(),
+                    ErrorWhat::ExecutableNotFound(self.eval_path_to(&name))))
+            })();
+        self.current_scope = caller;
+        result
+    }
+
+    fn external_exists(&mut self, location: &Location, executable: &str)
+        -> InterpreterResult<bool>
+    {
         let is_executable = |path: &Path|
             {
                 let Ok(metadata) = path.metadata() else { return false; };

@@ -133,6 +133,7 @@ fn bind_known_function(block: &FunctionBlockRef, value: Value) -> Value
 enum ExpressionMode
 {
     Value,
+    Initializer,
     Condition,
     BindMethod,
     Argument
@@ -490,7 +491,8 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                 compile_expression_mode(instructions, function_block, inner,
                     if matches!(inner.kind, AstExpressionKind::Field(_, _, _))
                     { ExpressionMode::BindMethod }
-                    else if mode == ExpressionMode::Condition { ExpressionMode::Condition }
+                    else if matches!(mode, ExpressionMode::Condition | ExpressionMode::Initializer)
+                    { mode }
                     else { ExpressionMode::Value })?;
 
                 // Calls already execute, and nested groups handle their own value. Only a
@@ -606,7 +608,10 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
 
         AstExpressionKind::TryExecute(command) =>
             {
-                compile_expression(instructions, function_block, command)?;
+                // Resolve the reference first, so qualified names are not called twice.
+                compile_expression_mode(instructions, function_block, command,
+                                        ExpressionMode::BindMethod)?;
+                // Conditions and let initializers require a command, without a text fallback.
                 instructions.push(Instruction
                     {
                         location: Some(expression.location.clone()),
@@ -617,7 +622,9 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
                     {
                         location: None,
                         code: Code::TryExecute,
-                        operand: (mode == ExpressionMode::Condition).then_some(Value::Boolean(true))
+                        operand: matches!(mode,
+                            ExpressionMode::Condition | ExpressionMode::Initializer)
+                            .then_some(Value::Boolean(true))
                     });
                 return Ok(());
             },
@@ -867,15 +874,27 @@ fn compile_expression_mode(instructions: &mut Vec<Instruction>,
 
     // Qualified names resolve after parsing, when the checker can distinguish
     // functions from enum variants. Apply the usual call rule only in value positions.
-    let qualified_call = matches!(mode, ExpressionMode::Value | ExpressionMode::Condition)
+    let qualified_call = matches!(mode,
+        ExpressionMode::Value | ExpressionMode::Condition | ExpressionMode::Initializer)
         && matches!(&expression.kind, AstExpressionKind::Symbol(symbol)
             if symbol.name.contains("::") || symbol.name.starts_with("\0method:"));
     instructions.push(Instruction
         {
             location: Some(expression.location.clone()),
             code: if qualified_call { Code::TryExecute } else { Code::PopResult },
-            operand: None
+            operand: (qualified_call && mode == ExpressionMode::Initializer)
+                .then_some(Value::Boolean(true))
         });
+    if matches!(&expression.kind, AstExpressionKind::Literal(AstLiteral
+        { value: Value::String(_, Executable::Yes) }))
+    {
+        instructions.push(Instruction
+            {
+                location: Some(expression.location.clone()),
+                code: Code::MakeExecutable,
+                operand: None,
+            });
+    }
     Ok(())
 }
 
@@ -1102,7 +1121,8 @@ fn compile_let_statement(
         return Ok(());
     }
     // Evaluate before changing the binding so self-reference and failed initializers are safe.
-    compile_expression(instructions, function_block, &let_statement.expression)?;
+    compile_expression_mode(instructions, function_block, &let_statement.expression,
+                            ExpressionMode::Initializer)?;
     instructions.push(Instruction
         {
             location: None,
@@ -1158,7 +1178,8 @@ fn compile_destructure_statement(instructions: &mut Vec<Instruction>,
                                  statement: &AstDestructureStatement) -> CompileResult<()>
 {
     // Unpack checks the complete shape before any declaration changes the enclosing scope.
-    compile_expression(instructions, function_block, &statement.expression)?;
+    compile_expression_mode(instructions, function_block, &statement.expression,
+                            ExpressionMode::Initializer)?;
     instructions.push(Instruction
         { location: None, code: Code::PushResult, operand: None });
     instructions.push(Instruction
@@ -2151,7 +2172,8 @@ fn compile_statements(
 
             AstStatement::DiscardStatement(expression) =>
                 {
-                    compile_expression(instructions, function_block, expression)?;
+                    compile_expression_mode(instructions, function_block, expression,
+                                            ExpressionMode::Initializer)?;
                     instructions.push(Instruction
                         { location: None, code: Code::PushResult, operand: None });
                     instructions.push(Instruction

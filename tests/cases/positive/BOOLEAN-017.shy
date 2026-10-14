@@ -1,7 +1,7 @@
 # BOOLEAN-017: let $r = `name; echo ($r == "name") (`name == "name")
 check ["id": "BOOLEAN-017",
     "name": "let \$r = `name; echo (\$r == \"name\") (`name == \"name\")",
-    "source": "let \$r = `name; echo (\$r == \"name\") (`name == \"name\")",
+    "source": "fn name() { exit 91 }; let \$r = `name; echo (\$r == \"name\") (`name == \"name\")",
     "mode": "code",
     "args": [],
     "stdout": "true true\n",

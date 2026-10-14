@@ -3,6 +3,9 @@
 `native/boolean_commands.shy` checks bare calls in logical expressions, negation,
 short-circuit order, loops, aliases, external commands, argument words and references.
 `repl/boolean_commands.shy` checks repeated calls, redefinitions and error recovery.
+`native/let_commands.shy` and `repl/let_commands.shy` check mandatory execution of
+bare command initializers, literal strings, runtime reference validation without
+calling targets, retained method/function bindings, and failed-declaration recovery.
 
 Run from the repository root with the binary being tested:
 
@@ -100,6 +103,8 @@ target-factory precedence, private receivers, and imported extensions.
 
 `native/colon_arguments.shy` verifies attached colons in command and alias words,
 argument counts, source metadata, and preservation of type and pipeline delimiters.
+It also checks the exact external argument boundaries of Git clone URLs.
+`repl/colon_arguments.shy` checks those URLs across interactive submissions and aliases.
 
 Every process case calls `check` with an explicit record:
 

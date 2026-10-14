@@ -74,7 +74,7 @@ C072	positive	Nested groups do not double call	tests/cases/positive/C072.shy
 C073	positive	Bare executable argument stays literal	tests/cases/positive/C073.shy
 C074	positive	Arguments evaluated in order once	tests/cases/positive/C074.shy
 C075	positive	Direct call result is not called again	tests/cases/positive/C075.shy
-C076	positive	Unknown bare value falls back to string	tests/cases/positive/C076.shy
+C076	positive	Quoted command name remains a string	tests/cases/positive/C076.shy
 C077	negative	Unknown explicit call fails	tests/cases/negative/C077.shy
 C078	negative	Missing function argument	tests/cases/negative/C078.shy
 C079	negative	Extra function argument	tests/cases/negative/C079.shy

@@ -1,7 +1,7 @@
 # NEWLINE-020: plain assignment then group
 check ["id": "NEWLINE-020",
     "name": "plain assignment then group",
-    "source": "let \$x = unknown_name\n(echo \$x)",
+    "source": "fn unknown_name(): String { \"unknown_name\" }; let \$x = unknown_name\n(echo \$x)",
     "mode": "code",
     "args": [],
     "stdout": "unknown_name\n",

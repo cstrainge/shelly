@@ -1,0 +1,15 @@
+check_repl ["id": "LET-COMMANDS", "exit": 0, "steps": [
+    ['let $calls = 0; fn foo(): Integer { $calls = $calls + 1; 7 }', "quiet", ""],
+    ['let $x = foo; echo $x $calls', "output", "7 1"],
+    ['let $word = "foo"; echo $word $calls', "output", "foo 1"],
+    ['let $x = shelly_missing_let_command', "error", "Executable not found: shelly_missing_let_command"],
+    ['echo $x $calls', "output", "7 1"],
+    ['let _ = shelly_missing_let_command', "error", "Executable not found: shelly_missing_let_command"],
+    ['let $reference = `foo; let $copy = $reference; echo ($copy) $calls', "output", "7 2"],
+    ['let $reference = `shelly_missing_reference', "error", "Executable not found: shelly_missing_reference"],
+    ['echo ($reference) $calls', "output", "7 3"],
+    ['let $name = "shelly_missing_reference"; let $bad = `$name', "error", "Executable not found: shelly_missing_reference"],
+    ['fn shelly_missing_reference(): Integer { 42 }; let $good = `shelly_missing_reference; echo ($good)', "output", "42"],
+    ['fn shelly_missing_reference(): Integer { 43 }; echo ($good)', "output", "42"],
+    ['fn foo(): Integer { 8 }; let $x = foo; echo $x', "output", "8"],
+]]

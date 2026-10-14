@@ -1,0 +1,13 @@
+# URL arguments retain their boundaries across separate REPL submissions.
+let $fixture = $args[0]
+printf "%s\n%s\n" "#!${shelly}" '/usr/bin/printf "<%s>\\n" $args...' -> "${fixture}/bin/git"
+chmod +x "${fixture}/bin/git"
+check_repl ["id": "URL-ARGUMENTS", "exit": 0, "steps": [
+    ['git clone https://github.com/cstrainge/shelly.wiki.git ./wiki', "output",
+        "<clone>\n<https://github.com/cstrainge/shelly.wiki.git>\n<./wiki>"],
+    ['git clone "https://github.com/cstrainge/shelly.wiki.git" ./wiki', "output",
+        "<clone>\n<https://github.com/cstrainge/shelly.wiki.git>\n<./wiki>"],
+    ['alias clone_wiki = git clone https://github.com/cstrainge/shelly.wiki.git', "quiet", ""],
+    ['clone_wiki ./wiki', "output",
+        "<clone>\n<https://github.com/cstrainge/shelly.wiki.git>\n<./wiki>"],
+]]

@@ -1,7 +1,7 @@
 # BOUNDARY-462: value pair / `word and "false"
 check ["id": "BOUNDARY-462",
     "name": "value pair / `word and \"false\"",
-    "source": "echo (`word == \"false\") (`word != \"false\") (`word && \"false\") (`word || \"false\")",
+    "source": "fn word() { exit 91 }; echo (`word == \"false\") (`word != \"false\") (`word && \"false\") (`word || \"false\")",
     "mode": "code",
     "args": [],
     "stdout": "false true true true\n",

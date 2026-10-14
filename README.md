@@ -472,6 +472,13 @@ echo $x                     # 512
 Variable names cannot contain `=`, including braced names and function parameters.
 Keep spaces around assignment `=`; adjacent `==` and `!=` remain comparisons.
 
+A bare command word in a `let` initializer always attempts execution:
+`let $x = foo` calls `foo`, and an unknown command is an error. Quote text to
+store it literally: `let $x = "foo"`. Command arguments keep their usual literal
+word behavior. Variable reads, type names, enum values, and explicit function
+references such as ``let $callback = `foo`` remain values. This also applies to
+typed, exported, discard, and destructuring declarations.
+
 Use `let _ = expression` to evaluate an expression once and discard its value
 without creating a variable. This also consumes a command's exit status, just as
 assigning it to a variable does; evaluation errors still propagate. Printed output
@@ -2058,7 +2065,8 @@ A bare name has different behavior depending on its context:
 | Form | Current behavior |
 | --- | --- |
 | `foo` as a statement | Call `foo` with no arguments; an unknown command errors. |
-| `let $x = foo` | Call it if it resolves to a function, builtin, alias, or executable; otherwise store the word as text. |
+| `let $x = foo` | Call `foo` with no arguments; an unknown command errors. |
+| `let $x = "foo"` | Store the literal string without executing it. |
 | `let $x = foo a b` | Call it with arguments; an unknown command errors. |
 | `echo foo` | Pass the literal word `foo`, even when it names a command. |
 | `echo (foo)` | Call `foo` with no arguments, then pass its result to `echo`. |
@@ -2070,7 +2078,10 @@ no closing backtick. For a known Shelly function, the reference retains that
 function's version, including its parameter and return constraints. Redefining
 the name does not change a previously stored reference. A visible native function
 also retains its registered identity, including through qualified imports.
-External commands and unresolved names remain name-based references.
+External commands and aliases remain name-based references. Creating a backtick
+reference validates its target at runtime without executing it; an unknown name,
+unavailable module member, or non-executable path is an error. This also applies
+when marking a stored string executable with a backtick.
 
 ```text
 fn answer() { 2048 }
@@ -3212,7 +3223,7 @@ For example, a system administrator can put this in `/etc/shelly/profile.shy`
 to select the machine's standard library:
 
 ```shy
-let export $SHELLY_STD_PATH = /home/me/workdir/shelly/std
+let export $SHELLY_STD_PATH = "/home/me/workdir/shelly/std"
 ```
 
 With no explicit reload, Shelly waits until both profiles have run before
@@ -3227,7 +3238,7 @@ zero-argument builtin `prelude_reload` to the profile:
 
 ```shy
 # /etc/shelly/profile.shy
-let export $SHELLY_STD_PATH = /home/me/workdir/shelly/std
+let export $SHELLY_STD_PATH = "/home/me/workdir/shelly/std"
 prelude_reload
 ```
 

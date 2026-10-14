@@ -1,7 +1,7 @@
 # BOUNDARY-467: value pair / `word and $args
 check ["id": "BOUNDARY-467",
     "name": "value pair / `word and \$args",
-    "source": "echo (`word == \$args) (`word != \$args) (`word && \$args) (`word || \$args)",
+    "source": "fn word() { exit 91 }; echo (`word == \$args) (`word != \$args) (`word && \$args) (`word || \$args)",
     "mode": "code",
     "args": [],
     "stdout": "false true false true\n",

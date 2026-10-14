@@ -1,7 +1,7 @@
 # MAP-086: key equality / -0.0 / `ref
 check ["id": "MAP-086",
     "name": "key equality / -0.0 / `ref",
-    "source": "let \$m = [-0.0:7]; echo \$m[`ref]",
+    "source": "fn ref() { exit 91 }; let \$m = [-0.0:7]; echo \$m[`ref]",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

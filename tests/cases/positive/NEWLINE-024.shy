@@ -1,7 +1,7 @@
 # NEWLINE-024: semicolon prevents constructor
 check ["id": "NEWLINE-024",
     "name": "semicolon prevents constructor",
-    "source": "let \$x = unknown_name;\n()\necho \$x",
+    "source": "fn unknown_name(): String { \"unknown_name\" }; let \$x = unknown_name;\n()\necho \$x",
     "mode": "code",
     "args": [],
     "stdout": "unknown_name\n",

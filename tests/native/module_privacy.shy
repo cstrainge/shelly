@@ -85,7 +85,7 @@ for $name in ["Internal", "InternalFlag", "InternalCount", "Shared", "PreludePri
 for $name in ["hidden", "hush", "Internal", "InternalCount", "\$secret", "\$ENV_SECRET"]
 { privacy_case "import api::{ ${name} }" "" "has no member" }
 privacy_case 'pub import api::{ hidden }' "" "has no member"
-privacy_case 'import api; pub visible `api::hidden' "" "not registered"
+privacy_case 'import api; pub visible `api::hidden' "" "unavailable"
 privacy_case 'import api; pub visible "api::Internal"' "" "not registered"
 privacy_case 'import api; let $flag: api::InternalFlag = api::InternalFlag::Ready' "" "Unknown type"
 privacy_case 'import api; let $x = api::make; echo $x.secret' "" "field"

@@ -16,7 +16,7 @@ check_repl ["id": "VISIBILITY", "name": "VISIBILITY", "steps": [
     ["pub visible \"MissingType\"", "error", "not registered"],
     ["let \$flag = \"--export\"; visible \$flag \$saved", "error", "use pub visible"],
     ["pub visible \$saved", "quiet", ""],
-    ["visible `missing_function", "error", "not registered"],
+    ["visible `missing_function", "error", "Executable not found"],
     ["let \$type = \"Terminal\"; visible \$type", "quiet", ""],
     ["fn again(\$value: Terminal): Terminal { \$value }; echo ok", "output", "ok"],
     ["pub visible `exposed::name; echo (name)", "output", "exposed"]

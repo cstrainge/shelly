@@ -1,7 +1,7 @@
 # BOUNDARY-364: value pair / () and `word
 check ["id": "BOUNDARY-364",
     "name": "value pair / () and `word",
-    "source": "echo (() == `word) (() != `word) (() && `word) (() || `word)",
+    "source": "fn word() { exit 91 }; echo (() == `word) (() != `word) (() && `word) (() || `word)",
     "mode": "code",
     "args": [],
     "stdout": "false true false true\n",

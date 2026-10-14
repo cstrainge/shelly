@@ -1,0 +1,77 @@
+# A bare command initializer must execute, rather than falling back to a word value.
+let $fixture = $args[0]
+ln -s -- /usr/bin/true "${fixture}/bin/let_command_probe"
+printf "%s" "data" -> "${fixture}/reference-data"
+fn let_command_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $result = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "${fixture}/bin:/usr/bin:/bin",
+            "SHELLY_STD_PATH": ""],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if    ($result["exit_code"] != $status) || ($result["error"] != ())
+       || ($result["signal"] != ()) || $result["timed_out"] || ($out != $stdout)
+       || (($diagnostic == "") && ($err != ""))
+       || (($diagnostic != "") && !($err.contains $diagnostic))
+    { echo $source $result $out $err; fail "let command initializer differs" }
+}
+
+let_command_case 'let $calls = 0; fn foo(): Integer { $calls = $calls + 1; 7 }; let $x = foo; echo $x $calls' "7 1\n" ""
+let_command_case 'fn foo(): String { "echo" }; let $x: String = foo; echo $x; let export $y = foo; echo $y' "echo\necho\n" ""
+let_command_case 'fn foo(): Integer { 7 }; alias bar = foo; let $x = bar; echo $x' "7\n" ""
+let_command_case 'let $calls = 0; fn foo() { $calls = $calls + 1 }; let _ = foo; echo $calls' "1\n" ""
+let_command_case 'fn pair(): [Integer] { [22,44] }; let ($x, $y) = pair; echo $x $y' "22 44\n" ""
+let_command_case 'let $status = /usr/bin/true; echo ($status.type == ExecResult) $status; let $failed = /usr/bin/false; echo ($failed.type == ExecResult) $failed' "true ExecResult(0)\ntrue ExecResult(1)\n" ""
+let_command_case 'let $status = let_command_probe; echo ($status.type == ExecResult) $status' "true ExecResult(0)\n" ""
+let_command_case 'let $status = ::true; let $failed = ::false; echo ($status.type == ExecResult) $status ($failed.type == ExecResult) $failed' "true ExecResult(0) true ExecResult(1)\n" ""
+
+# Quoting, variable reads and explicit function references still supply values.
+let_command_case 'fn foo(): String { echo CALLED; "result" }; let $x = "foo"; let $z = "${x}"; echo $x $z; let $copy = $x; echo $copy' "foo foo\nfoo\n" ""
+let_command_case "let \$word = 'foo'; echo \$word" "foo\n" ""
+let_command_case 'fn foo(): Integer { 7 }; let $reference = `foo; let $copy = $reference; echo ($copy); fn take($word: String): String { $word }; let $word = take foo; echo $word' "7\nfoo\n" ""
+let_command_case 'let $calls = 0; fn foo(): Integer { $calls = $calls + 1; 7 }; let $ref = `foo; echo $calls; echo ($ref) $calls; fn foo(): Integer { 8 }; echo ($ref)' "0\n7 1\n7\n" ""
+let_command_case 'let $name = "let_command_probe"; let $ref = `$name; let $copy = `::true; echo ($ref) ($copy)' "ExecResult(0) ExecResult(0)\n" ""
+let_command_case 'alias probe = let_command_probe; let $ref = `probe; echo ($ref); if false { let $unused = `shelly_missing_reference }; echo safe' "ExecResult(0)\nsafe\n" ""
+let_command_case 'let $ref = `later; fn later(): Integer { 42 }; echo ($ref)' "42\n" ""
+let_command_case 'let $n = 1; fn Integer::bump() { $self = $self + 1 }; let $ref = `$n.bump; echo $n; $ref; echo $n' "1\n2\n" ""
+let_command_case 'enum Choice { First }; let $type = Integer; let $choice = Choice::First; let $boolean = false; let $none = (); echo $type $choice $boolean $none' "Integer Choice::First false ()\n" ""
+
+for $source in [
+    'let $x = shelly_missing_let_command',
+    'let $x: String = shelly_missing_let_command',
+    'let export $x = shelly_missing_let_command',
+    'let _ = shelly_missing_let_command',
+    'let ($x, $y) = shelly_missing_let_command',
+    'let $x = ((shelly_missing_let_command))',
+]
+{
+    let_command_case $source "" "Executable not found: shelly_missing_let_command"
+}
+let_command_case 'fn foo($n: Integer): Integer { $n }; let $x = foo' "" "expected 1 arguments, but got 0"
+for $source in [
+    'let $x = `shelly_missing_reference',
+    'let $name = "shelly_missing_reference"; let $x = `$name',
+    'let $x = `::shelly_missing_reference',
+    'fn shelly_missing_reference() {}; let $x = `::shelly_missing_reference',
+    'alias broken = shelly_missing_reference; let $x = `broken',
+]
+{
+    let_command_case $source "" "Executable not found: shelly_missing_reference"
+}
+let_command_case 'alias a = b; alias b = a; let $x = `a' "" "Alias cycle detected"
+let_command_case 'let $x = `/tmp' "" "Executable not found"
+let_command_case 'let $x = `./reference-data' "" "Executable not found"
+let_command_case 'visible `__test; let $ref = `__test; echo ($ref "-d" ".")' "true\n" ""
+let_command_case 'let $ref = `__test; $ref "-d" "."' "" "Executable not found: __test"
+
+# Qualified functions execute exactly once, retaining their returned data.
+printf "%s" 'pub fn foo(): String { "echo" }; pub fn pair(): [Integer] { [22,44] }; fn private() {}; pub alias invoke = foo' -> "${fixture}/let_module.shy"
+let_command_case 'import let_module; let $word = let_module::foo; let ($x, $y) = let_module::pair; echo $word $x $y' "echo 22 44\n" ""
+let_command_case 'import let_module; let $ref = `let_module::foo; let $alias = `let_module::invoke; echo ($ref) ($alias)' "echo echo\n" ""
+let_command_case 'import let_module; let $ref = `let_module::missing' "" "unavailable"
+let_command_case 'import let_module; let $ref = `let_module::private' "" "unavailable"

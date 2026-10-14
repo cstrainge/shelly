@@ -1,7 +1,7 @@
 # BOUNDARY-464: value pair / `word and "2"
 check ["id": "BOUNDARY-464",
     "name": "value pair / `word and \"2\"",
-    "source": "echo (`word == \"2\") (`word != \"2\") (`word && \"2\") (`word || \"2\")",
+    "source": "fn word() { exit 91 }; echo (`word == \"2\") (`word != \"2\") (`word && \"2\") (`word || \"2\")",
     "mode": "code",
     "args": [],
     "stdout": "false true true true\n",
