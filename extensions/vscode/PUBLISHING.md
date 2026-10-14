@@ -2,7 +2,7 @@
 
 Publisher: `cstrainge`, matching Strange Forth. Extension ID:
 `cstrainge.shelly-shell`. Marketplace display name: **Shelly Shell**.
-The current extension version is `0.1.1`.
+The current extension version is `0.2.1`.
 
 The package includes the bundled client, Shelly icon, README, changelog, and MIT
 license. It requires a separately installed Shelly executable supporting

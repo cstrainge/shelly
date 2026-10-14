@@ -1,11 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.2.1
 
-- Restore native VS Code bracket matching, coloring, guides, and auto-closing.
+- Improve bracket handling with native VS Code matching, coloring, guides, and auto-closing.
 - Use an extension grammar to exclude comments, strings, and interpolation braces.
 - Update brackets immediately without semantic tokens or a running language server.
 - Replace `shelly-shell.bracketColorization` with VS Code's standard bracket settings.
+
+## 0.2.0
 
 - Add module-aware type, function, field, and method hovers with compact Markdown.
 - Complete scoped names, visible members, imported namespaces, and named factory arguments.

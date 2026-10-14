@@ -2,7 +2,7 @@
     "name": "shelly-shell",
     "displayName": "Shelly Shell",
     "description": "Parser-driven language support for the Shelly shell and scripting language.",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "publisher": "cstrainge",
     "license": "MIT",
     "author": "Chloë Strainge",
