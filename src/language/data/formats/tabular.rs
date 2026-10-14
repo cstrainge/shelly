@@ -52,8 +52,11 @@ pub(super) fn decode(format: &str, text: &str) -> Result<Value, String>
 
 fn decode_record(format: &str, record: &str) -> Result<Value, String>
 {
+    // Only TSV skips RFC 4180 double-quote quoting: it has none in its spec, so a
+    // literal quote in data stays literal. CSV keeps strict quoting, and SSV keeps
+    // the symmetric quote handling its round-trip tests pin.
     let mut reader = ReaderBuilder::new().delimiter(delimiter(format)).has_headers(false)
-        .flexible(true).from_reader(record.as_bytes());
+        .flexible(true).quoting(!matches!(format, "tsv")).from_reader(record.as_bytes());
     let record = reader.records().next().ok_or_else(|| "Missing tabular row".to_string())?
         .map_err(|error| error.to_string())?;
     Ok(Value::from_array(record.iter()
@@ -63,11 +66,14 @@ fn decode_record(format: &str, record: &str) -> Result<Value, String>
 
 // Incremental record framing is shared by direct factories and pipeline decoding.
 // Only one logical record is retained, including quoted delimiters and embedded newlines.
+// Quoting follows the same rule as decode_record: TSV treats double quotes as
+// ordinary data, CSV and SSV honor them.
 pub struct RecordDecoder
 {
     pending: VecDeque<u8>,
     record: Vec<u8>,
     delimiter: u8,
+    quoting: bool,
     quoted: bool,
     after_quote: bool,
     field_start: bool,
@@ -81,6 +87,7 @@ impl RecordDecoder
     pub fn new(format: &str) -> Self
     {
         Self { pending: VecDeque::new(), record: Vec::new(), delimiter: delimiter(format),
+            quoting: !matches!(format, "tsv"),
             quoted: false, after_quote: false, field_start: true, skip_lf: false, eof: false }
     }
 
@@ -120,7 +127,7 @@ impl RecordDecoder
                 let record = take(&mut self.record);
                 return String::from_utf8(record).map(Some).map_err(|error| error.to_string());
             }
-            if byte == b'"'
+            if byte == b'"' && self.quoting
             {
                 if !self.field_start { return Err("Quote inside an unquoted field".into()); }
                 self.quoted = true;
