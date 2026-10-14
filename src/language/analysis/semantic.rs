@@ -431,6 +431,36 @@ impl Classifier<'_>
                     if let Some(token) = self.token(&item.location)
                     { self.mark(token.span, &symbol); }
                 },
+            AstStatement::DestructureStatement(item) =>
+                {
+                    self.paint_region(&item.location);
+                    let mut expression = &item.expression;
+                    while let AstExpressionKind::Grouped(inner) = &expression.kind
+                    { expression = inner; }
+                    // Inspect the initializer before binding names that may shadow its inputs.
+                    let inferred: Vec<_> = match &expression.kind
+                        {
+                            AstExpressionKind::Array(items) if !items.iter().any(|item|
+                                matches!(item.kind, AstExpressionKind::Splat(_)
+                                    | AstExpressionKind::VariableSplat(_))) =>
+                                items.iter().map(|item| self.expression(item, false).type_id)
+                                    .collect(),
+                            _ =>
+                                {
+                                    let ty = self.expression(expression, false).type_id;
+                                    vec![ty.and_then(|id| self.types[id].item); item.bindings.len()]
+                                },
+                        };
+                    for (index, (location, name)) in item.bindings.iter().enumerate()
+                    {
+                        let Some(name) = name else { continue; };
+                        let symbol = SymbolDescriptor::new(SymbolKind::Variable,
+                            inferred.get(index).copied().flatten());
+                        self.bind(name, symbol.clone());
+                        if let Some(token) = self.token(location)
+                        { self.mark(token.span, &symbol); }
+                    }
+                },
             AstStatement::SetStatement(item) =>
                 { self.paint_region(&item.location); self.expression(&item.expression, false); },
             AstStatement::DiscardStatement(item) | AstStatement::ExpressionStatement(item) =>

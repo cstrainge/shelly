@@ -478,6 +478,20 @@ assigning it to a variable does; evaluation errors still propagate. Printed outp
 is unaffected. The discard requires an initializer and has no type annotation or
 `export` modifier. `let $_ = expression` remains an ordinary named binding.
 
+Destructure an array using a parenthesized list of bindings:
+
+```shy
+let ($x, $y) = [22, 44]
+let (_, $second) = ["ignored", "kept"]
+```
+
+The initializer is evaluated once and must yield an array with exactly as many
+items as the pattern. Both too few and too many items are errors, checked before
+any bindings are created. Patterns are flat; `_` discards an item, named bindings
+must be distinct, and trailing commas, newlines, and comments are allowed.
+Bindings follow ordinary `let` scoping and type inference. `pub let` publishes
+each named binding from a module; `let export` exports them to child processes.
+
 An optional `: Type` annotation constrains a variable's initializer and subsequent
 writes. Type names are case-sensitive: use `Number`, not `number`.
 

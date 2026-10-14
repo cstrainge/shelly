@@ -59,6 +59,11 @@ fn statements(items: &AstTopLevel, parent: &HashSet<String>, free: &mut HashSet<
                     expression(&item.expression, &bound, free);
                     bound.insert(item.identifier.clone());
                 },
+            AstStatement::DestructureStatement(item) =>
+                {
+                    expression(&item.expression, &bound, free);
+                    bound.extend(item.bindings.iter().filter_map(|(_, name)| name.clone()));
+                },
             AstStatement::SetStatement(item) =>
                 {
                     name(&item.identifier, &bound, free);

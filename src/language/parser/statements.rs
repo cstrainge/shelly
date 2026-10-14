@@ -219,7 +219,7 @@ fn parse_return_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
 
 fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
-    expect_token(buffer, TokenKind::Let)?;
+    let keyword = expect_token(buffer, TokenKind::Let)?;
     if try_expect_token(buffer, TokenKind::Type)?.is_some()
     {
         let identifier = expect_token(buffer, TokenKind::Identifier)?;
@@ -267,6 +267,25 @@ fn parse_let_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<A
     }
     let export_flag = if try_expect_token(buffer, TokenKind::Export)?.is_some()
         { AstExportFlag::Exported } else { AstExportFlag::NonExported };
+    if try_expect_token(buffer, TokenKind::ParenOpen)?.is_some()
+    {
+        let bindings = parse_binding_pattern(buffer, false)?;
+        expect_token(buffer, TokenKind::Assign)?;
+        let expression = parse_value_expression(buffer)?.ok_or_else(|| ParserError
+            {
+                location: Some(keyword.location.clone()),
+                kind: ParserErrorKind::ExpectedExpression,
+            })?;
+        expect_statement_end(buffer)?;
+        return Ok(Some(AstStatement::DestructureStatement(Box::new(AstDestructureStatement
+            {
+                public: false,
+                location: keyword.location,
+                export_flag,
+                bindings,
+                expression,
+            }))));
+    }
     let identifier = expect_token(buffer, TokenKind::Identifier)?;
     buffer.annotate(identifier.span, SyntaxRole::VariableDeclaration);
     if identifier.token_value_text().contains("::")
@@ -817,42 +836,73 @@ fn expect_loop_binding(buffer: &mut TokenBuffer<'_, '_>)
 }
 
 
+fn parse_binding_pattern(buffer: &mut TokenBuffer<'_, '_>, loop_binding: bool)
+    -> ParseResult<Vec<(Location, Option<String>)>>
+{
+    let mut bindings: Vec<(Location, Option<String>)> = Vec::new();
+    let mut names = HashSet::new();
+    loop
+    {
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        let (location, name) = expect_loop_binding(buffer)?;
+        if let Some(name) = &name
+        {
+            if name.contains("::")
+            {
+                return Err(ParserError
+                    {
+                        location: Some(location),
+                        kind: ParserErrorKind::InvalidType(
+                            "Declarations require an unqualified name".into()),
+                    });
+            }
+            if !names.insert(name.clone())
+            {
+                return Err(ParserError
+                    {
+                        location: Some(location),
+                        kind: if loop_binding
+                            { ParserErrorKind::DuplicateLoopBinding(name.clone()) }
+                            else { ParserErrorKind::DuplicateDestructureBinding(name.clone()) },
+                    });
+            }
+        }
+        bindings.push((location, name));
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        if try_expect_token(buffer, TokenKind::ParenClose)?.is_some() { break; }
+        expect_token(buffer, TokenKind::Comma)?;
+        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
+        if try_expect_token(buffer, TokenKind::ParenClose)?.is_some() { break; }
+    }
+    Ok(bindings)
+}
+
+
 fn parse_for_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstStatement>>
 {
     let keyword = expect_token(buffer, TokenKind::For)?;
     let destructure = try_expect_token(buffer, TokenKind::ParenOpen)?.is_some();
-    if destructure
-    {
-        while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
-    }
-    let (_, first) = expect_loop_binding(buffer)?;
-    let mut bindings = vec![first];
-    loop
-    {
-        if destructure
+    let bindings = if destructure
+        { parse_binding_pattern(buffer, true)?.into_iter().map(|(_, name)| name).collect() }
+        else
         {
-            while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
-            if try_expect_token(buffer, TokenKind::ParenClose)?.is_some() { break; }
-            expect_token(buffer, TokenKind::Comma)?;
-            while try_expect_token(buffer, TokenKind::LineBreak)?.is_some() {}
-            if try_expect_token(buffer, TokenKind::ParenClose)?.is_some() { break; }
-        }
-        else if bindings.len() == 2 || try_expect_token(buffer, TokenKind::Comma)?.is_none()
-        {
-            break;
-        }
-        let (location, name) = expect_loop_binding(buffer)?;
-        if    let Some(name) = &name
-           && bindings.iter().flatten().any(|previous| previous == name)
-        {
-            return Err(ParserError
+            let (_, first) = expect_loop_binding(buffer)?;
+            let mut bindings = vec![first];
+            if try_expect_token(buffer, TokenKind::Comma)?.is_some()
+            {
+                let (location, name) = expect_loop_binding(buffer)?;
+                if name.is_some() && name == bindings[0]
                 {
-                    location: Some(location),
-                    kind: ParserErrorKind::DuplicateLoopBinding(name.clone())
-                });
-        }
-        bindings.push(name);
-    }
+                    return Err(ParserError
+                        {
+                            location: Some(location),
+                            kind: ParserErrorKind::DuplicateLoopBinding(name.unwrap()),
+                        });
+                }
+                bindings.push(name);
+            }
+            bindings
+        };
     expect_token(buffer, TokenKind::In)?;
     let iterable = parse_condition_expression(buffer)?.ok_or_else(|| ParserError
         {
@@ -1124,6 +1174,7 @@ fn parse_public_statement(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Optio
     match &mut statement
     {
         AstStatement::LetStatement(item) => item.public = true,
+        AstStatement::DestructureStatement(item) => item.public = true,
         AstStatement::FunctionDefinition(item) => item.public = true,
         AstStatement::StructDeclaration(item) => item.public = true,
         AstStatement::EnumDeclaration(item) => item.public = true,

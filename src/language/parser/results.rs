@@ -27,6 +27,7 @@ pub enum ParserErrorKind
     ExpressionNotString,
     DuplicateParameter(String),
     DuplicateLoopBinding(String),
+    DuplicateDestructureBinding(String),
     NoProgress,
 }
 
@@ -93,6 +94,9 @@ impl Display for ParserErrorKind
 
             ParserErrorKind::DuplicateLoopBinding(name) =>
                 write!(f, "Duplicate loop binding: {}.", name),
+
+            ParserErrorKind::DuplicateDestructureBinding(name) =>
+                write!(f, "Duplicate destructuring binding: {}.", name),
 
             ParserErrorKind::NoProgress =>
                 write!(f, "Repeated parser succeeded without consuming a token.")

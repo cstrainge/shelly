@@ -37,6 +37,13 @@ fn semantic_absent($report: any, $raw: String): Boolean
 let $report = semantic_report 'let type $PATH = [String]; echo $PATH.count'
 require (semantic_has $report '$PATH' "Variable" "Array") "retyped variable not colored"
 require (semantic_has $report ".count" "Method" ()) "typed array method not colored"
+let $report = semantic_report 'let ($left, _, $right) = [1, (), "two"]; echo $left $right.trim'
+require (semantic_has $report '$left' "Variable" "Integer") "destructured Integer type lost"
+require (semantic_has $report '$right' "Variable" "String") "destructured String type lost"
+require (semantic_has $report ".trim" "Method" ()) "destructured receiver method lost"
+let $prefix = ""
+for $character in 'let ($left, _, $right) = [1, (), "two"]; echo $right.trim'.chars
+{ $prefix = $prefix + $character; let _ = semantic_report $prefix }
 let $actual: String = "untouched"
 fn snapshot_function($x: Integer): String { "never called" }
 alias snapshot_alias = echo

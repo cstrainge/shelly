@@ -1143,6 +1143,51 @@ fn compile_let_statement(
     Ok(())
 }
 
+fn compile_destructure_statement(instructions: &mut Vec<Instruction>,
+                                 function_block: &FunctionBlockRef,
+                                 statement: &AstDestructureStatement) -> CompileResult<()>
+{
+    // Unpack checks the complete shape before any declaration changes the enclosing scope.
+    compile_expression(instructions, function_block, &statement.expression)?;
+    instructions.push(Instruction
+        { location: None, code: Code::PushResult, operand: None });
+    instructions.push(Instruction
+        {
+            location: Some(statement.location.clone()),
+            code: Code::UnpackArray,
+            operand: Some(Value::Integer(statement.bindings.len() as i64)),
+        });
+    for (location, name) in statement.bindings.iter().rev()
+    {
+        let Some(name) = name else
+        {
+            instructions.push(Instruction
+                { location: Some(location.clone()), code: Code::Discard, operand: None });
+            continue;
+        };
+        for code in [Code::NewVariable, Code::SetVariable]
+        {
+            instructions.push(Instruction
+                {
+                    location: Some(location.clone()),
+                    code,
+                    operand: Some(Value::from_string(name.clone())),
+                });
+        }
+        if statement.export_flag == AstExportFlag::Exported
+        {
+            instructions.push(Instruction
+                {
+                    location: Some(location.clone()),
+                    code: Code::ExportVariable,
+                    operand: Some(Value::from_string(name.clone())),
+                });
+        }
+    }
+    Ok(())
+}
+
+
 fn compile_set_statement(instructions: &mut Vec<Instruction>,
                          function_block: &FunctionBlockRef,
                          set_statement: &AstSetStatement) -> CompileResult<()>
@@ -2078,6 +2123,12 @@ fn compile_statements(
             AstStatement::LetStatement(let_statement) =>
                 {
                     compile_let_statement(instructions, function_block, let_statement)?;
+                    add_check = false;
+                },
+
+            AstStatement::DestructureStatement(statement) =>
+                {
+                    compile_destructure_statement(instructions, function_block, statement)?;
                     add_check = false;
                 },
 

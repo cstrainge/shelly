@@ -42,6 +42,10 @@ fn roles($source: String, $expected: [String])
 
 roles 'let type $PATH = [String]' ["Keyword", "Keyword", "Variable", "Operator",
     "Delimiter", "TypeName", "Delimiter"]
+roles 'let ($x, _, $y,) = [1, 2, 3]' ["Keyword", "Delimiter", "VariableDeclaration",
+    "Delimiter", "Discard", "Delimiter", "VariableDeclaration", "Delimiter", "Delimiter",
+    "Operator", "Delimiter", "Literal", "Delimiter", "Literal", "Delimiter", "Literal",
+    "Delimiter"]
 roles "echo let" ["CommandName", "Argument"]
 roles "let \$let = 1; echo let \$let" ["Keyword", "VariableDeclaration", "Operator", "Literal",
     "Delimiter", "CommandName", "Argument", "Variable"]

@@ -972,17 +972,18 @@ impl Interpreter
                 {
                     // pub visible publishes the referenced name, not the builtin's name.
                     if matches!(statement, AstStatement::ExecuteStatement(_)) { continue; }
-                    let Some((name, _, public)) = statement.module_declaration()
-                        else { continue; };
-                    let name = match &*statement
-                        {
-                            AstStatement::FunctionDefinition(item)
-                                if item.receiver_type.is_some()
-                                => method_key(item.receiver_type.unwrap(), &item.name),
-                            _ => name.to_string(),
-                        };
-                    if public { self.scope_mut().exports.insert(name); }
-                    else { self.scope_mut().exports.remove(&name); }
+                    for (name, _, public) in statement.module_declarations()
+                    {
+                        let name = match &*statement
+                            {
+                                AstStatement::FunctionDefinition(item)
+                                    if item.receiver_type.is_some()
+                                    => method_key(item.receiver_type.unwrap(), &item.name),
+                                _ => name.to_string(),
+                            };
+                        if public { self.scope_mut().exports.insert(name); }
+                        else { self.scope_mut().exports.remove(&name); }
+                    }
                 }
                 if exposed_types { self.refresh_parent_children(&self.current_scope.clone())?; }
                 Ok(code)

@@ -276,6 +276,16 @@ pub struct AstLetStatement
 }
 
 
+pub struct AstDestructureStatement
+{
+    pub public: bool,
+    pub location: Location,
+    pub export_flag: AstExportFlag,
+    pub bindings: Vec<(Location, Option<String>)>,
+    pub expression: AstExpression,
+}
+
+
 pub struct AstExecuteStatement
 {
     // Only `pub visible` publishes a native/scripted reference through this call.
@@ -621,6 +631,7 @@ pub enum AstStatement
     StructDeclaration(Box<AstStructDeclaration>),
     TypeDeclaration(Box<AstTypeDeclaration>),
     LetStatement(Box<AstLetStatement>),
+    DestructureStatement(Box<AstDestructureStatement>),
     DiscardStatement(AstExpression),
     SetStatement(Box<AstSetStatement>),
     AliasStatement(Box<AstAliasStatement>),
@@ -652,6 +663,7 @@ impl AstStatement
                 || item.finally.as_ref().is_some_and(AstBlockStatement::uses_pipeline_input),
             Self::ThrowStatement(item) => item.uses_pipeline_input(),
             Self::LetStatement(item) => item.expression.uses_pipeline_input(),
+            Self::DestructureStatement(item) => item.expression.uses_pipeline_input(),
             Self::SetStatement(item) => item.expression.uses_pipeline_input()
                 || item.indexes.iter().any(|access| match access
                     { AstAccess::Index(value) => value.uses_pipeline_input(), _ => false }),
@@ -686,5 +698,15 @@ impl AstStatement
                     => ("", &item.location, true),
                 _ => return None,
             })
+    }
+
+    pub fn module_declarations(&self) -> Vec<(&str, &Location, bool)>
+    {
+        if let Self::DestructureStatement(item) = self
+        {
+            return item.bindings.iter().filter_map(|(location, name)|
+                name.as_deref().map(|name| (name, location, item.public))).collect();
+        }
+        self.module_declaration().into_iter().collect()
     }
 }

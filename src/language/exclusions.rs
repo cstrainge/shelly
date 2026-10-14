@@ -59,6 +59,8 @@ pub fn exclude_statements<E>(
                     exclude_statements(&mut item.body.body, evaluate)?;
                 },
             AstStatement::LetStatement(item) => exclude_expression(&mut item.expression, evaluate)?,
+            AstStatement::DestructureStatement(item) =>
+                exclude_expression(&mut item.expression, evaluate)?,
             AstStatement::SetStatement(item) =>
                 {
                     for access in &mut item.indexes

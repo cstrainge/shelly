@@ -182,7 +182,7 @@ impl Interpreter
                 let mut declared = HashSet::new();
                 for statement in &types
                 {
-                    if let Some((name, _, _)) = statement.module_declaration()
+                    for (name, _, _) in statement.module_declarations()
                     { declared.insert(name.to_string()); }
                     match statement
                     {
@@ -234,14 +234,16 @@ impl Interpreter
                 { self.type_scopes.insert(TypeId(index), key.to_string()); }
                 for statement in &types
                 {
-                    let Some((name, _, public)) = statement.module_declaration() else { continue; };
-                    if public { self.scope_mut().exports.insert(name.to_string()); }
-                    else { self.scope_mut().exports.remove(name); }
+                    for (name, _, public) in statement.module_declarations()
+                    {
+                        if public { self.scope_mut().exports.insert(name.to_string()); }
+                        else { self.scope_mut().exports.remove(name); }
+                    }
                     if let AstStatement::TypeDeclaration(declaration) = statement
                         && let Some(factory) = &declaration.conversion
                     {
                         let name = method_key(factory.receiver_type.unwrap(), &factory.name);
-                        if public { self.scope_mut().exports.insert(name); }
+                        if declaration.public { self.scope_mut().exports.insert(name); }
                     }
                 }
                 let names = self.scope().types.names.clone();

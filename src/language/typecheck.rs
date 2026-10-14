@@ -92,7 +92,8 @@ fn check_scope(
     for statement in ast.iter()
     {
         if    !module_level
-           && let Some((_, location, true)) = statement.module_declaration()
+           && let Some((_, location, true)) = statement.module_declarations().into_iter()
+                .find(|(_, _, public)| *public)
         { return Err(error(location, "pub is only allowed at module top level".into())); }
         let (name, location) = match statement
             {
@@ -352,6 +353,13 @@ fn check_scope(
                                                      format!("Variable '{}': {}",
                                                              statement.identifier, message)))?;
                     }
+                },
+            AstStatement::DestructureStatement(statement) =>
+                {
+                    if !module_level && statement.public
+                    { return Err(error(&statement.location,
+                        "pub is only allowed at module top level".into())); }
+                    check_expression(registry, &mut statement.expression, &names)?;
                 },
             AstStatement::SetStatement(statement) =>
                 {
@@ -1751,6 +1759,23 @@ fn check_binding_scope(
                         { constraint: item.type_id, inferred, refined: None,
                           type_value });
                 },
+            AstStatement::DestructureStatement(item) =>
+                {
+                    bindings.methods = check_binding_expression(
+                        registry, &item.expression, &bindings, return_type, None)?;
+                    let ty = binding_type(registry, &item.expression, &bindings);
+                    let inferred: Vec<_> = item.bindings.iter().enumerate()
+                        .map(|(index, _)| destructured_type(
+                            registry, &item.expression, &bindings, ty, index)).collect();
+                    if expression_may_mutate(registry, &item.expression, &bindings)
+                    { forget_inferred(&mut bindings); }
+                    for ((_, name), inferred) in item.bindings.iter().zip(inferred)
+                    {
+                        let Some(name) = name else { continue; };
+                        bindings.insert(name.clone(), Binding
+                            { constraint: None, inferred, refined: None, type_value: None });
+                    }
+                },
             AstStatement::SetStatement(item) =>
                 {
                     for access in &item.indexes
@@ -2650,6 +2675,21 @@ fn slice_index(registry: &TypeRegistry, index_type: Option<TypeId>) -> Option<bo
 }
 
 
+fn destructured_type(registry: &TypeRegistry, expression: &AstExpression,
+                     bindings: &Bindings, ty: Option<TypeId>, index: usize) -> Option<TypeId>
+{
+    match &expression.kind
+    {
+        AstExpressionKind::Grouped(inner) =>
+            destructured_type(registry, inner, bindings, ty, index),
+        AstExpressionKind::Array(items) if !items.iter().any(|item| matches!(item.kind,
+            AstExpressionKind::Splat(_) | AstExpressionKind::VariableSplat(_))) =>
+            items.get(index).and_then(|item| binding_type(registry, item, bindings)),
+        _ => ty.and_then(|id| indexed_type(registry, id, Some(index), Some(false))),
+    }
+}
+
+
 fn indexed_type(registry: &TypeRegistry, id: TypeId,
                 index: Option<usize>, slice: Option<bool>) -> Option<TypeId>
 {
@@ -2938,6 +2978,8 @@ fn check_finally(statements: &AstTopLevel, loops: usize) -> CompileResult<()>
             | AstStatement::DiscardStatement(value)
             | AstStatement::ThrowStatement(value) => check_finally_expression(value, loops)?,
             AstStatement::LetStatement(item) => check_finally_expression(&item.expression, loops)?,
+            AstStatement::DestructureStatement(item) =>
+                check_finally_expression(&item.expression, loops)?,
             AstStatement::SetStatement(item) => check_finally_expression(&item.expression, loops)?,
             AstStatement::ExecuteStatement(item) =>
             {

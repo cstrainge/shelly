@@ -233,6 +233,11 @@ and bounded multipart transmission for large images.
 `native/iterator_protocol.shy` and `repl/iterator_protocol.shy` check user and native
 iteration, private state, method versions, destructuring, unit termination, fixed-length
 array annotations, and recovery after iterator errors.
+`native/let_destructure.shy` and `repl/let_destructure.shy` check declaration patterns,
+exact lengths in both directions, single evaluation, discards, inferred types,
+scopes, live captures, public and environment exports, and unchanged bindings
+after failed initializers. Parser and semantic tests also cover declaration spans
+and incomplete patterns.
 `native/for_discard.shy` and `repl/for_discard.shy` check `_` loop bindings,
 partial and repeated destructuring discards, unchanged outer bindings, typed
 retained items, closures, native and custom iterators, loop control, and diagnostics.
