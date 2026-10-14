@@ -305,9 +305,16 @@ pub fn Array::unique(): [$self.value_type]
 
 
 # Combine this array with another array and return the results as a new array.
-pub fn Array::combine($other: [$self.value_type]): [$self.value_type]
+pub fn Array::append($other: [$self.value_type]): [$self.value_type]
 {
     [$self..., $other...]
+}
+
+
+# Prepend a list of items to the beginning of the array.
+pub fn Array::prepend($other: [$self.value_type]): [$self.value_type]
+{
+    [$other..., $self...]
 }
 
 
