@@ -29,6 +29,9 @@ AGENTS.md
 audit/
 temp/
 
+# The GitHub wiki is a separate repository.
+/wiki/
+
 # VS Code extension build and package output.
 /extensions/vscode/node_modules/
 /extensions/vscode/out/
