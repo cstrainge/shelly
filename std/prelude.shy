@@ -9,11 +9,13 @@ visible `__test
 pub visible "VariableVisibility"
 pub visible "VariableInfo"
 
+
 # Inspect the caller's visible variables without converting their values to process text.
 pub fn get_env(): [String: VariableInfo]
 {
     __get_env
 }
+
 
 # Read the caller's exported environment without launching a process. Missing names
 # return (), or the supplied fallback; an existing empty value remains an empty String.
@@ -22,6 +24,8 @@ pub fn optional_env($name: String, $fallback: String | ()): String | ()
     __env $name $fallback
 }
 
+
+# Report an error to the caller with the given call stack and error value.
 pub fn report_error($stack: CallStack, $error: ErrorValue): ()
 {
     __report_error $stack $error
@@ -276,6 +280,7 @@ pub fn Array::max(): $self.value_type | ()
 }
 
 
+# Filter the array to only include unique items, returning a new array with duplicates removed.
 pub fn Array::unique(): [$self.value_type]
 {
     if $self.empty
@@ -463,30 +468,36 @@ pub fn path()
 }
 
 
+# Does the specified directory exist? And is it a directory?
 pub fn dir_exists($path: String): Boolean
 {
     __test "-d" $path
 }
 
 
+
+# Does the specified file exist? And is it a regular file?
 pub fn file_exists($path: String): Boolean
 {
     __test "-f" $path
 }
 
 
+# Is the standard input a pipe?
 pub fn is_pipe(): Boolean
 {
     __test "-p" 1
 }
 
 
+# Is the standard input a terminal?
 pub fn is_tty(): Boolean
 {
     __test "-t" 1
 }
 
 
+# Is the terminal capable of displaying colors?
 pub fn is_color(): Boolean
 {
     if (is_tty) && !(is_pipe)
@@ -500,12 +511,14 @@ pub fn is_color(): Boolean
 }
 
 
+# Convert an execution result to a Boolean value.
 pub fn Boolean::from_exec_result($result: ExecResult): Boolean
 {
     if $result { true } else { false }
 }
 
 
+# Convert a Boolean value to an execution result.
 pub fn Boolean::to_exec_result(): ExecResult
 {
     if $self { ExecResult(0) } else { ExecResult(1) }
