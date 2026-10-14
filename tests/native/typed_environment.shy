@@ -26,7 +26,7 @@ typed_environment_case 'echo (String(Array(":é::世界:")) == ":é::世界:")' 
 typed_environment_case 'let type $PATH = [String]; echo $PATH.value_type $PATH.count; printenv PATH' "String 2\n/usr/bin:/bin\n" ""
 typed_environment_case 'let type $TYPED_ENV = [String]; echo $TYPED_ENV.count $TYPED_ENV[1].chars.count $TYPED_ENV[3].chars.count; printenv TYPED_ENV' "4 0 0\na::b:\n" ""
 typed_environment_case 'let type $PATH = [String]; $PATH = ["/bin", "/usr/bin"]; printenv PATH' "/bin:/usr/bin\n" ""
-typed_environment_case 'let type $PATH = [String]; $PATH[0] = "/bin"; printenv PATH' "/bin:/bin\n" ""
+typed_environment_case 'let type $PATH = [String]; $PATH[0] = "/bin"; /usr/bin/printenv PATH' "/bin:/bin\n" ""
 typed_environment_case 'let type $TYPED_ENV = [String]; $TYPED_ENV.push "first"; printenv TYPED_ENV' "first:a::b:\n" ""
 typed_environment_case 'let type $TYPED_ENV = [String]; $TYPED_ENV = []; printenv TYPED_ENV; echo $TYPED_ENV.value_type' "\nString\n" ""
 typed_environment_case 'let $local = "one:two"; let type $local = [String]; echo $local...; let $r = run_process ["printenv", "local"] [:]; echo $r["exit_code"]' "one two\n1\n" ""
