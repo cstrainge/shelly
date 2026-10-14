@@ -1,17 +1,24 @@
-let $suite = $args[1]
-let $inventory: String
-"${suite}/tests/INVENTORY.tsv" -> $inventory
-let $seen = [:]
-let $count = 0
-for $line in $inventory.split "\n"
+
+struct InventoryRow
 {
-    if ($line == "") || ($line.starts_with "id\t") { continue }
-    let $columns = $line.split "\t"
-    require ($columns.count == 4) "invalid inventory row"
-    require ($seen[$columns[0]] == ()) "duplicate test ID"
-    $seen[$columns[0]] = true
-    let $file = $columns[3]
-    require (file_exists "${suite}/${file}") "missing case file"
-    $count = $count + 1
+    pub id: String,
+    pub group: String,
+    pub name: String,
+    pub file: String
 }
-require ($count == 4319) "unexpected process case count"
+
+let $suite = $args[1]
+let $rows: [InventoryRow]
+
+cat "${suite}/tests/INVENTORY.tsv" tsv:|:InventoryRow $rows
+
+require ($rows.count == 4319) "unexpected process case count"
+
+let $seen = [:]
+
+for $row in $rows
+{
+    require ($seen[$row.id] == ()) "duplicate test ID"
+    $seen[$row.id] = true
+    require (file_exists "${suite}/${row.file}") "missing case file"
+}
