@@ -1,9 +1,10 @@
 import std::io
 import std::json
 import std::net::http
+import std::net::tcp
 
 let $fixture = $args[0]
-let $terminal = open_terminal [`$shelly, "-m", "${fixture}/http_server.shy"] [
+let $terminal = open_terminal [`$shelly, "-m", "${fixture}/http_server.shy", "12"] [
     "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
         "SHELLY_STD_PATH": "bundled", "TERM": "dumb", "LANG": "C.UTF-8"]]
 let $port = ()
@@ -19,6 +20,31 @@ for _ in 0..50
 }
 require ($port != ()) "HTTP server did not become ready"
 let $base = "http://127.0.0.1:${port}/"
+
+# Chunk sizes use both hex cases. Send one complete request so this coverage does not
+# depend on whether the scheduler combines the JSON source's small chunks.
+let $chunks = ""
+let $expected = ""
+for ($hex, $count) in [["a", 10], ["A", 10], ["b", 11], ["B", 11], ["c", 12], ["C", 12],
+                      ["d", 13], ["D", 13], ["e", 14], ["E", 14], ["f", 15], ["F", 15],
+                      ["1a", 26], ["1A", 26], ["Af", 175], ["aF", 175]]
+{
+    let $body = ""
+    for _ in 0..$count { $body = $body + "x" }
+    $chunks = $chunks + "${hex}\r\n${body}\r\n"
+    $expected = $expected + $body
+}
+let $peer = std::net::tcp::connect "127.0.0.1" $port
+try
+{
+    let $head = "POST /post HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\n"
+    $head = $head + "transfer-encoding: chunked\r\nConnection: close\r\n\r\n"
+    $peer.writer.write std::io::Bytes($head + $chunks + "0\r\n\r\n")
+    let $response = String($peer.reader.read_all)
+    require (($response.split "\r\n\r\n")[1] == $expected) "HTTP fixture hex chunk sizes"
+}
+finally { $peer.close }
+
 let $client = std::net::http::Client(base_url: $base)
 
 struct Reply { pub value: Integer }
