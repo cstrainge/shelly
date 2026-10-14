@@ -72,11 +72,6 @@
         "configuration": {
             "title": "Shelly",
             "properties": {
-                "shelly-shell.bracketColorization": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Color nested brackets using Shelly's language-server tokens and the current theme's bracket palette. Strings and comments are excluded."
-                },
                 "shelly-shell.serverPath": {
                     "type": "string",
                     "default": "shelly",
@@ -97,9 +92,7 @@
         },
         "configurationDefaults": {
             "[shelly]": {
-                "editor.semanticHighlighting.enabled": true,
-                "editor.bracketPairColorization.enabled": false,
-                "editor.guides.bracketPairs": false
+                "editor.semanticHighlighting.enabled": true
             }
         },
         "semanticTokenTypes": [
@@ -181,6 +174,20 @@
                     ]
                 }
             }
+        ],
+        "grammars": [
+            {
+                "language": "shelly",
+                "scopeName": "source.shelly",
+                "path": "./syntaxes/shelly.tmLanguage.json",
+                "balancedBracketScopes": [
+                    "*"
+                ],
+                "unbalancedBracketScopes": [
+                    "comment",
+                    "string"
+                ]
+            }
         ]
     },
     "scripts": {
@@ -200,6 +207,8 @@
         "@types/vscode": "1.140.0",
         "@vscode/vsce": "4.0.0",
         "esbuild": "0.28.2",
-        "typescript": "7.0.2"
+        "typescript": "7.0.2",
+        "vscode-oniguruma": "1.7.0",
+        "vscode-textmate": "9.3.2"
     }
 }

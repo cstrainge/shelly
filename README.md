@@ -3413,8 +3413,9 @@ This does not replace `target/release/shelly`.
 The [Shelly extension](extensions/vscode/README.md) lives in `extensions/vscode/`
 and has the Marketplace ID `cstrainge.shelly-shell`. It uses
 `shelly --language-server` for highlighting and syntax diagnostics, with the
-same parser and source analysis as the REPL. VS Code themes choose the colors;
-there is no separate highlighting grammar.
+same parser and source analysis as the REPL. VS Code themes choose the colors.
+Bracket matching, coloring, and auto-closing use the editor's native support,
+with a small extension grammar excluding comment and string contents.
 
 The server never executes startup files or document code. Configure
 `shelly-shell.serverPath` to a build supporting the server mode. See the extension

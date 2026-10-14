@@ -48,7 +48,8 @@ that block startup or prompt refresh.
 startup isolation, document versions, semantic tokens, Unicode positions,
 diagnostics, whole-file analysis limits, and delimiter exclusion inside strings
 and comments. The VS Code extension's `test.shy` runs Shelly assertions against
-Node editor fixtures; run `npm test` from `extensions/vscode` after building the
+VS Code's TextMate/Oniguruma engines for native bracket eligibility and comment/string
+exclusion; run `npm test` from `extensions/vscode` after building the
 debug binary and installing the extension's development dependencies.
 
 `native/nested_imports.shy` checks nested module paths, `init.shy` packages,

@@ -5,12 +5,10 @@ import { isAbsolute, resolve } from 'node:path';
 import { LanguageClient, ServerOptions } from 'vscode-languageclient/node';
 
 import { verifyServer } from './server';
-import { BracketColors } from './brackets';
 
 
 let client: LanguageClient | undefined;
 let output: vscode.LogOutputChannel | undefined;
-let brackets: BracketColors | undefined;
 let files: vscode.FileSystemWatcher | undefined;
 
 
@@ -32,7 +30,6 @@ async function startServer(): Promise<void>
     const command = serverPath();
     output?.info(`Starting language server: ${command} --language-server`);
     await verifyServer(command);
-    const colors = new BracketColors();
     const watcher = vscode.workspace.createFileSystemWatcher('**/*.shy');
     const server: ServerOptions = {
         command,
@@ -45,29 +42,16 @@ async function startServer(): Promise<void>
             { language: 'shelly', scheme: 'file' },
             { language: 'shelly', scheme: 'untitled' }
         ],
-        synchronize: { configurationSection: 'shelly-shell', fileEvents: watcher },
-        middleware: {
-            provideDocumentSemanticTokens: async (document, token, provide) =>
-            {
-                const version = document.version;
-                const result = await provide(document, token);
-                const legend = next.initializeResult?.capabilities.semanticTokensProvider?.legend;
-                if (result && legend && !token.isCancellationRequested)
-                { colors.accept(document, version, result, legend.tokenTypes); }
-                return result;
-            }
-        }
+        synchronize: { configurationSection: 'shelly-shell', fileEvents: watcher }
     });
     try
     {
         await next.start();
         client = next;
-        brackets = colors;
         files = watcher;
     }
     catch (error)
     {
-        colors.dispose();
         watcher.dispose();
         try { await next.dispose(); }
         catch (cleanup) { output?.error(`Failed to dispose starting client: ${String(cleanup)}`); }
@@ -89,7 +73,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void>
 {
     output = vscode.window.createOutputChannel('Shelly', { log: true });
     context.subscriptions.push(output);
-    context.subscriptions.push({ dispose: () => brackets?.dispose() });
     // The editor API accepts this rule across supported VS Code versions. The JSON
     // schema now requires an object form that older configuration loaders reject.
     context.subscriptions.push(vscode.languages.setLanguageConfiguration('shelly',
@@ -109,8 +92,6 @@ export async function deactivate(): Promise<void>
 {
     const previous = client;
     client = undefined;
-    brackets?.dispose();
-    brackets = undefined;
     files?.dispose();
     files = undefined;
     if (previous) { await previous.dispose(); }

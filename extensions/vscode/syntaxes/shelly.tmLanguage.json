@@ -1,0 +1,66 @@
+{
+    "name": "Shelly",
+    "scopeName": "source.shelly",
+    "patterns": [
+        {
+            "include": "#comments"
+        },
+        {
+            "include": "#strings"
+        }
+    ],
+    "repository": {
+        "comments": {
+            "name": "comment.line.number-sign.shelly",
+            "match": "#.*$"
+        },
+        "strings": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.multiline.shelly",
+                    "begin": "\"\\*",
+                    "end": "\\*\"",
+                    "patterns": [
+                        {
+                            "include": "#escapes"
+                        }
+                    ]
+                },
+                {
+                    "name": "string.quoted.single.multiline.shelly",
+                    "begin": "'\\*",
+                    "end": "\\*'",
+                    "patterns": [
+                        {
+                            "include": "#escapes"
+                        }
+                    ]
+                },
+                {
+                    "name": "string.quoted.double.shelly",
+                    "begin": "\"",
+                    "end": "\"|$",
+                    "patterns": [
+                        {
+                            "include": "#escapes"
+                        }
+                    ]
+                },
+                {
+                    "name": "string.quoted.single.shelly",
+                    "begin": "'",
+                    "end": "'|$",
+                    "patterns": [
+                        {
+                            "include": "#escapes"
+                        }
+                    ]
+                }
+            ]
+        },
+        "escapes": {
+            "name": "constant.character.escape.shelly",
+            "match": "\\\\[^\\r\\n]"
+        }
+    }
+}

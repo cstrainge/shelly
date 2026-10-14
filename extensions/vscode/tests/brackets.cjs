@@ -1,98 +1,67 @@
 
 const { readFileSync } = require('node:fs');
 const { resolve } = require('node:path');
-const { buildSync } = require('esbuild');
+const { Registry, INITIAL, parseRawGrammar } = require('vscode-textmate');
+const { loadWASM, OnigScanner, OnigString } = require('vscode-oniguruma');
 
 
-// This fixture reports editor state. Assertions and test orchestration stay in Shelly.
-const input = JSON.parse(readFileSync(0, 'utf8'));
-const listeners = new Map();
-const decorations = [];
-const editors = [];
-const document = {
-    uri: { toString: () => 'file:///brackets.shy' },
-    languageId: 'shelly', version: 1, isClosed: false, source: input.source,
-    get lineCount() { return this.source.split('\n').length; },
-    lineAt(line) { return { text: this.source.split('\n')[line] }; }
-};
-let enabled = true;
-let semantic = true;
-function subscribe(event, listener)
+// Use the editor's real tokenizer; Shelly owns assertions and test orchestration.
+async function inspect()
 {
-    listeners.set(event, listener);
-    return { dispose() { listeners.delete(event); } };
-}
-function editor()
-{
-    return { document, colors: [[], [], [], []],
-        setDecorations(decoration, ranges) { this.colors[decoration.index] = ranges; } };
-}
-editors.push(editor());
-const vscode = {
-    ThemeColor: class { constructor(id) { this.id = id; } },
-    Range: class { constructor(...positions) { this.positions = positions; } },
-    DecorationRangeBehavior: { ClosedClosed: 1 },
-    workspace: {
-        getConfiguration(section)
-        { return { get() { return section === 'editor' ? semantic : enabled; } }; },
-        onDidChangeTextDocument: listener => subscribe('edit', listener),
-        onDidCloseTextDocument: listener => subscribe('close', listener),
-        onDidChangeConfiguration: listener => subscribe('configuration', listener)
-    },
-    window: {
-        visibleTextEditors: editors,
-        onDidChangeVisibleTextEditors: listener => subscribe('visible', listener),
-        createTextEditorDecorationType(options)
-        {
-            const decoration = { index: decorations.length, options, disposed: false,
-                dispose()
-                {
-                    this.disposed = true;
-                    for (const editor of editors) { editor.colors[this.index] = []; }
-                } };
-            decorations.push(decoration);
-            return decoration;
-        }
-    }
-};
-const compiled = buildSync({ entryPoints: [resolve('src/brackets.ts')], bundle: true,
-    platform: 'node', format: 'cjs', write: false, external: ['vscode'] });
-const moduleObject = { exports: {} };
-new Function('require', 'module', 'exports', compiled.outputFiles[0].text)(
-    name => { if (name === 'vscode') { return vscode; } throw new Error(name); },
-    moduleObject, moduleObject.exports);
-const painter = new moduleObject.exports.BracketColors();
-const frames = [];
-for (const action of input.actions)
-{
-    switch (action.op)
+    const input = JSON.parse(readFileSync(0, 'utf8'));
+    const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
+    const contribution = manifest.contributes.grammars.find(item => item.language === 'shelly');
+    const filename = resolve(contribution.path);
+    const wasm = readFileSync(require.resolve('vscode-oniguruma/release/onig.wasm'));
+    await loadWASM(wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength));
+    const registry = new Registry({
+        onigLib: Promise.resolve({
+            createOnigScanner: patterns => new OnigScanner(patterns),
+            createOnigString: text => new OnigString(text)
+        }),
+        loadGrammar: async scope => scope === contribution.scopeName
+            ? parseRawGrammar(readFileSync(filename, 'utf8'), filename) : null
+    });
+    try
     {
-        case 'accept':
-            painter.accept(document, action.version ?? document.version,
-                { data: new Uint32Array(action.data ?? input.data),
-                    resultId: action.resultId ?? String(document.version) }, input.legend);
-            break;
-        case 'edit':
-            document.source = action.source ?? document.source;
-            document.version++;
-            listeners.get('edit')?.({ document, contentChanges: [{}] });
-            break;
-        case 'split': editors.push(editor()); listeners.get('visible')?.(editors); break;
-        case 'configure':
-            enabled = action.enabled ?? enabled;
-            semantic = action.semantic ?? semantic;
-            listeners.get('configuration')?.({ affectsConfiguration: () => true });
-            break;
-        case 'language':
-            document.languageId = action.language;
-            listeners.get('visible')?.(editors);
-            break;
-        case 'close': document.isClosed = true; listeners.get('close')?.(document); break;
-        case 'dispose': painter.dispose(); break;
-        default: throw new Error(`Unknown fixture action: ${action.op}`);
+        const grammar = await registry.loadGrammarWithConfiguration(contribution.scopeName, 1, {
+            balancedBracketSelectors: contribution.balancedBracketScopes,
+            unbalancedBracketSelectors: contribution.unbalancedBracketScopes
+        });
+        const reports = input.sources.map(source =>
+        {
+            let state = INITIAL;
+            const brackets = [];
+            const excluded = [];
+            for (const [line, text] of source.split(/\r\n|\r|\n/).entries())
+            {
+                const result = grammar.tokenizeLine2(text, state);
+                state = result.ruleStack;
+                for (let index = 0; index < result.tokens.length; index += 2)
+                {
+                    const start = result.tokens[index];
+                    const end = result.tokens[index + 2] ?? text.length;
+                    // VS Code's encoded metadata: standard token type in bits 8–9,
+                    // balanced-bracket eligibility in bit 10. All indices are UTF-16.
+                    const metadata = result.tokens[index + 1];
+                    const type = (metadata >>> 8) & 3;
+                    const balanced = (metadata & 1024) !== 0;
+                    for (let column = start; column < end; column++)
+                    {
+                        const character = text[column];
+                        if (!'()[]{}'.includes(character)) { continue; }
+                        if (type === 0 && balanced) { brackets.push([line, column, character]); }
+                        else { excluded.push([line, column, character, type, balanced]); }
+                    }
+                }
+            }
+            return { brackets, excluded };
+        });
+        const configuration = JSON.parse(readFileSync('language-configuration.json', 'utf8'));
+        console.log(JSON.stringify({ reports, configuration,
+            defaults: manifest.contributes.configurationDefaults['[shelly]'] }));
     }
-    frames.push(editors.map(editor => editor.colors.map(ranges =>
-        ranges.map(range => range.positions))));
+    finally { registry.dispose(); }
 }
-console.log(JSON.stringify({ frames, palette: decorations.map(item => item.options.color.id),
-    disposed: decorations.every(item => item.disposed), subscriptions: listeners.size }));
+
+inspect().catch(error => { console.error(error); process.exitCode = 1; });

@@ -1,79 +1,73 @@
 import std::json
 
-# Editor fixtures run in Node, while Shelly owns the checks and test orchestration.
+# The actual VS Code token engines supply bracket eligibility; Shelly owns assertions.
 fn require($condition: Boolean, $message: String)
 {
     if !$condition { echo "FAIL:" $message; exit 1 }
 }
-
-fn editor_case($source: String, $data: Array, $actions: Array): any
+fn inspect_brackets($sources: Array): any
 {
     let $output: String
-    let $request = ["source": $source, "data": $data,
-        "legend": ["string", "shellyDelimiter", "comment", "variable", "property"], "actions": $actions]
-    let $result = (std::json::encode $request) | node tests/brackets.cjs -> $output
-    require Boolean($result) "editor fixture failed"
+    let $result = (std::json::encode ["sources": $sources]) | node tests/brackets.cjs -> $output
+    require Boolean($result) "editor grammar fixture failed"
     std::json::decode $output
 }
+fn expect_brackets($source: String, $expected: Array)
+{
+    let $report = (inspect_brackets [$source])["reports"][0]
+    if $report["brackets"] != $expected { echo $source $report; fail "incorrect structural brackets" }
+    for $bracket in $report["excluded"]
+    {
+        require (($bracket[3] == 1) || ($bracket[3] == 2)) "excluded bracket lacks comment/string token type"
+        require (!$bracket[4]) "comment or string remains eligible for bracket matching"
+    }
+}
 
-let $empty = [[], [], [], []]
-# One merged delimiter token exercises every character, deep nesting, and matching colors.
-let $deep = editor_case "([{()}])" [0, 0, 8, 1, 0] [["op": "accept"], ["op": "split"]]
-let $expected = [[[0, 0, 0, 1], [0, 3, 0, 4], [0, 4, 0, 5], [0, 7, 0, 8]],
-    [[0, 1, 0, 2], [0, 6, 0, 7]], [[0, 2, 0, 3], [0, 5, 0, 6]], []]
-require ($deep["frames"][0][0] == $expected) "nested brackets have incorrect colors"
-require ($deep["frames"][1] == [$expected, $expected]) "split editor lost bracket colors"
-require ($deep["palette"] == ["editorBracketHighlight.foreground1",
-    "editorBracketHighlight.foreground2", "editorBracketHighlight.foreground3",
-    "editorBracketHighlight.unexpectedBracket.foreground"]) "theme palette is incorrect"
+expect_brackets "([{()}])" [[0, 0, "("], [0, 1, "["], [0, 2, "{"],
+    [0, 3, "("], [0, 4, ")"], [0, 5, "}"], [0, 6, "]"], [0, 7, ")"]]
+expect_brackets "]([" [[0, 0, "]"], [0, 1, "("], [0, 2, "["]]
 
-# The fixture passes server classifications; the extension must not scan other token types.
-let $literal = editor_case '# []\necho "()"; [1]' [0, 0, 4, 2, 0, 1, 5, 4, 0, 0,
-    0, 6, 1, 1, 0, 0, 2, 1, 1, 0] [["op": "accept"]]
-let $literal_expected = [[[1, 11, 1, 12], [1, 13, 1, 14]], [], [], []]
-require ($literal["frames"][0][0] == $literal_expected) "string or comment brackets were colored"
+# Whole-line, inline, EOF, shebang, and CRLF comments do not affect nesting.
+expect_brackets "# [] { unmatched (\n[1] # ) } [\n()" [
+    [1, 0, "["], [1, 2, "]"], [2, 0, "("], [2, 1, ")"]]
+expect_brackets "#!/usr/bin/env shelly [({\r\n{} # ]})" [[1, 0, "{"], [1, 1, "}"]]
+expect_brackets "echo# []" []
+expect_brackets "# '\"* [({" []
 
-let $unicode = editor_case "💜()\n[]" [0, 2, 2, 1, 0, 1, 0, 2, 1, 0] [["op": "accept"]]
-require ($unicode["frames"][0][0] == [[[0, 2, 0, 3], [0, 3, 0, 4],
-    [1, 0, 1, 1], [1, 1, 1, 2]], [], [], []]) "UTF-16 or multiline positions are incorrect"
+# Quoted hashes stay string content; quotes inside comments cannot start strings.
+expect_brackets '"# []" ()' [[0, 7, "("], [0, 8, ")"]]
+expect_brackets "'# []' {}" [[0, 7, "{"], [0, 8, "}"]]
+expect_brackets '# "unterminated [\n()' [[1, 0, "("], [1, 1, ")"]]
+expect_brackets '# \'unterminated [\n[]' [[1, 0, "["], [1, 1, "]"]]
 
-let $invalid = editor_case "]([" [0, 0, 3, 1, 0] [["op": "accept"]]
-require ($invalid["frames"][0][0] == [[[0, 1, 0, 2]], [[0, 2, 0, 3]], [],
-    [[0, 0, 0, 1]]]) "incomplete or unexpected brackets were not handled"
+# Escapes cannot prematurely end strings or change bracket participation.
+expect_brackets '"a\\"[]" ()' [[0, 8, "("], [0, 9, ")"]]
+expect_brackets "'a\\'[]' ()" [[0, 8, "("], [0, 9, ")"]]
+expect_brackets '"a\\\\" []' [[0, 6, "["], [0, 7, "]"]]
 
-let $states = editor_case "()" [0, 0, 2, 1, 0] [
-    ["op": "accept"], ["op": "split"], ["op": "edit"],
-    ["op": "accept", "version": 1, "resultId": "1"],
-    ["op": "accept", "resultId": "1"], ["op": "accept"],
-    ["op": "configure", "enabled": false], ["op": "configure", "enabled": true],
-    ["op": "configure", "semantic": false], ["op": "configure", "semantic": true],
-    ["op": "language", "language": "plaintext"], ["op": "language", "language": "shelly"],
-    ["op": "close"], ["op": "accept"], ["op": "dispose"], ["op": "accept"]]
-let $painted = [[[0, 0, 0, 1], [0, 1, 0, 2]], [], [], []]
-for $index in [1, 5, 7, 9, 11]
-{ require ($states["frames"][$index] == [$painted, $painted]) "fresh colors were not restored" }
-for $index in [2, 3, 4, 6, 8, 10, 12, 13, 14, 15]
-{ require ($states["frames"][$index] == [$empty, $empty]) "stale or disabled colors survived" }
-require ($states["disposed"] && ($states["subscriptions"] == 0)) "editor resources leaked"
+# Ordinary unfinished quotes recover on the next line while editing.
+expect_brackets "\"[ unfinished\n[]" [[1, 0, "["], [1, 1, "]"]]
+expect_brackets "'[ unfinished\r\n{}" [[1, 0, "{"], [1, 1, "}"]]
+expect_brackets "💜[]\r()\r\n{}" [[0, 2, "["], [0, 3, "]"],
+    [1, 0, "("], [1, 1, ")"], [2, 0, "{"], [2, 1, "}"]]
 
-let $cleared = editor_case "()" [0, 0, 2, 1, 0] [["op": "accept"],
-    ["op": "accept", "data": []]]
-require ($cleared["frames"][1][0] == $empty) "empty token response retained colors"
+# Both multiline forms ignore interior quotes, hashes, and bracket-like text.
+expect_brackets "\"*\n[ '# ()\n}\n*\" []" [[3, 3, "["], [3, 4, "]"]]
+expect_brackets "'*\n[ \"# ()\n}\n*' {}" [[3, 3, "{"], [3, 4, "}"]]
+expect_brackets "\"*\n[ # (\n}" []
+expect_brackets "'*\n[ # (\n}" []
 
-# Interpolation braces carry variable/string tokens, never structural delimiters.
-let $members = editor_case '["${p.name}", $p.$name]' [
-    0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 3, 3, 0, 0, 3, 5, 4, 0,
-    0, 5, 2, 0, 0, 0, 2, 1, 1, 0, 0, 2, 8, 3, 0, 0, 8, 1, 1, 0
-] [["op": "accept"], ["op": "split"], ["op": "edit"], ["op": "accept"]]
-let $member_brackets = [[[0, 0, 0, 1], [0, 22, 0, 23]], [], [], []]
-require ($members["frames"][0][0] == $member_brackets) "interpolation braces affected nesting"
-require ($members["frames"][1] == [$member_brackets, $member_brackets]) "member split colors differ"
-require ($members["frames"][2] == [$empty, $empty]) "member edits retained stale colors"
-require ($members["frames"][3] == [$member_brackets, $member_brackets]) "member colors not restored"
+# Interpolation stays in the string token, including raw and dynamic field access.
+expect_brackets '["${p.name}", $p.$name]' [[0, 0, "["], [0, 22, "]"]]
+expect_brackets '["${p.::value}", $p.::$name]' [[0, 0, "["], [0, 27, "]"]]
+expect_brackets '["${p.$name}"]' [[0, 0, "["], [0, 13, "]"]]
 
-# Raw member and factory syntax still uses server classifications for bracket coloring.
-let $raw_members = editor_case '["${p.::value}", $p.::$name]' [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 3, 3, 0, 0, 3, 8, 4, 0, 0, 8, 2, 0, 0, 0, 2, 1, 1, 0, 0, 2, 10, 3, 0, 0, 10, 1, 1, 0] [["op": "accept"], ["op": "split"]]
-let $raw_brackets = [[[0, 0, 0, 1], [0, 27, 0, 28]], [], [], []]
-require ($raw_members["frames"][0][0] == $raw_brackets) "raw interpolation braces affected nesting"
-require ($raw_members["frames"][1] == [$raw_brackets, $raw_brackets]) "raw member split colors differ"
-echo "Bracket coloring tests passed."
+# All three native bracket pairs participate and auto-closing excludes comments/strings.
+let $configuration = inspect_brackets ["[] # ()"]
+require ($configuration["configuration"]["colorizedBracketPairs"] ==
+    [["{", "}"], ["[", "]"], ["(", ")"]]) "native bracket pairs missing"
+for $pair in $configuration["configuration"]["autoClosingPairs"]
+{ require ($pair["notIn"] == ["string", "comment"]) "auto-closing active inside comments/strings" }
+require ($configuration["defaults"]["editor.bracketPairColorization.enabled"] != false) "native coloring disabled"
+require ($configuration["defaults"]["editor.guides.bracketPairs"] != false) "native bracket guides disabled"
+echo "Bracket grammar tests passed."
