@@ -228,6 +228,7 @@ pub struct TypeRegistry
     pub constructor_permissions: HashSet<TypeId>,
     pub properties: HashMap<(TypeId, String), TypeId>,
     pub checking_factory: Option<TypeId>,
+    pub checking_receiver: Option<TypeId>,
     pub allow_candidates: bool,
 }
 
@@ -644,7 +645,8 @@ impl TypeRegistry
             extensions: HashSet::new(),
             implied_conversions: HashSet::new(),
             names: HashMap::new(), constructors: HashMap::new(),
-            properties: HashMap::new(), checking_factory: None, allow_candidates: false,
+            properties: HashMap::new(), checking_factory: None, checking_receiver: None,
+            allow_candidates: false,
             constructor_permissions: HashSet::new() };
         for name in Self::BUILTIN_NAMES
         {
@@ -1073,8 +1075,7 @@ impl TypeRegistry
         }
         if self.validate(id, &value).is_ok()
         {
-            if value.collection_type().is_some()
-                && matches!(self.get(id).kind, TypeKind::Array(_) | TypeKind::Map(_, _))
+            if matches!(self.get(id).kind, TypeKind::Array(_) | TypeKind::Map(_, _))
             { value = value.with_collection_type(id); }
             return Ok(value);
         }

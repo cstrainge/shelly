@@ -31,6 +31,7 @@ pub enum Code
     MakeClosure,
     ExitFunction,
     NewVariable,
+    NewDefaultVariable,
     // Operand: [existing binding name, target type ID, visible conversion methods].
     RetypeVariable,
     // Widen and validate the stack top without consuming it, before replacing a binding.

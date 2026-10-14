@@ -193,6 +193,9 @@ receiver-dependent collection method signatures, separate hash key/value checks,
 numeric promotion, unions and named types, variadic arguments, composed annotations,
 compile-time rejection before execution, runtime fallback, imported methods,
 stored references, callable prototypes, and return checks after receiver mutation.
+`native/receiver_locals.shy` and `repl/receiver_locals.shy` check local scalar and
+collection constraints, runtime defaults, nested blocks, live receiver captures,
+retyping, and the prelude's unique method.
 `native/properties.shy` and `repl/properties.shy` check member snapshots, type
 metadata, scalar and collection values, enum indexes, callback fields, builtin
 and user methods, public module extensions, live receivers, retained method

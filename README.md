@@ -935,13 +935,24 @@ not change that call's return contract. Each variadic argument is checked, and
 normal annotation rules apply, including numeric promotion, unions, and named
 type wrapping. Mixed or unknown contents resolve to `any`.
 
-`$self.value_type` is available in array and hash method signatures;
-`$self.key_type` is available in hash method signatures. They can appear inside
+`$self.value_type` is available in array and hash method signatures and local annotations;
+`$self.key_type` is available in hash methods too. They can appear inside
 array, hash, fixed-array, optional, union, and function prototype annotations.
 For example, a hash method can take `[$self.key_type: $self.value_type]` or return
 `[$self.key_type, $self.value_type]`. These receiver-dependent annotations require
 an instance collection method; ordinary functions, conversion factories, type
-declarations, and variable or struct field annotations cannot use them.
+declarations, and struct field annotations cannot use them. Local bindings use
+the current receiver's collection metadata and retain their resolved type for
+subsequent writes. Closures can capture the receiver through these annotations.
+
+```shy
+fn Array::copy(): [$self.value_type]
+{
+    let $result: [$self.value_type] = []
+    for $item in $self { $result = [$result..., $item] }
+    $result
+}
+```
 
 Ordinary value copies and explicit function parameters remain independent.
 Methods on literals, constructor results, or other temporary values mutate only

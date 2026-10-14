@@ -320,9 +320,12 @@ fn check_scope(
                 {
                     if let Some(annotation) = &statement.annotation
                     {
-                        let id = resolve_type(registry, annotation, &names, &statement.location)?;
+                        let id = resolve_method_type(registry, annotation, &names,
+                            &statement.location, registry.checking_receiver)?;
                         statement.type_id = Some(id);
-                        if statement.default_initialize
+                        if statement.default_initialize && registry.has_receiver_type(id)
+                        { statement.deferred_initialize = true; }
+                        else if statement.default_initialize
                         {
                             let value = match registry.default_value(id)
                             {
@@ -578,10 +581,17 @@ fn check_function(
         }
     }
     let previous = registry.checking_factory;
+    let previous_receiver = registry.checking_receiver;
+    registry.checking_receiver = if function.receiver_type.is_some()
+        { function.receiver_type.filter(|_| !is_conversion_method(&function.name)
+            && function.name != "new") }
+        else if function.parameters.iter().any(|parameter| parameter.name == "$self")
+        { None } else { previous_receiver };
     registry.checking_factory = if function.name == "new" { function.receiver_type }
         else if function.receiver_type.is_none() { previous } else { None };
     let result = check_scope(registry, &mut function.body, names, false);
     registry.checking_factory = previous;
+    registry.checking_receiver = previous_receiver;
     result?;
     Ok(())
 }
@@ -1727,16 +1737,23 @@ fn check_binding_scope(
         {
             AstStatement::LetStatement(item) =>
                 {
+                    let receiver = bindings.get("$self").and_then(|binding| binding.type_id());
+                    let value = receiver.and_then(|id|
+                        registry.collection_member_type(id, "value_type"));
+                    let key = receiver.and_then(|id|
+                        registry.collection_member_type(id, "key_type"));
+                    let type_id = item.type_id.map(|id|
+                        registry.specialize_receiver_type(id, value, key));
                     if item.retype
                     {
                         // Conversion executes at runtime; subsequent uses see the new constraint.
                         forget_inferred(&mut bindings);
-                        bindings.insert(item.identifier.clone(), Binding::declared(item.type_id));
+                        bindings.insert(item.identifier.clone(), Binding::declared(type_id));
                         continue;
                     }
                     if item.deferred_initialize
                     {
-                        bindings.insert(item.identifier.clone(), Binding::declared(item.type_id));
+                        bindings.insert(item.identifier.clone(), Binding::declared(type_id));
                         continue;
                     }
                     bindings.methods = check_binding_expression(
@@ -1744,11 +1761,11 @@ fn check_binding_scope(
                         &item.expression,
                         &bindings,
                         return_type,
-                        item.type_id,
+                        type_id,
                     )?;
-                    check_stored_string(registry, &item.expression, &bindings, item.type_id)?;
+                    check_stored_string(registry, &item.expression, &bindings, type_id)?;
                     let inferred = binding_type(registry, &item.expression, &bindings)
-                        .and_then(|id| if item.type_id.is_none_or(|expected|
+                        .and_then(|id| if type_id.is_none_or(|expected|
                             !registry.has_error_type(expected))
                             && returns_call_data(registry, &item.expression, &bindings)
                             { registry.success_type(id) } else { Some(id) });
@@ -1756,7 +1773,7 @@ fn check_binding_scope(
                     { forget_inferred(&mut bindings); }
                     let type_value = type_value(&item.expression, &bindings);
                     bindings.insert(item.identifier.clone(), Binding
-                        { constraint: item.type_id, inferred, refined: None,
+                        { constraint: type_id, inferred, refined: None,
                           type_value });
                 },
             AstStatement::DestructureStatement(item) =>

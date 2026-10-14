@@ -1074,7 +1074,8 @@ fn compile_let_statement(
     }
     if let_statement.deferred_initialize
     {
-        if let_statement.export_flag == AstExportFlag::Exported
+        let dependent = let_statement.annotation.as_ref().is_some_and(AstType::uses_receiver);
+        if let_statement.export_flag == AstExportFlag::Exported && !dependent
         {
             return Err(CompileError {
                 location: Some(let_statement.location.clone()),
@@ -1083,12 +1084,21 @@ fn compile_let_statement(
         }
         instructions.push(Instruction {
             location: Some(let_statement.location.clone()),
-            code: Code::NewVariable,
+            code: if dependent { Code::NewDefaultVariable } else { Code::NewVariable },
             operand: Some(Value::from_array(vec![
                 Value::from_string(let_statement.identifier.clone()),
                 Value::Integer(let_statement.type_id.unwrap().0 as i64),
             ])),
         });
+        if let_statement.export_flag == AstExportFlag::Exported
+        {
+            instructions.push(Instruction
+                {
+                    location: Some(let_statement.location.clone()),
+                    code: Code::ExportVariable,
+                    operand: Some(Value::from_string(let_statement.identifier.clone())),
+                });
+        }
         return Ok(());
     }
     // Evaluate before changing the binding so self-reference and failed initializers are safe.
@@ -1534,7 +1544,8 @@ fn remove_empty_result_checks(instructions: &mut Vec<Instruction>)
                     | Code::ExecuteIfExecutable | Code::MakeExecutable | Code::MakeClosure
                     | Code::ToBoolean | Code::ConvertType | Code::RetypeVariable
                     | Code::BooleanNot | Code::MathNegate
-                    | Code::NextIteration | Code::MatchPattern | Code::MatchFail => false,
+                    | Code::NextIteration | Code::MatchPattern | Code::MatchFail
+                    | Code::NewDefaultVariable => false,
 
                     // Do not carry a proof across control-flow boundaries.
                     Code::Jump | Code::JumpIfFalse | Code::JumpIfTrue

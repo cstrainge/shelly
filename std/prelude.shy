@@ -276,6 +276,29 @@ pub fn Array::max(): $self.value_type | ()
 }
 
 
+pub fn Array::unique(): [$self.value_type]
+{
+    if $self.empty
+    {
+        return []
+    }
+
+    let $seen: [$self.value_type: Boolean] = [:]
+    let $result: [$self.value_type] = []
+
+    for $item in $self
+    {
+        if $seen[$item] == ()
+        {
+            $seen[$item] = true
+            $result = [$result..., $item]
+        }
+    }
+
+    $result
+}
+
+
 # Let the array be treated as a stack, push a new item to the beginning of the array.
 pub fn Array::push($value: $self.value_type)
 {

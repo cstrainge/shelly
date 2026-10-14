@@ -1,0 +1,16 @@
+check_repl ["id": "RECEIVER-LOCALS", "name": "Receiver-dependent local annotations",
+"steps": [
+    ['fn Array::copy(): Array { let $result: [$self.value_type] = []; for $item in $self { $result = [$result..., $item] }; $result }', "quiet", ""],
+    ['let $ints: [Integer] = [1,2]; let $copy = $ints.copy; echo $copy... $copy.value_type', "output", "1 2 Integer"],
+    ['let $floats: [Float] = []; let $copy = $floats.copy; echo $copy.count $copy.value_type', "output", "0 Float"],
+    ['fn Array::bad() { let $result: [$self.value_type] = []; $result = ["wrong"] }', "quiet", ""],
+    ['$ints.bad', "error", "Expected Integer, got String"],
+    ['echo $ints...', "output", "1 2"],
+    ['fn HashMap::scratch(): HashMap { let $result: [$self.key_type: $self.value_type]; $result }', "quiet", ""],
+    ['let $table: [String: Float] = [:]; let $scratch = $table.scratch; echo $scratch.key_type $scratch.value_type', "output", "String Float"],
+    ['fn Array::callback(): fn(): Array { fn(): Array { let $r: [$self.value_type]; $r } }; let $dynamic = [1]; let $f = $dynamic.callback', "quiet", ""],
+    ['let $r = ($f); echo $r.value_type', "output", "Integer"],
+    ['$dynamic = ["s"]; let $r = ($f); echo $r.value_type', "output", "String"],
+    ['fn ordinary() { let $x: $self.value_type = 1 }', "error", "compatible collection method receiver"],
+    ['echo $ints...', "output", "1 2"],
+], "exit": 0]

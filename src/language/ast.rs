@@ -541,6 +541,24 @@ pub enum AstType
     Union(Vec<AstType>)
 }
 
+
+impl AstType
+{
+    pub fn uses_receiver(&self) -> bool
+    {
+        match self
+        {
+            Self::ReceiverMember(_) => true,
+            Self::Array(item) => item.uses_receiver(),
+            Self::Map(key, value) => key.uses_receiver() || value.uses_receiver(),
+            Self::FixedArray(items) | Self::Union(items) => items.iter().any(Self::uses_receiver),
+            Self::Function(args, result) => args.iter().any(Self::uses_receiver)
+                || result.uses_receiver(),
+            Self::Named(_) => false,
+        }
+    }
+}
+
 pub struct AstFieldDeclaration
 {
     pub public: bool,

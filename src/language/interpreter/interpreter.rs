@@ -1670,16 +1670,17 @@ impl Interpreter
                             else { unreachable!(); };
                         let [Value::String(name, _), Value::Integer(id), methods] = parts.as_slice()
                             else { unreachable!(); };
-                        self.retype_variable(&location, name, TypeId(*id as usize), methods)?;
+                        let id = self.specialize_local_type(&location, TypeId(*id as usize))?;
+                        self.retype_variable(&location, name, id, methods)?;
                     },
 
-                Code::NewVariable | Code::BindIteration =>
+                Code::NewVariable | Code::NewDefaultVariable | Code::BindIteration =>
                     {
                         let (variable_name, type_id) = match &instruction.operand
                             {
                                 Some(Value::String(name, _)) => (name.clone(), None),
                                 Some(Value::Array(parts)) if matches!(instruction.code,
-                                    Code::NewVariable) =>
+                                    Code::NewVariable | Code::NewDefaultVariable) =>
                                     {
                                         let [Value::String(name, _),
                                              Value::Integer(id)] = parts.as_slice() else
@@ -1701,11 +1702,32 @@ impl Interpreter
                                 ))
                             };
 
+                        let type_id = type_id.map(|id|
+                            self.specialize_local_type(&location, id)).transpose()?;
                         let type_id = type_id.or_else(||
                             matches!(instruction.code, Code::NewVariable)
                                 .then(|| stack.back().and_then(Value::collection_type)).flatten());
                         let mut value = if matches!(instruction.code, Code::BindIteration)
                             { Self::pop(&location, &mut stack)? }
+                            else if matches!(instruction.code, Code::NewDefaultVariable)
+                            {
+                                let id = type_id.unwrap();
+                                let registry = &self.scope().types;
+                                let value = match registry.default_value(id)
+                                    {
+                                        Ok(value) => registry.coerce(id, value),
+                                        Err(_) if matches!(registry
+                                            .get(registry.underlying_type(id)).kind,
+                                            TypeKind::Struct(_) | TypeKind::Enum(_))
+                                            && !registry.has_error_type(id)
+                                            || registry.get(registry.underlying_type(id)).name
+                                                .starts_with("__") => Ok(Value::None),
+                                        Err(message) => Err(message),
+                                    }.map_err(|message| InterpreterError::new(location.clone(),
+                                        ErrorWhat::InvalidOperand(message)))?;
+                                self.last_result = Some(value.clone());
+                                value
+                            }
                             else if variable_name == "$HOME"
                             {
                                 // Keep the old anchor until SetVariable resolves a shortened
@@ -1750,15 +1772,16 @@ impl Interpreter
                                 )
                             ));
                         };
+                        let id = self.specialize_local_type(&location, TypeId(id as usize))?;
                         let value = stack.back_mut().ok_or_else(|| InterpreterError::new(
                             location.clone(),
                             ErrorWhat::InvalidOperand(
                                 "Missing value for type validation".to_string()
                             )
                         ))?;
-                        self.prepare_failure_value(&location, value, Some(TypeId(id as usize)))?;
+                        self.prepare_failure_value(&location, value, Some(id))?;
                         *value = self.scope().types
-                            .coerce(TypeId(id as usize), value.clone())
+                            .coerce(id, value.clone())
                             .map_err(|message| InterpreterError::new(
                                 location.clone(),
                                 ErrorWhat::InvalidOperand(
@@ -3625,6 +3648,21 @@ impl Interpreter
                         }).unwrap_or_else(|| name.into());
                     error.through_call(&display, location, false)
                 })
+    }
+
+    fn specialize_local_type(&self, location: &Location, id: TypeId) -> InterpreterResult<TypeId>
+    {
+        let registry = &self.scope().types;
+        if !registry.has_receiver_type(id) { return Ok(id); }
+        let invalid = || InterpreterError::new(location.clone(), ErrorWhat::InvalidOperand(
+            "Receiver-dependent local annotations require a collection receiver".into()));
+        let reference = self.variable_reference("$self").ok_or_else(invalid)?;
+        let value = self.read_reference(location, &reference)?;
+        if !matches!(value.underlying(), Value::Array(_) | Value::HashMap(_))
+        { return Err(invalid()); }
+        Ok(registry.specialize_receiver_type(id,
+            registry.receiver_member_type(location, &reference, &value, "value_type"),
+            registry.receiver_member_type(location, &reference, &value, "key_type")))
     }
 
     fn execute_function_body(

@@ -1,0 +1,58 @@
+let $fixture = $args[0]
+let $failed = 0
+fn local_case($source: String, $expected: String, $diagnostic: String, $stdlib: String | ())
+{
+    let $path = if $stdlib == () { "" } else { $stdlib }
+    let $status = run_process [`$shelly, "-m", "-c", $source] ["cwd": $fixture,
+        "env": ["PATH": "/usr/bin:/bin", "SHELLY_STD_PATH": $path],
+        "stdout_file": "${fixture}/out", "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $exit = if $diagnostic == "" { 0 } else { 1 }
+    if    ($status["exit_code"] != $exit) || ($status["signal"] != ())
+       || ($status["error"] != ()) || $status["timed_out"] || ($out != $expected)
+       || (($diagnostic == "") && ($err != ""))
+       || (($diagnostic != "") && !($err.contains $diagnostic))
+    { echo $source $status $out $err; $failed = $failed + 1 }
+}
+
+# The bundled prelude contains the user's unique method, including the empty early return.
+local_case 'let $a: [Integer] = [1,2,1,3,2]; let $r = $a.unique; echo $r... $r.value_type; echo $a...' "1 2 3 Integer\n1 2 1 3 2\n" "" "bundled"
+local_case 'let $a: [Float] = [1,1,2]; let $r = $a.unique; echo $r... $r.value_type; let $e: [Float] = []; let $empty = $e.unique; echo $empty.count $empty.value_type' "1.0 2.0 Float\n0 Float\n" "" "bundled"
+local_case 'let $a: [String] = ["b","a","b"]; let $r = $a.unique; echo $r... $r.value_type' "b a String\n" "" "bundled"
+local_case 'let $a: [any] = [1,"1",1,"1",true,true]; let $r = $a.unique; echo $r.count $r.value_type' "3 any\n" "" "bundled"
+local_case 'type Count = Integer; let $a: [Count] = [7,7,8]; let $r = $a.unique; echo $r... $r.value_type ($r[0].type == Count)' "7 8 Count true\n" "" "bundled"
+local_case 'let $a: [[Integer]] = [[1],[1],[2]]; echo $a.unique.count' "2\n" "" "bundled"
+local_case 'fn Array::local(): Array { let $x = "a:b"; let type $x = [$self.value_type]; $x }; let $a: [String] = []; echo $a.local...' "a b\n" "" "bundled"
+
+# Contracts in locals specialize even when the method signature has no dependent types.
+local_case 'fn Array::local(): any { let $x: $self.value_type = 1; $x }; let $a: [Float] = []; let $x = $a.local; echo $x $x.type' "1.0 Float\n" ""
+local_case 'fn Array::local(): Array { let $x: [$self.value_type] = []; $x = [1]; $x }; let $a: [Float] = []; let $r = $a.local; echo $r... $r.value_type' "1.0 Float\n" ""
+local_case 'fn HashMap::local(): HashMap { let $x: [$self.key_type: $self.value_type] = [:]; $x["key"] = 1; $x }; let $a: [String: Float] = [:]; let $r = $a.local; echo $r["key"] $r.key_type $r.value_type' "1.0 String Float\n" ""
+local_case 'fn Array::local() { { let $x: [$self.value_type] = []; echo $x.value_type }; for _ in 0..1 { let $x: $self.value_type = 1; echo $x } }; let $a: [Float] = []; $a.local' "Float\n1.0\n" ""
+local_case 'fn Array::local(): Array { let $x: [$self.value_type]; $x }; let $a: [String] = []; let $r = $a.local; echo $r.count $r.value_type' "0 String\n" ""
+local_case 'fn Array::local(): any { let $x: $self.value_type; $x }; let $a: [Float] = []; echo $a.local; let $b: [Boolean] = []; echo $b.local; let $c: [String] = []; echo $c.local.type' "0.0\nfalse\nString\n" ""
+local_case 'fn HashMap::local(): HashMap { let $x: [$self.key_type: $self.value_type]; $x }; let $a: [String: Float] = [:]; let $r = $a.local; echo $r.key_type $r.value_type' "String Float\n" ""
+local_case 'fn Array::local(): any { let $x: $self.value_type | (); $x }; let $a: [Integer] = []; echo $a.local' "()\n" ""
+local_case 'fn Array::local(): any { let $x: [$self.value_type, String] = [1,"ok"]; $x }; let $a: [Float] = []; let $r = $a.local; echo $r... $r[0].type' "1.0 ok Float\n" ""
+local_case 'fn identity($x: any): any { $x }; fn Array::local(): any { let $f: fn($self.value_type): $self.value_type = `identity; $f 1 }; let $a: [Float] = []; echo $a.local' "1.0\n" ""
+local_case 'struct Item { pub n: Integer }; fn Array::first(): $self.value_type { let $x: $self.value_type; $x = $self[0]; $x }; let $a: [Item] = [Item(n: 7)]; echo $a.first.n' "7\n" ""
+
+# An annotation alone captures the live receiver, including after the method returns.
+local_case 'fn Array::callback(): fn(): Array { fn(): Array { let $x: [$self.value_type]; $x } }; let $a = [1]; let $f = $a.callback; let $r = ($f); echo $r.value_type; $a = ["s"]; let $r = ($f); echo $r.value_type' "Integer\nString\n" ""
+
+# Dependent locals enforce writes, with concrete receivers checked before execution.
+local_case 'fn Array::bad() { let $x: [$self.value_type] = []; $x = ["wrong"] }; let $a: [Integer] = []; echo started; $a.bad' "started\n" "Expected Integer, got String"
+local_case 'fn Array::bad($value: any) { let $x: $self.value_type = $value }; let $a: [Integer] = []; echo started; $a.bad "wrong"' "started\n" "Expected Integer, got String"
+local_case 'fn HashMap::bad() { let $x: [$self.key_type: $self.value_type]; $x[1] = 2 }; let $h: [String: Integer] = [:]; echo started; $h.bad' "started\n" "Expected String, got Integer"
+local_case 'type Items = [Integer]; fn Items::bad() { let $x: $self.value_type = "wrong" }; echo unreachable' "" "Compile error"
+local_case 'fn ordinary() { let $x: $self.value_type = 1 }' "" "compatible collection method receiver"
+local_case 'fn String::bad() { let $x: $self.value_type = 1 }' "" "compatible collection method receiver"
+local_case 'fn Array::bad() { let $x: $self.key_type = 1 }' "" "compatible collection method receiver"
+local_case 'fn Array::from_string($s: String): Array { let $x: [$self.value_type] = []; $x }' "" "compatible collection method receiver"
+local_case 'fn Array::callback(): fn(String): Array { fn($self: String): Array { let $x: [$self.value_type] = []; $x } }' "" "compatible collection method receiver"
+local_case 'fn Array::local() { let $x: $self.value_type }; let $a: [Integer | String] = []; $a.local' "" "requires an initializer"
+
+require ($failed == 0) "receiver-dependent local annotations differ"

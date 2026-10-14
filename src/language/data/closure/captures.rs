@@ -56,6 +56,8 @@ fn statements(items: &AstTopLevel, parent: &HashSet<String>, free: &mut HashSet<
             AstStatement::ThrowStatement(item) => expression(item, &bound, free),
             AstStatement::LetStatement(item) =>
                 {
+                    if item.annotation.as_ref().is_some_and(AstType::uses_receiver)
+                    { name("$self", &bound, free); }
                     expression(&item.expression, &bound, free);
                     bound.insert(item.identifier.clone());
                 },
