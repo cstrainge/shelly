@@ -1,0 +1,44 @@
+# Bare command words are called in truth-tested expressions, with short-circuiting.
+let $fixture = $args[0]
+fn boolean_command_case($source: String, $stdout: String, $diagnostic: String)
+{
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "", "TERM": "dumb", "LANG": "C.UTF-8"],
+        "stdin_file": "/dev/null", "stdout_file": "${fixture}/out",
+        "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if    ($out != $stdout) || ($reply["exit_code"] != $status)
+       || ($reply["error"] != ()) || ($reply["signal"] != ()) || $reply["timed_out"]
+       || (($diagnostic == "") && ($err != ""))
+       || (($diagnostic != "") && !($err.contains $diagnostic))
+    { echo $source $reply $out $err; fail "boolean command differs" }
+}
+
+boolean_command_case 'fn ff(): Boolean { echo "ff called"; false }; if ff && ff { echo TRUE } else { echo false }; if (ff) && (ff) { echo TRUE } else { echo false }' "ff called\nfalse\nff called\nfalse\n" ""
+let $functions = 'fn yes(): Boolean { echo yes; true }; fn no(): Boolean { echo no; false }; fn unused(): Boolean { exit 9 }; '
+boolean_command_case ($functions + 'if yes && yes { echo TRUE }; if no || yes { echo TRUE }') "yes\nyes\nTRUE\nno\nyes\nTRUE\n" ""
+boolean_command_case ($functions + 'if no && unused { echo BAD } else { echo false }; if yes || unused { echo TRUE }') "no\nfalse\nyes\nTRUE\n" ""
+boolean_command_case ($functions + 'if no && unused || yes && yes { echo TRUE }') "no\nyes\nyes\nTRUE\n" ""
+boolean_command_case ($functions + 'if !no { echo TRUE }; if !!yes { echo TRUE }; if !yes && unused { echo BAD } else { echo false }') "no\nTRUE\nyes\nTRUE\nyes\nfalse\n" ""
+boolean_command_case ($functions + 'let $value = no && unused; echo $value; fn check(): Boolean { yes && no }; echo (check); fn explicit(): Boolean { return no || yes }; echo (explicit)') "no\nfalse\nyes\nno\nfalse\nno\nyes\ntrue\n" ""
+boolean_command_case 'let $calls = 0; fn flip(): Boolean { $calls = $calls + 1; $calls > 1 }; if flip || flip { echo $calls }; if flip || flip { echo $calls }' "2\n3\n" ""
+boolean_command_case 'let $calls = 0; fn more(): Boolean { $calls = $calls + 1; $calls < 3 }; while more && true { echo $calls }; echo $calls' "1\n2\n3\n" ""
+boolean_command_case 'let $calls = 0; fn done(): Boolean { $calls = $calls + 1; $calls == 3 }; until done || false { echo $calls }; echo $calls' "1\n2\n3\n" ""
+boolean_command_case ($functions + 'alias nope = no; if nope && unused { echo BAD } else { echo false }') "no\nfalse\n" ""
+boolean_command_case 'if /usr/bin/false && /usr/bin/true { echo BAD } else { echo false }; if /usr/bin/true || /usr/bin/false { echo TRUE }' "false\nTRUE\n" ""
+
+# Argument words, quoted strings, variables and explicit references are still data.
+boolean_command_case 'fn unused(): Boolean { exit 9 }; fn take($value: any): any { $value }; echo unused (take unused && unused); if "unused" && "unused" { echo QUOTED }; let $reference = `unused; if $reference && true { echo REFERENCE }; if `unused && true { echo ESCAPED }; if unknown_boolean_word && true { echo WORD }' "unused true\nQUOTED\nREFERENCE\nESCAPED\nWORD\n" ""
+boolean_command_case 'enum Choice { First }; if Choice::First && true { echo ENUM }; let $value = 7; if $value.type == Integer && $value == 7 { echo TYPE }' "ENUM\nTYPE\n" ""
+boolean_command_case 'fn check($value: Integer): Boolean { true }; if check && true { echo BAD }' "" "expected 1 arguments, but got 0"
+boolean_command_case 'fn explode(): Boolean { let $zero = 0; let _ = 1 / $zero; false }; if explode && true { echo BAD }' "" "zero"
+boolean_command_case 'fn explode(): Boolean { let $zero = 0; let _ = 1 / $zero; false }; if true || explode { echo SAFE }; if false && explode { echo BAD } else { echo SAFE }' "SAFE\nSAFE\n" ""
+
+# Qualified functions retain the same single-call behavior as local command words.
+printf "%s" 'pub fn ff(): Boolean { echo "module called"; false }' -> "${fixture}/booleans.shy"
+boolean_command_case 'import booleans; if booleans::ff && booleans::ff { echo BAD } else { echo false }' "module called\nfalse\n" ""

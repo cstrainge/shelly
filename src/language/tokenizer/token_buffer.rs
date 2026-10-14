@@ -113,6 +113,9 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
     pub(crate) fn syntax_checkpoint(&self) -> usize
     { self.syntax.as_ref().map_or(0, |journal| journal.entries.len()) }
 
+    pub(crate) fn syntax_context(&self) -> SyntaxContext
+    { self.context }
+
     pub(crate) fn with_context<T>(&mut self, context: SyntaxContext,
                                  parse: impl FnOnce(&mut Self) -> T) -> T
     {

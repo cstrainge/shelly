@@ -1,5 +1,5 @@
 
-use std::cell::Cell;
+use std::{ cell::Cell, mem::replace };
 
 use crate::language::{ ast::*,
                        data::{ value::Value, types::TypeRegistry },
@@ -1155,7 +1155,41 @@ fn parse_boolean_tail(buffer: &mut TokenBuffer<'_, '_>,
 pub fn parse_expression(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option<AstExpression>>
 {
     let Some(left) = parse_range_expression(buffer)? else { return Ok(None); };
-    Ok(Some(parse_boolean_tail(buffer, left, 0)?))
+    let mut expression = parse_boolean_tail(buffer, left, 0)?;
+    if buffer.syntax_context() != SyntaxContext::Argument
+    { resolve_logical_commands(&mut expression, false); }
+    Ok(Some(expression))
+}
+
+
+// Truth-tested command words follow the same call rule as a standalone condition.
+// Arguments, quoted text, variables, and explicit references retain their value semantics.
+fn resolve_logical_commands(expression: &mut AstExpression, operand: bool)
+{
+    // Flat logical chains can be long while editing, so do not recurse through their AST.
+    let mut pending = vec![(expression, operand)];
+    while let Some((expression, operand)) = pending.pop()
+    {
+        if    operand
+           && matches!(&expression.kind, AstExpressionKind::Symbol(symbol) if !symbol.is_glob())
+        {
+            let location = expression.location.clone();
+            let command = replace(expression, new_ast_literal(location, Value::None, None));
+            expression.kind = AstExpressionKind::TryExecute(Box::new(command));
+            continue;
+        }
+        match &mut expression.kind
+        {
+            AstExpressionKind::BooleanExpression(AstBooleanOperator::And | AstBooleanOperator::Or,
+                                                 left, right) =>
+                {
+                    pending.push((right, true));
+                    pending.push((left, true));
+                },
+            AstExpressionKind::BooleanNot(inner) => pending.push((inner, true)),
+            _ => {},
+        }
+    }
 }
 
 

@@ -1719,10 +1719,20 @@ echo (false && (1 / 0))         # false; division is skipped
 echo ((/usr/bin/false) || (/usr/bin/true))  # true
 ```
 
-Use parenthesized calls to make command results operands: `(foo 3) && (bar 4)`.
+Bare command names in truth-tested value expressions use zero-argument calls:
+
+```shy
+fn ff(): Boolean { echo "ff called"; false }
+if ff && ff { echo TRUE } else { echo false } # Calls ff once; skips the second call.
+if !ff { echo TRUE }                         # Calls ff, then negates its result.
+```
+
+Use parentheses for calls with arguments: `(foo 3) && (bar 4)`.
 These are value expressions, not shell command chains: `echo true && false`
-passes the single value `false` to `echo`. Bare words within boolean expressions
-are string operands; `foo == foo` compares text. Function parameters preserve
+passes the single value `false` to `echo`. Ordinary command arguments retain
+their literal words; group calls to evaluate them. Quoted strings and explicit
+function references remain values. Bare words in comparisons remain string
+operands; `foo == foo` compares text. Function parameters preserve
 their argument types: passing `3` gives an integer, while passing `"3"` gives
 a string. Equality does not coerce one into the other.
 

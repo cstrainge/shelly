@@ -1,0 +1,11 @@
+check_repl ["id": "BOOLEAN-COMMANDS", "exit": 0, "steps": [
+    ['let $calls = 0; fn ff(): Boolean { $calls = $calls + 1; echo "ff called"; false }', "quiet", ""],
+    ['if ff && ff { echo TRUE } else { echo false }; echo $calls', "output", "ff called\nfalse\n1"],
+    ['if (ff) && (ff) { echo TRUE } else { echo false }; echo $calls', "output", "ff called\nfalse\n2"],
+    ['if !ff { echo TRUE }; echo $calls', "output", "ff called\nTRUE\n3"],
+    ['fn ff(): Boolean { $calls = $calls + 1; true }; if ff || ff { echo TRUE }; echo $calls', "output", "TRUE\n4"],
+    ['fn explode(): Boolean { let $zero = 0; let _ = 1 / $zero; false }', "quiet", ""],
+    ['if explode && true { echo BAD }', "error", "zero"],
+    ['if true || explode { echo SAFE }', "output", "SAFE"],
+    ['echo ff', "output", "ff"],
+]]

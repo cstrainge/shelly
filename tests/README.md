@@ -1,5 +1,9 @@
 # Shelly tests
 
+`native/boolean_commands.shy` checks bare calls in logical expressions, negation,
+short-circuit order, loops, aliases, external commands, argument words and references.
+`repl/boolean_commands.shy` checks repeated calls, redefinitions and error recovery.
+
 Run from the repository root with the binary being tested:
 
 ```sh

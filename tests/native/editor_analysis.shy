@@ -173,6 +173,14 @@ let $sentinel = 7
 $report = editor_report "import nonexistent when \$unknown; \$sentinel = 99; exit 9"
 require (($report["diagnostics"] == []) && ($sentinel == 7)) "editor analysis evaluated source"
 
+fn editor_probe(): Boolean { $sentinel = 99; false }
+$large = "if "
+for _ in 0..64 { $large = $large + "editor_probe && " }
+$large = $large + "true {}"
+$report = editor_report $large
+let $message = "logical command analysis executed source or lost the flat expression"
+require (($report["diagnostics"] == []) && ($sentinel == 7)) $message
+
 let $fixture = $args[0]
 for ($source, $message) in [
     ["__editor_source \"echo hidden\"", "Executable not found"],
