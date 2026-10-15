@@ -822,7 +822,9 @@ impl Interpreter
                     "$last_cmd_time",
                     Rc::new(|interpreter: &Interpreter|
                         {
-                            let seconds = interpreter.last_cmd_time.as_secs();
+                            let elapsed = interpreter.last_cmd_time;
+                            let seconds = elapsed.as_secs().saturating_add(u64::from(
+                                elapsed.subsec_nanos() >= 500_000_000));
                             let minutes = (seconds / 60) % 60;
                             let hours = (seconds / 3600) % 24;
                             let text = if seconds >= 86400

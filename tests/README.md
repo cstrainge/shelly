@@ -279,8 +279,9 @@ temporary variable cleanup, and recovery after widget or prompt errors.
 `repl/widget_colors.shy` checks raw widget colors in truecolor, 256-color, basic,
 and monochrome terminals, live `$widget_color` overrides, rejected assignments,
 foreground resets, and empty widget suppression.
-`repl/last_cmd_time.shy` checks previous-command duration, failed commands, blank
-input, prompt/widget timing isolation, and imported widget access.
+`repl/last_cmd_time.shy` checks previous-command duration, rounding to the nearest
+second (half seconds round up), failed commands, blank input, prompt/widget timing
+isolation, and imported widget access.
 The native and REPL `workspace_widgets.shy` tests check Python and Node workspace
 detection, parent directories, paths with spaces, version-source precedence,
 matching and differing versions, missing Node, and environment/PATH changes after

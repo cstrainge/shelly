@@ -6,6 +6,12 @@ let $reply = submit $terminal 'echo $last_cmd_time ($last_cmd_time.type == Strin
 require (repl_matches "output" "0:00 true" $reply["output"]) "initial command time"
 let $reply = submit $terminal '$widgets = [fn (): String { $last_cmd_time }]; fn prompt(): String { "time=${last_cmd_time} ${rendered_widgets}\\n" }; let $prompt = `prompt'
 require (repl_matches "output" "time=0:00 [0:00]" $reply["output"]) "quick command timing"
+let $reply = submit $terminal 'sleep 0.2'
+require (repl_matches "output" "time=0:00 [0:00]" $reply["output"]) "fractional time rounded down incorrectly"
+let $reply = submit $terminal 'sleep 0.7'
+require (repl_matches "output" "time=0:01 [0:01]" $reply["output"]) "fractional time did not round up"
+let $reply = submit $terminal 'sleep 1.7'
+require (repl_matches "output" "time=0:02 [0:02]" $reply["output"]) "fractional seconds were truncated"
 let $reply = submit $terminal 'sleep 1'
 require (repl_matches "output" "time=0:01 [0:01]" $reply["output"]) "elapsed command timing"
 let $reply = submit $terminal 'echo $last_cmd_time'

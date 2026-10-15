@@ -86,7 +86,7 @@ pub fn clock_12_widget(): String
 }
 
 
-# Show how long the last command took to run, but only if it was over a second.
+# Show the last command's elapsed time, rounded to the nearest second; hide zero.
 pub fn command_time_widget(): String
 {
     if $last_cmd_time == "0:00"
