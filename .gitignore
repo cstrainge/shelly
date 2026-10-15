@@ -33,3 +33,7 @@ temp/
 /extensions/vscode/node_modules/
 /extensions/vscode/out/
 /extensions/vscode/*.vsix
+
+
+# Ignore all draft documents in the repository.
+*-draft.md
