@@ -16,7 +16,7 @@ Use VS Code's `editor.bracketPairColorization.enabled` and
 `editor.guides.bracketPairs` settings to control bracket display. These replace
 the extension's former `shelly-shell.bracketColorization` setting.
 
-Requires **Shelly 0.5.3 or later** and VS Code 1.140 or later.
+Requires **Shelly 0.5.4 or later** and VS Code 1.140 or later.
 The extension does not bundle Shelly; an older server executable cannot provide
 these language features.
 On Windows, run it in a WSL workspace with Shelly installed inside WSL. Linux

@@ -1,5 +1,7 @@
 # Shelly
 
+Current version: **0.5.4**.
+
 Shelly is a Unix-style shell written in Rust, with a typed scripting language for
 commands, structured data, and network services. Pipelines carry typed values
 between Shelly functions and ordinary byte streams between external programs.
