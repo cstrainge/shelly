@@ -374,3 +374,15 @@ impl Display for Value
         }
     }
 }
+
+
+impl Debug for Value
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
+    {
+        let error = self.get_error();
+        let propagation = self.get_error_propagation();
+
+        write!(f, "(Error: {}, Propagation: {}, value: {})", error, propagation, self)
+    }
+}
