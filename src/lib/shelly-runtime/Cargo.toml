@@ -7,3 +7,11 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+
+
+[dependencies]
+shelly-core = { path = "../shelly-core" }
+
+
+[build-dependencies]
+shelly-core = { path = "../shelly-core" }

@@ -45,3 +45,6 @@ temp/
 
 # Ignore all draft documents in the repository.
 *-draft.md
+
+# Ignore the old source code.
+src.old/

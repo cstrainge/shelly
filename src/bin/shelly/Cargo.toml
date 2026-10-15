@@ -10,3 +10,4 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+shelly-runtime = { path = "../../lib/shelly-runtime" }

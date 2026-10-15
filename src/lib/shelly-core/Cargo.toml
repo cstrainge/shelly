@@ -7,3 +7,6 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
+
+[dependencies]
+cranelift-codegen = "0.136.3"
