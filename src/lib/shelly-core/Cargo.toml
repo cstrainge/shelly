@@ -1,0 +1,9 @@
+
+[package]
+name = "shelly-core"
+description = "The core language/compiler layer of the Shelly shell."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true

@@ -1,0 +1,9 @@
+
+[package]
+name = "shelly-runtime"
+description = "The runtime layer of the Shelly shell."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
