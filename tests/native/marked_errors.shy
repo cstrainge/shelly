@@ -275,7 +275,16 @@ require $ready "Cleanup interrupt fixture was not ready"
 # The readiness echo is an external command; let it finish before interrupting VM work.
 terminal_read $terminal 100
 terminal_write $terminal "\x03"
-let $text = (terminal_read $terminal 20)["text"]
+let $text = ""
+let $cleanup_ready = false
+for _ in 0..50
+{
+    let $reply = terminal_read $terminal 10
+    $text = $text + $reply["text"]
+    if $text.contains "cleanup-ready" { $cleanup_ready = true; break }
+    if $reply["eof"] { break }
+}
+require $cleanup_ready ("Cleanup did not start: " + $text)
 terminal_write $terminal "\x03"
 for _ in 0..50
 {

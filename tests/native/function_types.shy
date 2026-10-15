@@ -33,7 +33,7 @@ prototype_case "fn wrong(\$a,\$b): any { \$a }; let \$f: fn(Integer): any = `wro
 prototype_case "fn accepts(\$n: Float): Float { \$n }; let \$f: fn(Integer): Float = `accepts; echo (\$f 7)" "7.0\n" ""
 prototype_case "fn narrow(\$n: Integer): Integer { \$n }; let \$f: fn(Float): Integer = `narrow" "" "parameter 1 is incompatible"
 prototype_case "let \$f: fn() = \"echo\"" "" "requires a bound function"
-prototype_case "let \$f: fn() = `/bin/true" "" "requires a bound function"
+prototype_case "let \$f: fn() = `/usr/bin/true" "" "requires a bound function"
 prototype_case "let \$f: fn() = 7" "" "requires a bound function"
 prototype_case "let \$f: fn()" "" "requires an initializer"
 prototype_case "let \$f: (fn(): Integer) | (); echo \$f" "()\n" ""

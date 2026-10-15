@@ -2,11 +2,26 @@ let $handled = false
 let $outer = false
 fn String::from_runtime_error($error: RuntimeError): String
 { "control handled=${handled} outer=${outer}" }
+
+# Prepare an acknowledged diagnostic before the interrupt. Reporting is admitted
+# during cleanup, unlike launching echo or another external command.
+error struct CleanupReady { pub message: String }
+fn String::from_cleanup_ready($error: CleanupReady): String { $error.message }
+fn cleanup_probe(): [CallStack, CleanupReady]
+{
+    try { throw CleanupReady(message: "cleanup-ready") }
+    catch ($stack, $error: CleanupReady) { return [$stack, $error] }
+}
+let ($ready_stack, $ready_error) = cleanup_probe
 echo ready
 try
 {
     try { loop {} }
-    finally { loop {} }
+    finally
+    {
+        report_error $ready_stack $ready_error
+        loop {}
+    }
 }
 catch ($error: RuntimeError) { $handled = true }
 finally { $outer = true }

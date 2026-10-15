@@ -36,7 +36,7 @@ destructure_case 'let ($x, $y) = [1,2]; let $f = fn(): Integer { $x + $y }; $x =
 destructure_case 'type Pair = [Integer, Integer]; let ($x, $y) = Pair([22,44]); echo $x $y' "22 44\n" ""
 destructure_case '[when true] { let ($x, $y) = [22,44] }; echo $x $y' "22 44\n" ""
 destructure_case 'try {} finally { let ($x, $y) = [22,44]; let $sum: Integer = $x + $y }; echo completed' "completed\n" ""
-destructure_case 'let export ($LEFT, $RIGHT) = ["22","44"]; printenv LEFT RIGHT' "22\n44\n" ""
+destructure_case 'let export ($LEFT, $RIGHT) = ["22","44"]; printenv LEFT; printenv RIGHT' "22\n44\n" ""
 
 # Too few and too many items both fail before creating any bindings.
 for $array in ['[]', '[22]', '[22,44,66]']
