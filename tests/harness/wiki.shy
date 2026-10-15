@@ -1,0 +1,99 @@
+import std::json
+import wiki_checks
+
+let $fixture = $args[0]
+let $suite = $args[1]
+let $program = "echo \"ready\"\n"
+let $home = "# Welcome\n\n<!-- example: SAMPLE -->\n```shy\n${program}```\n\n" \
+    + "[Info](Guide#what-next)\n\nRelated: [Guide](Guide)\n"
+let $guide = "# Guide\n\n## What next?\n\nRelated: [Home](Home)\n"
+let $manifest = [["id": "SAMPLE", "source": $program, "stdout": "ready\n",
+    "status": 0, "error": "", "page": "Home", "blocks": ["SAMPLE": $program]]]
+let $base = ["Home.md": $home, "Guide.md": $guide,
+    "_Sidebar.md": "[Home](Home)\n[Guide](Guide)\n", "_Footer.md": "[Home](Home)\n"]
+let $long = "# Guide\n"
+for _ in 0..221 { $long = $long + "line\n" }
+$long = $long + "Related: [Home](Home)\n"
+
+for ($name, $changes, $cases, $passes, $phrase) in [
+    ["valid wiki", [:], $manifest, true, "Checked 2 wiki chapters"],
+    ["missing target", ["Home.md": ($home.replace "(Guide#what-next)" "(Missing)")],
+        $manifest, false, "missing target Missing"],
+    ["missing anchor", ["Home.md": ($home.replace "#what-next" "#missing")],
+        $manifest, false, "missing heading"],
+    ["missing sidebar entry", ["_Sidebar.md": "[Home](Home)\n"],
+        $manifest, false, "absent from sidebar"],
+    ["missing title", ["Guide.md": "Guide\nRelated: [Home](Home)\n"],
+        $manifest, false, "missing title"],
+    ["missing related navigation", ["Guide.md": "# Guide\n## What next?\n"],
+        $manifest, false, "related-page navigation"],
+    ["long chapter", ["Guide.md": $long], $manifest, false, "exceeds 220 lines"],
+    ["table mismatch", ["Guide.md": ($guide + "| A | B |\n| --- |\n")],
+        $manifest, false, "inconsistent table columns"],
+    ["escaped table delimiter", ["Guide.md": ($guide + "| A | B |\n| --- | --- |\n| x | a \\| b |\n")],
+        $manifest, true, "Checked 2 wiki chapters"],
+    ["unclosed fence", ["Guide.md": ($guide + "```text\nunfinished\n")],
+        $manifest, false, "unclosed code fence"],
+    ["ignore code and images", ["Guide.md": ($guide + "```text\n[Link](Missing)\n```\n![Logo](missing.png)\n")],
+        $manifest, true, "Checked 2 wiki chapters"],
+    ["missing marker", ["Home.md": ($home.replace "<!-- example: SAMPLE -->\n" "")],
+        $manifest, false, "missing or duplicate example marker"],
+    ["duplicate marker", ["Guide.md": ($guide + "<!-- example: SAMPLE -->\n```shy\n${program}```\n")],
+        $manifest, false, "duplicate example"],
+    ["orphan marker", ["Guide.md": ($guide + "<!-- example: ORPHAN -->\n")],
+        $manifest, false, "marker"],
+    ["source drift", ["Home.md": ($home.replace "echo \"ready\"" "echo \"changed\"")],
+        $manifest, false, "wiki/manifest mismatch"],
+    ["missing manifest entry", [:], [], false, "unlisted example"],
+    ["duplicate manifest block", [:], [$manifest[0], $manifest[0]],
+        false, "duplicate manifest block"],
+    ["encoded page", ["λ Notes.md": "# Notes\nRelated: [Home](Home)\n",
+        "_Sidebar.md": ($base["_Sidebar.md"] + "[Notes](%CE%BB%20Notes.md)\n")],
+        $manifest, true, "Checked 3 wiki chapters"],
+]
+{
+    let $root = "${fixture}/wiki"
+    rm -rf -- $root
+    mkdir -- $root
+    let $pages = $base
+    for ($file, $source) in $changes { $pages[$file] = $source }
+    for ($file, $source) in $pages { printf "%s" $source -> "${root}/${file}" }
+    printf "%s" (std::json::encode $cases) -> "${fixture}/wiki.json"
+    let $source = 'import wiki_checks; let _ = wiki_checks::check "wiki" "wiki.json"'
+    let $result = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "bundled"], "timeout_ms": 3000,
+        "stdout_file": "${fixture}/wiki.out", "stderr_file": "${fixture}/wiki.err"]
+    let $out: String
+    let $err: String
+    "${fixture}/wiki.out" -> $out
+    "${fixture}/wiki.err" -> $err
+    if ($result["exit_code"] != (if $passes { 0 } else { 1 })) ||
+        ($result["signal"] != ()) || $result["timed_out"] || ($result["error"] != ()) ||
+        ($err != "") || (!($out.contains $phrase))
+    { echo $name $result $out $err; fail "wiki checker accepted bad documentation" }
+}
+
+# The real checkout is optional; the checker controls and saved programs always run.
+if dir_exists "${suite}/wiki"
+{ let _ = wiki_checks::check "${suite}/wiki" "${suite}/tests/data/wiki_examples.json" }
+
+# A source checkout without the separate wiki still runs all saved example programs.
+let $portable = "${fixture}/without-wiki"
+mkdir -p -- "${portable}/tests/native" "${portable}/tests/data" \
+    "${portable}/tests/support" "${portable}/tests/fixtures/bin"
+for $file in ["tests/native/wiki_examples.shy", "tests/data/wiki_examples.json",
+    "tests/support/process.shy", "tests/fixtures/review_cases.shy"]
+{ cp -- "${suite}/${file}" "${portable}/${file}" }
+let $result = run_process [`$shelly, "-m", "${suite}/test.shy", "wiki"] [
+    "cwd": $portable, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+        "SHELLY_STD_PATH": "bundled"], "timeout_ms": 15000,
+    "stdout_file": "${fixture}/portable.out", "stderr_file": "${fixture}/portable.err"]
+let $out: String
+let $err: String
+"${fixture}/portable.out" -> $out
+"${fixture}/portable.err" -> $err
+if ($result["exit_code"] != 0) || ($result["signal"] != ()) ||
+    $result["timed_out"] || ($result["error"] != ()) || ($err != "") ||
+    (!($out.contains "PASS tests/native/wiki_examples.shy")) || (!($out.contains "1 / 1"))
+{ echo $result $out $err; fail "wiki checkout became a suite dependency" }

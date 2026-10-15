@@ -37,7 +37,7 @@ for library selection and profile loading.
 Use a Rust toolchain supporting edition 2024:
 
 ```sh
-git clone https://github.com/cstrainge/shelly.git
+git clone --recurse-submodules https://github.com/cstrainge/shelly.git
 cd shelly
 cargo build --locked
 cargo run --locked
@@ -47,6 +47,13 @@ This builds and launches the debug executable. You can also run it directly:
 
 ```sh
 ./target/debug/shelly
+```
+
+The `wiki/` submodule records the documentation revision for this checkout. If you
+already cloned the repository, initialize it with:
+
+```sh
+git submodule update --init --recursive
 ```
 
 When developing with Shelly as your login shell, validate release builds in a

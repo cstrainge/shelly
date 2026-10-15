@@ -1,0 +1,828 @@
+[
+  {
+    "id": "N01-integer-division",
+    "source": "echo (7 / 2) (-7 / 2) (7 / -2)",
+    "stdout": "3 -3 -3\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "N02-mixed-division",
+    "source": "echo (7.0 / 2) (7 / 2.0) (7.0 / 2.0)",
+    "stdout": "3.5 3.5 3.5\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "N03-float-remainder",
+    "source": "echo (7.5 % 2) (-7.5 % 2)",
+    "stdout": "1.5 -1.5\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "N04-float-contracts",
+    "source": "fn widen($n: Float): Float { $n }; let $n: Float = 7; echo $n (widen 9)",
+    "stdout": "7.0 9.0\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "N05-integer-no-narrow",
+    "source": "let $n: Integer = 7.0",
+    "stdout": "",
+    "status": 1,
+    "error": "Expected Integer"
+  },
+  {
+    "id": "N06-fractional-conversion",
+    "source": "echo Integer(7.5)",
+    "stdout": "",
+    "status": 1,
+    "error": "fraction"
+  },
+  {
+    "id": "N07-overflow",
+    "source": "echo (9223372036854775807 + 1)",
+    "stdout": "",
+    "status": 1,
+    "error": "overflow"
+  },
+  {
+    "id": "N08-zero-divisor",
+    "source": "echo (1 / 0)",
+    "stdout": "",
+    "status": 1,
+    "error": "zero"
+  },
+  {
+    "id": "N09-large-equality",
+    "source": "echo (9007199254740993 == 9007199254740992.0)",
+    "stdout": "false\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "N10-large-order",
+    "source": "echo (9007199254740993 > 9007199254740992.0)",
+    "stdout": "true\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "N11-nonnumeric-add",
+    "source": "echo (\"7\" + 2)",
+    "stdout": "",
+    "status": 1,
+    "error": "arithmetic"
+  },
+  {
+    "id": "N12-string-add",
+    "source": "echo (\"two\" + \"fold\")",
+    "stdout": "twofold\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "N13-strings-not-ordered",
+    "source": "echo (\"a\" < \"b\")",
+    "stdout": "",
+    "status": 1,
+    "error": "require numbers"
+  },
+  {
+    "id": "N14-min-remainder",
+    "source": "echo (-9223372036854775808 % -1)",
+    "stdout": "",
+    "status": 1,
+    "error": "overflow"
+  },
+  {
+    "id": "V01-truthiness",
+    "source": "echo Boolean(\"\") Boolean(\"0\") Boolean(\"0.0\") Boolean(0.0) Boolean([]) Boolean([0])",
+    "stdout": "false true true false false true\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "V02-exact-type",
+    "source": "type Count = Integer; let $n: Count = 1; echo ($n.type == Count) ($n.type == Integer) (1.type == Number)",
+    "stdout": "true false false\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "V03-type-name",
+    "source": "let $t = Integer; echo $t.name $t.type.name",
+    "stdout": "Integer Type\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "V04-let-rebinding",
+    "source": "let $x: Integer = 2; let $x = \"new\"; echo $x $x.type",
+    "stdout": "new String\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "V05-missing-reference",
+    "source": "let $x = `shelly_audit_missing",
+    "stdout": "",
+    "status": 1,
+    "error": "Executable not found"
+  },
+  {
+    "id": "V06-false-reference-branch",
+    "source": "if false { let $x = `shelly_audit_missing }; echo safe",
+    "stdout": "safe\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "V07-quoted-word",
+    "source": "let $x = \"shelly_audit_missing\"; echo $x",
+    "stdout": "shelly_audit_missing\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "V08-missing-call",
+    "source": "let $x = shelly_audit_missing",
+    "stdout": "",
+    "status": 1,
+    "error": "Executable not found"
+  },
+  {
+    "id": "V09-dynamic-scope",
+    "source": "let $x = 10; fn read(): Integer { $x }; fn call(): Integer { let $x = 20; read }; echo (call)",
+    "stdout": "20\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "V10-live-closure",
+    "source": "let $x = 1; let $f = fn (): Integer { $x }; $x = 9; echo ($f)",
+    "stdout": "9\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "V11-escaped-closure",
+    "source": "fn counter(): fn(): Integer { let $x = 0; fn (): Integer { $x = $x + 1; $x } }; let $f = counter; echo ($f) ($f)",
+    "stdout": "1 2\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "V12-discard-loop",
+    "source": "let $count = 0; for _ in 0..3 { $count = $count + 1 }; echo $count",
+    "stdout": "3\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "V13-strict-destructure",
+    "source": "let ($x, $y) = [1,2,3]",
+    "stdout": "",
+    "status": 1,
+    "error": "2"
+  },
+  {
+    "id": "V14-branch-let-command",
+    "source": "let $x = if true { shelly_audit_missing } else { \"fallback\" }; echo $x",
+    "stdout": "",
+    "status": 1,
+    "error": "Executable not found"
+  },
+  {
+    "id": "V15-method-none-return",
+    "source": "fn Integer::touch() { 42 }; echo 1.touch",
+    "stdout": "",
+    "status": 1,
+    "error": "Expected None, got Integer"
+  },
+  {
+    "id": "V16-function-default-return",
+    "source": "fn legacy() { 42 }; echo (legacy)",
+    "stdout": "",
+    "status": 1,
+    "error": "Expected None, got Integer"
+  },
+  {
+    "id": "C01-empty-typed",
+    "source": "let $a = [Integer]; let $h = [String: Float]; echo $a.count $a.value_type $h.key_type $h.value_type",
+    "stdout": "0 Integer String Float\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C02-type-objects",
+    "source": "let $a = [(Integer)]; echo $a.count $a.value_type $a[0].name",
+    "stdout": "1 Type Integer\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C03-array-copy",
+    "source": "let $a = [[1]]; let $b = $a; $b[0][0] = 2; echo $a[0][0] $b[0][0]",
+    "stdout": "1 2\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C04-metadata-equality",
+    "source": "let $a: [Integer] = [1]; echo ($a == [1])",
+    "stdout": "true\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C05-slices",
+    "source": "let $a = [10,20,30]; echo $a[1..]...; echo $a[..=1]...; echo $a[2..1].count",
+    "stdout": "20 30\n10 20\n0\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C06-negative-index",
+    "source": "let $a = [1]; echo $a[-1]",
+    "stdout": "",
+    "status": 1,
+    "error": "bounds"
+  },
+  {
+    "id": "C07-slice-type",
+    "source": "let $a: [Float] = [1,2]; let $b = $a[0..0]; echo $b.value_type",
+    "stdout": "Float\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C08-fixed-shape",
+    "source": "let $a: [Float, String] = [1,\"ok\"]; echo $a[0] $a[1]",
+    "stdout": "1.0 ok\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C09-float-hash-key",
+    "source": "let $h: [Float: String] = [1.0:\"one\"]; for ($k, $v) in $h { echo $k.type $v }; echo $h.key_type",
+    "stdout": "Float one\nFloat\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C10-hash-key-snapshot",
+    "source": "let $key = [1]; let $h = [$key:\"first\"]; $key[0] = 2; echo $h[[1]] $h[$key]",
+    "stdout": "first ()\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C11-numeric-key-equality",
+    "source": "let $h = [1:\"one\"]; echo $h[1.0] $h[\"1\"]",
+    "stdout": "one ()\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C12-deep-hash-equality",
+    "source": "echo ([\"a\": [1]] == [\"a\": [1.0]])",
+    "stdout": "true\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C13-stack",
+    "source": "let $a: [Integer] = []; $a.push_many 1 2 3; echo $a...; echo $a.pop; echo $a.peek",
+    "stdout": "3 2 1\n3\n2\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C14-inferred-push-check",
+    "source": "let $a = [1]; $a.push \"bad\"",
+    "stdout": "",
+    "status": 1,
+    "error": "Expected Integer"
+  },
+  {
+    "id": "C15-unique-mixed",
+    "source": "echo [1,1.0,\"1\",true].unique...",
+    "stdout": "1 1 true\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C16-reverse-copy",
+    "source": "let $a = [1,2,3]; let $b = $a.reverse; echo $a...; echo $b...",
+    "stdout": "1 2 3\n3 2 1\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "S01-unicode-count",
+    "source": "echo \"aλ猫\".count \"aλ猫\".chars...",
+    "stdout": "3 a λ 猫\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "S02-strip-prefix",
+    "source": "echo (\"prefix-value\".strip_prefix \"prefix-\")",
+    "stdout": "value\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "S03-strip-suffix",
+    "source": "echo (\"value.json\".strip_suffix \".json\")",
+    "stdout": "value\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "S04-strip-unicode",
+    "source": "echo (\"λ猫\".strip_prefix \"λ\")",
+    "stdout": "猫\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "S05-strip-no-match",
+    "source": "echo (\"file.txt\".strip_prefix \"other\")",
+    "stdout": "file.txt\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "S06-string-escapes",
+    "source": "let $x = \"world\"; echo \"Hello ${x}\"; echo '$x'",
+    "stdout": "Hello world\n$x\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "S07-characters-as-array",
+    "source": "let $a = \"λ猫\".chars; echo $a[1]",
+    "stdout": "猫\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "S08-split-empty",
+    "source": "let $a = \"a::b:\".split \":\"; echo $a.count ($a[1] == \"\") ($a[3] == \"\")",
+    "stdout": "4 true true\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "I01-iteration-copy",
+    "source": "let $a = [1,2]; for $item in $a { $a = [9]; echo $item }; echo $a...",
+    "stdout": "1\n2\n9\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "I02-native-unit-item",
+    "source": "let $a = []; for $item in [1,(),2] { $a = [$a..., $item] }; echo $a...",
+    "stdout": "1 () 2\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "I03-false-items",
+    "source": "let $a = []; for $item in [false,0,\"\"] { $a = [$a..., $item] }; echo $a.count",
+    "stdout": "3\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "I04-range-endpoint",
+    "source": "let $r = 9223372036854775807..=9223372036854775807; echo $r.next_item; echo $r.next_item",
+    "stdout": "9223372036854775807\n()\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "I05-typed-iterator",
+    "source": "struct Counter { pub n: Integer }; fn Counter::next_item(): Integer | () { if $self.n == 0 { return () }; $self.n = $self.n - 1; $self.n }; let $c = Counter(n:2); for $n in $c { echo $n }; echo $c.n",
+    "stdout": "1\n0\n2\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "I06-direct-next",
+    "source": "let $a = [1,2]; echo $a.next_item; echo $a...",
+    "stdout": "1\n2\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "P01-item-mapping",
+    "source": "fn triple($n: Integer): Integer { $n * 3 }; let $a: [Integer]; [1,2,3] | triple | $a; echo $a...",
+    "stdout": "3 6 9\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "P02-no-result-forward",
+    "source": "fn nothing($n: Integer) {}; let $a: [any]; [1,2] | nothing | $a; echo $a.count $a[0] $a[1]",
+    "stdout": "2 () ()\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "P03-explicit-placeholder",
+    "source": "fn add($a: Integer, $b: Integer): Integer { $a + $b }; let $a: [Integer]; [1,2] | add $ 10 | $a; echo $a...",
+    "stdout": "11 12\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "P04-missing-placeholder",
+    "source": "fn add($a: Integer, $b: Integer): Integer { $a + $b }; [1] | add 1 2",
+    "stdout": "",
+    "status": 1,
+    "error": "pipeline"
+  },
+  {
+    "id": "P05-array-one-item",
+    "source": "fn pair($n: Integer): [Integer] { [$n,$n] }; let $a: [[Integer]]; [1,2] | pair | $a; echo $a.count $a[0]...",
+    "stdout": "2 1 1\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "P06-empty-array-destination",
+    "source": "let $a = [99]; [] | ($ * 2) | $a; echo $a.count",
+    "stdout": "0\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "P07-empty-scalar-destination",
+    "source": "let $a = 99; [] | ($ * 2) | $a; echo $a",
+    "stdout": "99\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "P08-process-status",
+    "source": "let $out: String; let $status = /usr/bin/printf \"payload\" | /bin/cat | $out; echo $out $status",
+    "stdout": "payload ExecResult(0)\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "P09-pipe-failure",
+    "source": "let $out: String; let $status = /usr/bin/false | /bin/cat | $out; echo $status ($out == \"\")",
+    "stdout": "ExecResult(1) true\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "P10-csv-rows",
+    "source": "let $rows: [[String]]; /usr/bin/printf \"a,b\\nc,d\\n\" csv:| $rows; echo $rows.count $rows[1]...",
+    "stdout": "2 c d\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "T01-named-math",
+    "source": "type Distance = Float; let $a: Distance = 2; let $b = Distance(3); let $c = $a + $b; echo $c $c.type Float($c)",
+    "stdout": "5.0 Distance 5.0\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "T02-named-no-unwrap",
+    "source": "type Count = Integer; let $n: Count = 2; let $x: Integer = $n",
+    "stdout": "",
+    "status": 1,
+    "error": "Expected Integer"
+  },
+  {
+    "id": "T03-union-default",
+    "source": "type State = Integer | String | (); let $s: State; echo $s.type ($s == State(()))",
+    "stdout": "State true\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "T04-type-guard",
+    "source": "let $x: any = 4; if $x.type == Integer && $x > 2 { echo yes }",
+    "stdout": "yes\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "T05-match-range",
+    "source": "let $x = 3; echo (match $x { 0 => { \"zero\" } 1..4 => { \"small\" } _ => { \"large\" } })",
+    "stdout": "small\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "T06-match-no-arm",
+    "source": "echo (match 9 { 1 => { \"one\" } })",
+    "stdout": "",
+    "status": 1,
+    "error": "match"
+  },
+  {
+    "id": "T07-conversion-source",
+    "source": "struct Count { pub n: Integer }; fn Count::to_integer(): Integer { $self.n }; let $c = Count(n:8); echo Integer($c)",
+    "stdout": "8\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "T08-conversion-priority",
+    "source": "struct Count { pub n: Integer }; fn Count::to_integer(): Integer { 8 }; fn Integer::from_count($c: Count): Integer { 9 }; echo Integer(Count(n:1))",
+    "stdout": "9\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "T09-private-conversion-copy",
+    "source": "fn Array::to_integer(): Integer { $self[0] = 9; $self[0] }; let $a = [1]; echo Integer($a) $a[0]",
+    "stdout": "9 1\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "T10-receiver-contract",
+    "source": "fn Array::head(): $self.value_type | () { if $self.count == 0 { () } else { $self[0] } }; let $a: [Float] = [1]; echo $a.head $a.head.type",
+    "stdout": "1.0 Float\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "E01-runtime-catch",
+    "source": "let $cleaned = false; try { let _ = 1 / 0 } catch ($error: RuntimeError) { echo caught } finally { $cleaned = true }; echo $cleaned",
+    "stdout": "caught\ntrue\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "E02-marked-error",
+    "source": "error struct Denied { pub message: String }; fn deny(): Denied { Denied(message:\"no\") }; try { let $x = deny; echo wrong } catch ($e: Denied) { echo $e.message }",
+    "stdout": "no\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "E03-captured-error-obligation",
+    "source": "error struct Denied { pub message: String }; try { let $e: Denied = Denied(message:\"no\"); echo observed } catch ($e: Denied) { echo handled }",
+    "stdout": "observed\nhandled\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "E04-finally-return",
+    "source": "let $n = 0; fn work(): Integer { try { return 7 } finally { $n = $n + 1 } }; echo (work) $n",
+    "stdout": "7 1\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "R01-properties-no-getter",
+    "source": "let $calls = 0; struct Box { pub n: Integer }; fn Box::get_value(): Integer { $calls = $calls + 1; $self.n }; let $b = Box(n:1); let $p = $b.properties; echo $calls; echo ($p[\"value\"]) $calls",
+    "stdout": "0\n1 1\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "R02-type-interface",
+    "source": "let $p = Integer.properties; echo $p[\"type\"] $p[\"value\"]",
+    "stdout": "Integer Integer\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "R03-live-method",
+    "source": "let $a = [1]; fn Array::add($n: Integer) { $self = [$self..., $n] }; let $f = `$a.add; $f 2; echo $a...",
+    "stdout": "1 2\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "M01-skipped-module",
+    "source": "import std::shelly_audit_no_module when false; echo safe",
+    "stdout": "safe\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "M02-excluded-declaration",
+    "source": "[when false] { fn hidden() { echo wrong } }; echo safe",
+    "stdout": "safe\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "J01-json-roundtrip",
+    "source": "import std::json; let $v = [\"name\":\"Aurora\", \"active\":true]; let $text = std::json::encode $v; let $w = std::json::decode $text; echo ($v == $w)",
+    "stdout": "true\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "J02-exact-number",
+    "source": "import std::json; let $doc = std::json::parse \"9007199254740993\"; echo $doc.kind",
+    "stdout": "Kind::Number\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "B01-byte-roundtrip",
+    "source": "import std::io; let $bytes = std::io::Bytes(\"λ猫\"); echo $bytes.count String($bytes)",
+    "stdout": "5 λ猫\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "B02-stream-unit",
+    "source": "import std::stream; let $r = std::stream::from_iterable [1,2]; let $a = std::stream::collect $r; echo $a...",
+    "stdout": "1 2\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C17-nested-float-key",
+    "source": "let $h: [[Float]: String] = [[1.0]:\"v\"]; for ($k, $v) in $h { echo $k.value_type $k[0].type }; echo $h.key_type",
+    "stdout": "Float Float\n[Float]\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "C18-direct-float-key",
+    "source": "let $h: [Float: String] = [1.0:\"v\"]; let $pair = $h.next_item; echo $pair[0].type",
+    "stdout": "Float\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "S09-unicode-index",
+    "source": "let $s = \"aλ猫\"; echo $s[1] $s[1..] $s[..2]",
+    "stdout": "λ λ猫 aλ\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "P11-source-unit-data",
+    "source": "let $out: [any]; [1,(),2] | $out; echo $out.count $out...",
+    "stdout": "3 1 () 2\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "P12-stream-unit-data",
+    "source": "import std::stream; let $reader = std::stream::from_iterable [1,(),2]; let $out = std::stream::collect $reader; echo $out.count $out...",
+    "stdout": "3 1 () 2\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "P13-script-output-data",
+    "source": "fn observe($n: Integer): Integer { echo seen; $n }; let $out: [Integer]; [1,2] | observe | $out; echo $out...",
+    "stdout": "seen\nseen\n1 2\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "P14-unknown-destination",
+    "source": "[1,2] | $shelly_audit_missing_destination",
+    "stdout": "",
+    "status": 1,
+    "error": "not found"
+  },
+  {
+    "id": "R04-missing-name-in-block",
+    "source": "let $x = if true { shelly_audit_missing } else { \"no\" }; echo $x",
+    "stdout": "",
+    "status": 1,
+    "error": "Executable not found"
+  },
+  {
+    "id": "R05-function-type-value",
+    "source": "fn target($n: Integer): Integer { $n }; let $f = `target; echo $f.type.name",
+    "stdout": "String\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "M03-wrong-conversion-spelling",
+    "source": "fn Boolean::to_execresult(): ExecResult { ExecResult(0) }",
+    "stdout": "",
+    "status": 1,
+    "error": "to_exec_result"
+  },
+  {
+    "id": "G01-no-cleanup-external",
+    "source": "try { echo body } finally { echo cleanup }",
+    "stdout": "body\n",
+    "status": 1,
+    "error": "External commands are not admitted"
+  },
+  {
+    "id": "G02-property-setter",
+    "source": "struct Meter { n: Integer }; fn Meter::new($initial: Integer): Meter { Meter(n:$initial) }; fn Meter::get_reading(): Integer { $self.::n }; fn Meter::set_reading($n: Integer) { $self.::n = $n }; let $m = Meter(initial:2); $m.reading = 8; echo $m.reading",
+    "stdout": "8\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "G03-prototype-omitted-none",
+    "source": "fn value(): Integer { 3 }; let $f: fn() = `value",
+    "stdout": "",
+    "status": 1,
+    "error": "incompatible"
+  },
+  {
+    "id": "NGRID-01",
+    "source": "echo (9007199254740993 < 9007199254740992.0) (9007199254740993 > 9007199254740992.0) (9007199254740993 == 9007199254740992.0) (9007199254740992.0 < 9007199254740993) (9007199254740992.0 > 9007199254740993)",
+    "stdout": "false true false true false\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "NGRID-02",
+    "source": "echo (-9007199254740993 < -9007199254740992.0) (-9007199254740993 > -9007199254740992.0) (-9007199254740993 == -9007199254740992.0) (-9007199254740992.0 < -9007199254740993) (-9007199254740992.0 > -9007199254740993)",
+    "stdout": "true false false false true\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "NGRID-03",
+    "source": "echo (9223372036854775807 < 9223372036854775808.0) (9223372036854775807 > 9223372036854775808.0) (9223372036854775807 == 9223372036854775808.0) (9223372036854775808.0 < 9223372036854775807) (9223372036854775808.0 > 9223372036854775807)",
+    "stdout": "true false false false true\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "NGRID-04",
+    "source": "echo (-9223372036854775808 < -9223372036854775808.0) (-9223372036854775808 > -9223372036854775808.0) (-9223372036854775808 == -9223372036854775808.0) (-9223372036854775808.0 < -9223372036854775808) (-9223372036854775808.0 > -9223372036854775808)",
+    "stdout": "false false true false false\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "NGRID-05",
+    "source": "echo (9007199254740991 < 9007199254740992.0) (9007199254740991 > 9007199254740992.0) (9007199254740991 == 9007199254740992.0) (9007199254740992.0 < 9007199254740991) (9007199254740992.0 > 9007199254740991)",
+    "stdout": "true false false false true\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "NGRID-06",
+    "source": "echo (9007199254740992 < 9007199254740992.0) (9007199254740992 > 9007199254740992.0) (9007199254740992 == 9007199254740992.0) (9007199254740992.0 < 9007199254740992) (9007199254740992.0 > 9007199254740992)",
+    "stdout": "false false true false false\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "NGRID-07",
+    "source": "echo (1 < 1.5) (1 > 1.5) (1 == 1.5) (1.5 < 1) (1.5 > 1)",
+    "stdout": "true false false false true\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "NGRID-08",
+    "source": "echo (-1 < -1.5) (-1 > -1.5) (-1 == -1.5) (-1.5 < -1) (-1.5 > -1)",
+    "stdout": "false true false true false\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "V15-method-explicit-any",
+    "source": "fn Integer::touch(): any { 42 }; echo 1.touch",
+    "stdout": "42\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "V16-function-explicit-any",
+    "source": "fn f(): any { 42 }; echo (f)",
+    "stdout": "42\n",
+    "status": 0,
+    "error": ""
+  },
+  {
+    "id": "V17-closure-default-unit",
+    "source": "let $f = fn () { 42 }; $f",
+    "stdout": "",
+    "status": 1,
+    "error": "Expected None, got Integer"
+  },
+  {
+    "id": "V18-closure-explicit-any",
+    "source": "let $f = fn (): any { 42 }; echo ($f)",
+    "stdout": "42\n",
+    "status": 0,
+    "error": ""
+  }
+]

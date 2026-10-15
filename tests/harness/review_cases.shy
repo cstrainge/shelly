@@ -1,0 +1,57 @@
+import std::json
+
+let $fixture = $args[0]
+let $good = ["id": "GOOD", "source": "", "stdout": "", "status": 0, "error": ""]
+for ($name, $cases, $passes, $phrase) in [
+    ["empty output", [$good], true, ""],
+    ["empty catalog", [], false, "empty review manifest"],
+    ["duplicate IDs", [$good, $good], false, "duplicate review ID"],
+    ["invalid ID", [["id": "../escape", "source": "", "stdout": "", "status": 0,
+        "error": ""]], false, "invalid review ID"],
+    ["wrong output", [["id": "OUTPUT", "source": "echo wrong", "stdout": "",
+        "status": 0, "error": ""]], false, "Review case failed: OUTPUT"],
+    ["unexpected stderr", [["id": "STDERR",
+        "source": 'let $status = /usr/bin/printf bad -> /dev/stderr; ()', "stdout": "",
+        "status": 0, "error": ""]], false, "Review case failed: STDERR"],
+    ["wrong exit", [["id": "EXIT", "source": "exit 7", "stdout": "",
+        "status": 0, "error": ""]], false, "Review case failed: EXIT"],
+    ["signal", [["id": "SIGNAL", "source": '/bin/kill -TERM $pid', "stdout": "",
+        "status": 0, "error": ""]], false, "\"signal\": 15"],
+    ["deadline", [["id": "TIMEOUT", "source": "loop {}", "stdout": "",
+        "status": 0, "error": ""]], false, "\"timed_out\": true"],
+    ["expected rejection", [["id": "NEGATIVE", "source": "Integer(1.5)", "stdout": "",
+        "status": 1, "error": "fraction"]], true, ""],
+    ["unexpected success", [["id": "SUCCESS", "source": "", "stdout": "",
+        "status": 1, "error": "fraction"]], false, "Review case failed: SUCCESS"],
+    ["wrong diagnostic", [["id": "DIAGNOSTIC", "source": "Integer(1.5)", "stdout": "",
+        "status": 1, "error": "missing diagnostic"]], false, "Review case failed: DIAGNOSTIC"],
+    ["fixture escape", [["id": "FILES", "source": "", "stdout": "", "status": 0,
+        "error": "", "files": ["../escaped": "bad"]]], false, "invalid review fixture path"],
+    ["module fixture", [["id": "MODULE", "source": 'import words; echo (words::read)',
+        "stdout": "fixture\n", "status": 0, "error": "",
+        "files": ["words.shy": 'pub fn read(): String { "fixture" }']]], true, ""],
+    ["case isolation", [
+        ["id": "FIRST", "source": 'if file_exists "marker" { exit 1 }; printf seen -> "marker"',
+            "stdout": "", "status": 0, "error": ""],
+        ["id": "SECOND", "source": 'if file_exists "marker" { exit 1 }; printf seen -> "marker"',
+            "stdout": "", "status": 0, "error": ""],
+    ], true, ""],
+]
+{
+    rm -rf -- "${fixture}/review-work"
+    printf "%s" (std::json::encode $cases) -> "${fixture}/review.json"
+    let $source = 'import review_cases; let _ = review_cases::run "review.json" "review-work"'
+    let $result = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "bundled"], "timeout_ms": 6000,
+        "stdout_file": "${fixture}/control.out", "stderr_file": "${fixture}/control.err"]
+    let $out: String
+    let $err: String
+    "${fixture}/control.out" -> $out
+    "${fixture}/control.err" -> $err
+    if ($result["exit_code"] != (if $passes { 0 } else { 1 })) ||
+        ($result["signal"] != ()) || $result["timed_out"] || ($result["error"] != ()) ||
+        ($err != "") || (!($out.contains $phrase))
+    { echo $name $result $out $err; fail "review runner accepted bad evidence" }
+}
+require (!(file_exists "${fixture}/escaped")) "review fixture escaped its directory"

@@ -1,0 +1,1002 @@
+[
+  {
+    "id": "HOME-POINTS",
+    "source": "let $completed = [2, 5, 8]\nlet $points: [Integer]\n$completed | ($ * 3) | $points\necho $points...\n",
+    "stdout": "6 15 24\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "HOME-POINTS": "let $completed = [2, 5, 8]\nlet $points: [Integer]\n$completed | ($ * 3) | $points\necho $points...\n"
+    },
+    "page": "Home"
+  },
+  {
+    "id": "QUICK-FARE",
+    "source": "fn fare($kilometers: Float, $price: Float): Float\n{\n    $kilometers * $price\n}\nlet $cost: Float = fare 8 1.5\necho \"Estimated fare: ${cost}\"\n",
+    "stdout": "Estimated fare: 12.0\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "QUICK-FARE": "fn fare($kilometers: Float, $price: Float): Float\n{\n    $kilometers * $price\n}\nlet $cost: Float = fare 8 1.5\necho \"Estimated fare: ${cost}\"\n"
+    },
+    "page": "Quick-Start"
+  },
+  {
+    "id": "QUICK-PIPE",
+    "source": "fn discount($price: Integer): Integer { $price - 5 }\nlet $prices: [Integer]\n[25, 40, 60] | discount | $prices\necho $prices...\n",
+    "stdout": "20 35 55\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "QUICK-PIPE": "fn discount($price: Integer): Integer { $price - 5 }\nlet $prices: [Integer]\n[25, 40, 60] | discount | $prices\necho $prices...\n"
+    },
+    "page": "Quick-Start"
+  },
+  {
+    "id": "QUICK-CAPTURE",
+    "source": "let $message: String\nlet $status = /usr/bin/printf \"ready\\n\" -> $message\necho $message.trim $status\n",
+    "stdout": "ready ExecResult(0)\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "QUICK-CAPTURE": "let $message: String\nlet $status = /usr/bin/printf \"ready\\n\" -> $message\necho $message.trim $status\n"
+    },
+    "page": "Quick-Start"
+  },
+  {
+    "id": "QUICK-MODEL",
+    "source": "struct Parcel { pub label: String, pub weight: Float }\nfn Parcel::shipping(): Float { $self.weight * 2.5 }\nlet $parcel = Parcel(label: \"books\", weight: 4)\necho $parcel.label $parcel.shipping\n",
+    "stdout": "books 10.0\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "QUICK-MODEL": "struct Parcel { pub label: String, pub weight: Float }\nfn Parcel::shipping(): Float { $self.weight * 2.5 }\nlet $parcel = Parcel(label: \"books\", weight: 4)\necho $parcel.label $parcel.shipping\n"
+    },
+    "page": "Quick-Start"
+  },
+  {
+    "id": "RUN-ARGS",
+    "source": "fn announce($name: String): String { \"Welcome, \" + $name }\necho (announce \"traveler\")\n",
+    "stdout": "Welcome, traveler\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "RUN-ARGS": "fn announce($name: String): String { \"Welcome, \" + $name }\necho (announce \"traveler\")\n"
+    },
+    "page": "Running-Shelly"
+  },
+  {
+    "id": "BASICS-WORDS",
+    "source": "fn label($word: String): String { \"label=\" + $word }\necho (label notebook)\nlet $literal = \"notebook\"\necho $literal\n",
+    "stdout": "label=notebook\nnotebook\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "BASICS-WORDS": "fn label($word: String): String { \"label=\" + $word }\necho (label notebook)\nlet $literal = \"notebook\"\necho $literal\n"
+    },
+    "page": "Language-Basics"
+  },
+  {
+    "id": "BASICS-LINES",
+    "source": "let $title = \"Northern \" \\\n    + \"lights\"\necho $title # This comment is not part of the String.\n",
+    "stdout": "Northern lights\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "BASICS-LINES": "let $title = \"Northern \" \\\n    + \"lights\"\necho $title # This comment is not part of the String.\n"
+    },
+    "page": "Language-Basics"
+  },
+  {
+    "id": "VARS-SHADOW",
+    "source": "let $level = 1\n{\n    let $level = $level + 1\n    echo $level\n}\necho $level\n{ $level = 3 }\necho $level\n",
+    "stdout": "2\n1\n3\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "VARS-SHADOW": "let $level = 1\n{\n    let $level = $level + 1\n    echo $level\n}\necho $level\n{ $level = 3 }\necho $level\n"
+    },
+    "page": "Variables-and-Scope"
+  },
+  {
+    "id": "VARS-DEFAULTS",
+    "source": "let $temperature: Float = 18\nlet $names: [String]\nlet $maybe: Integer | ()\necho $temperature $names.count $maybe\n",
+    "stdout": "18.0 0 ()\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "VARS-DEFAULTS": "let $temperature: Float = 18\nlet $names: [String]\nlet $maybe: Integer | ()\necho $temperature $names.count $maybe\n"
+    },
+    "page": "Variables-and-Scope"
+  },
+  {
+    "id": "VARS-DESTRUCTURE",
+    "source": "let ($city, $temperature) = [\"Reykjavik\", 6]\nlet (_, $unit) = [123, \"C\"]\necho $city $temperature $unit\nlet _ = 2 + 2\n",
+    "stdout": "Reykjavik 6 C\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "VARS-DESTRUCTURE": "let ($city, $temperature) = [\"Reykjavik\", 6]\nlet (_, $unit) = [123, \"C\"]\necho $city $temperature $unit\nlet _ = 2 + 2\n"
+    },
+    "page": "Variables-and-Scope"
+  },
+  {
+    "id": "NUMBERS-DIVISION",
+    "source": "echo (11 / 4) (11.0 / 4) (11 / 4.0)\necho (11.5 % 4) (-11 / 4)\nlet $ratio: Float = 11\necho ($ratio / 4)\n",
+    "stdout": "2 2.75 2.75\n3.5 -2\n2.75\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "NUMBERS-DIVISION": "echo (11 / 4) (11.0 / 4) (11 / 4.0)\necho (11.5 % 4) (-11 / 4)\nlet $ratio: Float = 11\necho ($ratio / 4)\n"
+    },
+    "page": "Numbers-and-Logic"
+  },
+  {
+    "id": "NUMBERS-BOOLEAN",
+    "source": "echo Boolean(\"\") Boolean(\"0.0\") Boolean(0.0)\nlet $count = 4\nif $count > 0 && $count < 8 { echo \"small batch\" }\n",
+    "stdout": "false true false\nsmall batch\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "NUMBERS-BOOLEAN": "echo Boolean(\"\") Boolean(\"0.0\") Boolean(0.0)\nlet $count = 4\nif $count > 0 && $count < 8 { echo \"small batch\" }\n"
+    },
+    "page": "Numbers-and-Logic"
+  },
+  {
+    "id": "STRINGS-TEXT",
+    "source": "let $animal = \"otter\"\necho \"river ${animal}\"\necho '$animal stays text'\necho \"λ猫\".count \"λ猫\".chars...\n",
+    "stdout": "river otter\n$animal stays text\n2 λ 猫\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "STRINGS-TEXT": "let $animal = \"otter\"\necho \"river ${animal}\"\necho '$animal stays text'\necho \"λ猫\".count \"λ猫\".chars...\n"
+    },
+    "page": "Strings-and-Paths"
+  },
+  {
+    "id": "STRINGS-SLICES",
+    "source": "let $word = \"café猫\"\necho $word[3] $word[4..]\necho ($word.replace \"café\" \"tea\")\necho (\"notes.md\".strip_suffix \".md\")\n",
+    "stdout": "é 猫\ntea猫\nnotes\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "STRINGS-SLICES": "let $word = \"café猫\"\necho $word[3] $word[4..]\necho ($word.replace \"café\" \"tea\")\necho (\"notes.md\".strip_suffix \".md\")\n"
+    },
+    "page": "Strings-and-Paths"
+  },
+  {
+    "id": "ARRAYS-SLICE",
+    "source": "let $stops: [String] = [\"harbor\", \"museum\", \"garden\", \"station\"]\nlet $afternoon = $stops[1..3]\necho $afternoon...\necho $stops[..=1]...\n",
+    "stdout": "museum garden\nharbor museum\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "ARRAYS-SLICE": "let $stops: [String] = [\"harbor\", \"museum\", \"garden\", \"station\"]\nlet $afternoon = $stops[1..3]\necho $afternoon...\necho $stops[..=1]...\n"
+    },
+    "page": "Arrays"
+  },
+  {
+    "id": "ARRAYS-COPY",
+    "source": "let $original = [[1, 2]]\nlet $copy = $original\n$copy[0][0] = 9\necho $original[0]...\necho $copy[0]...\n",
+    "stdout": "1 2\n9 2\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "ARRAYS-COPY": "let $original = [[1, 2]]\nlet $copy = $original\n$copy[0][0] = 9\necho $original[0]...\necho $copy[0]...\n"
+    },
+    "page": "Arrays"
+  },
+  {
+    "id": "ARRAYS-SPREAD",
+    "source": "let $middle = [2, 3]\nlet $all = [1, $middle..., 4]\necho $all...\necho $all.reverse...\n",
+    "stdout": "1 2 3 4\n4 3 2 1\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "ARRAYS-SPREAD": "let $middle = [2, 3]\nlet $all = [1, $middle..., 4]\necho $all...\necho $all.reverse...\n"
+    },
+    "page": "Arrays"
+  },
+  {
+    "id": "HASH-LOOKUP",
+    "source": "let $stock: [String: Integer] = [\"tea\": 8, \"coffee\": 5]\n$stock[\"tea\"] = $stock[\"tea\"] - 2\necho $stock[\"tea\"] $stock[\"missing\"] $stock.count\n",
+    "stdout": "6 () 2\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "HASH-LOOKUP": "let $stock: [String: Integer] = [\"tea\": 8, \"coffee\": 5]\n$stock[\"tea\"] = $stock[\"tea\"] - 2\necho $stock[\"tea\"] $stock[\"missing\"] $stock.count\n"
+    },
+    "page": "Hash-Maps"
+  },
+  {
+    "id": "HASH-SNAPSHOT",
+    "source": "let $coordinate = [2, 4]\nlet $markers = [$coordinate: \"camp\"]\n$coordinate[0] = 9\necho $markers[[2, 4]] $markers[$coordinate]\n",
+    "stdout": "camp ()\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "HASH-SNAPSHOT": "let $coordinate = [2, 4]\nlet $markers = [$coordinate: \"camp\"]\n$coordinate[0] = 9\necho $markers[[2, 4]] $markers[$coordinate]\n"
+    },
+    "page": "Hash-Maps"
+  },
+  {
+    "id": "HASH-ITERATE",
+    "source": "let $totals: [String: Integer] = [\"east\": 3, \"west\": 7]\nlet $sum = 0\nfor ($region, $count) in $totals { $sum = $sum + $count }\necho $sum\n",
+    "stdout": "10\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "HASH-ITERATE": "let $totals: [String: Integer] = [\"east\": 3, \"west\": 7]\nlet $sum = 0\nfor ($region, $count) in $totals { $sum = $sum + $count }\necho $sum\n"
+    },
+    "page": "Hash-Maps"
+  },
+  {
+    "id": "RANGE-BOUNDS",
+    "source": "for $day in 2..5 { echo $day }\nlet $days = Array(2..=4)\necho $days...\n",
+    "stdout": "2\n3\n4\n2 3 4\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "RANGE-BOUNDS": "for $day in 2..5 { echo $day }\nlet $days = Array(2..=4)\necho $days...\n"
+    },
+    "page": "Ranges-and-Iteration"
+  },
+  {
+    "id": "RANGE-TIMER",
+    "source": "struct Countdown { pub remaining: Integer }\nfn Countdown::next_item(): Integer | ()\n{\n    if $self.remaining == 0 { return () }\n    let $answer = $self.remaining\n    $self.remaining = $self.remaining - 1\n    $answer\n}\nlet $timer = Countdown(remaining: 3)\nfor $tick in $timer { echo $tick }\necho $timer.remaining\n",
+    "stdout": "3\n2\n1\n3\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "RANGE-TIMER": "struct Countdown { pub remaining: Integer }\nfn Countdown::next_item(): Integer | ()\n{\n    if $self.remaining == 0 { return () }\n    let $answer = $self.remaining\n    $self.remaining = $self.remaining - 1\n    $answer\n}\nlet $timer = Countdown(remaining: 3)\nfor $tick in $timer { echo $tick }\necho $timer.remaining\n"
+    },
+    "page": "Ranges-and-Iteration"
+  },
+  {
+    "id": "CONTROL-IF",
+    "source": "let $stock = 3\nlet $label = if $stock == 0 { \"sold out\" }\n    else if $stock < 5 { \"limited\" }\n    else { \"available\" }\necho $label\n",
+    "stdout": "limited\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "CONTROL-IF": "let $stock = 3\nlet $label = if $stock == 0 { \"sold out\" }\n    else if $stock < 5 { \"limited\" }\n    else { \"available\" }\necho $label\n"
+    },
+    "page": "Control-Flow"
+  },
+  {
+    "id": "CONTROL-FOR",
+    "source": "for ($name, $minutes) in [[\"stretch\", 5], [\"walk\", 20]]\n{\n    echo $name $minutes\n}\nlet $visits = 0\nfor _ in 0..3 { $visits = $visits + 1 }\necho $visits\n",
+    "stdout": "stretch 5\nwalk 20\n3\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "CONTROL-FOR": "for ($name, $minutes) in [[\"stretch\", 5], [\"walk\", 20]]\n{\n    echo $name $minutes\n}\nlet $visits = 0\nfor _ in 0..3 { $visits = $visits + 1 }\necho $visits\n"
+    },
+    "page": "Control-Flow"
+  },
+  {
+    "id": "CONTROL-LOOPS",
+    "source": "let $remaining = 2\nwhile $remaining > 0 { $remaining = $remaining - 1 }\nuntil $remaining == 2 { $remaining = $remaining + 1 }\nloop\n{\n    $remaining = $remaining + 1\n    if $remaining == 3 { continue }\n    break\n}\necho $remaining\n",
+    "stdout": "4\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "CONTROL-LOOPS": "let $remaining = 2\nwhile $remaining > 0 { $remaining = $remaining - 1 }\nuntil $remaining == 2 { $remaining = $remaining + 1 }\nloop\n{\n    $remaining = $remaining + 1\n    if $remaining == 3 { continue }\n    break\n}\necho $remaining\n"
+    },
+    "page": "Control-Flow"
+  },
+  {
+    "id": "MATCH-LEVEL",
+    "source": "let $priority = 4\nlet $expected = 9\nlet $description = match $priority\n{\n    0         => { \"idle\" }\n    1..5      => { \"routine\" }\n    $expected => { \"reserved\" }\n    _         => { \"urgent\" }\n}\necho $description\n",
+    "stdout": "routine\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "MATCH-LEVEL": "let $priority = 4\nlet $expected = 9\nlet $description = match $priority\n{\n    0         => { \"idle\" }\n    1..5      => { \"routine\" }\n    $expected => { \"reserved\" }\n    _         => { \"urgent\" }\n}\necho $description\n"
+    },
+    "page": "Match-and-Type-Guards"
+  },
+  {
+    "id": "MATCH-TYPES",
+    "source": "let $reading: any = 12\nmatch $reading.type\n{\n    Integer => { echo ($reading + 1) }\n    String  => { echo $reading.trim }\n    _       => { echo \"other reading\" }\n}\nif $reading.type == Integer && $reading > 10 { echo warm }\n",
+    "stdout": "13\nwarm\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "MATCH-TYPES": "let $reading: any = 12\nmatch $reading.type\n{\n    Integer => { echo ($reading + 1) }\n    String  => { echo $reading.trim }\n    _       => { echo \"other reading\" }\n}\nif $reading.type == Integer && $reading > 10 { echo warm }\n"
+    },
+    "page": "Match-and-Type-Guards"
+  },
+  {
+    "id": "FUNCTIONS-CALL",
+    "source": "fn area($width: Float, $height: Float): Float { $width * $height }\nlet $size = area 3 2.5\necho $size (area 2 4)\n",
+    "stdout": "7.5 8.0\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "FUNCTIONS-CALL": "fn area($width: Float, $height: Float): Float { $width * $height }\nlet $size = area 3 2.5\necho $size (area 2 4)\n"
+    },
+    "page": "Functions-and-Calls"
+  },
+  {
+    "id": "FUNCTIONS-PARAMETERS",
+    "source": "fn ticket($name: String, $zone: String | ()): String\n{\n    let $area = if $zone == () { \"general\" } else { $zone }\n    $name + \": \" + $area\n}\nfn total($values: Integer...): Number { $values.sum }\necho (ticket \"Mira\") (total 4 6 8)\n",
+    "stdout": "Mira: general 18\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "FUNCTIONS-PARAMETERS": "fn ticket($name: String, $zone: String | ()): String\n{\n    let $area = if $zone == () { \"general\" } else { $zone }\n    $name + \": \" + $area\n}\nfn total($values: Integer...): Number { $values.sum }\necho (ticket \"Mira\") (total 4 6 8)\n"
+    },
+    "page": "Functions-and-Calls"
+  },
+  {
+    "id": "CLOSURES-COUNTER",
+    "source": "fn sequence($start: Integer): fn(): Integer\n{\n    fn (): Integer\n    {\n        $start = $start + 2\n        $start\n    }\n}\nlet $next = sequence 10\necho ($next) ($next)\n",
+    "stdout": "12 14\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "CLOSURES-COUNTER": "fn sequence($start: Integer): fn(): Integer\n{\n    fn (): Integer\n    {\n        $start = $start + 2\n        $start\n    }\n}\nlet $next = sequence 10\necho ($next) ($next)\n"
+    },
+    "page": "Closures-and-Function-Types"
+  },
+  {
+    "id": "CLOSURES-CALLBACK",
+    "source": "type Formatter = fn(Integer): String\nfn decorate($n: Integer): String { \"#\" + String($n) }\nfn render($format: Formatter, $value: Integer): String { $format $value }\nlet $style: Formatter = `decorate\necho (render $style 23)\necho (render fn ($n: Integer): String { \"item=\" + String($n) } 8)\n",
+    "stdout": "#23\nitem=8\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "CLOSURES-CALLBACK": "type Formatter = fn(Integer): String\nfn decorate($n: Integer): String { \"#\" + String($n) }\nfn render($format: Formatter, $value: Integer): String { $format $value }\nlet $style: Formatter = `decorate\necho (render $style 23)\necho (render fn ($n: Integer): String { \"item=\" + String($n) } 8)\n"
+    },
+    "page": "Closures-and-Function-Types"
+  },
+  {
+    "id": "METHODS-RECEIVER",
+    "source": "fn Integer::increase($amount: Integer): Integer\n{\n    $self = $self + $amount\n    $self\n}\nlet $score = 10\nlet $raise = `$score.increase\necho ($raise 5) $score\n",
+    "stdout": "15 15\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "METHODS-RECEIVER": "fn Integer::increase($amount: Integer): Integer\n{\n    $self = $self + $amount\n    $self\n}\nlet $score = 10\nlet $raise = `$score.increase\necho ($raise 5) $score\n"
+    },
+    "page": "Methods-and-Properties"
+  },
+  {
+    "id": "METHODS-DEPENDENT",
+    "source": "fn Array::first_or_none(): $self.value_type | ()\n{\n    if $self.count == 0 { return () }\n    let $item: $self.value_type = $self[0]\n    $item\n}\nlet $readings: [Float] = [3, 4]\necho $readings.first_or_none $readings.first_or_none.type\n",
+    "stdout": "3.0 Float\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "METHODS-DEPENDENT": "fn Array::first_or_none(): $self.value_type | ()\n{\n    if $self.count == 0 { return () }\n    let $item: $self.value_type = $self[0]\n    $item\n}\nlet $readings: [Float] = [3, 4]\necho $readings.first_or_none $readings.first_or_none.type\n"
+    },
+    "page": "Methods-and-Properties"
+  },
+  {
+    "id": "STRUCTS-RECORD",
+    "source": "struct Station\n{\n    pub name: String,\n    pub platforms: Integer,\n    pub note: String | (),\n}\nlet $station = Station(name: \"Riverside\", platforms: 3)\necho $station.name $station.platforms $station.note\n",
+    "stdout": "Riverside 3 ()\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "STRUCTS-RECORD": "struct Station\n{\n    pub name: String,\n    pub platforms: Integer,\n    pub note: String | (),\n}\nlet $station = Station(name: \"Riverside\", platforms: 3)\necho $station.name $station.platforms $station.note\n"
+    },
+    "page": "Structs"
+  },
+  {
+    "id": "STRUCTS-ACCESSORS",
+    "source": "struct Gauge { reading: Integer }\nfn Gauge::new($initial: Integer): Gauge { Gauge(reading: $initial) }\nfn Gauge::get_value(): Integer { $self.::reading }\nfn Gauge::set_value($value: Integer) { $self.::reading = $value }\nlet $gauge = Gauge(initial: 5)\n$gauge.value = 12\necho $gauge.value\n",
+    "stdout": "12\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "STRUCTS-ACCESSORS": "struct Gauge { reading: Integer }\nfn Gauge::new($initial: Integer): Gauge { Gauge(reading: $initial) }\nfn Gauge::get_value(): Integer { $self.::reading }\nfn Gauge::set_value($value: Integer) { $self.::reading = $value }\nlet $gauge = Gauge(initial: 5)\n$gauge.value = 12\necho $gauge.value\n"
+    },
+    "page": "Structs"
+  },
+  {
+    "id": "ENUMS-STATUS",
+    "source": "enum Signal { Stop, Wait, Go }\nlet $signal = Signal::Wait\necho $signal $signal.index\nlet $action = match $signal\n{\n    Signal::Stop => { \"hold\" }\n    Signal::Wait => { \"prepare\" }\n    Signal::Go   => { \"proceed\" }\n}\necho $action\n",
+    "stdout": "Signal::Wait 1\nprepare\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "ENUMS-STATUS": "enum Signal { Stop, Wait, Go }\nlet $signal = Signal::Wait\necho $signal $signal.index\nlet $action = match $signal\n{\n    Signal::Stop => { \"hold\" }\n    Signal::Wait => { \"prepare\" }\n    Signal::Go   => { \"proceed\" }\n}\necho $action\n"
+    },
+    "page": "Enums"
+  },
+  {
+    "id": "NAMED-DISTANCE",
+    "source": "type Meters = Float\nlet $near: Meters = 3\nlet $far = Meters(4)\nlet $total = $near + $far\necho $total $total.type Float($total)\n",
+    "stdout": "7.0 Meters 7.0\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "NAMED-DISTANCE": "type Meters = Float\nlet $near: Meters = 3\nlet $far = Meters(4)\nlet $total = $near + $far\necho $total $total.type Float($total)\n"
+    },
+    "page": "Named-Types-and-Unions"
+  },
+  {
+    "id": "NAMED-UNION",
+    "source": "let $label: Integer | String = 7\n$label = \"seven\"\nlet $maybe: Integer | ()\necho $label $maybe\ntype Selection = Integer | String | ()\nlet $selected: Selection\necho $selected.type\n",
+    "stdout": "seven ()\nSelection\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "NAMED-UNION": "let $label: Integer | String = 7\n$label = \"seven\"\nlet $maybe: Integer | ()\necho $label $maybe\ntype Selection = Integer | String | ()\nlet $selected: Selection\necho $selected.type\n"
+    },
+    "page": "Named-Types-and-Unions"
+  },
+  {
+    "id": "CONVERSIONS-BASIC",
+    "source": "let $quantity = Integer(\"14\")\nlet $ratio = Float(\"2.5\")\necho ($quantity + 1) $ratio Integer(6.0)\n",
+    "stdout": "15 2.5 6\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "CONVERSIONS-BASIC": "let $quantity = Integer(\"14\")\nlet $ratio = Float(\"2.5\")\necho ($quantity + 1) $ratio Integer(6.0)\n"
+    },
+    "page": "Conversions"
+  },
+  {
+    "id": "CONVERSIONS-OWNED",
+    "source": "struct Batch { pub count: Integer }\nfn Batch::to_integer(): Integer { $self.count }\nfn String::from_batch($batch: Batch): String\n{\n    \"batch=\" + String($batch.count)\n}\nlet $batch = Batch(count: 6)\necho Integer($batch) String($batch)\n",
+    "stdout": "6 batch=6\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "CONVERSIONS-OWNED": "struct Batch { pub count: Integer }\nfn Batch::to_integer(): Integer { $self.count }\nfn String::from_batch($batch: Batch): String\n{\n    \"batch=\" + String($batch.count)\n}\nlet $batch = Batch(count: 6)\necho Integer($batch) String($batch)\n"
+    },
+    "page": "Conversions"
+  },
+  {
+    "id": "PIPE-AUTOMATIC",
+    "source": "fn square($n: Integer): Integer { $n * $n }\nlet $squares: [Integer]\n[3, 6, 9] | square | $squares\necho $squares...\n",
+    "stdout": "9 36 81\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "PIPE-AUTOMATIC": "fn square($n: Integer): Integer { $n * $n }\nlet $squares: [Integer]\n[3, 6, 9] | square | $squares\necho $squares...\n"
+    },
+    "page": "Pipelines"
+  },
+  {
+    "id": "PIPE-EXPLICIT",
+    "source": "fn badge($prefix: String, $number: Integer): String { \"${prefix}-${number}\" }\nlet $badges: [String]\n[4, 7] | ($ * 10) | badge \"desk\" $ | $badges\necho $badges...\n",
+    "stdout": "desk-40 desk-70\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "PIPE-EXPLICIT": "fn badge($prefix: String, $number: Integer): String { \"${prefix}-${number}\" }\nlet $badges: [String]\n[4, 7] | ($ * 10) | badge \"desk\" $ | $badges\necho $badges...\n"
+    },
+    "page": "Pipelines"
+  },
+  {
+    "id": "PIPE-ROWS",
+    "source": "fn total($numbers: Number...): Number { $numbers.sum }\nlet $totals: [Number]\n[[2, 3], [8, 1], [4, 4]] | total $... | $totals\necho $totals...\n",
+    "stdout": "5 9 8\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "PIPE-ROWS": "fn total($numbers: Number...): Number { $numbers.sum }\nlet $totals: [Number]\n[[2, 3], [8, 1], [4, 4]] | total $... | $totals\necho $totals...\n"
+    },
+    "page": "Pipelines"
+  },
+  {
+    "id": "PIPE-BYTES",
+    "source": "let $text: String\nlet $status = printf \"north\\nsouth\\n\" | head -n 1 | $text\necho $text.trim $status\n",
+    "stdout": "north ExecResult(0)\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "PIPE-BYTES": "let $text: String\nlet $status = printf \"north\\nsouth\\n\" | head -n 1 | $text\necho $text.trim $status\n"
+    },
+    "page": "Pipelines"
+  },
+  {
+    "id": "FORMAT-JSON",
+    "source": "struct Forecast { pub city: String, pub degrees: Float }\nlet $forecast: Forecast\nlet $status = printf '%s' '{\"city\":\"Oslo\",\"degrees\":8}' json:|:Forecast $forecast\necho $forecast.city $forecast.degrees $status\n",
+    "stdout": "Oslo 8.0 ExecResult(0)\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "FORMAT-JSON": "struct Forecast { pub city: String, pub degrees: Float }\nlet $forecast: Forecast\nlet $status = printf '%s' '{\"city\":\"Oslo\",\"degrees\":8}' json:|:Forecast $forecast\necho $forecast.city $forecast.degrees $status\n"
+    },
+    "page": "Pipeline-Formats"
+  },
+  {
+    "id": "FORMAT-CSV",
+    "source": "fn describe($row: [String]): String\n{\n    let ($place, $seats) = $row\n    \"${place} has ${seats} seats\"\n}\nlet $descriptions: [String]\nprintf '\"Garden, east\",12\\nHarbor,8\\n' csv:| describe | $descriptions\necho $descriptions[0]\necho $descriptions[1]\n",
+    "stdout": "Garden, east has 12 seats\nHarbor has 8 seats\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "FORMAT-CSV": "fn describe($row: [String]): String\n{\n    let ($place, $seats) = $row\n    \"${place} has ${seats} seats\"\n}\nlet $descriptions: [String]\nprintf '\"Garden, east\",12\\nHarbor,8\\n' csv:| describe | $descriptions\necho $descriptions[0]\necho $descriptions[1]\n"
+    },
+    "page": "Pipeline-Formats"
+  },
+  {
+    "id": "COMMAND-OUTER",
+    "source": "fn printf($message: String): String { \"wrapped: ${message}\" }\necho (printf \"hello\")\n::printf '%s\\n' \"external hello\"\n",
+    "stdout": "wrapped: hello\nexternal hello\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "COMMAND-OUTER": "fn printf($message: String): String { \"wrapped: ${message}\" }\necho (printf \"hello\")\n::printf '%s\\n' \"external hello\"\n"
+    },
+    "page": "Commands-and-Exit-Status"
+  },
+  {
+    "id": "COMMAND-STATUS",
+    "source": "let $result = /usr/bin/false\nif $result { echo \"completed\" } else { echo \"not completed\" }\necho $result\n",
+    "stdout": "not completed\nExecResult(1)\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "COMMAND-STATUS": "let $result = /usr/bin/false\nif $result { echo \"completed\" } else { echo \"not completed\" }\necho $result\n"
+    },
+    "page": "Commands-and-Exit-Status"
+  },
+  {
+    "id": "REDIRECT-CAPTURE",
+    "source": "let $message: String\nlet $status = printf 'parcel\\n' -> $message\necho $message.count $status\necho $message.trim\n",
+    "stdout": "7 ExecResult(0)\nparcel\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "REDIRECT-CAPTURE": "let $message: String\nlet $status = printf 'parcel\\n' -> $message\necho $message.count $status\necho $message.trim\n"
+    },
+    "page": "Redirection"
+  },
+  {
+    "id": "REDIRECT-FILE",
+    "source": "printf '%s' \"cargo list\" -> \"manifest.txt\"\nlet $contents: String\n\"manifest.txt\" -> $contents\necho $contents\n",
+    "stdout": "cargo list\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "REDIRECT-FILE": "printf '%s' \"cargo list\" -> \"manifest.txt\"\nlet $contents: String\n\"manifest.txt\" -> $contents\necho $contents\n"
+    },
+    "page": "Redirection"
+  },
+  {
+    "id": "ENV-INFO",
+    "source": "let $local_note = \"draft\"\nlet export $SHELLY_WIKI_NOTE = \"published\"\nlet $bindings = get_env\necho $bindings[\"local_note\"].value\necho $bindings[\"SHELLY_WIKI_NOTE\"].visibility\n",
+    "stdout": "draft\nVariableVisibility::Exported\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "ENV-INFO": "let $local_note = \"draft\"\nlet export $SHELLY_WIKI_NOTE = \"published\"\nlet $bindings = get_env\necho $bindings[\"local_note\"].value\necho $bindings[\"SHELLY_WIKI_NOTE\"].visibility\n"
+    },
+    "page": "Environment"
+  },
+  {
+    "id": "ENV-RETYPE",
+    "source": "let export $SHELLY_WIKI_PATH = \"red::blue\"\nlet type $SHELLY_WIKI_PATH = [String]\necho $SHELLY_WIKI_PATH.count\n$SHELLY_WIKI_PATH = [$SHELLY_WIKI_PATH..., \"green\"]\n/usr/bin/printenv SHELLY_WIKI_PATH\n",
+    "stdout": "3\nred::blue:green\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "ENV-RETYPE": "let export $SHELLY_WIKI_PATH = \"red::blue\"\nlet type $SHELLY_WIKI_PATH = [String]\necho $SHELLY_WIKI_PATH.count\n$SHELLY_WIKI_PATH = [$SHELLY_WIKI_PATH..., \"green\"]\n/usr/bin/printenv SHELLY_WIKI_PATH\n"
+    },
+    "page": "Environment"
+  },
+  {
+    "id": "MODULE-COUNTER",
+    "source": "import counter\nimport counter::{ next, Ticket }\necho (counter::next) (next)\nlet $ticket: Ticket = 17\necho $ticket.type\n",
+    "stdout": "1 2\nTicket\n",
+    "status": 0,
+    "error": "",
+    "files": {
+      "counter.shy": "let $count = 0\npub fn next(): Integer\n{\n    $count = $count + 1\n    $count\n}\npub type Ticket = Integer\n"
+    },
+    "blocks": {
+      "MODULE-COUNTER-1": "let $count = 0\npub fn next(): Integer\n{\n    $count = $count + 1\n    $count\n}\npub type Ticket = Integer\n",
+      "MODULE-COUNTER": "import counter\nimport counter::{ next, Ticket }\necho (counter::next) (next)\nlet $ticket: Ticket = 17\necho $ticket.type\n"
+    },
+    "page": "Modules"
+  },
+  {
+    "id": "PACKAGE-SUPER",
+    "source": "import reports::{ describe }\necho (describe 9)\n",
+    "stdout": "count=9\n",
+    "status": 0,
+    "error": "",
+    "files": {
+      "reports/init.shy": "type InternalCount = Integer\npub import summary::{ describe }\n",
+      "reports/summary.shy": "import super::{ InternalCount }\npub fn describe($count: InternalCount): String { \"count=${count}\" }\n"
+    },
+    "blocks": {
+      "PACKAGE-SUPER-1": "type InternalCount = Integer\npub import summary::{ describe }\n",
+      "PACKAGE-SUPER-2": "import super::{ InternalCount }\npub fn describe($count: InternalCount): String { \"count=${count}\" }\n",
+      "PACKAGE-SUPER": "import reports::{ describe }\necho (describe 9)\n"
+    },
+    "page": "Module-Packages"
+  },
+  {
+    "id": "WHEN-IMPORT",
+    "source": "import deliberately_absent when false\necho \"portable branch loaded\"\n",
+    "stdout": "portable branch loaded\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "WHEN-IMPORT": "import deliberately_absent when false\necho \"portable branch loaded\"\n"
+    },
+    "page": "Conditional-Code"
+  },
+  {
+    "id": "WHEN-BLOCK",
+    "source": "[when true]\n{\n    let $label = \"included\"\n    fn selected(): String { $label }\n}\n[when false]\nfn selected_elsewhere(): String { \"excluded\" }\necho (selected)\n",
+    "stdout": "included\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "WHEN-BLOCK": "[when true]\n{\n    let $label = \"included\"\n    fn selected(): String { $label }\n}\n[when false]\nfn selected_elsewhere(): String { \"excluded\" }\necho (selected)\n"
+    },
+    "page": "Conditional-Code"
+  },
+  {
+    "id": "ERROR-CATCH",
+    "source": "error struct MissingShelf { pub shelf: String }\nfn locate($name: String): String | MissingShelf\n{\n    if $name == \"attic\" { return MissingShelf(shelf: $name) }\n    \"ground floor\"\n}\ntry\n{\n    let $location: String = locate \"attic\"\n    echo $location\n}\ncatch ($problem: MissingShelf)\n{\n    echo \"No shelf named\" $problem.shelf\n}\n",
+    "stdout": "No shelf named attic\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "ERROR-CATCH": "error struct MissingShelf { pub shelf: String }\nfn locate($name: String): String | MissingShelf\n{\n    if $name == \"attic\" { return MissingShelf(shelf: $name) }\n    \"ground floor\"\n}\ntry\n{\n    let $location: String = locate \"attic\"\n    echo $location\n}\ncatch ($problem: MissingShelf)\n{\n    echo \"No shelf named\" $problem.shelf\n}\n"
+    },
+    "page": "Errors-and-Cleanup"
+  },
+  {
+    "id": "ERROR-FINALLY",
+    "source": "let $closed = false\ntry\n{\n    try { throw RuntimeError(what: \"example\", message: \"stop\") }\n    finally { $closed = true }\n}\ncatch ($problem) { echo \"handled\" }\necho $closed\n",
+    "stdout": "handled\ntrue\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "ERROR-FINALLY": "let $closed = false\ntry\n{\n    try { throw RuntimeError(what: \"example\", message: \"stop\") }\n    finally { $closed = true }\n}\ncatch ($problem) { echo \"handled\" }\necho $closed\n"
+    },
+    "page": "Errors-and-Cleanup"
+  },
+  {
+    "id": "REFLECT-NAME",
+    "source": "let $numbers = [10, 20]\necho $numbers.type.name $numbers.value_type.name\necho Integer.name Integer.type.name\n",
+    "stdout": "Array Integer\nInteger Type\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "REFLECT-NAME": "let $numbers = [10, 20]\necho $numbers.type.name $numbers.value_type.name\necho Integer.name Integer.type.name\n"
+    },
+    "page": "Reflection"
+  },
+  {
+    "id": "REFLECT-BOUND",
+    "source": "let $word = \"moss\"\nlet $members = $word.properties\nlet $length = $members[\"count\"]\necho $members[\"value\"] ($length)\n",
+    "stdout": "moss 4\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "REFLECT-BOUND": "let $word = \"moss\"\nlet $members = $word.properties\nlet $length = $members[\"count\"]\necho $members[\"value\"] ($length)\n"
+    },
+    "page": "Reflection"
+  },
+  {
+    "id": "PRELUDE-STACK",
+    "source": "let $tasks = [\"pack\", \"ship\"]\n$tasks.push \"label\"\necho $tasks.pop\necho $tasks.peek\necho $tasks.reverse...\n",
+    "stdout": "label\npack\nship pack\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "PRELUDE-STACK": "let $tasks = [\"pack\", \"ship\"]\n$tasks.push \"label\"\necho $tasks.pop\necho $tasks.peek\necho $tasks.reverse...\n"
+    },
+    "page": "Prelude"
+  },
+  {
+    "id": "PRELUDE-TEXT",
+    "source": "echo (sum 4 8 12)\necho (\"bay\".pad 6 \".\")\necho (\"log:ready\".strip_prefix \"log:\")\n",
+    "stdout": "24\nbay...\nready\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "PRELUDE-TEXT": "echo (sum 4 8 12)\necho (\"bay\".pad 6 \".\")\necho (\"log:ready\".strip_prefix \"log:\")\n"
+    },
+    "page": "Prelude"
+  },
+  {
+    "id": "IO-BYTES",
+    "source": "import std::io\nlet $bytes = std::io::Bytes(\"λ\")\necho $bytes.count $bytes.decode_utf8\nlet $raw = std::io::Bytes([65, 0, 66])\necho $raw.to_array...\n",
+    "stdout": "2 λ\n65 0 66\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "IO-BYTES": "import std::io\nlet $bytes = std::io::Bytes(\"λ\")\necho $bytes.count $bytes.decode_utf8\nlet $raw = std::io::Bytes([65, 0, 66])\necho $raw.to_array...\n"
+    },
+    "page": "Bytes-and-IO"
+  },
+  {
+    "id": "IO-READER",
+    "source": "import std::io\nlet $reader = std::io::memory_reader std::io::Bytes(\"station\")\ntry\n{\n    echo ($reader.read_exact 3).decode_utf8\n    echo $reader.read_all.decode_utf8\n}\nfinally { $reader.close }\n",
+    "stdout": "sta\ntion\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "IO-READER": "import std::io\nlet $reader = std::io::memory_reader std::io::Bytes(\"station\")\ntry\n{\n    echo ($reader.read_exact 3).decode_utf8\n    echo $reader.read_all.decode_utf8\n}\nfinally { $reader.close }\n"
+    },
+    "page": "Bytes-and-IO"
+  },
+  {
+    "id": "IO-FILE",
+    "source": "import std::io\nstd::io::write_text \"note.txt\" \"bring a map\"\necho (std::io::read_text \"note.txt\")\n",
+    "stdout": "bring a map\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "IO-FILE": "import std::io\nstd::io::write_text \"note.txt\" \"bring a map\"\necho (std::io::read_text \"note.txt\")\n"
+    },
+    "page": "Bytes-and-IO"
+  },
+  {
+    "id": "STREAM-MAP",
+    "source": "import std::stream\nlet $source = std::stream::from_iterable [2, 4, 7]\nlet $scaled = std::stream::map $source fn ($n: Integer): Integer { $n * 5 }\nlet $selected = std::stream::filter $scaled fn ($n: Integer): Boolean { $n >= 20 }\nlet $items = std::stream::collect $selected\necho $items...\n",
+    "stdout": "20 35\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "STREAM-MAP": "import std::stream\nlet $source = std::stream::from_iterable [2, 4, 7]\nlet $scaled = std::stream::map $source fn ($n: Integer): Integer { $n * 5 }\nlet $selected = std::stream::filter $scaled fn ($n: Integer): Boolean { $n >= 20 }\nlet $items = std::stream::collect $selected\necho $items...\n"
+    },
+    "page": "Item-Streams"
+  },
+  {
+    "id": "JSON-VALUES",
+    "source": "import std::json\nlet $value = std::json::decode '{\"name\":\"Juniper\",\"visits\":3}'\necho $value[\"name\"] ($value[\"visits\"] + 1)\necho (std::json::encode [true, (), \"ready\"])\n",
+    "stdout": "Juniper 4\n[true,null,\"ready\"]\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "JSON-VALUES": "import std::json\nlet $value = std::json::decode '{\"name\":\"Juniper\",\"visits\":3}'\necho $value[\"name\"] ($value[\"visits\"] + 1)\necho (std::json::encode [true, (), \"ready\"])\n"
+    },
+    "page": "JSON"
+  },
+  {
+    "id": "JSON-DOCUMENT",
+    "source": "import std::json\nlet $document = std::json::parse '{\"trip\":{\"stops\":[\"Pier\",\"Hill\"]}}'\necho ($document.require_string \"/trip/stops/1\")\necho ($document.find \"/trip/missing\")\n",
+    "stdout": "Hill\n()\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "JSON-DOCUMENT": "import std::json\nlet $document = std::json::parse '{\"trip\":{\"stops\":[\"Pier\",\"Hill\"]}}'\necho ($document.require_string \"/trip/stops/1\")\necho ($document.find \"/trip/missing\")\n"
+    },
+    "page": "JSON"
+  },
+  {
+    "id": "JSON-MAPPING",
+    "source": "import std::json\nstruct Trail { pub name: String, pub distance: Float }\nlet $trail: Trail = std::json::decode_as '{\"name\":\"Ridge\",\"distance\":5}' Trail\necho $trail.name $trail.distance\n",
+    "stdout": "Ridge 5.0\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "JSON-MAPPING": "import std::json\nstruct Trail { pub name: String, pub distance: Float }\nlet $trail: Trail = std::json::decode_as '{\"name\":\"Ridge\",\"distance\":5}' Trail\necho $trail.name $trail.distance\n"
+    },
+    "page": "JSON"
+  },
+  {
+    "id": "NET-LOCAL",
+    "source": "import std::net::tcp\nimport std::io\nlet $listener = std::net::tcp::listen \"127.0.0.1\" 0\ntry\n{\n    let $address = $listener.address\n    let $sender = std::net::tcp::connect $address.host $address.port\n    let $receiver = $listener.accept\n    try\n    {\n        $sender.writer.write std::io::Bytes(\"ping\")\n        $sender.shutdown_write\n        echo $receiver.reader.read_all.decode_utf8\n    }\n    finally { $sender.close; $receiver.close }\n}\nfinally { $listener.close }\n",
+    "stdout": "ping\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "NET-LOCAL": "import std::net::tcp\nimport std::io\nlet $listener = std::net::tcp::listen \"127.0.0.1\" 0\ntry\n{\n    let $address = $listener.address\n    let $sender = std::net::tcp::connect $address.host $address.port\n    let $receiver = $listener.accept\n    try\n    {\n        $sender.writer.write std::io::Bytes(\"ping\")\n        $sender.shutdown_write\n        echo $receiver.reader.read_all.decode_utf8\n    }\n    finally { $sender.close; $receiver.close }\n}\nfinally { $listener.close }\n"
+    },
+    "page": "Networking"
+  },
+  {
+    "id": "HTTP-DEFINITION",
+    "source": "import std::net::http\nstruct BuildInfo { pub version: String, pub ready: Boolean }\nfn fetch_build($base: String): BuildInfo | ErrorValue\n{\n    let $client = std::net::http::Client(base_url: $base)\n    try\n    {\n        let $response = $client.get \"/build\"\n        try\n        {\n            $response.require_success\n            $response.read_as BuildInfo\n        }\n        finally { $response.close }\n    }\n    finally { $client.close }\n}\n",
+    "stdout": "",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "HTTP-DEFINITION": "import std::net::http\nstruct BuildInfo { pub version: String, pub ready: Boolean }\nfn fetch_build($base: String): BuildInfo | ErrorValue\n{\n    let $client = std::net::http::Client(base_url: $base)\n    try\n    {\n        let $response = $client.get \"/build\"\n        try\n        {\n            $response.require_success\n            $response.read_as BuildInfo\n        }\n        finally { $response.close }\n    }\n    finally { $client.close }\n}\n"
+    },
+    "page": "HTTP"
+  },
+  {
+    "id": "HTTP-SERVER-DEFINITION",
+    "source": "import std::net::http::server\nfn serve_status($port: Integer): () | ErrorValue\n{\n    let $server = std::net::http::server::listen \"127.0.0.1\" $port\n    try\n    {\n        $server.serve fn ($request: std::net::http::server::Incoming): () | ErrorValue\n        {\n            $request.respond (std::net::http::server::text_response \"available\")\n        } 1\n    }\n    finally { $server.close }\n}\n",
+    "stdout": "",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "HTTP-SERVER-DEFINITION": "import std::net::http::server\nfn serve_status($port: Integer): () | ErrorValue\n{\n    let $server = std::net::http::server::listen \"127.0.0.1\" $port\n    try\n    {\n        $server.serve fn ($request: std::net::http::server::Incoming): () | ErrorValue\n        {\n            $request.respond (std::net::http::server::text_response \"available\")\n        } 1\n    }\n    finally { $server.close }\n}\n"
+    },
+    "page": "HTTP-Servers"
+  },
+  {
+    "id": "RPC-ROUTER",
+    "source": "import std::net::rpc\nimport std::json\nlet $router = std::net::rpc::Router()\n$router.register \"greet\" fn ($params: std::json::Document | ()): any\n{\n    \"hello\"\n}\nlet $reply = $router.dispatch_text '{\"jsonrpc\":\"2.0\",\"id\":\"a\",\"method\":\"greet\"}'\necho ($reply.require_string \"/result\")\n",
+    "stdout": "hello\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "RPC-ROUTER": "import std::net::rpc\nimport std::json\nlet $router = std::net::rpc::Router()\n$router.register \"greet\" fn ($params: std::json::Document | ()): any\n{\n    \"hello\"\n}\nlet $reply = $router.dispatch_text '{\"jsonrpc\":\"2.0\",\"id\":\"a\",\"method\":\"greet\"}'\necho ($reply.require_string \"/result\")\n"
+    },
+    "page": "Framing-and-RPC"
+  },
+  {
+    "id": "TERMINAL-PLAIN",
+    "source": "import std::terminal::{ color, bold }\necho (color \"#31d8e0\" \"harbor\" \"open\")\necho (bold \"boarding\")\n",
+    "stdout": "harbor open\nboarding\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "TERMINAL-PLAIN": "import std::terminal::{ color, bold }\necho (color \"#31d8e0\" \"harbor\" \"open\")\necho (bold \"boarding\")\n"
+    },
+    "page": "Terminal-Formatting"
+  },
+  {
+    "id": "READLINE-DEFINITION",
+    "source": "import std::terminal::{ readline }\nfn notes_console(): () | ErrorValue\n{\n    let $editor = readline::Editor(prompt: \"notes> \")\n    try\n    {\n        for $line in $editor.lines\n        {\n            if $line == \"quit\" { break }\n            echo \"note: ${line}\"\n        }\n    }\n    finally { $editor.close }\n}\n",
+    "stdout": "",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "READLINE-DEFINITION": "import std::terminal::{ readline }\nfn notes_console(): () | ErrorValue\n{\n    let $editor = readline::Editor(prompt: \"notes> \")\n    try\n    {\n        for $line in $editor.lines\n        {\n            if $line == \"quit\" { break }\n            echo \"note: ${line}\"\n        }\n    }\n    finally { $editor.close }\n}\n"
+    },
+    "page": "Line-Editing"
+  },
+  {
+    "id": "PROMPT-CONFIG",
+    "source": "import std::widgets::{ clock_widget, git_widget }\n$widgets = [$widgets..., `clock_widget, `git_widget]\n$prompt = fn (): String\n{\n    \"\\n${USER}@${HOSTNAME} ${rendered_widgets}\\n: ${pwd}\\n\"\n}\n",
+    "stdout": "",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "PROMPT-CONFIG": "import std::widgets::{ clock_widget, git_widget }\n$widgets = [$widgets..., `clock_widget, `git_widget]\n$prompt = fn (): String\n{\n    \"\\n${USER}@${HOSTNAME} ${rendered_widgets}\\n: ${pwd}\\n\"\n}\n"
+    },
+    "page": "Prompts-and-Widgets"
+  },
+  {
+    "id": "PROCESS-STATUS",
+    "source": "let $result = run_process [\"/usr/bin/printf\", \"%s\", \"inspection\"] [\n    \"stdout_file\": \"inspection.txt\", \"timeout_ms\": 1000]\nlet $text: String\n\"inspection.txt\" -> $text\necho $result[\"exit_code\"] $result[\"timed_out\"] $text\n",
+    "stdout": "0 false inspection\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "PROCESS-STATUS": "let $result = run_process [\"/usr/bin/printf\", \"%s\", \"inspection\"] [\n    \"stdout_file\": \"inspection.txt\", \"timeout_ms\": 1000]\nlet $text: String\n\"inspection.txt\" -> $text\necho $result[\"exit_code\"] $result[\"timed_out\"] $text\n"
+    },
+    "page": "Process-Supervision"
+  },
+  {
+    "id": "RECIPE-MEASURE",
+    "source": "type Kilometers = Float\nlet $legs: [Kilometers] = [1.5, 2.0, 0.5]\nlet $distance: Kilometers = 0.0\nfor $leg in $legs { $distance = $distance + $leg }\necho \"Distance:\" Float($distance) \"km\"\n",
+    "stdout": "Distance: 4.0 km\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "RECIPE-MEASURE": "type Kilometers = Float\nlet $legs: [Kilometers] = [1.5, 2.0, 0.5]\nlet $distance: Kilometers = 0.0\nfor $leg in $legs { $distance = $distance + $leg }\necho \"Distance:\" Float($distance) \"km\"\n"
+    },
+    "page": "Recipes"
+  },
+  {
+    "id": "RECIPE-CSV",
+    "source": "fn manifest_line($row: [String]): String\n{\n    let ($label, $count) = $row\n    let $bottles = Integer($count) * 6\n    \"${label}: ${bottles} bottles\"\n}\nlet $manifest: [String]\nprintf 'amber,3\\ngreen,2\\n' csv:| manifest_line | $manifest\nfor $line in $manifest { echo $line }\n",
+    "stdout": "amber: 18 bottles\ngreen: 12 bottles\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "RECIPE-CSV": "fn manifest_line($row: [String]): String\n{\n    let ($label, $count) = $row\n    let $bottles = Integer($count) * 6\n    \"${label}: ${bottles} bottles\"\n}\nlet $manifest: [String]\nprintf 'amber,3\\ngreen,2\\n' csv:| manifest_line | $manifest\nfor $line in $manifest { echo $line }\n"
+    },
+    "page": "Recipes"
+  },
+  {
+    "id": "RECIPE-CONFIG",
+    "source": "import std::json\nstruct Reminder { pub title: String, pub minutes: Integer }\nlet $reminder: Reminder = std::json::decode_as '{\"title\":\"Stretch\",\"minutes\":15}' Reminder\nlet $seconds = $reminder.minutes * 60\necho \"${reminder.title} in ${seconds} seconds\"\n",
+    "stdout": "Stretch in 900 seconds\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "RECIPE-CONFIG": "import std::json\nstruct Reminder { pub title: String, pub minutes: Integer }\nlet $reminder: Reminder = std::json::decode_as '{\"title\":\"Stretch\",\"minutes\":15}' Reminder\nlet $seconds = $reminder.minutes * 60\necho \"${reminder.title} in ${seconds} seconds\"\n"
+    },
+    "page": "Recipes"
+  },
+  {
+    "id": "COMMAND-ALIAS",
+    "source": "alias heading = echo \"Dispatch:\"\nheading \"northbound\"\n",
+    "stdout": "Dispatch: northbound\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "COMMAND-ALIAS": "alias heading = echo \"Dispatch:\"\nheading \"northbound\"\n"
+    },
+    "page": "Commands-and-Exit-Status"
+  },
+  {
+    "id": "UNION-INTERFACE",
+    "source": "error struct BadLabel { pub detail: String }\nerror struct NoCapacity { pub detail: String }\ntype PackingError = BadLabel | NoCapacity\nfn PackingError::message(): String\n{\n    match $self.type\n    {\n        BadLabel   => { \"label: \" + $self.detail }\n        NoCapacity => { \"capacity: \" + $self.detail }\n    }\n}\ntry { let $problem: PackingError = BadLabel(detail: \"missing postcode\") }\ncatch ($problem: PackingError) { echo $problem.message $problem.type }\n",
+    "stdout": "label: missing postcode BadLabel\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "UNION-INTERFACE": "error struct BadLabel { pub detail: String }\nerror struct NoCapacity { pub detail: String }\ntype PackingError = BadLabel | NoCapacity\nfn PackingError::message(): String\n{\n    match $self.type\n    {\n        BadLabel   => { \"label: \" + $self.detail }\n        NoCapacity => { \"capacity: \" + $self.detail }\n    }\n}\ntry { let $problem: PackingError = BadLabel(detail: \"missing postcode\") }\ncatch ($problem: PackingError) { echo $problem.message $problem.type }\n"
+    },
+    "page": "Named-Types-and-Unions"
+  },
+  {
+    "id": "PROCESS-ENV",
+    "source": "let $result = run_process [\"/usr/bin/printenv\", \"SHELLY_WIKI_ONLY\"] [\n    \"env\": [\"SHELLY_WIKI_ONLY\": \"limited\"], \"timeout_ms\": 1000]\necho $result[\"exit_code\"]\n",
+    "stdout": "limited\n0\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "PROCESS-ENV": "let $result = run_process [\"/usr/bin/printenv\", \"SHELLY_WIKI_ONLY\"] [\n    \"env\": [\"SHELLY_WIKI_ONLY\": \"limited\"], \"timeout_ms\": 1000]\necho $result[\"exit_code\"]\n"
+    },
+    "page": "Process-Supervision"
+  },
+  {
+    "id": "SPLIT-SIMPLE",
+    "source": "let $main: [Integer]\nlet $extra: [Integer]\n[2,4] | ($ * 10) | $main\n      \\- ($ + 1) | $extra\necho $main...\necho $extra...\n",
+    "stdout": "20 40\n3 5\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "SPLIT-SIMPLE": "let $main: [Integer]\nlet $extra: [Integer]\n[2,4] | ($ * 10) | $main\n      \\- ($ + 1) | $extra\necho $main...\necho $extra...\n"
+    },
+    "page": "Pipeline-Splits"
+  },
+  {
+    "id": "SPLIT-NESTED",
+    "source": "fn command($n: Integer): Integer { $n + 1 }\nlet $main: [Integer]\nlet $other: [Integer]\nlet $secondary: [Integer]\nlet $early: [Integer]\n[1, 2] | command | command | command | $main\n       |         \\- command | $other\n       |                    \\- command | command | $secondary\n       \\- $early\necho $main...\necho $other...\necho $secondary...\necho $early...\n",
+    "stdout": "4 5\n3 4\n5 6\n1 2\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "SPLIT-NESTED": "fn command($n: Integer): Integer { $n + 1 }\nlet $main: [Integer]\nlet $other: [Integer]\nlet $secondary: [Integer]\nlet $early: [Integer]\n[1, 2] | command | command | command | $main\n       |         \\- command | $other\n       |                    \\- command | command | $secondary\n       \\- $early\necho $main...\necho $other...\necho $secondary...\necho $early...\n"
+    },
+    "page": "Pipeline-Splits"
+  },
+  {
+    "id": "SPLIT-TABS",
+    "source": "#tab-size 8\nlet $main: [Integer]\nlet $copy: [Integer]\n[1, 2]  | $main\n\t\\- $copy\necho $main... $copy...\n",
+    "stdout": "1 2 1 2\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "SPLIT-TABS": "#tab-size 8\nlet $main: [Integer]\nlet $copy: [Integer]\n[1, 2]  | $main\n\t\\- $copy\necho $main... $copy...\n"
+    },
+    "page": "Pipeline-Splits"
+  },
+  {
+    "id": "SPLIT-BYTES",
+    "source": "let $all: String\nlet $first: String\nprintf \"north\\nsouth\\n\" | cat | $all\n                        \\- head -n 1 | $first\necho $first.trim\necho ($all == \"north\\nsouth\\n\")\n",
+    "stdout": "north\ntrue\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "SPLIT-BYTES": "let $all: String\nlet $first: String\nprintf \"north\\nsouth\\n\" | cat | $all\n                        \\- head -n 1 | $first\necho $first.trim\necho ($all == \"north\\nsouth\\n\")\n"
+    },
+    "page": "Pipeline-Splits"
+  },
+  {
+    "id": "FUNCTIONS-RETURN-CONTRACTS",
+    "source": "fn announce($text: String)\n{\n    echo $text\n    ()\n}\nfn identity($value): any { $value }\nfn answer(): Integer { 42 }\necho (announce \"Ready\") (identity \"memo\") (answer)\n",
+    "stdout": "Ready\n() memo 42\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "FUNCTIONS-RETURN-CONTRACTS": "fn announce($text: String)\n{\n    echo $text\n    ()\n}\nfn identity($value): any { $value }\nfn answer(): Integer { 42 }\necho (announce \"Ready\") (identity \"memo\") (answer)\n"
+    },
+    "page": "Functions-and-Calls"
+  },
+  {
+    "id": "NUMBERS-EXACT-ORDER",
+    "source": "let $serial = 9007199254740993\nlet $rounded: Float = 9007199254740992.0\necho ($serial == $rounded) ($serial > $rounded)\nlet $ordered = [$serial, $rounded].sort\necho $ordered[0].type $ordered[1].type\n",
+    "stdout": "false true\nFloat Integer\n",
+    "status": 0,
+    "error": "",
+    "blocks": {
+      "NUMBERS-EXACT-ORDER": "let $serial = 9007199254740993\nlet $rounded: Float = 9007199254740992.0\necho ($serial == $rounded) ($serial > $rounded)\nlet $ordered = [$serial, $rounded].sort\necho $ordered[0].type $ordered[1].type\n"
+    },
+    "page": "Numbers-and-Logic"
+  }
+]

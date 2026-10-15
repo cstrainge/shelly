@@ -1,0 +1,6 @@
+#!/usr/bin/env shelly
+# Run from the repository root; an optional directory selects another wiki checkout.
+import fixtures::wiki_checks
+
+let $directory = if $args.count > 0 { $args[0] } else { "${pwd}/wiki" }
+let _ = fixtures::wiki_checks::check $directory "${pwd}/tests/data/wiki_examples.json"

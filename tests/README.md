@@ -385,3 +385,38 @@ callable prototypes, live mutation, and recovery after rejected definitions.
 Existing data-returning fixtures use explicit annotations to retain their intended
 contracts; output-only functions finish with `()` when their last command returns status.
 The language-intelligence checks also verify the matching editor signatures.
+
+## Language audit and wiki validation
+
+The ordinary runner includes the independent language audit and executable wiki
+examples. `native/language_audit.shy` executes all 118 records from
+`data/language_audit.json`; `native/wiki_examples.shy` executes all 90 records from
+`data/wiki_examples.json`. These manifests retain exact output, expected exit
+status and diagnostic details, plus source files for multi-file examples.
+Each program gets a private directory and HOME, an explicit environment, bundled
+stdlib, closed stdin, captured stdout/stderr, and a native three-second deadline.
+Panics, signals, timeouts, and unexpected stderr fail the test.
+
+`harness/review_cases.shy` verifies that the shared runner rejects invalid records,
+wrong results, signals, deadlines, unexpected success, and escaping fixture paths.
+`harness/wiki.shy` exercises the documentation checker with valid and deliberately
+broken miniature wikis. It also checks the real `wiki/` checkout when present.
+Saved example programs and checker controls always run; initializing the wiki
+submodule is not required for the suite. The localhost example needs the same
+network permissions as the existing networking tests.
+
+```sh
+./target/debug/shelly -m test.shy language_audit
+./target/debug/shelly -m test.shy wiki
+./target/debug/shelly -m tests/check_wiki.shy
+```
+
+The standalone checker requires the wiki checkout. Initialize its recorded revision
+with `git submodule update --init --recursive`; an optional checker argument selects
+another directory. It checks chapter sizes, titles, sidebar and related-page
+navigation, link targets and headings, table columns, code fences, unique example
+markers, fixture sources, and exact agreement with the example manifest.
+When changing a wiki example, update its corresponding record and source blocks
+in `data/wiki_examples.json`. Three HTTP/interactive examples are definition-only;
+the regular suite provides separate HTTP and PTY integration coverage.
+All these checks run in Shelly and require no Python installation.

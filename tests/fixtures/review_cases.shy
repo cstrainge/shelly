@@ -1,0 +1,67 @@
+# Shared execution for the language audit and documentation examples.
+import std::json
+
+fn require($condition: Boolean, $message: String)
+{
+    if !$condition { echo $message; exit 1 }
+}
+
+pub fn run($manifest: String, $root: String): Integer
+{
+    let $text: String
+    $manifest -> $text
+    let $cases: Array = std::json::decode $text
+    require (!$cases.empty) "empty review manifest"
+    let $seen = [:]
+    for $case in $cases
+    {
+        let $id: String = $case["id"]
+        require (($id != "") && ($seen[$id] == ())) "empty or duplicate review ID"
+        for $character in $id.chars
+        { require ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-".contains $character) "invalid review ID" }
+        $seen[$id] = true
+        let $source: String = $case["source"]
+        let $expected: String = $case["stdout"]
+        let $status: Integer = $case["status"]
+        let $diagnostic: String = $case["error"]
+        require ((($status == 0) && ($diagnostic == "")) ||
+            (($status == 1) && ($diagnostic != ""))) "invalid review outcome"
+        let $directory = "${root}/${id}"
+        mkdir -p -- $directory
+        if $case["files"] != ()
+        {
+            for ($name, $contents) in $case["files"]
+            {
+                require (!($name.starts_with "/")) "invalid review fixture path"
+                for $part in $name.split "/"
+                { require ($part != "..") "invalid review fixture path" }
+                let $destination = "${directory}/${name}"
+                let $parent: String
+                dirname -- $destination -> $parent
+                mkdir -p -- $parent.trim
+                printf "%s" $contents -> "${destination}"
+            }
+        }
+        let $result = run_process [`$shelly, "-m", "-c", $source] [
+            "cwd": $directory, "env": ["HOME": $directory, "PATH": "/usr/bin:/bin",
+                "SHELLY_STD_PATH": "bundled", "TERM": "dumb", "LANG": "C.UTF-8"],
+            "stdin_file": "/dev/null", "stdout_file": "${directory}/out",
+            "stderr_file": "${directory}/err", "timeout_ms": 3000]
+        let $out: String
+        let $err: String
+        "${directory}/out" -> $out
+        "${directory}/err" -> $err
+        let $passed = ($result["exit_code"] == $status) &&
+            ($result["error"] == ()) && ($result["signal"] == ()) &&
+            !$result["timed_out"] && ($out == $expected) &&
+            (!($err.contains "panicked at")) && (!($err.contains "stack overflow")) &&
+            (if $diagnostic == "" { $err == "" } else { $err.contains $diagnostic })
+        if !$passed
+        {
+            echo "Review case failed:" $id $result
+            printf "expected stdout: <%s>\nactual stdout: <%s>\nstderr: <%s>\n" $expected $out $err
+            exit 1
+        }
+    }
+    $cases.count
+}

@@ -1,0 +1,7 @@
+import review_cases
+
+# Each program has a fresh cwd, HOME, environment and a native deadline.
+let $fixture = $args[0]
+let $suite = $args[1]
+require ((review_cases::run "${suite}/tests/data/language_audit.json" \
+    "${fixture}/audit") == 118) "language audit cases were lost"

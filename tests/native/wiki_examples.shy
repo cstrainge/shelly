@@ -1,0 +1,7 @@
+import review_cases
+
+# The checked-in examples run even when the separate wiki repository is absent.
+let $fixture = $args[0]
+let $suite = $args[1]
+require ((review_cases::run "${suite}/tests/data/wiki_examples.json" \
+    "${fixture}/wiki-examples") == 90) "wiki example cases were lost"
