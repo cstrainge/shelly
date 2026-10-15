@@ -1,7 +1,7 @@
 
 use std::str::Chars;
 
-use crate::language::text::location::Location;
+use crate::language::text::{ location::Location, layout::{ LineLayout, LayoutPosition } };
 
 /**
  * A trait representing a buffer of characters with location tracking. Used by the parser to read
@@ -13,6 +13,9 @@ pub trait Buffer
      * Bytes consumed logically. Peeking must not advance this offset.
      */
     fn byte_offset(&self) -> usize;
+    fn set_tab_width(&mut self, width: usize);
+    fn layout_position(&self) -> LayoutPosition;
+    fn indentation(&self) -> bool;
 
     /**
      * A persistent read/decoding error, distinct from normal end of input.
@@ -102,6 +105,7 @@ pub struct SimpleBuffer<'a>
      */
     current_char: Option<char>,
     byte_offset: usize,
+    layout: LineLayout,
 }
 
 
@@ -116,9 +120,10 @@ impl<'a> SimpleBuffer<'a>
             {
                 text: source.chars(),
                 location: Location::new(origin, 1, 1),
-                tab_width: tab_width.unwrap_or(4),
+                tab_width: tab_width.unwrap_or(4).max(1),
                 current_char: None,
                 byte_offset: 0,
+                layout: LineLayout::default(),
             }
     }
 }
@@ -127,6 +132,9 @@ impl<'a> SimpleBuffer<'a>
 impl<'a> Buffer for SimpleBuffer<'a>
 {
     fn byte_offset(&self) -> usize { self.byte_offset }
+    fn set_tab_width(&mut self, width: usize) { self.tab_width = width; }
+    fn layout_position(&self) -> LayoutPosition { self.layout.position(self.tab_width) }
+    fn indentation(&self) -> bool { self.layout.indentation() }
     /**
      * Return the current logical location in the text.
      */
@@ -176,6 +184,7 @@ impl<'a> Buffer for SimpleBuffer<'a>
         // If we hadn't hit EOF yet then increment the logical location based on the next character.
         if let Some(next) = next
         {
+            self.layout.advance(next);
             self.byte_offset += next.len_utf8();
             self.increment_location(next, self.tab_width);
         }

@@ -94,12 +94,27 @@ pub(crate) fn analyze_editor_tree(source: &str) -> (EditorAnalysis, AstTopLevel)
 }
 
 
+pub(crate) fn analyze_editor_tree_with_tab_size(source: &str, width: Option<usize>)
+    -> (EditorAnalysis, AstTopLevel)
+{
+    analyze_editor_tree_configured(source, MAX_EDITOR_BYTES, MAX_EDITOR_STEPS, width)
+}
+
+
 pub(crate) fn analyze_editor_tree_with_limits(source: &str, max_bytes: usize, max_steps: usize)
+    -> (EditorAnalysis, AstTopLevel)
+{
+    analyze_editor_tree_configured(source, max_bytes, max_steps, None)
+}
+
+
+pub(crate) fn analyze_editor_tree_configured(source: &str, max_bytes: usize, max_steps: usize,
+                                             tab_width: Option<usize>)
     -> (EditorAnalysis, AstTopLevel)
 {
     let mut end = source.len().min(max_bytes);
     while !source.is_char_boundary(end) { end -= 1; }
-    let mut input = SimpleBuffer::new("<editor>", &source[..end], None);
+    let mut input = SimpleBuffer::new("<editor>", &source[..end], tab_width);
     let mut tokenizer = Tokenizer::for_editor(&mut input);
     let mut buffer = TokenBuffer::for_editor(&mut tokenizer);
     if let Some(editor) = &mut buffer.editor { editor.steps = max_steps; }

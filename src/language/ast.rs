@@ -317,6 +317,7 @@ pub struct AstRedirection
 pub struct AstPipeBoundary
 {
     pub location: Location,
+    pub layout: crate::language::text::layout::LayoutPosition,
     pub decode: Option<String>,
     // Resolved against registered formats and visible type names at the boundary.
     pub annotation: Option<String>,
@@ -328,6 +329,10 @@ pub struct AstPipeline
 {
     pub stages: Vec<AstExpression>,
     pub boundaries: Vec<AstPipeBoundary>,
+    // Each boundary feeds stage index + 1 from this earlier producer.
+    pub parents: Vec<usize>,
+    pub primary_len: usize,
+    pub layout_error: Option<(Location, String)>,
 }
 
 

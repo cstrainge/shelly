@@ -31,7 +31,7 @@ struct Classifier<'a>
 }
 
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 struct ExpressionInfo
 {
     type_id: Option<usize>,
@@ -770,12 +770,21 @@ impl Classifier<'_>
             AstExpressionKind::Pipeline(pipeline) =>
                 {
                     self.enter_scope();
-                    for stage in &pipeline.stages
+                    let mut outputs: Vec<ExpressionInfo> = Vec::new();
+                    for (index, stage) in pipeline.stages.iter().enumerate()
                     {
+                        if index > 0
+                        {
+                            let parent = pipeline.parents[index - 1];
+                            let ty = outputs[parent].type_id;
+                            let ty = if parent == 0 || pipeline.primary_len == pipeline.stages.len()
+                                { ty.and_then(|id| self.types[id].item).or(ty) } else { ty };
+                            self.bind("$", SymbolDescriptor::new(SymbolKind::Variable, ty));
+                        }
                         info = self.expression(stage, true);
-                        let ty = info.type_id.and_then(|id| self.types[id].item).or(info.type_id);
-                        self.bind("$", SymbolDescriptor::new(SymbolKind::Variable, ty));
+                        outputs.push(info);
                     }
+                    info = outputs[pipeline.primary_len - 1];
                     self.exit_scope();
                 },
             AstExpressionKind::IfExpression(item) =>

@@ -77,6 +77,7 @@ impl Interpreter
     pub fn symbol_snapshot(&self) -> SymbolSnapshot
     {
         let mut snapshot = SymbolSnapshot::default();
+        snapshot.tab_width = self.source_tab_width().ok();
         let registry = &self.scope().types;
         let mut types = Vec::with_capacity(registry.definition_count());
         for index in 0..registry.definition_count()

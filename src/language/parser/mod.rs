@@ -9,6 +9,7 @@ pub(crate) use crate::language::parser::expressions::member_word_parts;
 mod results;
 mod base_utils;
 mod expressions;
+mod pipeline;
 mod statements;
 pub(crate) mod editor;
 pub mod source;

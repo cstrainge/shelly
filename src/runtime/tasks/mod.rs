@@ -308,6 +308,9 @@ impl Reactor
             .any(|task| task.cancel.load(Ordering::Acquire))
     }
 
+    pub fn available_tasks(&self) -> usize
+    { 32usize.saturating_sub(self.tasks.borrow().len()) }
+
     pub fn spawn(
         self: &Rc<Self>,
         cancel: Arc<AtomicBool>,

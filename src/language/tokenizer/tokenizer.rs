@@ -1,8 +1,8 @@
 
-use std::fmt::{ self, Display, Formatter };
+use std::{ collections::HashMap, fmt::{ self, Display, Formatter } };
 
 use crate::language::{ text::{ buffer::Buffer, diagnostic::DiagnosticKind,
-                               location::Location, span::SourceSpan },
+                               location::Location, layout::LayoutPosition, span::SourceSpan },
                        tokenizer::{ editor::EditorLexer,
                                     source::{ LexicalMetadata, Trivia, TriviaKind,
                                               StringSource, StringPart, StringPartKind } } };
@@ -262,6 +262,7 @@ pub enum TokenKind
      * Symbol for piping IO between commands, represented by the `|` character.
      */
     Pipe,
+    Branch,
 
     /**
      * Represents stderr in the source code, represented by the `~` character.
@@ -523,6 +524,7 @@ impl Token
             TokenKind::ParenOpen         => "(".to_string(),
             TokenKind::ParenClose        => ")".to_string(),
             TokenKind::Pipe              => "|".to_string(),
+            TokenKind::Branch            => "\\-".to_string(),
             TokenKind::ErrorSource       => "~".to_string(),
             TokenKind::RedirectTo        => "->".to_string(),
             TokenKind::RedirectErrorTo   => "~->".to_string(),
@@ -616,6 +618,9 @@ pub struct Tokenizer<'a>
     pub(super) input: &'a mut dyn Buffer,
     // Reading a word can consume the following operator.
     pending_operator: Option<Token>,
+    anchors: HashMap<usize, LayoutPosition>,
+    header: bool,
+    tab_directive: bool,
     // A prefetched negative operand distinguishes `a<-2` from removed `<-` arrows.
     pending_operand: Option<Token>,
     index_follows: bool,
@@ -640,6 +645,9 @@ impl<'a> Tokenizer<'a>
     pub fn metadata(&self) -> Option<&LexicalMetadata> { self.metadata.as_ref() }
 
     pub fn byte_offset(&self) -> usize { self.input.byte_offset() }
+
+    pub(crate) fn anchor(&self, span: SourceSpan) -> Option<LayoutPosition>
+    { self.anchors.get(&span.start).copied() }
 
     pub(super) fn word_span(&self, start: usize) -> SourceSpan
     {
@@ -719,8 +727,12 @@ impl<'a> Tokenizer<'a>
     {
         Self { input, pending_operator: None, pending_operand: None, index_follows: false,
             member_follows: false, enum_variant_follows: false,
-            metadata: None, active_string: None, editor: None }
+            metadata: None, active_string: None, editor: None,
+            anchors: HashMap::new(), header: true, tab_directive: false }
     }
+
+    pub fn has_tab_directive(&self) -> bool { self.tab_directive }
+
 
     /**
      * Attempt to extract the next token from the input stream. Returns `Ok(Some(Token))` if a token
@@ -740,6 +752,7 @@ impl<'a> Tokenizer<'a>
         { metadata.strings[index].span.end = self.input.byte_offset(); }
         if let Ok(Some(token)) = &mut result
         {
+            if !matches!(token.kind, TokenKind::LineBreak) { self.header = false; }
             if    token.kind == TokenKind::Less
                && self.input.peek_next() == Some('-')
                && let Some(operand) = self.read_token()?
@@ -846,12 +859,21 @@ impl<'a> Tokenizer<'a>
         // Skip past any whitespace and comments.
         loop
         {
-            self.skip_whitespace(SkipComments::Yes, SkipNewlines::No);
+            self.skip_whitespace(SkipComments::Yes, SkipNewlines::No)?;
             if self.input.peek_next() != Some('\\') { break; }
             let location = self.input.location().clone();
             let start = self.input.byte_offset();
             self.editor_start(TokenKind::LineContinue);
+            let layout = self.input.layout_position();
             self.input.next();
+            if self.input.peek_next() == Some('-')
+            {
+                self.input.next();
+                self.anchors.insert(start, layout);
+                return Ok(Some(Token { location, span: SourceSpan::new(start,
+                    self.input.byte_offset()), kind: TokenKind::Branch, value: TokenValue::None }));
+            }
+            if self.input.peek_next() == Some('\r') { self.input.next(); }
             if self.input.peek_next() != Some('\n')
             {
                 return Err(TokenizerError
@@ -1500,7 +1522,7 @@ impl<'a> Tokenizer<'a>
         // textual character to calibrate what we will consider the beginning of the actual line of
         // text.  This way we can remove any extra whitespace at the beginning of each line while
         // allowing for any extra indentation the user may want to add.
-        self.skip_whitespace(SkipComments::No, SkipNewlines::Yes);
+        self.skip_whitespace(SkipComments::No, SkipNewlines::Yes)?;
 
         let target_column = self.input.location().column;
 
@@ -1758,6 +1780,8 @@ impl<'a> Tokenizer<'a>
         // as text to be passed through.
         let location = self.input.location().clone();
         let start = self.input.byte_offset();
+        if self.input.peek_next() == Some('|')
+        { self.anchors.insert(start, self.input.layout_position()); }
         let next = self.input.next().unwrap();
 
         match next
@@ -1898,6 +1922,7 @@ impl<'a> Tokenizer<'a>
      * executable object calls.
      */
     fn skip_whitespace(&mut self, skip_comments: SkipComments, skip_newlines: SkipNewlines)
+        -> Result<(), TokenizerError>
     {
         // Peek at the next character and skip it if it's whitespace or part of a comment.
         while let Some(next) = self.input.peek_next()
@@ -1913,6 +1938,8 @@ impl<'a> Tokenizer<'a>
 
             // It's a whitespace character or part of a comment, so consume it.
             let start = self.input.byte_offset();
+            let location = self.input.location().clone();
+            let standalone = next == '#' && self.input.indentation();
             let _ = self.input.next();
 
             // If the next character is a comment indicator and we are supposed to skip comments,
@@ -1921,19 +1948,33 @@ impl<'a> Tokenizer<'a>
             if next == '#' && skip_comments == SkipComments::Yes
             {
                 // Consume any characters in the comment until a newline is encountered.
+                let mut comment = String::new();
                 while let Some(next) = self.input.peek_next()
                 {
-                    if next == '\n'
-                    {
-                        break;
-                    }
-
-                    let _ = self.input.next();
+                    if next == '\n' { break; }
+                    comment.push(self.input.next().unwrap());
+                }
+                if comment == "tab-size" || comment.starts_with("tab-size ")
+                    || comment.starts_with("tab-size\t")
+                {
+                    let invalid = |message: &str| TokenizerError
+                        { location: location.clone(), message: message.into() };
+                    if !standalone || !self.header
+                    { return Err(invalid("#tab-size must occur in the header before code")); }
+                    if self.tab_directive
+                    { return Err(invalid("Duplicate #tab-size directive")); }
+                    let value = comment[8..].trim();
+                    let width = value.parse::<usize>().ok().filter(|width|
+                        (1..=32).contains(width) && value.bytes().all(|c| c.is_ascii_digit()))
+                        .ok_or_else(|| invalid("#tab-size requires an integer from 1 through 32"))?;
+                    self.input.set_tab_width(width);
+                    self.tab_directive = true;
                 }
                 self.record_trivia(TriviaKind::Comment, start);
             }
             else { self.record_trivia(TriviaKind::Whitespace, start); }
         }
+        Ok(())
     }
 
     /**

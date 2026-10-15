@@ -27,6 +27,8 @@ impl Default for Budget
 }
 impl Budget
 {
+    pub fn used_bytes(&self) -> usize { 16 * 1024 * 1024 - self.bytes }
+
     fn charge(&mut self, bytes: usize) -> Result<(), String>
     {
         self.bytes = self

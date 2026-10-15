@@ -16,6 +16,7 @@ pub enum ParserErrorKind
     SplatExecutable,
     InvalidAssignmentTarget,
     InvalidRange,
+    InvalidPipeline(String),
     InvalidMatch(String),
     InvalidImport(String),
     InvalidVisibility(String),
@@ -97,6 +98,8 @@ impl Display for ParserErrorKind
 
             ParserErrorKind::DuplicateDestructureBinding(name) =>
                 write!(f, "Duplicate destructuring binding: {}.", name),
+
+            ParserErrorKind::InvalidPipeline(message) => write!(f, "Compile error: {}", message),
 
             ParserErrorKind::NoProgress =>
                 write!(f, "Repeated parser succeeded without consuming a token.")

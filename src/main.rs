@@ -176,7 +176,7 @@ fn determine_color_mode(args: &CommandArguments) -> TtyColorMode
 /**
  * Run the shell as a REPL, executing commands interactively.
  */
-fn run_as_repl(tab_width: usize,
+fn run_as_repl(tab_width: Option<usize>,
                color_mode: TtyColorMode,
                startup: Startup,
                suppress_banner: bool,
@@ -197,7 +197,7 @@ fn interpret(
     buffer: &mut dyn Buffer,
     startup: Startup,
     color_mode: TtyColorMode,
-    tab_width: usize,
+    tab_width: Option<usize>,
     script_args: Vec<String>,
 ) -> RuntimeResult<ExitCode>
 {
@@ -227,7 +227,7 @@ fn interpret(
  * Run the script file as specified by the command-line arguments.
  */
 fn run_script(script: &PathBuf,
-              tab_width: usize,
+              tab_width: Option<usize>,
               color_mode: TtyColorMode,
               startup: Startup,
               script_args: Vec<String>) -> RuntimeResult<ExitCode>
@@ -242,7 +242,7 @@ fn run_script(script: &PathBuf,
     let file = file.unwrap();
     let script = script.to_str().unwrap_or("input script");
     let mut file_buffer = BufReader::new(file);
-    let mut buffer = ReadBuffer::new(&script, &mut file_buffer, Some(tab_width));
+    let mut buffer = ReadBuffer::new(&script, &mut file_buffer, tab_width);
 
     interpret(&mut buffer, startup, color_mode, tab_width, script_args)
 }
@@ -252,12 +252,12 @@ fn run_script(script: &PathBuf,
  * Run the code as specified in the command line arguments.
  */
 fn run_code(code: &String,
-            tab_width: usize,
+            tab_width: Option<usize>,
             color_mode: TtyColorMode,
             startup: Startup,
             script_args: Vec<String>) -> RuntimeResult<ExitCode>
 {
-    let mut buffer = SimpleBuffer::new("command line", &code, Some(tab_width));
+    let mut buffer = SimpleBuffer::new("command line", &code, tab_width);
 
     interpret(&mut buffer, startup, color_mode, tab_width, script_args)
 }
@@ -266,13 +266,13 @@ fn run_code(code: &String,
 /**
  * Run the code that's streaming in from stdin.
  */
-fn run_stdin(tab_width: usize,
+fn run_stdin(tab_width: Option<usize>,
              color_mode: TtyColorMode,
              startup: Startup,
              script_args: Vec<String>) -> RuntimeResult<ExitCode>
 {
     let mut buffer = BufReader::new(stdin());
-    let mut buffer = ReadBuffer::new("standard input", &mut buffer, Some(tab_width));
+    let mut buffer = ReadBuffer::new("standard input", &mut buffer, tab_width);
 
     interpret(&mut buffer, startup, color_mode, tab_width, script_args)
 }
@@ -285,7 +285,7 @@ fn main() -> RuntimeResult<ExitCode>
 {
     let args = CommandArguments::parse();
 
-    if let Some(tab_width) = args.tab_width && tab_width == 0
+    if let Some(tab_width) = args.tab_width && !(1..=32).contains(&tab_width)
     {
         return Err(RuntimeError::InvalidTabWidth);
     }
@@ -331,7 +331,7 @@ fn main() -> RuntimeResult<ExitCode>
             Startup::NonLogin
         };
 
-    let tab_width = args.tab_width.unwrap_or(4);
+    let tab_width = args.tab_width;
     let (mode, script_args) = determine_running_mode(&args);
 
     match mode

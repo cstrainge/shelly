@@ -1402,6 +1402,38 @@ impl TypeRegistry
 
 impl TypeRegistry
 {
+    // Hash identity is canonical (1 == 1.0), but iteration must restore the
+    // declared key representation, including metadata on nested collections.
+    pub fn key_value(&self, id: TypeId, key: &MapKey) -> Result<Value, String>
+    {
+        let definition = self.get(id);
+        let value = match (&definition.kind, key)
+        {
+            (TypeKind::Array(element), MapKey::Array(items)) => Value::from_array(
+                items.iter().map(|key| self.key_value(*element, key))
+                    .collect::<Result<Vec<_>, _>>()?).with_collection_type(id),
+            (TypeKind::FixedArray(types), MapKey::Array(items)) if types.len() == items.len() =>
+                Value::from_array(types.iter().zip(items.iter())
+                    .map(|(id, key)| self.key_value(*id, key))
+                    .collect::<Result<Vec<_>, _>>()?).with_collection_type(id),
+            (TypeKind::Map(_, value_type), MapKey::HashMap(items)) => Value::from_hash_map(
+                items.iter().map(|(key, value)|
+                    Ok((key.clone(), self.key_value(*value_type, value)?)))
+                    .collect::<Result<HashMap<_, _>, String>>()?).with_collection_type(id),
+            (TypeKind::Optional(inner), _) if !matches!(key, MapKey::None) =>
+                self.key_value(*inner, key)?,
+            (TypeKind::Union(items), _) =>
+                {
+                    let member = items.iter().find(|id| self.validate_key(**id, key).is_ok())
+                        .ok_or_else(|| format!("Invalid key for {}", definition.name))?;
+                    self.key_value(*member, key)?
+                },
+            _ => self.coerce(id, key.to_value())?,
+        };
+        Ok(value)
+    }
+
+
     fn coerce_key(&self, id: TypeId, key: &MapKey) -> Result<MapKey, String>
     {
         if self.validate_key(id, key).is_ok() { return Ok(key.clone()); }

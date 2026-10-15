@@ -947,7 +947,7 @@ fn compile_pipeline(
                 _ => break,
             }
         }
-        let destination = if index + 1 == pipeline.stages.len()
+        let destination = if !pipeline.parents.contains(&index)
             && let AstExpressionKind::Variable(variable) = &inner.kind
             && variable.name != "$"
             && matches!(expression.kind, AstExpressionKind::Variable(_))
@@ -1018,7 +1018,8 @@ fn compile_pipeline(
             annotation: boundary.annotation.clone(), type_id: boundary.type_id,
             conversions: method_snapshot_matching(block, |key| key.starts_with("\0method:")),
         }).collect();
-    Ok(CompiledPipeline { stages, boundaries })
+    Ok(CompiledPipeline { stages, boundaries, parents: pipeline.parents.clone(),
+        primary_len: pipeline.primary_len })
 }
 
 

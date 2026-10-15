@@ -20,3 +20,5 @@ pub mod buffer;
  * character while keeping track of the current location in the text.
  */
 pub mod read_buffer;
+
+pub mod layout;

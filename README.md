@@ -114,6 +114,8 @@ Each inner array becomes one pipeline item. `$...` spreads that item's values
 into arguments to `sum`, and the final `$result` collects the returned sums.
 External programs still connect through ordinary pipes, such as `git diff | less`.
 Conversion annotations connect text formats such as JSON and CSV to typed stages.
+[Visual pipeline splits](https://github.com/cstrainge/shelly/wiki/Pipeline-Splits)
+let one upstream stream feed several independently transformed paths.
 
 The language also includes:
 

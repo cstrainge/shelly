@@ -854,6 +854,8 @@ fn check_expression(
     {
         AstExpressionKind::Pipeline(pipeline) =>
             {
+                if let Some((location, message)) = &pipeline.layout_error
+                { return Err(error(location, message.clone())); }
                 for boundary in &mut pipeline.boundaries
                 {
                     boundary.type_id = boundary.annotation.as_ref()
@@ -2208,7 +2210,8 @@ fn check_binding_expression(
                     {
                         let boundary = &pipeline.boundaries[index - 1];
                         let mut input = boundary.type_id;
-                        if index == 1 && boundary.decode.is_none() && boundary.annotation.is_none()
+                        if pipeline.parents[index - 1] == 0
+                            && boundary.decode.is_none() && boundary.annotation.is_none()
                         {
                             let source = &pipeline.stages[0];
                             input = iterator_item_type(registry, source, bindings)
@@ -2228,7 +2231,7 @@ fn check_binding_expression(
                         { input = Some(signature.result); }
                         current.insert("$".into(), Binding::declared(input));
                     }
-                    if index + 1 == pipeline.stages.len()
+                    if !pipeline.parents.contains(&index)
                         && let AstExpressionKind::Variable(variable) = &stage.kind
                         && variable.name != "$"
                     {

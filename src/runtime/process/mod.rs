@@ -6,6 +6,11 @@ use std::{ io, process::Command };
 use crate::language::data::value::Value;
 
 #[cfg(unix)]
+mod foreground;
+#[cfg(unix)]
+pub(crate) use crate::runtime::process::foreground::Foreground;
+
+#[cfg(unix)]
 mod unix;
 #[cfg(unix)]
 pub use crate::runtime::process::unix::{ Terminal, invoke };

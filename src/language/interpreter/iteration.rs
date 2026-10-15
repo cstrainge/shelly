@@ -4,7 +4,7 @@ use std::{ rc::Rc, collections::hash_map::IntoIter };
 use crate::language::{ data::{ map_key::MapKey, range::RangeIterator, value::Value,
                                collection::Collection,
                                scoped_variables::ValueReference,
-                               methods::{ BoundMethod, MethodDefinition }, types::TypeKind },
+                               methods::{ BoundMethod, MethodDefinition }, types::{ TypeId, TypeKind, TypeRegistry } },
                        interpreter::{ Interpreter, InterpreterResult, InterpreterError, ErrorWhat },
                        text::location::Location };
 
@@ -21,19 +21,24 @@ fn iteration_error(location: &Location, message: impl Into<String>) -> Interpret
 enum NativeIteration
 {
     Array { values: Rc<Collection<Vec<Value>>>, index: usize },
-    Map(IntoIter<MapKey, Value>),
+    Map { values: IntoIter<MapKey, Value>, key_type: TypeId },
     Range(RangeIterator),
 }
 
 impl NativeIteration
 {
-    fn new(value: Value, location: &Location) -> InterpreterResult<Self>
+    fn new(value: Value, registry: &TypeRegistry, location: &Location) -> InterpreterResult<Self>
     {
         Ok(match value
         {
             Value::Array(values) | Value::ArgumentExpansion(values) =>
                 Self::Array { values, index: 0 },
-            Value::HashMap(values) => Self::Map(Rc::unwrap_or_clone(values).into_iter()),
+            Value::HashMap(values) =>
+                {
+                    let id = registry.inferred_value_type(&Value::HashMap(values.clone()));
+                    let TypeKind::Map(key_type, _) = registry.get(id).kind else { unreachable!(); };
+                    Self::Map { values: Rc::unwrap_or_clone(values).into_iter(), key_type }
+                },
             Value::Range(range) =>
                 {
                     if range.start.is_none() || range.end.is_none()
@@ -45,9 +50,9 @@ impl NativeIteration
         })
     }
 
-    fn next(&mut self) -> Option<Value>
+    fn next(&mut self, registry: &TypeRegistry) -> Result<Option<Value>, String>
     {
-        match self
+        Ok(match self
         {
             Self::Array { values, index } =>
                 {
@@ -55,10 +60,15 @@ impl NativeIteration
                     *index += 1;
                     value
                 },
-            Self::Map(values) => values.next().map(|(key, value)|
-                Value::from_array(vec![key.to_value(), value])),
+            Self::Map { values, key_type } => match values.next()
+                {
+                    Some((key, value)) => Some(Value::from_array(vec![
+                            registry.key_value(*key_type, &key)?, value,
+                        ])),
+                    None => None,
+                },
             Self::Range(values) => values.next().map(Value::Integer),
-        }
+        })
     }
 }
 
@@ -116,7 +126,8 @@ impl Iteration
         { return Err(iteration_error(location, "next_item must declare a return type T | ()")); }
         let lease = super::streams::iteration_lease(&value, location)?;
         let native = if native
-            { Some(NativeIteration::new(value.underlying().clone(), location)?) } else { None };
+            { Some(NativeIteration::new(value.underlying().clone(),
+                &interpreter.scope().types, location)?) } else { None };
         Ok(Some(Self {
             method,
             native,
@@ -138,7 +149,8 @@ impl Iteration
         }
         let value = if let Some(native) = &mut self.native
             {
-                let value = native.next();
+                let value = native.next(&interpreter.scope().types)
+                    .map_err(|message| iteration_error(location, message))?;
                 if value.is_none() { self.ended = true; }
                 if let Some(value) = &value { interpreter.consume_success(location, value)?; }
                 return Ok(value);

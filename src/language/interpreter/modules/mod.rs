@@ -25,9 +25,7 @@ use crate::language::{
         scope::{Alias, Scope},
     },
     exclusions::exclude_statements,
-    parser::parse_text,
     text::{location::Location, read_buffer::ReadBuffer},
-    tokenizer::Tokenizer,
 };
 
 mod parent;
@@ -634,8 +632,8 @@ impl Interpreter
     {
         let origin = source.origin();
         let mut reader = source.reader(location)?;
-        let mut buffer = ReadBuffer::new(&origin, &mut reader, Some(4));
-        let mut statements = parse_text(&mut Tokenizer::new(&mut buffer))?;
+        let mut buffer = ReadBuffer::new(&origin, &mut reader, None);
+        let mut statements = self.parse_source(&mut buffer)?;
         // Conditions see the caller before the new module's scope exists.
         let imports = self.import_conditions(&mut statements)?;
         let mut scope = Scope::new(self.native_functions.values().cloned(), key.to_string(),

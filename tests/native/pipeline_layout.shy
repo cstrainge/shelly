@@ -1,0 +1,98 @@
+# Layout is a view of the source; directives must never rewrite string or trivia bytes.
+visible `__source_spans
+visible `__syntax_spans
+visible `__editor_source
+
+let $source = "#tab-size 8\r\nlet \$a: [Integer]; let \$b: [Integer];\r\n[1, 2]  | \$a\r\n\t\\- \$b\r\necho \"a\tb\""
+let $plain = __source_spans $source false true
+let $stream = __source_spans $source true true
+require ($plain == $stream) "layout metadata differs between string and one-byte buffers"
+require ($plain["error"] == ()) "tabbed layout tokenization failed"
+let $branch = false
+let $tab_string = false
+for $token in $plain["tokens"]
+{
+    if $token["kind"] == "Branch"
+    {
+        $branch = true
+        require ($token["span"]["raw"] == "\\-") "branch lost its exact source bytes"
+        require ($token["column"] == 9) "pragma did not set eight-column tab stops"
+    }
+}
+for $string in $plain["strings"]
+{
+    if $string["decoded"] == "a\tb" { $tab_string = true }
+}
+require ($branch && $tab_string) "layout processing changed string contents"
+let $strict = __syntax_spans $source false true
+require ($strict["error"] == ()) "strict split parsing failed"
+let $editor = __editor_source $source
+require ($editor["diagnostics"] == []) "editor rejected a valid tabbed diagram"
+
+$source = "[1,2] | \$main\n       \\- \$other"
+$editor = __editor_source $source
+require ($editor["diagnostics"].count > 0) "editor missed a misaligned branch"
+let $found = false
+for $issue in $editor["diagnostics"]
+{
+    if ($issue["message"].contains "does not align") { $found = true }
+}
+require $found "layout diagnostic did not explain the broken connection"
+for $partial in ["[1,2] | \$a\n      \\-", "[1,2] | \$a\n      |", "#tab-size"]
+{
+    let $report = __editor_source $partial
+    require ($report["diagnostics"].count > 0) "unfinished diagram lacked a diagnostic"
+}
+
+# An inner fork's source still sees the enclosing stage's automatic variable.
+let $a: [Integer]
+let $b: [Integer]
+[3,4] | ($ | ($ + 1)
+           \- ($ * 2) | $b
+) | $a
+require (($a[0] == 4) && ($a[1] == 5)) "nested fork lost its enclosing input"
+require ($b[0] == 8) "nested fork side destination lost its input"
+
+# Each imported module selects its own layout, independent of its importer's defaults.
+let $fixture = $args[0]
+let $module = "#tab-size 8\npub fn values(): [Integer]\n{\nlet \$a: [Integer]; let \$b: [Integer]\n[1, 2]  | (\$ + 1) | \$a\n\t\\- (\$ * 2) | \$b\n[\$a..., \$b...]\n}\n"
+printf "%s" $module -> "${fixture}/layout.shy"
+let $program = "#tab-size 8\nlet \$a: [Integer]; let \$b: [Integer]\n[1, 2]  | \$a\n\t\\- \$b\necho \$a... \$b..."
+printf "%s" $program -> "${fixture}/layout_input.shy"
+for ($flags, $input, $expected) in [
+    [["-c", "import layout; echo (layout::values)..."], "/dev/null", "2 3 2 4\n"],
+    [["-s"], "${fixture}/layout_input.shy", "1 2 1 2\n"],
+    [["layout_input.shy"], "/dev/null", "1 2 1 2\n"],
+]
+{
+    let $reply = run_process [`$shelly, "-m", "-t", "4", $flags...] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "bundled", "SHELLY_TAB_SIZE": "4"],
+        "stdin_file": $input, "stdout_file": "${fixture}/layout.out",
+        "stderr_file": "${fixture}/layout.err", "timeout_ms": 5000]
+    let $out: String
+    let $err: String
+    "${fixture}/layout.out" -> $out
+    "${fixture}/layout.err" -> $err
+    if ($reply["exit_code"] != 0) || $reply["timed_out"] || ($reply["signal"] != ()) ||
+        ($out != $expected) || ($err != "")
+    { echo $reply $out $err; fail "module/file/stdin tab precedence differs" }
+}
+
+let $orphan = __syntax_spans "echo SHOULD_NOT_RUN\n\\- \$missing" false true
+require ($orphan["error"].contains "Orphan pipeline connector") "orphan lacks a layout error"
+
+# Semantic coloring follows the actual parent edge, not the preceding printed arm.
+visible `__semantic_source
+let $report = __semantic_source "let \$a: [String]; let \$b: [Integer];\n[1,2] | (String(\$)) | \$a\n      \\- (\$ + 1) | \$b" []
+require ($report["types_before"] == $report["types_after"]) "fork analysis mutated type state"
+let $inputs = 0
+for $fact in $report["facts"]
+{
+    if $fact["span"]["raw"] == "\$"
+    {
+        $inputs = $inputs + 1
+        require ($fact["type"] == "Integer") "semantic fork input came from the wrong parent"
+    }
+}
+require ($inputs == 2) "semantic fork inputs were not classified"

@@ -2,8 +2,9 @@
 mod stream;
 mod process;
 mod conversion;
+mod graph;
 
-use std::{ thread::sleep, time::Duration };
+use std::{ rc::Rc, thread::sleep, time::Duration };
 
 use crate::{ language::{ bytecode::CompiledPipeline,
                          data::value::{ ExecResult, Value },
@@ -14,6 +15,7 @@ use crate::{ language::{ bytecode::CompiledPipeline,
              runtime::signals::take_interrupt };
 
 
+#[derive(Clone)]
 pub(super) enum Data
 {
     Value(Value),
@@ -71,9 +73,11 @@ pub(super) trait Stream
 
 impl Interpreter
 {
-    pub(super) fn execute_pipeline(&mut self, pipeline: &CompiledPipeline)
+    pub(super) fn execute_pipeline(&mut self, pipeline: &Rc<CompiledPipeline>)
     -> InterpreterResult<()>
     {
+        if pipeline.primary_len != pipeline.stages.len()
+        { return self.execute_split_pipeline(pipeline); }
         // Each layer pulls at most one item/chunk. External descriptors use nonblocking
         // reads/writes, so upstream and downstream processes can progress concurrently.
         let depth = self.pipeline_inputs.len();

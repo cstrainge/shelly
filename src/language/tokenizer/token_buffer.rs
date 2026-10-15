@@ -4,7 +4,8 @@ use std::collections::VecDeque;
 use crate::language::{ parser::{ editor::EditorParser,
                                  source::{ SyntaxContext, SyntaxFact, SyntaxJournal,
                                            SyntaxMetadata, SyntaxRole } },
-                       text::span::SourceSpan,
+                       text::{ diagnostic::{ DiagnosticKind, DiagnosticPhase, SourceDiagnostic },
+                               layout::LayoutPosition, location::Location, span::SourceSpan },
                        tokenizer::tokenizer::{ Token, TokenKind, Tokenizer, TokenizerError } };
 
 
@@ -104,6 +105,30 @@ impl<'tokenizer, 'input> TokenBuffer<'tokenizer, 'input>
     }
 
     pub(crate) fn is_editor(&self) -> bool { self.editor.is_some() }
+
+    pub(crate) fn layout_diagnostic(&mut self, location: &Location,
+                                    message: &str)
+    {
+        let Some(editor) = &mut self.editor else { return; };
+        let span = self.tokenizer.editor_tokens().iter()
+            .find(|token| token.location == *location).map(|token| token.span)
+            .unwrap_or_default();
+        editor.diagnostics.push(SourceDiagnostic
+            {
+                span, kind: DiagnosticKind::Invalid,
+                phase: DiagnosticPhase::Parser,
+                message: message.into(),
+            });
+    }
+
+
+    pub(crate) fn anchor(&self, token: &Token)
+        -> LayoutPosition
+    {
+        self.tokenizer.anchor(token.span).unwrap_or(
+            LayoutPosition
+                { column: token.location.column, tab_width: 4, hard_tabs: false })
+    }
 
     pub(crate) fn editor_offset(&self) -> usize { self.tokenizer.byte_offset() }
 

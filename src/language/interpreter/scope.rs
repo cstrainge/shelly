@@ -66,6 +66,15 @@ impl Scope
             .filter(|name| name.contains("::")).cloned());
         let builtins = native_functions.values().map(|item| item.name).collect();
         let mut variables = ScopedVariables::new_from_environment();
+        if variables.get("$SHELLY_TAB_SIZE").is_none()
+        {
+            let _ = variables.create("$SHELLY_TAB_SIZE".into(), ScopedValue
+                {
+                    value: Value::Integer(4), type_id: Some(types.native_types["Integer"].id),
+                    exported: ValueVisibility::Private, reference: None,
+                    dispatch_type: None, environment_conversion: None,
+                });
+        }
         // Replace inherited text with the mode detected for this interpreter's terminal.
         let color_type = types.native_types["TtyColorMode"].id;
         let _ = variables.create("$tty_color_mode".to_string(), ScopedValue

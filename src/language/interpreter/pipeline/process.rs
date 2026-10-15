@@ -1,10 +1,11 @@
 
 use std::{ io::{ Read, Write, Error, ErrorKind },
-           os::fd::{ AsRawFd, RawFd },
+           os::{ fd::{ AsRawFd, RawFd }, unix::process::{ CommandExt, ExitStatusExt } },
            process::{ Child, ChildStdin, ChildStdout, Command, Stdio } };
 
-use libc::{ fcntl, F_GETFL, F_SETFL, O_NONBLOCK };
+use libc::{ fcntl, kill, pid_t, F_GETFL, F_SETFL, O_NONBLOCK, SIGINT, SIGKILL };
 
+use crate::runtime::process::Foreground;
 use crate::language::{ bytecode::PipelineStage,
                        data::value::{ ExecResult, Value },
                        interpreter::{ ErrorWhat, Interpreter, InterpreterError, InterpreterResult },
@@ -16,6 +17,8 @@ use crate::language::{ bytecode::PipelineStage,
 pub(super) struct External
 {
     child: Child,
+    group: bool,
+    foreground: Option<Foreground>,
     input: Option<ChildStdin>,
     output: Option<ChildStdout>,
     bytes: Vec<u8>,
@@ -46,6 +49,7 @@ impl External
         if interpreter.halted { return Ok(None); }
         let executable = interpreter.eval_path_from(name);
         let mut command = Command::new(&executable);
+        if interpreter.pipeline_worker { command.process_group(0); }
         command.args(arguments.iter()
                 .map(|argument| interpreter.eval_path_from(&argument.as_text())))
             .env_clear().envs(environment)
@@ -91,14 +95,32 @@ impl External
                         return Err(error);
                     },
             };
-        let stream = Self { input: child.stdin.take(), output: child.stdout.take(), child,
-            bytes: Vec::new(), offset: 0, input_closed: source, status: None, recorded: false,
-            location: stage.location.clone(), redirects };
+        let mut stream = Self
+            {
+                group: interpreter.pipeline_worker, foreground: None,
+                input: child.stdin.take(), output: child.stdout.take(), child,
+                bytes: Vec::new(), offset: 0, input_closed: source, status: None, recorded: false,
+                location: stage.location.clone(), redirects,
+            };
+        if source && stream.group
+        {
+            stream.foreground = Foreground::acquire(stream.child.id() as pid_t)
+                .map_err(|error| Interpreter::redirection_error(&stage.location, error))?;
+        }
         if let Some(input) = &stream.input { nonblocking(input.as_raw_fd())
             .map_err(|error| Interpreter::redirection_error(&stage.location, error))?; }
         if let Some(output) = &stream.output { nonblocking(output.as_raw_fd())
             .map_err(|error| Interpreter::redirection_error(&stage.location, error))?; }
         Ok(Some(stream))
+    }
+
+    fn stop_group(&mut self)
+    {
+        if self.group
+        {
+            self.group = false;
+            unsafe { kill(-(self.child.id() as pid_t), SIGKILL); }
+        }
     }
 
     pub fn wants_input(&self) -> bool
@@ -115,10 +137,20 @@ impl External
         -> InterpreterResult<Step>
     {
         let error = |error: Error| Interpreter::redirection_error(&self.location, error);
-        if self.status.is_none()
-        { self.status = self.child.try_wait().map_err(error)?.map(|status|
-            match status.code() { Some(code) => ExecResult::Value(code as u8),
-                                  None => ExecResult::Signaled }); }
+        if    self.status.is_none()
+           && let Some(status) = self.child.try_wait().map_err(error)?
+        {
+            self.status = Some(match status.code()
+                {
+                    Some(code) => ExecResult::Value(code as u8),
+                    None => ExecResult::Signaled,
+                });
+            if self.foreground.is_some() && status.signal() == Some(SIGINT)
+            {
+                return Err(InterpreterError::new(self.location.clone(),
+                    ErrorWhat::Interrupted));
+            }
+        }
         if let Some(input) = self.input.as_mut() && !self.bytes.is_empty()
         {
             match input.write(&self.bytes[self.offset..])
@@ -180,6 +212,7 @@ impl External
         -> InterpreterResult<()>
     {
         self.input.take(); self.output.take();
+        self.stop_group();
         if self.status.is_none()
         { self.status = self.child.try_wait().ok().flatten().map(|status|
             match status.code() { Some(code) => ExecResult::Value(code as u8),
@@ -197,6 +230,7 @@ impl External
             context.record(index, self.status.clone().unwrap_or(ExecResult::Signaled));
             self.recorded = true;
         }
+        self.foreground.take();
         self.finish_redirects(interpreter)
     }
 }
@@ -207,7 +241,9 @@ impl Drop for External
     fn drop(&mut self)
     {
         self.input.take(); self.output.take();
+        self.stop_group();
         if self.status.is_none() { let _ = self.child.kill(); let _ = self.child.wait(); }
+        self.foreground.take();
         for redirect in self.redirects.drain(..) { let _ = redirect.finish(); }
     }
 }

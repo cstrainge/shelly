@@ -366,3 +366,12 @@ external command signatures, Markdown layout, and UTF-16 cursor positions.
 calls, module source locations, argument and return errors, property accessors,
 constructors, native failures, and pipeline conversion context.
 `repl/call_stacks.shy` checks recovery across separate interactive submissions.
+
+`native/pipeline_splits.shy` covers guided forks, nested paths, bounded streaming,
+conversion boundaries, aggregate status, sibling I/O, tab-size precedence, and
+rejected layouts. `native/pipeline_layout.shy` checks original source spans,
+streaming-buffer parity, editor diagnostics, and nested pipeline inputs.
+`repl/pipeline_splits.shy` checks init defaults, state across submissions, and
+Ctrl+C recovery, foreground terminal input, and EOF restoration.
+`native/hash_iteration_types.shy` checks declared hash key types
+in native cursors, direct `next_item`, and split pipelines.

@@ -32,7 +32,7 @@ impl Debug for RuntimeError
         {
             RuntimeError::InvalidTabWidth =>
             {
-                write!(f, "Invalid tab width of 0 specified.")
+                write!(f, "Invalid tab width: expected an integer from 1 through 32.")
             }
 
             RuntimeError::FileOpenError(path, err) =>

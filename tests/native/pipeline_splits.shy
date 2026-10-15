@@ -1,0 +1,160 @@
+let $split_failures = 0
+# Guided pipeline forks preserve typed items and byte streams with bounded supervision.
+fn split_case($source: String, $expected: String, $diagnostic: String,
+              $extra: [String: String] | (), $flags: [String] | ())
+{
+    let $fixture = $args[0]
+    let $environment = ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+        "SHELLY_STD_PATH": "bundled", "TERM": "dumb", "LANG": "C.UTF-8"]
+    if $extra != () { for ($name, $value) in $extra { $environment[$name] = $value } }
+    if $flags == () { $flags = [] }
+    let $reply = run_process [`$shelly, "-m", $flags..., "-c", $source] [
+        "cwd": $fixture, "env": $environment, "stdin_file": "/dev/null",
+        "stdout_file": "${fixture}/out", "stderr_file": "${fixture}/err", "timeout_ms": 5000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($reply["exit_code"] != $status) || ($reply["signal"] != ()) ||
+        ($reply["error"] != ()) || $reply["timed_out"] || ($out != $expected) ||
+        (if $diagnostic == "" { $err != "" } else { !($err.contains $diagnostic) })
+    { echo $source $reply $out $err; $split_failures = $split_failures + 1 }
+}
+
+# simple
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[1, 2, 3] | (\$ * 2) | \$a\n          \\- (\$ + 10) | \$b\necho \$a...; echo \$b..." "2 4 6\n11 12 13\n" ""
+# bytes
+split_case "let \$a: String; let \$b: String;\nprintf hello | cat | \$a\n             \\- cat | \$b\necho \$a \$b" "hello hello\n" ""
+# nested
+split_case "fn command(\$n: Integer): Integer { \$n + 1 }; let \$main: [Integer]; let \$other: [Integer]; let \$secondary: [Integer]; let \$early: [Integer];\n[1, 2] | command | command | command | \$main\n       |         \\- command | \$other\n       |                    \\- command | command | \$secondary\n       \\- \$early\necho \$main...; echo \$other...; echo \$secondary...; echo \$early..." "4 5\n3 4\n5 6\n1 2\n" ""
+# missing-guide
+split_case "fn command(\$n: Integer): Integer { \$n + 1 }; let \$main: [Integer]; let \$other: [Integer]; let \$secondary: [Integer]; let \$early: [Integer];\n[1, 2] | command | command | command | \$main\n                 \\- command | \$other\n       |                    \\- command | command | \$secondary\n       \\- \$early\necho \$main...; echo \$other...; echo \$secondary...; echo \$early..." "" "Compile error"
+# bad-align
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[1, 2] | \$a\n        \\- \$b" "" "Compile error"
+# pragma
+split_case "#tab-size 8\necho 1" "1\n" ""
+# pragma-zero
+split_case "#tab-size 0\necho bad" "" "#tab-size requires"
+# pragma-late
+split_case "echo before\n#tab-size 8\necho bad" "" "#tab-size must occur"
+# duplicate
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[1,2] | \$a\n      \\- \$a" "" "Duplicate pipeline destination"
+# language-fail
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[1] | (\$ / 0) | \$a\n    \\- \$b" "" "zero"
+# exit-fail
+split_case "let \$a: String; let \$b: String;\nprintf hello | /usr/bin/false | \$a\n             \\- cat | \$b" "" "Executable returned error code: 1"
+# captured-fail
+split_case "let \$a: String; let \$b: String;\nlet \$status = printf hello | /usr/bin/false | \$a\n                           \\- cat | \$b\necho \$status" "ExecResult(1)\n" ""
+# source-once
+split_case "let \$calls = 0; fn source(): [Integer] { \$calls = \$calls + 1; [1,2] }; let \$a: [Integer]; let \$b: [Integer];\n\nsource | (\$ * 2) | \$a\n       \\- (\$ + 1) | \$b\necho \$calls \$a... \$b..." "1 2 4 2 3\n" ""
+# cow
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[[1], [2]] | (\$[0]) | \$a\n           \\- (\$[0] + 10) | \$b\necho \$a... \$b..." "1 2 11 12\n" ""
+# none-data
+split_case "let \$a: [any]; let \$b: [any];\n[1, (), false, 0, \"\"] | \$a\n                      \\- \$b\necho \$a.count \$b.count \$a[1] \$b[1]" "5 5 () ()\n" ""
+# empty
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[] | \$a\n   \\- \$b\necho \$a.count \$b.count" "0 0\n" ""
+# scalar-empty
+split_case "let \$a = 4; let \$b = 6;\n[] | \$a\n   \\- \$b\necho \$a \$b" "4 6\n" ""
+# float
+split_case "let \$a: [Float]; let \$b: [Float];\n[1,2] | \$a\n      \\- \$b\necho \$a[0].type \$b[0].type" "Float Float\n" ""
+# branch-params
+split_case "let \$a: [Integer]; let \$b: [Integer];\nfn f(\$x: Integer, \$y: Integer): Integer { \$x + \$y };\n[1,2] | \$a\n      \\- f \$ 10 | \$b\necho \$b..." "11 12\n" ""
+# branch-params-missing
+split_case "let \$a: [Integer]; let \$b: [Integer];\nfn f(\$x: Integer, \$y: Integer): Integer { \$x + \$y };\n[1,2] | \$a\n      \\- f 1 10 | \$b" "" "must use bare \$"
+# branch-type-error
+split_case "let \$a: [Integer]; let \$b: [Integer];\nfn f(\$x: Integer, \$n: Integer): Integer { \$n };\n[1,2] | \$a\n      \\- f \$ \"wrong\" | \$b" "" "Expected Integer"
+# live-receiver
+split_case "let \$a: [Integer]; let \$b: [Integer];\nlet \$n = 0; fn take(\$x: Integer): Integer { \$n = \$n + \$x; \$n };\n[1,2] | take | \$a\n      \\- \$b\necho \$n \$a... \$b..." "3 1 3 1 2\n" ""
+# source-ranges
+split_case "let \$a: [Integer]; let \$b: [Integer];\n1..=4 | \$a\n      \\- (\$ * 2) | \$b\necho \$a... \$b..." "1 2 3 4 2 4 6 8\n" ""
+# large-external
+split_case "let \$a: String; let \$b: String;\nseq 1 30000 | cat | \$a\n            \\- cat | \$b\necho (\$a == \$b) (\$a.ends_with \"30000\\n\")" "true true\n" ""
+# early-end
+split_case "let \$a: String; let \$b: String;\nseq 1 30000 | head -n 1 | \$a\n            \\- cat | \$b\necho \$a.trim (\$b.ends_with \"30000\\n\")" "1 true\n" ""
+# raw-bytes
+split_case "import std::io; let \$a: std::io::Bytes = std::io::Bytes(\"\"); let \$b: std::io::Bytes = std::io::Bytes(\"\");\nprintf '\\\\377\\\\000A' | cat | \$a\n                     \\- cat | \$b\necho \$a.to_array... \$b.to_array..." "255 0 65 255 0 65\n" ""
+# encode-edge
+split_case "let \$a: String; let \$b: String;\n[[1,2]] | (\$[0]) |:json cat | \$a\n                 \\- (\$ * 3) | (String(\$)) | \$b\necho \$a \$b" "1 3\n" ""
+# decode-branch
+split_case "let \$a: String; let \$b: [[String]];\nprintf 'a,b\\nc,d\\n' | \$a\n                csv:\\- \$b\necho \$b.count \$b[1]..." "2 c d\n" ""
+# modes
+split_case "let \$a: String; let \$b: [Integer];\n[1,2] |:json cat | \$a\n      \\- \$b" "" "mixes whole-value"
+# whole-encoders
+split_case "let \$a: String; let \$b: String;\n[1,2] |:json cat | \$a\n      \\-:json cat | \$b\necho \$a \$b" "[1,2] [1,2]\n" ""
+# byte-empty
+split_case "let \$a: String = \"old\"; let \$b: String = \"old\";\nprintf \"\" | \$a\n          \\- \$b\necho \$a.count \$b.count" "0 0\n" ""
+# function-local
+split_case "fn run(): [Integer] { let \$a: [Integer]; let \$b: [Integer];\n[1,2] | (\$ + 1) | \$a\n      \\- (\$ * 2) | \$b\n[\$a..., \$b...] }; echo (run)..." "2 3 2 4\n" ""
+# group-expression
+split_case "let \$b: [Integer];\necho ([1,2] | (\$ + 1)\n            \\- (\$ * 2) | \$b\n); echo \$b..." "3\n2 4\n" ""
+# error-catch
+split_case "error struct Oops { pub reason: String }; fn bad(\$x: Integer): Integer | Oops { Oops(reason: \"stop\") }; let \$a: [Integer]; let \$b: [Integer];\ntry {\n[1,2] | \$a\n      \\- bad | \$b\n} catch (\$e: Oops) { echo \$e.reason }" "stop\n" ""
+# sink-redirection
+split_case "let \$a: String; let \$b: String; let \$captured: String;\nprintf hello | cat -> \$captured | \$a\n             \\- cat | \$b\necho \$captured \$a.count \$b" "hello 0 hello\n" ""
+# enclosing-capture
+split_case "let \$a: String; let \$b: String; let \$captured: String;\n(printf hello | cat\n              \\- cat | \$b\n) -> \$captured; echo \$captured \$b" "hello hello\n" ""
+# dangling
+split_case "let \$a: [Integer]; let \$b: [Integer];\n\n[1,2] | \$a\n      |" "" "Compile error"
+# pragma-duplicate
+split_case "#tab-size 8\n#tab-size 4\necho bad" "" "Duplicate #tab-size"
+# pragma-overflow
+split_case "#tab-size 9999999999999999999999999\necho bad" "" "#tab-size requires"
+# pragma-inline
+split_case "echo hello #tab-size 8" "" "#tab-size must occur"
+# pragma-string
+split_case "echo \"#tab-size 8\"; echo \"a\tb\"" "#tab-size 8\na\tb\n" ""
+# pragma-crlf
+split_case "#tab-size 8\r\nlet \$a: [Integer]; let \$b: [Integer];\r\n[1, 2] | \$a\r\n       \\- \$b\r\necho \$a... \$b..." "1 2 1 2\n" ""
+# tabs-env
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[1, 2]  | \$a\n\t\\- \$b\necho \$a... \$b..." "1 2 1 2\n" "" ["SHELLY_TAB_SIZE": "8"] []
+# tabs-default
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[1, 2]  | \$a\n\t\\- \$b\necho \$a... \$b..." "" "#tab-size"
+# tabs-pragma
+split_case "#tab-size 8\nlet \$a: [Integer]; let \$b: [Integer];\n[1, 2]  | \$a\n\t\\- \$b\necho \$a... \$b..." "1 2 1 2\n" ""
+# tab-precedence-pragma
+split_case "#tab-size 8\nlet \$a: [Integer]; let \$b: [Integer];\n[1, 2]  | \$a\n\t\\- \$b\necho \$a... \$b..." "1 2 1 2\n" "" ["SHELLY_TAB_SIZE": "2"] ["-t", "4"]
+# tab-precedence-cli
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[1, 2]  | \$a\n\t\\- \$b\necho \$a... \$b..." "1 2 1 2\n" "" ["SHELLY_TAB_SIZE": "2"] ["-t", "8"]
+# tab-precedence-cli-reject
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[1, 2]  | \$a\n\t\\- \$b\necho \$a... \$b..." "" "#tab-size" ["SHELLY_TAB_SIZE": "8"] ["-t", "4"]
+# unicode-layout
+split_case "let \$a: String; let \$b: String;\n\"猫\" | \$a\n     \\- \$b\necho \$a \$b" "猫 猫\n" ""
+# compile-before-execution
+split_case "echo SHOULD_NOT_RUN;\nlet \$a: [Integer]; let \$b: [Integer];\n[1,2] | \$a\n     \\- \$b" "" "Compile error"
+# read-suspend
+split_case "import std::io; import std::net::tcp; let \$a: [Integer]; let \$b: [Integer];\n\nlet \$listener = std::net::tcp::listen \"127.0.0.1\" 0\nlet \$address = \$listener.address\nlet \$sender = std::net::tcp::connect \$address.host \$address.port\nlet \$receiver = \$listener.accept\nfn wait(\$n: Integer): Integer { let _ = \$receiver.reader.read_exact 1; \$n }\nfn send(\$n: Integer): Integer { let _ = \$sender.writer.write std::io::Bytes(\"x\"); \$n }\n[1,2] | wait | \$a\n      \\- send | \$b\necho \$a... \$b...\n\$sender.close; \$receiver.close; \$listener.close\n" "1 2 1 2\n" ""
+# data-cooperation
+split_case "let \$a: [Integer]; let \$b: [Integer];\n0..=20000 | (\$ + 1) | \$a\n          \\- (\$ * 2) | \$b\necho \$a.count \$b.count \$a[20000] \$b[20000]" "20001 20001 20001 40000\n" ""
+# shutdown-live-source
+split_case "let \$a: String; let \$b: String;\nlet \$status = yes x | /usr/bin/false | \$a\n                    \\- cat | \$b\necho \$status" "ExecResult(1)\n" ""
+# guide-only
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[1, 2] | \$a\n       |\n       \\- \$b\necho \$a... \$b..." "1 2 1 2\n" ""
+# bad-guide-gap
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[1, 2] | \$a\n       |\n\n       \\- \$b" "" "Compile error"
+# conflict-source-text
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[1, 2] | \$a\n    |  \\- \$b" "" "Compile error"
+# dead-connector
+split_case "let \$a: [Integer]; let \$b: [Integer];\n[1,2] | \$a\n      \\- \$b\n      \\- \$b" "" "Compile error"
+# private-resource
+split_case "import std::io; let \$a: [any]; let \$b: [any]; let \$reader = std::io::memory_reader std::io::Bytes(\"x\");\n[\$reader] | \$a\n          \\- \$b" "" "Adapt live resources"
+# retained-limit
+split_case "let \$a: [String]; let \$b: [String]; let \$large = \"x\"; for _ in 0..25 { \$large = \$large + \$large };\n[\$large] | \$a\n         \\- \$b" "" "retained"
+# closure-call
+split_case "let \$a: [Integer]; let \$b: [Integer];\nfn invoke(\$n: Integer): Integer { let \$f = fn (): Integer { \$n + 3 }; \$f };\n[1,2] | invoke | \$a\n      \\- (\$ * 4) | \$b\necho \$a... \$b..." "4 5 4 8\n" ""
+# captured-reference
+split_case "let \$a: [Integer]; let \$b: [Integer];\nfn add(\$n: Integer): Integer { \$n + 5 }; let \$saved = `add;\n[1,2] | \$saved | \$a\n      \\- \$b\necho \$a... \$b..." "6 7 1 2\n" ""
+# scalar-result
+split_case "let \$b: Integer;\necho (7 | (\$ + 1)\n        \\- (\$ * 2) | \$b\n); echo \$b" "8\n14\n" ""
+# exit
+split_case "let \$a: [Integer]; let \$b: [Integer];\n0 | (\$ + 1) | \$a\n  \\- exit \$\necho SHOULD_NOT_RUN" "" ""
+# tab-config-invalid
+split_case "echo SHOULD_NOT_RUN" "" "\$SHELLY_TAB_SIZE" ["SHELLY_TAB_SIZE": "0"] []
+# tab-config-cli-overrides-invalid
+split_case "echo ready" "ready\n" "" ["SHELLY_TAB_SIZE": "bad"] ["-t", "8"]
+# header-shebang-comment
+split_case "#!/usr/bin/env shelly\n# share this diagram\n\n#tab-size 8\nlet \$a: [Integer]; let \$b: [Integer];\n[1, 2]  | \$a\n\t\\- \$b\necho \$a... \$b..." "1 2 1 2\n" ""
+# quoted-connector
+split_case "echo \"\\\\-\"" "\\-\n" ""
+
+require ($split_failures == 0) "guided pipeline mismatch"

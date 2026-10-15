@@ -530,7 +530,7 @@ impl EditMode for ShellyEditMode
 
 pub struct Repl
 {
-    tab_width: usize,
+    tab_width: Option<usize>,
     color_mode: TtyColorMode,
     interpreter: Interpreter
 }
@@ -539,7 +539,7 @@ pub struct Repl
 impl Repl
 {
     pub fn new(color_mode: TtyColorMode,
-               tab_width: usize,
+               tab_width: Option<usize>,
                startup: Startup,
                suppress_banner: bool,
                rc_file: RcFile,
@@ -728,7 +728,7 @@ impl Repl
                         // Persist submitted text before execution, including failing or
                         // interrupted commands. Startup scripts never enter this history.
                         history::sync(&mut editor, &mut history_warned);
-                        let mut buffer = SimpleBuffer::new("<repl>", &text, Some(self.tab_width));
+                        let mut buffer = SimpleBuffer::new("<repl>", &text, self.tab_width);
                         let started = Instant::now();
                         let result = self.interpreter.execute_from_buffer(&mut buffer);
                         self.interpreter.record_command_time(started.elapsed());

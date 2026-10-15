@@ -48,6 +48,13 @@ pub(super) struct Redirection
 
 impl Redirection
 {
+    // A worker borrows the endpoints; the originating scope alone owns captures.
+    pub(super) fn borrowed(&self) -> Self
+    {
+        Self { location: self.location.clone(), output: self.output.clone(),
+            error: self.error.clone(), capture: None }
+    }
+
     pub fn new(location: Location) -> Self
     {
         Self { location, output: None, error: None, capture: None }

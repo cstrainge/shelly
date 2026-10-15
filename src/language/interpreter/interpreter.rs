@@ -27,6 +27,7 @@ use hostname::get as get_hostname;
 
 use crate::{
     language::{
+        ast::AstTopLevel,
         bytecode::{Code, Instruction, FunctionRef},
         compiler::CompileError,
         interpreter::CallFrame,
@@ -404,10 +405,12 @@ pub struct Interpreter
     pub(super) widget_environment: Option<Vec<(String, String)>>,
     pub(super) prompt_widgets: Option<Rc<RefCell<ScopedValue>>>,
     pub(super) pipeline_inputs: Vec<Value>,
+    pub(super) pipeline_worker: bool,
     pub(super) captured_stdout: Option<Vec<u8>>,
     pub(super) redirections: Vec<Redirection>,
     last_cmd_time: Duration,
     pub(super) color_mode: TtyColorMode,
+    tab_width_override: Option<usize>,
     startup_input: Vec<Event>,
     pub last_result: Option<Value>,
     pub exit_code: u8,
@@ -452,10 +455,12 @@ impl Interpreter
             widget_environment: None,
             prompt_widgets: None,
             pipeline_inputs: Vec::new(),
+            pipeline_worker: self.pipeline_worker,
             captured_stdout: None,
             redirections: Vec::new(),
             last_cmd_time: Duration::default(),
             color_mode: self.color_mode,
+            tab_width_override: self.tab_width_override,
             startup_input: Vec::new(),
             last_result: None,
             exit_code: 0,
@@ -487,12 +492,13 @@ impl Interpreter
     pub fn new(startup: Startup,
                interactive: Interactive,
                color_mode: TtyColorMode,
-               tab_width: usize,
+               tab_width: Option<usize>,
                rc_file: RcFile,
                script_args: Vec<String>) -> Self
     {
         let mut interpreter = Self::registered(color_mode);
-        interpreter.initialize_startup(startup, interactive, color_mode, tab_width,
+        interpreter.tab_width_override = tab_width;
+        interpreter.initialize_startup(startup, interactive, color_mode, tab_width.unwrap_or(4),
                                        rc_file, script_args);
         interpreter
     }
@@ -895,10 +901,12 @@ impl Interpreter
                 widget_environment: None,
                 prompt_widgets: None,
                 pipeline_inputs: Vec::new(),
+                pipeline_worker: false,
                 captured_stdout: None,
                 redirections: Vec::new(),
                 last_cmd_time: Duration::ZERO,
                 color_mode,
+                tab_width_override: None,
                 startup_input: Vec::new(),
                 last_result: None,
                 exit_code: 0,
@@ -1105,13 +1113,44 @@ impl Interpreter
         (result, captured)
     }
 
+    pub fn source_tab_width(&self) -> InterpreterResult<usize>
+    {
+        if let Some(width) = self.tab_width_override { return Ok(width); }
+        let binding = self.scopes[MAIN_SCOPE].variables.get("$SHELLY_TAB_SIZE");
+        let value = binding.as_ref().map(|binding| &binding.value);
+        let width = match value
+        {
+            Some(Value::Integer(width)) => usize::try_from(*width).ok(),
+            Some(Value::String(width, _)) => width.parse::<usize>().ok(),
+            None => Some(4),
+            _ => None,
+        };
+        width.filter(|width| (1..=32).contains(width)).ok_or_else(||
+            InterpreterError::new(Location::new("$SHELLY_TAB_SIZE", 1, 1),
+                ErrorWhat::InvalidOperand(
+                    "$SHELLY_TAB_SIZE must be an integer from 1 through 32".into())))
+    }
+
+
     pub fn execute_from_buffer(&mut self, buffer: &mut dyn Buffer) -> InterpreterResult<()>
     {
         if self.halted { return Ok(()); }
         let origin = buffer.location().origin.to_string();
+        let statements = self.parse_source(buffer)?;
+        self.execute_submission(statements, &origin)
+    }
+
+    // A file directive takes precedence even over an invalid inherited setting.
+    // Validate the lower-priority default only if this source actually used it.
+    pub(super) fn parse_source(&self, buffer: &mut dyn Buffer)
+        -> InterpreterResult<AstTopLevel>
+    {
+        let default = self.source_tab_width();
+        buffer.set_tab_width(default.as_ref().copied().unwrap_or(4));
         let mut tokenizer = Tokenizer::new(buffer);
         let statements = parse_text(&mut tokenizer)?;
-        self.execute_submission(statements, &origin)
+        if !tokenizer.has_tab_directive() { default?; }
+        Ok(statements)
     }
 
     pub fn execute_instructions(&mut self, instructions: &Vec<Instruction>)
@@ -3496,6 +3535,15 @@ impl Interpreter
             MethodDefinition::Builtin(definition) =>
                 {
                     for argument in arguments { self.consume_success(location, argument)?; }
+                    let map_key_type = if definition.name == "next_item"
+                        && matches!(receiver.underlying(), Value::HashMap(_))
+                    {
+                        let registry = &self.scope().types;
+                        let id = registry.inferred_value_type(receiver.underlying());
+                        if let TypeKind::Map(key, _) = registry.get(id).kind { Some(key) }
+                        else { None }
+                    }
+                    else { None };
                     let mut value = (definition.body)(&mut receiver, arguments)
                         .map_err(|error|
                             {
@@ -3508,6 +3556,14 @@ impl Interpreter
                             })?;
                     if definition.name == "properties"
                     { self.add_property_methods(&receiver, method, &mut value); }
+                    if let Some(key_type) = map_key_type
+                        && let Value::Array(pair) = &mut value
+                    {
+                        let key = MapKey::from_value(&pair[0]);
+                        Rc::make_mut(pair)[0] = self.scope().types.key_value(key_type, &key)
+                            .map_err(|message| InterpreterError::new(location.clone(),
+                                ErrorWhat::InvalidOperand(message)))?;
+                    }
                     if definition.mutates_receiver
                     { self.write_receiver(location, "$self", &method.receiver, receiver)?; }
                     self.last_result = Some(value);
@@ -3951,6 +4007,7 @@ impl Interpreter
             && !pure
             && !cleanup
             && !matches!(function.name, "__stream" | "__report_error")
+            && !(self.pipeline_worker && function.name == "exit")
         {
             return Err(InterpreterError::new(
                 location.clone(),

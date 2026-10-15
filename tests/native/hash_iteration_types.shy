@@ -1,0 +1,80 @@
+# Canonical numeric lookup keys must retain their declared types when yielded.
+let $labels: [Float: String] = [1.0: "one", 2.5: "fraction"]
+require ($labels[1] == "one") "canonical numeric lookup changed"
+for ($key, $label) in $labels
+{
+    require ($key.type == Float) "for lost the declared Float key type"
+    require ($labels[$key] == $label) "yielded key no longer finds its entry"
+}
+let $copy = $labels
+for _ in 0..2
+{
+    let $pair = $copy.next_item
+    require ($pair[0].type == Float) "next_item lost the declared Float key type"
+    require ($labels[$pair[0]] == $pair[1]) "next_item changed lookup identity"
+}
+require ($copy.next_item == ()) "exhausted hash iterator yielded another pair"
+require ($labels.count == 2) "iterating a copy mutated its source"
+
+let $arrays: [[Float]: String] = [[1.0]: "array"]
+for ($key, _) in $arrays
+{
+    require ($key.value_type == Float) "nested array key metadata was lost"
+    require ($key[0].type == Float) "nested Float key was canonicalized to Integer"
+}
+let $pair = $arrays.next_item
+require ($pair[0].value_type == Float) "direct nested key metadata was lost"
+require ($pair[0][0].type == Float) "direct nested Float key was lost"
+
+let $maps: [[String: [Float]]: String] = [["n": [1.0]]: "map"]
+for ($key, _) in $maps
+{
+    require ($key.key_type == String) "map key metadata was lost"
+    require ($key.value_type.name == "[Float]") "map value metadata was lost"
+    require ($key["n"].value_type == Float) "nested array metadata was lost"
+    require ($key["n"][0].type == Float) "nested map Float value was lost"
+}
+let $pair = $maps.next_item
+require ($pair[0]["n"][0].type == Float) "direct map key lost nested Float values"
+
+type Key = Float
+let $named: [Key: String] = [Key(1): "named"]
+for ($key, _) in $named { require ($key.type == Key) "named key identity was lost" }
+let $pair = $named.next_item
+require ($pair[0].type == Key) "direct next_item lost named key identity"
+
+let $empty: [Float: String] = [:]
+for _ in $empty { fail "empty hash yielded a pair" }
+require ($empty.next_item == ()) "empty next_item did not return unit"
+
+let $source: [Float: String] = [1: "pipeline"]
+let $main: [Float]
+let $branch: [Float]
+$source | ($[0]) | $main
+        \- ($[0]) | $branch
+require (($main[0].type == Float) && ($branch[0].type == Float)) "fork lost typed hash keys"
+
+let $nested: [[Float: Float]: String] = [[1.0: 2.0]: "nested"]
+for ($key, _) in $nested
+{
+    require (($key.key_type == Float) && ($key.value_type == Float)) "nested map contract lost"
+    for ($inner_key, $inner_value) in $key
+    {
+        require ($inner_key.type == Float) "nested map key lost Float representation"
+        require ($inner_value.type == Float) "nested map value lost Float representation"
+    }
+}
+let $fixed: [[Float, String]: Integer] = [[1.0, "x"]: 1]
+for ($key, _) in $fixed
+{
+    require (($key[0].type == Float) && ($key[1] == "x")) "fixed key positions lost types"
+}
+let $inferred = [1: "one"]
+for ($key, _) in $inferred
+{ require ($key.type == $inferred.key_type) "inferred key contract changed" }
+struct RecordKey { pub number: Float }
+let $records: [RecordKey: Integer] = [RecordKey(number: 1.0): 1]
+for ($key, _) in $records
+{
+    require (($key.type == RecordKey) && ($key.number.type == Float)) "struct key changed"
+}

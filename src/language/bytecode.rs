@@ -187,6 +187,8 @@ pub struct CompiledPipeline
 {
     pub stages: Vec<PipelineStage>,
     pub boundaries: Vec<PipelineBoundary>,
+    pub parents: Vec<usize>,
+    pub primary_len: usize,
 }
 
 

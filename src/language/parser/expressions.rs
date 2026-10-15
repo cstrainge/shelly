@@ -9,7 +9,8 @@ use crate::language::{ ast::*,
                                     TokenValue,
                                     StringFlag,
                                     Token },
-                       parser::{ source::{ SyntaxContext, SyntaxRole },
+                       parser::{ pipeline::parse_branches,
+                                 source::{ SyntaxContext, SyntaxRole },
                                  base_utils::{ expect_token,
                                                match_one_of,
                                                Lookahead,
@@ -1301,21 +1302,30 @@ fn parse_value_before_block_inner(buffer: &mut TokenBuffer<'_, '_>,
     Ok(Some(AstExpression { location, string_flag: None,
         interpolation_members: Default::default(),
         dispatch_type: Default::default(),
-        kind: AstExpressionKind::Pipeline(Box::new(AstPipeline { stages, boundaries })) }))
+        kind: AstExpressionKind::Pipeline(Box::new(
+            parse_branches(buffer, stages, boundaries,
+                stop_at_block, stop_at_colon)?)) }))
 }
 
 
 pub(super) fn parse_pipe_boundary(buffer: &mut TokenBuffer<'_, '_>)
     -> ParseResult<Option<AstPipeBoundary>>
 {
+    parse_pipe_boundary_kind(buffer, TokenKind::Pipe)
+}
+
+
+pub(super) fn parse_pipe_boundary_kind(buffer: &mut TokenBuffer<'_, '_>, kind: TokenKind)
+    -> ParseResult<Option<AstPipeBoundary>>
+{
     let mut lookahead = Lookahead::new(buffer);
     let Some(token) = lookahead.buffer.next()? else { return Ok(None); };
-    let (decode, pipe) = if token.kind == TokenKind::Pipe { (None, token) }
+    let (decode, pipe) = if token.kind == kind { (None, token) }
     else if token.kind == TokenKind::Symbol
     {
         if try_expect_token(lookahead.buffer, TokenKind::TypeDelimiter)?.is_none()
         { return Ok(None); }
-        let Some(pipe) = try_expect_token(lookahead.buffer, TokenKind::Pipe)?
+        let Some(pipe) = try_expect_token(lookahead.buffer, kind)?
             else { return Ok(None); };
         lookahead.buffer.annotate(token.span, SyntaxRole::FormatName);
         (Some(token.token_value_text()), pipe)
@@ -1336,12 +1346,14 @@ pub(super) fn parse_pipe_boundary(buffer: &mut TokenBuffer<'_, '_>)
         Some(name)
     }
     else { None };
+    let layout = lookahead.buffer.anchor(&pipe);
     lookahead.commit();
-    Ok(Some(AstPipeBoundary { location: pipe.location, decode, annotation, type_id: None }))
+    Ok(Some(AstPipeBoundary { location: pipe.location, layout, decode,
+        annotation, type_id: None }))
 }
 
 
-fn parse_stage_before_block(buffer: &mut TokenBuffer<'_, '_>,
+pub(super) fn parse_stage_before_block(buffer: &mut TokenBuffer<'_, '_>,
                             stop_at_block: bool,
                             stop_at_colon: bool) -> ParseResult<Option<AstExpression>>
 {

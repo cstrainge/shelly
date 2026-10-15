@@ -2,7 +2,8 @@
 use std::{ collections::{ BTreeMap, BTreeSet }, ops::{ Index, IndexMut }, sync::Arc };
 
 use crate::language::{ parser::{ EditorAnalysis,
-                                 editor::{ analyze_editor_tree, analyze_editor_tree_with_limits } },
+                                 editor::{ analyze_editor_tree_with_tab_size,
+                                           analyze_editor_tree_configured } },
                        text::span::SourceSpan };
 
 mod semantic;
@@ -62,6 +63,7 @@ pub struct TypeDescriptor
 #[derive(Clone, Debug, Default)]
 pub struct SymbolSnapshot
 {
+    pub tab_width: Option<usize>,
     pub symbols: BTreeMap<String, SymbolDescriptor>,
     pub types: Arc<Vec<TypeDescriptor>>,
     pub external_commands: BTreeSet<String>,
@@ -138,7 +140,7 @@ pub struct SemanticAnalysis
  */
 pub fn analyze_semantics(source: &str, snapshot: &SymbolSnapshot) -> SemanticAnalysis
 {
-    let (analysis, statements) = analyze_editor_tree(source);
+    let (analysis, statements) = analyze_editor_tree_with_tab_size(source, snapshot.tab_width);
     let (facts, types) = semantic::classify(source, &analysis, &statements, snapshot);
     SemanticAnalysis { source: analysis, facts, types }
 }
@@ -148,7 +150,8 @@ pub fn analyze_semantics(source: &str, snapshot: &SymbolSnapshot) -> SemanticAna
 pub fn analyze_semantics_with_limits(source: &str, snapshot: &SymbolSnapshot,
                                     max_bytes: usize, max_steps: usize) -> SemanticAnalysis
 {
-    let (analysis, statements) = analyze_editor_tree_with_limits(source, max_bytes, max_steps);
+    let (analysis, statements) = analyze_editor_tree_configured(
+        source, max_bytes, max_steps, snapshot.tab_width);
     let (facts, types) = semantic::classify(source, &analysis, &statements, snapshot);
     SemanticAnalysis { source: analysis, facts, types }
 }

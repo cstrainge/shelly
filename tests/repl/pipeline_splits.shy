@@ -1,0 +1,74 @@
+# Split diagrams retain state across REPL submissions and respect init defaults.
+let $fixture = $args[0]
+printf "%s" '$SHELLY_TAB_SIZE = 8' -> "${fixture}/.shelly_init.shy"
+let $terminal = open_terminal [`$shelly, "-m", "-b"] [
+    "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+        "SHELLY_STD_PATH": "bundled", "TERM": "xterm-256color", "LANG": "C.UTF-8"],
+    "rows": 40, "columns": 140]
+require (!(drain $terminal)["eof"]) "split session exited during startup"
+
+for ($source, $kind, $expected) in [
+    ['echo $SHELLY_TAB_SIZE', "output", "8"],
+    ['let $a: [Integer]; let $b: [Integer]', "quiet", ""],
+    ["[1, 2]  | \$a\n\t\\- (\$ * 2) | \$b", "quiet", ""],
+    ['echo $a... $b...', "output", "1 2 2 4"],
+    ["[1,2] | \$a\n       \\- \$b", "error", "does not align"],
+    ['echo $a... $b...', "output", "1 2 2 4"],
+    ['$SHELLY_TAB_SIZE = 4', "quiet", ""],
+    ["#tab-size 8\n[3, 4]  | \$a\n\t\\- \$b", "quiet", ""],
+    ['echo $a... $b...', "output", "3 4 3 4"],
+    ["[1, 2]  | \$a\n\t\\- \$b", "error", "#tab-size"],
+    ['echo RECOVERED', "output", "RECOVERED"],
+]
+{
+    let $reply = submit $terminal $source
+    if $reply["eof"] || !(repl_matches $kind $expected $reply["output"])
+    { echo $reply; fail "split REPL output differs" }
+}
+
+# Cancellation must tear down forked external processes and return to the editor.
+terminal_write $terminal "\x1b[200~echo SPLIT-READY;\n/bin/sleep 30 | cat | \$a\n              \\- cat | \$b\x1b[201~\r"
+let $ready = false
+let $raw = ""
+for _ in 0..50
+{
+    let $reply = terminal_read $terminal 100
+    require (!$reply["eof"]) "split shell exited before Ctrl+C"
+    $raw = $raw + $reply["text"]
+    if ((strip_ansi $raw).contains "\nSPLIT-READY\n") && $reply["timed_out"]
+    { $ready = true; break }
+}
+require $ready "split command did not start"
+terminal_write $terminal "\x03"
+let $reply = drain $terminal
+require (!$reply["eof"]) "Ctrl+C terminated the shell with its forked children"
+require ($reply["output"].contains "Execution interrupted.") "fork lost marked interruption"
+$reply = submit $terminal "echo FORK-SURVIVED"
+require (repl_matches "output" "FORK-SURVIVED" $reply["output"]) "fork did not recover"
+# A source reading the controlling terminal must run in its foreground group.
+$reply = submit $terminal "let \$input_main: String; let \$input_copy: String"
+require (!$reply["eof"]) "input destination declarations failed"
+terminal_write $terminal "\x1b[200~echo INPUT-READY;\n/bin/cat | \$input_main\n         \\- \$input_copy\x1b[201~\r"
+$ready = false
+$raw = ""
+for _ in 0..50
+{
+    let $read = terminal_read $terminal 100
+    require (!$read["eof"]) "shell exited before terminal input"
+    $raw = $raw + $read["text"]
+    if ((strip_ansi $raw).contains "\nINPUT-READY\n") && $read["timed_out"]
+    { $ready = true; break }
+}
+require $ready "terminal-reading source did not start"
+terminal_write $terminal "typed-fork\n"
+let _ = terminal_read $terminal 100
+terminal_write $terminal "\x04"
+$reply = drain $terminal
+require (!$reply["eof"]) "terminal EOF exited Shelly instead of its source"
+$reply = submit $terminal "echo \$input_main.trim \$input_copy.trim"
+require (repl_matches "output" "typed-fork typed-fork" $reply["output"]) \
+    "terminal input was not broadcast to both destinations"
+terminal_write $terminal "\x04"
+require ((drain $terminal)["eof"]) "split shell did not close"
+let $status = terminal_close $terminal
+require (($status["exit_code"] == 0) && ($status["signal"] == ())) "split shell failed"

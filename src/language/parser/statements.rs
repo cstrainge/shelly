@@ -1209,6 +1209,22 @@ fn parse_statement_inner(buffer: &mut TokenBuffer<'_, '_>) -> ParseResult<Option
         token.kind
     };
 
+    if matches!(next_kind, TokenKind::Branch | TokenKind::Pipe)
+    {
+        let token = buffer.next()?.unwrap();
+        let layout = buffer.anchor(&token);
+        let hint = if layout.hard_tabs
+            { " Hard tabs occur here; add or check '#tab-size N' in the file header." }
+            else { "" };
+        return Err(ParserError
+            {
+                location: Some(token.location),
+                kind: ParserErrorKind::InvalidPipeline(format!(
+                    "Orphan pipeline connector: no connected parent pipe on the preceding row.{}",
+                    hint)),
+            });
+    }
+
     if next_kind == TokenKind::Public { return parse_public_statement(buffer); }
 
     // A function's parameter list can also look like a parenthesized command argument. Once fn
