@@ -1,0 +1,4 @@
+#!/usr/bin/env shelly
+
+git pull
+git submodule update --init --recursive

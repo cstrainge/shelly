@@ -1,0 +1,4 @@
+#!/usr/bin/env shelly
+
+git -C wiki push origin master
+git push --recurse-submodules=on-demand
