@@ -127,7 +127,7 @@ impl<'a, R: BufRead> Buffer for ReadBuffer<'a, R>
      *
      * Will return None if we've hit EOF.
      */
-    fn peek_next(&mut self) -> Option<char>
+    fn peek(&mut self) -> Option<char>
     {
         // Check to see if we've already buffered a character. If so, return it directly. Otherwise,
         // fetch the next character from the source iterator.

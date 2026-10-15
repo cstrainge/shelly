@@ -50,12 +50,10 @@ impl CoreError
     {
         if let Some(location) = &self.location
         {
-            write!(f, "Lexical error: {}", location)?;
+            write!(f, "{}: ", location)?;
         }
-        else
-        {
-            write!(f, "Lexical error")?;
-        }
+
+        write!(f, "Lexical error")?;
 
         if let Some(message) = &self.message
         {

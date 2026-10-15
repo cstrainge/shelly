@@ -35,7 +35,7 @@ pub trait Buffer
      *
      * Will return None if we've hit EOF.
      */
-    fn peek_next(&mut self) -> Option<char>;
+    fn peek(&mut self) -> Option<char>;
 
     /**
      * Advance the buffer and return the next character. Will return None if we've hit EOF.

@@ -81,7 +81,7 @@ impl<'a> Buffer for SimpleBuffer<'a>
     /**
      * Peek at the next character without advancing the buffer.
      */
-    fn peek_next(&mut self) -> Option<char>
+    fn peek(&mut self) -> Option<char>
     {
         // Check to see if we've already buffered a character. If so, return it directly. Otherwise,
         // fetch the next character from the source iterator.
