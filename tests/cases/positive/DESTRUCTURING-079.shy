@@ -1,7 +1,7 @@
 # DESTRUCTURING-079: references retained
 check ["id": "DESTRUCTURING-079",
     "name": "references retained",
-    "source": "fn answer() { 42 }; for (\$f, \$x) in [[`answer, 3]] { echo (\$f) \$x }",
+    "source": "fn answer(): any { 42 }; for (\$f, \$x) in [[`answer, 3]] { echo (\$f) \$x }",
     "mode": "code",
     "args": [],
     "stdout": "42 3\n",

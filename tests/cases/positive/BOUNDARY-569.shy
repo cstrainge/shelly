@@ -1,7 +1,7 @@
 # BOUNDARY-569: file / nested early return
 check ["id": "BOUNDARY-569",
     "name": "file / nested early return",
-    "source": "fn f() { if true { { return 7 } } }; echo (f)",
+    "source": "fn f(): any { if true { { return 7 } } }; echo (f)",
     "mode": "file",
     "args": [],
     "stdout": "7\n",

@@ -4,7 +4,7 @@ printf "%s" ("pub let \$items = [1]".replace "<FIXTURE>" $args[0]) -> "${module_
 check [
     "id": "MODULE-038",
     "name": "imported variable receiver mutation",
-    "source": "import foo::{ \$items }; fn Array::change() { \$self[0] = 8 }; \$items.change; echo \$foo::items[0]",
+    "source": "import foo::{ \$items }; fn Array::change(): any { \$self[0] = 8 }; \$items.change; echo \$foo::items[0]",
     "mode": "file",
     "args": [],
     "stdout": "8\n",

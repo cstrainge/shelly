@@ -1,7 +1,7 @@
-# CONDITIONALS-022: let $hits = 0; fn probe() { $hits = $hits + 1; true }; if false {} else if (probe) {} else if (
+# CONDITIONALS-022: let $hits = 0; fn probe(): any { $hits = $hits + 1; true }; if false {} else if (probe) {} else if (
 check ["id": "CONDITIONALS-022",
-    "name": "let \$hits = 0; fn probe() { \$hits = \$hits + 1; true }; if false {} else if (probe) {} else if (",
-    "source": "let \$hits = 0; fn probe() { \$hits = \$hits + 1; true }; if false {} else if (probe) {} else if (probe) {}; echo \$hits",
+    "name": "let \$hits = 0; fn probe(): any { \$hits = \$hits + 1; true }; if false {} else if (probe) {} else if (",
+    "source": "let \$hits = 0; fn probe(): any { \$hits = \$hits + 1; true }; if false {} else if (probe) {} else if (probe) {}; echo \$hits",
     "mode": "code",
     "args": [],
     "stdout": "1\n",

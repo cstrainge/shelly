@@ -7,7 +7,7 @@ let $terminal = open_terminal [`$shelly, "--norc", "-m", "-b"] [
         "SHELLY_STD_PATH": "bundled", "TERM": "xterm-256color", "LANG": "C.UTF-8"],
     "rows": 40, "columns": 140]
 
-fn fast_prompt($terminal: Terminal)
+fn fast_prompt($terminal: Terminal): any
 {
     let $raw = ""
     for _ in 0..20

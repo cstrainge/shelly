@@ -1,7 +1,7 @@
-# CONDLOOP-136: until runtime / fn f() { break }; until false { f }
+# CONDLOOP-136: until runtime / fn f(): any { break }; until false { f }
 check ["id": "CONDLOOP-136",
-    "name": "until runtime / fn f() { break }; until false { f }",
-    "source": "fn f() { break }; until false { f }; echo \"AFTER_ERROR\"",
+    "name": "until runtime / fn f(): any { break }; until false { f }",
+    "source": "fn f(): any { break }; until false { f }; echo \"AFTER_ERROR\"",
     "mode": "code",
     "args": [],
     "stdout": "",

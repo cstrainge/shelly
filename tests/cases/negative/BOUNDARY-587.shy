@@ -1,7 +1,7 @@
-# BOUNDARY-587: command-head splat / fn f() { return $cmd... 2 }
+# BOUNDARY-587: command-head splat / fn f(): any { return $cmd... 2 }
 check ["id": "BOUNDARY-587",
-    "name": "command-head splat / fn f() { return \$cmd... 2 }",
-    "source": "echo \"PARSE_SENTINEL\"; let \$cmd = `audit_say; fn f() { return \$cmd... 2 }",
+    "name": "command-head splat / fn f(): any { return \$cmd... 2 }",
+    "source": "echo \"PARSE_SENTINEL\"; let \$cmd = `audit_say; fn f(): any { return \$cmd... 2 }",
     "mode": "code",
     "args": [],
     "stdout": "",

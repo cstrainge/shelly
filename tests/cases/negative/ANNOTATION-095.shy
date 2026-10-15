@@ -1,7 +1,7 @@
 # ANNOTATION-095: dynamic bad parameter Boolean
 check ["id": "ANNOTATION-095",
     "name": "dynamic bad parameter Boolean",
-    "source": "fn f(\$x: Boolean) { echo \"body ran\" }; let \$x = \"bad\"; f \$x",
+    "source": "fn f(\$x: Boolean): any { echo \"body ran\" }; let \$x = \"bad\"; f \$x",
     "mode": "code",
     "args": [],
     "stdout": "",

@@ -2,7 +2,7 @@
 check [
     "id": "EXCLUSION-011",
     "name": "excluded unknown receiver",
-    "source": "[when false] fn Missing::gadget() { \$self }; echo ok",
+    "source": "[when false] fn Missing::gadget(): any { \$self }; echo ok",
     "mode": "code",
     "args": [],
     "stdout": "ok\n",

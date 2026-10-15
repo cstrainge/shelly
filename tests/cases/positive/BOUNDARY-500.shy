@@ -1,7 +1,7 @@
 # BOUNDARY-500: value pair / (/usr/bin/true) and `word
 check ["id": "BOUNDARY-500",
     "name": "value pair / (/usr/bin/true) and `word",
-    "source": "fn word() { exit 91 }; echo ((/usr/bin/true) == `word) ((/usr/bin/true) != `word) ((/usr/bin/true) && `word) ((/usr/bin/true) || `word)",
+    "source": "fn word(): any { exit 91 }; echo ((/usr/bin/true) == `word) ((/usr/bin/true) != `word) ((/usr/bin/true) && `word) ((/usr/bin/true) || `word)",
     "mode": "code",
     "args": [],
     "stdout": "false true true true\n",

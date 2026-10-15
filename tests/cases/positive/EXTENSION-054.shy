@@ -1,7 +1,7 @@
 # EXTENSION-054: escaped local method
 check ["id": "EXTENSION-054",
     "name": "escaped local method",
-    "source": "fn make() { fn Integer::tag() { 3 }; let \$n = 2; return `\$n.tag }; let \$r = make; echo (\$r)",
+    "source": "fn make(): any { fn Integer::tag(): any { 3 }; let \$n = 2; return `\$n.tag }; let \$r = make; echo (\$r)",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

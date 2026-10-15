@@ -1,7 +1,7 @@
 # MUTSELF-049: float replace
 check ["id": "MUTSELF-049",
     "name": "float replace",
-    "source": "fn Float::replace() { \$self = 2.5 }; let \$v = 1.5; \$v.replace; echo \$v",
+    "source": "fn Float::replace(): any { \$self = 2.5 }; let \$v = 1.5; \$v.replace; echo \$v",
     "mode": "code",
     "args": [],
     "stdout": "2.5\n",

@@ -1,7 +1,7 @@
 # DISCARD-003: evaluated once
 check ["id": "DISCARD-003",
     "name": "evaluated once",
-    "source": "let \$calls = 0; fn once() { \$calls = \$calls + 1; 7 }; let _ = once; echo \$calls",
+    "source": "let \$calls = 0; fn once(): any { \$calls = \$calls + 1; 7 }; let _ = once; echo \$calls",
     "mode": "code",
     "args": [],
     "stdout": "1\n",

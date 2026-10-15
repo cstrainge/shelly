@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-015",
     "name": "passed reference preserves function version",
-    "source": "fn answer() { 7 }; let \$call = `answer; fn answer() { 9 }; fn invoke(\$value) { (\$value) }; echo (invoke \$call)",
+    "source": "fn answer(): any { 7 }; let \$call = `answer; fn answer(): any { 9 }; fn invoke(\$value): any { (\$value) }; echo (invoke \$call)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

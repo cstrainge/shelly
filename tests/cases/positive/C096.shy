@@ -1,7 +1,7 @@
 # C096: Forward function reference is hoisted
 check ["id": "C096",
     "name": "Forward function reference is hoisted",
-    "source": "echo (f) ; fn f() { 7 }",
+    "source": "echo (f) ; fn f(): any { 7 }",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

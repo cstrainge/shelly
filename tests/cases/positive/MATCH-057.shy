@@ -1,7 +1,7 @@
 # MATCH-057: subject command call
 check ["id": "MATCH-057",
     "name": "subject command call",
-    "source": "fn value(\$n) { \$n }; echo (match value 2 { 2 => { \"ok\" } })",
+    "source": "fn value(\$n): any { \$n }; echo (match value 2 { 2 => { \"ok\" } })",
     "mode": "code",
     "args": [],
     "stdout": "ok\n",

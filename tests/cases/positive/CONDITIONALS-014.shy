@@ -1,7 +1,7 @@
-# CONDITIONALS-014: fn f() { return if true { 7 } else { 8 }; echo "bad" }; echo (f)
+# CONDITIONALS-014: fn f(): any { return if true { 7 } else { 8 }; echo "bad" }; echo (f)
 check ["id": "CONDITIONALS-014",
-    "name": "fn f() { return if true { 7 } else { 8 }; echo \"bad\" }; echo (f)",
-    "source": "fn f() { return if true { 7 } else { 8 }; echo \"bad\" }; echo (f)",
+    "name": "fn f(): any { return if true { 7 } else { 8 }; echo \"bad\" }; echo (f)",
+    "source": "fn f(): any { return if true { 7 } else { 8 }; echo \"bad\" }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

@@ -1,7 +1,7 @@
 # EXTENSION-046: native more specific than any
 check ["id": "EXTENSION-046",
     "name": "native more specific than any",
-    "source": "fn any::count() { 99 }; echo [1, 2].count",
+    "source": "fn any::count(): any { 99 }; echo [1, 2].count",
     "mode": "code",
     "args": [],
     "stdout": "2\n",

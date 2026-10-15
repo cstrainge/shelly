@@ -1,7 +1,7 @@
 # EXTENSION-074: missing argument
 check ["id": "EXTENSION-074",
     "name": "missing argument",
-    "source": "fn Integer::f(\$n: Integer) { \$n }; let \$n = 1; echo \$n.f",
+    "source": "fn Integer::f(\$n: Integer): any { \$n }; let \$n = 1; echo \$n.f",
     "mode": "code",
     "args": [],
     "stdout": "",

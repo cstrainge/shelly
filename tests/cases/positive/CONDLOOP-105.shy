@@ -1,7 +1,7 @@
 # CONDLOOP-105: until / return in body
 check ["id": "CONDLOOP-105",
     "name": "until / return in body",
-    "source": "fn f() { until false { return 7 }; 9 }; echo (f)",
+    "source": "fn f(): any { until false { return 7 }; 9 }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

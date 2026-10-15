@@ -1,7 +1,7 @@
 # EXTENSION-048: data before any method
 check ["id": "EXTENSION-048",
     "name": "data before any method",
-    "source": "fn any::n() { 99 }; struct S { pub n: Integer }; echo S(n: 3).n",
+    "source": "fn any::n(): any { 99 }; struct S { pub n: Integer }; echo S(n: 3).n",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

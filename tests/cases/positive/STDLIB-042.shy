@@ -1,8 +1,8 @@
 # STDLIB-042: prelude used by exclusion conditions
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
-printf "%s" ("echo \"prelude\"; pub struct Shared { pub code: Integer }; pub enum State { Ready }; pub fn Shared::twice(): Integer { \$self.code * 2 }; pub let \$hidden = 7; pub fn hidden(\$x) { echo \$x }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
-printf "%s" ("[when State::Ready == State::Ready] fn chosen() { 4 }; echo (chosen)".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
+printf "%s" ("echo \"prelude\"; pub struct Shared { pub code: Integer }; pub enum State { Ready }; pub fn Shared::twice(): Integer { \$self.code * 2 }; pub let \$hidden = 7; pub fn hidden(\$x): any { echo \$x }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/prelude.shy"
+printf "%s" ("[when State::Ready == State::Ready] fn chosen(): any { 4 }; echo (chosen)".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-042",
     "name": "prelude used by exclusion conditions",

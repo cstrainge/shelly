@@ -1,7 +1,7 @@
 # C068: Plain string variable used as explicit callable
 check ["id": "C068",
     "name": "Plain string variable used as explicit callable",
-    "source": "fn foo(\$a)\n{\n 2048 * \$a\n}\nlet \$r = \"foo\" ; \$r 3",
+    "source": "fn foo(\$a): any\n{\n 2048 * \$a\n}\nlet \$r = \"foo\" ; \$r 3",
     "mode": "code",
     "args": [],
     "stdout": "",

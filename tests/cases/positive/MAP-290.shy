@@ -1,7 +1,7 @@
 # MAP-290: key equality / `ref / true
 check ["id": "MAP-290",
     "name": "key equality / `ref / true",
-    "source": "fn ref() { exit 91 }; let \$m = [`ref:7]; echo \$m[true]",
+    "source": "fn ref(): any { exit 91 }; let \$m = [`ref:7]; echo \$m[true]",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

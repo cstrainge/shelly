@@ -1,7 +1,7 @@
 # BOOLCAST-128: grouped call
 check ["id": "BOOLCAST-128",
     "name": "grouped call",
-    "source": "fn f(\$x) { \$x }; echo Boolean((f 2))",
+    "source": "fn f(\$x): any { \$x }; echo Boolean((f 2))",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

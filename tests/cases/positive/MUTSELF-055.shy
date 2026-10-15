@@ -1,7 +1,7 @@
 # MUTSELF-055: optional member initialize
 check ["id": "MUTSELF-055",
     "name": "optional member initialize",
-    "source": "struct S { pub n: Integer | () }; fn any::replace(\$v) { \$self = \$v }; let \$s = S(); \$s.n.replace 3; echo \$s.n",
+    "source": "struct S { pub n: Integer | () }; fn any::replace(\$v): any { \$self = \$v }; let \$s = S(); \$s.n.replace 3; echo \$s.n",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

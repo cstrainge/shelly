@@ -1,7 +1,7 @@
 # NEWLINE-023: same line none argument
 check ["id": "NEWLINE-023",
     "name": "same line none argument",
-    "source": "fn f(\$x) { return \$x }; echo (f ())",
+    "source": "fn f(\$x): any { return \$x }; echo (f ())",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

@@ -1,7 +1,7 @@
 # ENUM-012: typed forwarded argument
 check ["id": "ENUM-012",
     "name": "typed forwarded argument",
-    "source": "enum Color { Red, Green, Blue }; fn f(\$c) { return \$c }; fn g(\$c) { f \$c }; echo ((g Color::Red) == Color::Red)",
+    "source": "enum Color { Red, Green, Blue }; fn f(\$c): any { return \$c }; fn g(\$c): any { f \$c }; echo ((g Color::Red) == Color::Red)",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

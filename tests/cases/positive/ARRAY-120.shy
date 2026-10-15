@@ -1,7 +1,7 @@
 # ARRAY-120: literal spread snapshot survives later element mutation
 check ["id": "ARRAY-120",
     "name": "literal spread snapshot survives later element mutation",
-    "source": "let \$a = [1,2]; fn change() { \$a[0] = 9; 3 }; let \$b = [\$a...,change]; echo (\$b == [1,2,3]) \$a[0]",
+    "source": "let \$a = [1,2]; fn change(): any { \$a[0] = 9; 3 }; let \$b = [\$a...,change]; echo (\$b == [1,2,3]) \$a[0]",
     "mode": "code",
     "args": [],
     "stdout": "true 9\n",

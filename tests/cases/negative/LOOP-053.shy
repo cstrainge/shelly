@@ -1,7 +1,7 @@
-# LOOP-053: runtime rejection / fn f() { break }; loop { f }
+# LOOP-053: runtime rejection / fn f(): any { break }; loop { f }
 check ["id": "LOOP-053",
-    "name": "runtime rejection / fn f() { break }; loop { f }",
-    "source": "fn f() { break }; loop { f }; echo \"AFTER_ERROR\"",
+    "name": "runtime rejection / fn f(): any { break }; loop { f }",
+    "source": "fn f(): any { break }; loop { f }; echo \"AFTER_ERROR\"",
     "mode": "code",
     "args": [],
     "stdout": "",

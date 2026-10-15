@@ -2,7 +2,7 @@
 check [
     "id": "EXCLUSION-003",
     "name": "alternative function implementations",
-    "source": "[when false] fn gadget() { \"wrong\" }; [when true] fn gadget() { \"right\" }; echo (gadget)",
+    "source": "[when false] fn gadget(): any { \"wrong\" }; [when true] fn gadget(): any { \"right\" }; echo (gadget)",
     "mode": "code",
     "args": [],
     "stdout": "right\n",

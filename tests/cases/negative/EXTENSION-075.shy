@@ -1,7 +1,7 @@
 # EXTENSION-075: too many arguments
 check ["id": "EXTENSION-075",
     "name": "too many arguments",
-    "source": "fn Integer::f() { \$self }; let \$n = 1; \$n.f 2",
+    "source": "fn Integer::f(): any { \$self }; let \$n = 1; \$n.f 2",
     "mode": "code",
     "args": [],
     "stdout": "",

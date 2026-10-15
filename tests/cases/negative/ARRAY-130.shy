@@ -1,7 +1,7 @@
-# ARRAY-130: array used as command / let $a = [1]; fn f() { $a; 9 }; f
+# ARRAY-130: array used as command / let $a = [1]; fn f(): any { $a; 9 }; f
 check ["id": "ARRAY-130",
-    "name": "array used as command / let \$a = [1]; fn f() { \$a; 9 }; f",
-    "source": "let \$a = [1]; fn f() { \$a; 9 }; f; echo \"AFTER_ERROR\"",
+    "name": "array used as command / let \$a = [1]; fn f(): any { \$a; 9 }; f",
+    "source": "let \$a = [1]; fn f(): any { \$a; 9 }; f; echo \"AFTER_ERROR\"",
     "mode": "code",
     "args": [],
     "stdout": "",

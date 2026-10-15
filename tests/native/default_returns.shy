@@ -1,0 +1,48 @@
+# Omitted return annotations are the same unit contract as an explicit : ().
+fn return_case($source: String, $out: String, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $reply = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": ["HOME": $fixture, "PATH": "/usr/bin:/bin",
+            "SHELLY_STD_PATH": "bundled"], "stdin_file": "/dev/null",
+        "stdout_file": "${fixture}/out", "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $actual: String
+    let $err: String
+    "${fixture}/out" -> $actual
+    "${fixture}/err" -> $err
+    let $status = if $diagnostic == "" { 0 } else { 1 }
+    if ($reply["exit_code"] != $status) || ($reply["error"] != ()) ||
+        ($reply["signal"] != ()) || $reply["timed_out"] || ($actual != $out) ||
+        (if $diagnostic == "" { $err != "" } else { !($err.contains $diagnostic) })
+    { echo $source $reply $actual $err; fail "return contract mismatch" }
+}
+
+return_case 'fn f() {}; echo (f)' "()\n" ""
+return_case 'fn f() { () }; echo (f)' "()\n" ""
+return_case 'fn f() { return }; echo (f)' "()\n" ""
+return_case 'fn f() { return () }; echo (f)' "()\n" ""
+return_case 'fn f() { 42 }; f' "" "Expected None, got Integer"
+return_case 'fn f() { return 42 }; f' "" "Expected None, got Integer"
+return_case 'fn f() { "text" }; f' "" "Expected None, got String"
+return_case 'fn f() { if true { 42 } else { () } }; f' "" "Expected None, got Integer"
+return_case 'fn f() { echo hi }; f' "hi\n" "return value"
+return_case 'fn f() { echo hi; () }; echo (f)' "hi\n()\n" ""
+return_case 'fn f($x) { $x }; f 42' "" "return value"
+return_case 'fn f($x): any { $x }; echo (f 42) (f "text") (f ())' "42 text ()\n" ""
+return_case 'fn f(): Integer { 42 }; echo (f)' "42\n" ""
+return_case 'fn f(): Integer { "text" }' "" "Expected Integer, got String"
+return_case 'let $f = fn () {}; echo ($f)' "()\n" ""
+return_case 'let $f = fn () { 42 }; $f' "" "Expected None, got Integer"
+return_case 'let $f = fn ($x) { $x }; $f 42' "" "return value"
+return_case 'let $f = fn ($x): any { $x }; echo ($f 42) ($f "text")' "42 text\n" ""
+return_case 'fn Integer::touch() { $self = $self + 1 }; let $x = 1; echo $x.touch $x' "() 2\n" ""
+return_case 'fn Integer::touch() { 42 }; echo 1.touch' "" "Expected None, got Integer"
+return_case 'fn Integer::touch(): any { 42 }; echo 1.touch' "42\n" ""
+return_case 'fn f() {}; let $action: fn() = `f; echo ($action)' "()\n" ""
+return_case 'fn f() {}; let $action: fn(): Integer = `f' "" "return type is incompatible"
+return_case 'fn f(): any { 42 }; let $action: fn(): Integer = `f; echo ($action)' "42\n" ""
+return_case 'fn f(): any { 42 }; let $action: fn() = `f; $action' "" "Expected None"
+return_case 'fn outer(): fn() { fn () {} }; let $f = outer; echo ($f)' "()\n" ""
+return_case 'fn outer() { fn () {} }; outer' "" "Expected None"
+return_case 'let $out: [any]; fn f($n: Integer) {}; [1,2] | f | $out; echo $out...' "() ()\n" ""
+return_case 'let $x = 0; fn f() { $x = 2 }; f; echo $x' "2\n" ""

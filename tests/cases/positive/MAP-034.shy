@@ -1,7 +1,7 @@
 # MAP-034: command key and value
 check ["id": "MAP-034",
     "name": "command key and value",
-    "source": "fn key(\$x) { \$x }; fn val(\$x) { \$x * 2 }; let \$m = [key \"a\":val 3]; echo \$m[\"a\"]",
+    "source": "fn key(\$x): any { \$x }; fn val(\$x): any { \$x * 2 }; let \$m = [key \"a\":val 3]; echo \$m[\"a\"]",
     "mode": "code",
     "args": [],
     "stdout": "6\n",

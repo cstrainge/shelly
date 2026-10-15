@@ -2,7 +2,7 @@
 check [
     "id": "NUMERIC-042",
     "name": "no Float parameter narrowing",
-    "source": "fn f(\$x: Integer) { echo \"bad\" }; f 7.0",
+    "source": "fn f(\$x: Integer): any { echo \"bad\" }; f 7.0",
     "mode": "code",
     "args": [],
     "stdout": "",

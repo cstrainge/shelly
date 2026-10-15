@@ -1,7 +1,7 @@
 # MUTSELF-069: invalidated bound receiver type
 check ["id": "MUTSELF-069",
     "name": "invalidated bound receiver type",
-    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$n = 1; let \$r = `\$n.inc; \$n = \"bad\"; \$r",
+    "source": "fn Integer::inc(): any { \$self = \$self + 1 }; let \$n = 1; let \$r = `\$n.inc; \$n = \"bad\"; \$r",
     "mode": "code",
     "args": [],
     "stdout": "",

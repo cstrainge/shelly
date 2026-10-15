@@ -1,7 +1,7 @@
 # ENUM-025: lexical function enum
 check ["id": "ENUM-025",
     "name": "lexical function enum",
-    "source": "enum Color { Red, Green, Blue }; fn f() { Color::Red }; { enum Color { Red }; echo ((f) == Color::Red) }",
+    "source": "enum Color { Red, Green, Blue }; fn f(): any { Color::Red }; { enum Color { Red }; echo ((f) == Color::Red) }",
     "mode": "code",
     "args": [],
     "stdout": "false\n",

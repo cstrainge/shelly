@@ -1,7 +1,7 @@
 # BLOCKS-011: empty tail block
 check ["id": "BLOCKS-011",
     "name": "empty tail block",
-    "source": "fn f() { 9; {} }; echo (f)",
+    "source": "fn f(): any { 9; {} }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

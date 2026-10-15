@@ -1,7 +1,7 @@
 # BOOLCAST-145: function same name
 check ["id": "BOOLCAST-145",
     "name": "function same name",
-    "source": "fn Boolean(\$x) { 9 }; echo Boolean(0) (Boolean 0)",
+    "source": "fn Boolean(\$x): any { 9 }; echo Boolean(0) (Boolean 0)",
     "mode": "code",
     "args": [],
     "stdout": "false 9\n",

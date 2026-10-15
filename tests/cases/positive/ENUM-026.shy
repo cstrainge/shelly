@@ -1,7 +1,7 @@
 # ENUM-026: declaration has no value
 check ["id": "ENUM-026",
     "name": "declaration has no value",
-    "source": "fn f() { enum Local { A } }; echo (f)",
+    "source": "fn f(): any { enum Local { A } }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

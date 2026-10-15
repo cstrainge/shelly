@@ -1,7 +1,7 @@
 # BLOCKS-030: non-tail function block failure
 check ["id": "BLOCKS-030",
     "name": "non-tail function block failure",
-    "source": "fn f() { { /usr/bin/false }; 7 }; echo (f)",
+    "source": "fn f(): any { { /usr/bin/false }; 7 }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "",

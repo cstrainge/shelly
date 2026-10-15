@@ -1,7 +1,7 @@
 # CONDLOOP-031: while / function normal loop result
 check ["id": "CONDLOOP-031",
     "name": "while / function normal loop result",
-    "source": "fn f() { while false {} }; echo (f)",
+    "source": "fn f(): any { while false {} }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

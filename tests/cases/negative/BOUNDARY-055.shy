@@ -1,7 +1,7 @@
 # BOUNDARY-055: return / if {}
 check ["id": "BOUNDARY-055",
     "name": "return / if {}",
-    "source": "echo \"PARSE_SENTINEL\"; fn f() { return if {} }",
+    "source": "echo \"PARSE_SENTINEL\"; fn f(): any { return if {} }",
     "mode": "code",
     "args": [],
     "stdout": "",

@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-002",
     "name": "grouped subcommand executes",
-    "source": "fn diff() { 7 }; fn git(\$value: Integer) { echo \$value }; git (diff)",
+    "source": "fn diff(): any { 7 }; fn git(\$value: Integer): any { echo \$value }; git (diff)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

@@ -1,7 +1,7 @@
 # EXTENSION-045: specificity
 check ["id": "EXTENSION-045",
     "name": "specificity",
-    "source": "fn any::tag() { \"any\" }; fn Number::tag() { \"number\" }; fn Integer::tag() { \"integer\" }; let \$i = 1; let \$f = 1.5; let \$s = \"s\"; echo \$i.tag \$f.tag \$s.tag",
+    "source": "fn any::tag(): any { \"any\" }; fn Number::tag(): any { \"number\" }; fn Integer::tag(): any { \"integer\" }; let \$i = 1; let \$f = 1.5; let \$s = \"s\"; echo \$i.tag \$f.tag \$s.tag",
     "mode": "code",
     "args": [],
     "stdout": "integer number any\n",

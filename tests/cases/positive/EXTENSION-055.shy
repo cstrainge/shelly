@@ -1,7 +1,7 @@
 # EXTENSION-055: typed collection receiver
 check ["id": "EXTENSION-055",
     "name": "typed collection receiver",
-    "source": "fn Array::first() { \$self[0] }; let \$a: [Integer] = [3]; echo \$a.first",
+    "source": "fn Array::first(): any { \$self[0] }; let \$a: [Integer] = [3]; echo \$a.first",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

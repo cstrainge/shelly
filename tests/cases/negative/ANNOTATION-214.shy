@@ -1,7 +1,7 @@
 # ANNOTATION-214: variadic bad mutation
 check ["id": "ANNOTATION-214",
     "name": "variadic bad mutation",
-    "source": "fn f(\$xs: Number...) { \$xs[0] = \"bad\" }; f 1",
+    "source": "fn f(\$xs: Number...): any { \$xs[0] = \"bad\" }; f 1",
     "mode": "code",
     "args": [],
     "stdout": "",

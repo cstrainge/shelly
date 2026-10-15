@@ -1,7 +1,7 @@
 # ENUM-009: typed function argument
 check ["id": "ENUM-009",
     "name": "typed function argument",
-    "source": "enum Color { Red, Green, Blue }; fn f(\$c) { \$c == Color::Red }; echo (f Color::Red)",
+    "source": "enum Color { Red, Green, Blue }; fn f(\$c): any { \$c == Color::Red }; echo (f Color::Red)",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

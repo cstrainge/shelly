@@ -478,6 +478,8 @@ fn check_function(
             &function.location,
             function.receiver_type.filter(|_| !is_conversion_method(&function.name)))?);
     }
+    else if function.return_type.is_none()
+    { function.return_type = registry.builtin_id("None"); }
     if function.receiver.is_some() && is_conversion_method(&function.name)
     {
         check_conversion_spelling(registry, function, names, "from_",

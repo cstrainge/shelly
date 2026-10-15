@@ -1,7 +1,7 @@
 # RANGE-041: range function return
 check ["id": "RANGE-041",
     "name": "range function return",
-    "source": "fn f() { 1..3 }; echo (f)...",
+    "source": "fn f(): any { 1..3 }; echo (f)...",
     "mode": "code",
     "args": [],
     "stdout": "1 2\n",

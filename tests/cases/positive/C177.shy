@@ -1,7 +1,7 @@
 # C177: Compact nonempty function braces
 check ["id": "C177",
     "name": "Compact nonempty function braces",
-    "source": "fn f(){return 7}\necho (f)",
+    "source": "fn f(): any{return 7}\necho (f)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

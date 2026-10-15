@@ -1,7 +1,7 @@
 # MUTSELF-068: invalidated bound index
 check ["id": "MUTSELF-068",
     "name": "invalidated bound index",
-    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$a = [1]; let \$r = `\$a[0].inc; \$a = []; \$r",
+    "source": "fn Integer::inc(): any { \$self = \$self + 1 }; let \$a = [1]; let \$r = `\$a[0].inc; \$a = []; \$r",
     "mode": "code",
     "args": [],
     "stdout": "",

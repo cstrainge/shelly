@@ -1,7 +1,7 @@
 # BLOCKS-012: decl tail block
 check ["id": "BLOCKS-012",
     "name": "decl tail block",
-    "source": "fn f() { 9; { let \$x = 7 } }; echo (f)",
+    "source": "fn f(): any { 9; { let \$x = 7 } }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

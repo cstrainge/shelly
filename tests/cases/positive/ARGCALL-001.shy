@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-001",
     "name": "git subcommand is literal",
-    "source": "fn diff() { echo \"BAD\"; 7 }; fn git(\$word: String) { echo \$word }; git diff",
+    "source": "fn diff(): any { echo \"BAD\"; 7 }; fn git(\$word: String): any { echo \$word }; git diff",
     "mode": "code",
     "args": [],
     "stdout": "diff\n",

@@ -1,7 +1,7 @@
-# CONDITIONALS-031: fn f() { if true { /usr/bin/false } else { /usr/bin/true } }; let $s = f; echo !$s
+# CONDITIONALS-031: fn f(): any { if true { /usr/bin/false } else { /usr/bin/true } }; let $s = f; echo !$s
 check ["id": "CONDITIONALS-031",
-    "name": "fn f() { if true { /usr/bin/false } else { /usr/bin/true } }; let \$s = f; echo !\$s",
-    "source": "fn f() { if true { /usr/bin/false } else { /usr/bin/true } }; let \$s = f; echo !\$s",
+    "name": "fn f(): any { if true { /usr/bin/false } else { /usr/bin/true } }; let \$s = f; echo !\$s",
+    "source": "fn f(): any { if true { /usr/bin/false } else { /usr/bin/true } }; let \$s = f; echo !\$s",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

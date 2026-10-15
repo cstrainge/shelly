@@ -1,7 +1,7 @@
 # MUTSELF-070: outer replacement cannot bypass self type
 check ["id": "MUTSELF-070",
     "name": "outer replacement cannot bypass self type",
-    "source": "let \$n = 1; fn change() { \$n = \"bad\" }; fn Integer::call() { change; \$self + 1 }; \$n.call",
+    "source": "let \$n = 1; fn change(): any { \$n = \"bad\" }; fn Integer::call(): any { change; \$self + 1 }; \$n.call",
     "mode": "code",
     "args": [],
     "stdout": "",

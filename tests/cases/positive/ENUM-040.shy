@@ -1,7 +1,7 @@
 # ENUM-040: function collection copy
 check ["id": "ENUM-040",
     "name": "function collection copy",
-    "source": "fn f(\$a) { \$a[0] = 9; \$a }; let \$a = [1]; let \$b = f \$a; echo \$a... \$b...",
+    "source": "fn f(\$a): any { \$a[0] = 9; \$a }; let \$a = [1]; let \$b = f \$a; echo \$a... \$b...",
     "mode": "code",
     "args": [],
     "stdout": "1 9\n",

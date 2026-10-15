@@ -1,7 +1,7 @@
 # MUTSELF-041: escaped local reference
 check ["id": "MUTSELF-041",
     "name": "escaped local reference",
-    "source": "fn Integer::inc() { \$self = \$self + 1 }; fn Integer::next() { \$self.inc; \$self }; fn make() { let \$n = 1; return `\$n.next }; let \$r = make; echo (\$r) (\$r)",
+    "source": "fn Integer::inc(): any { \$self = \$self + 1 }; fn Integer::next(): any { \$self.inc; \$self }; fn make(): any { let \$n = 1; return `\$n.next }; let \$r = make; echo (\$r) (\$r)",
     "mode": "code",
     "args": [],
     "stdout": "2 3\n",

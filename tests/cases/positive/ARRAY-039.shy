@@ -1,7 +1,7 @@
 # ARRAY-039: executable element group invokes
 check ["id": "ARRAY-039",
     "name": "executable element group invokes",
-    "source": "fn f() { 7 }; let \$a = [`f]; echo (\$a[0])",
+    "source": "fn f(): any { 7 }; let \$a = [`f]; echo (\$a[0])",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

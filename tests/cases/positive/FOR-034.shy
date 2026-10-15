@@ -1,7 +1,7 @@
 # FOR-034: empty loop function result None
 check ["id": "FOR-034",
     "name": "empty loop function result None",
-    "source": "fn f() { 9; for \$v in [] {} }; echo (f)",
+    "source": "fn f(): any { 9; for \$v in [] {} }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

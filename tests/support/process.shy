@@ -10,7 +10,7 @@ fn require($condition: Boolean, $message: String)
     if !$condition { fail $message }
 }
 
-fn environment($fixture: String)
+fn environment($fixture: String): [String: String]
 {
     ["HOME": "${fixture}/home", "PATH": "${fixture}/bin:/usr/bin:/bin",
      "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "TERM": "dumb"]
@@ -143,9 +143,9 @@ fn assess($case: HashMap, $result: HashMap, $stdout: String, $stderr: String, $f
     if $case["mode"] == "invalid_file" { require ($stderr.contains "UTF-8") "missing UTF-8 error" }
 }
 
-fn text_field($value: String) { true }
-fn text_array($value: [String]) { true }
-fn boolean_field($value: Boolean) { true }
+fn text_field($value: String): Boolean { true }
+fn text_array($value: [String]): Boolean { true }
+fn boolean_field($value: Boolean): Boolean { true }
 fn status_field($value: Integer)
 {
     require (($value / 256 == 0) && (!(("${value}").starts_with "-"))) "invalid exit status"

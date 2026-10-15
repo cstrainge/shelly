@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-014",
     "name": "named argument remains plain through return",
-    "source": "fn answer() { 42 }; fn identity(\$value) { \$value }; echo (identity answer)",
+    "source": "fn answer(): any { 42 }; fn identity(\$value): any { \$value }; echo (identity answer)",
     "mode": "code",
     "args": [],
     "stdout": "answer\n",

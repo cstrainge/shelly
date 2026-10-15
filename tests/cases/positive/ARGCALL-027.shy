@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-027",
     "name": "bare command statement still invokes",
-    "source": "fn answer() { echo \"called\" }; answer",
+    "source": "fn answer(): any { echo \"called\" }; answer",
     "mode": "code",
     "args": [],
     "stdout": "called\n",

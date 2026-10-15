@@ -1,7 +1,7 @@
 # METHOD-098: bound method passed without execution
 check ["id": "METHOD-098",
     "name": "bound method passed without execution",
-    "source": "fn f(\$call) { \$call }; let \$a = [3, 1]; echo (f `\$a.sort)...",
+    "source": "fn f(\$call): any { \$call }; let \$a = [3, 1]; echo (f `\$a.sort)...",
     "mode": "code",
     "args": [],
     "stdout": "1 3\n",

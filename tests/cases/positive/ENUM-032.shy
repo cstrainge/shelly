@@ -1,7 +1,7 @@
 # ENUM-032: alias typed supplied argument
 check ["id": "ENUM-032",
     "name": "alias typed supplied argument",
-    "source": "enum Color { Red, Green, Blue }; fn f(\$c) { \$c == Color::Red }; alias a = f; echo (a Color::Red)",
+    "source": "enum Color { Red, Green, Blue }; fn f(\$c): any { \$c == Color::Red }; alias a = f; echo (a Color::Red)",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

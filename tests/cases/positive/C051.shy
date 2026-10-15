@@ -1,7 +1,7 @@
 # C051: Nested argument calls
 check ["id": "C051",
     "name": "Nested argument calls",
-    "source": "fn double(\$a) { \$a * 2 }\necho (double (double 3))",
+    "source": "fn double(\$a): any { \$a * 2 }\necho (double (double 3))",
     "mode": "code",
     "args": [],
     "stdout": "12\n",

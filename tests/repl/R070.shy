@@ -2,5 +2,5 @@
 # so inference cannot reject the method before its receiver write executes.
 check_repl ["id": "R070",
     "name": "Successful receiver writes survive later errors",
-    "steps": [["let \$n = 1; fn Integer::fail() { \$self = 7; echo \$missing }", "quiet", ""], ["\$n.fail", "error", "not found"], ["echo \$n", "output", "7"], ["echo \$self", "error", "not found"], ["fn runtime_boolean() { true }; fn Integer::bad(): Integer { \$self = 9; let \$v = runtime_boolean; return \$v }", "quiet", ""], ["\$n.bad", "error", ""], ["echo \$n", "output", "9"]],
+    "steps": [["let \$n = 1; fn Integer::fail(): any { \$self = 7; echo \$missing }", "quiet", ""], ["\$n.fail", "error", "not found"], ["echo \$n", "output", "7"], ["echo \$self", "error", "not found"], ["fn runtime_boolean(): any { true }; fn Integer::bad(): Integer { \$self = 9; let \$v = runtime_boolean; return \$v }", "quiet", ""], ["\$n.bad", "error", ""], ["echo \$n", "output", "9"]],
     "exit": 0]

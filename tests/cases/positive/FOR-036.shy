@@ -1,7 +1,7 @@
 # FOR-036: return from loop
 check ["id": "FOR-036",
     "name": "return from loop",
-    "source": "fn f() { for \$i in 1..4 { if \$i == 2 { return \$i } }; 9 }; echo (f)",
+    "source": "fn f(): any { for \$i in 1..4 { if \$i == 2 { return \$i } }; 9 }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "2\n",

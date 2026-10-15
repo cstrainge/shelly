@@ -1,7 +1,7 @@
 # STRUCT-039: field call arguments
 check ["id": "STRUCT-039",
     "name": "field call arguments",
-    "source": "struct S { pub call }; fn f(\$n) { \$n + 1 }; let \$s = S(call: `f); echo (\$s.call 2)",
+    "source": "struct S { pub call }; fn f(\$n): any { \$n + 1 }; let \$s = S(call: `f); echo (\$s.call 2)",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

@@ -1,7 +1,7 @@
 # ANNOTATION-101: dynamic bad parameter None
 check ["id": "ANNOTATION-101",
     "name": "dynamic bad parameter None",
-    "source": "fn f(\$x: None) { echo \"body ran\" }; let \$x = \"bad\"; f \$x",
+    "source": "fn f(\$x: None): any { echo \"body ran\" }; let \$x = \"bad\"; f \$x",
     "mode": "code",
     "args": [],
     "stdout": "",

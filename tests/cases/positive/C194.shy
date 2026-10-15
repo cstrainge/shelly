@@ -1,7 +1,7 @@
 # C194: Grouped backtick variable invokes once
 check ["id": "C194",
     "name": "Grouped backtick variable invokes once",
-    "source": "fn f() { 7 }\nlet \$name = \"f\" ; echo (`\$name)",
+    "source": "fn f(): any { 7 }\nlet \$name = \"f\" ; echo (`\$name)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

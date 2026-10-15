@@ -1,7 +1,7 @@
 # ARRAY-021: explicit return array
 check ["id": "ARRAY-021",
     "name": "explicit return array",
-    "source": "fn f() { return [3,4]; 9 }; echo (f)[0]",
+    "source": "fn f(): any { return [3,4]; 9 }; echo (f)[0]",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

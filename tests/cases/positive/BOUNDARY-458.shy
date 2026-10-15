@@ -1,7 +1,7 @@
 # BOUNDARY-458: value pair / `word and true
 check ["id": "BOUNDARY-458",
     "name": "value pair / `word and true",
-    "source": "fn word() { exit 91 }; echo (`word == true) (`word != true) (`word && true) (`word || true)",
+    "source": "fn word(): any { exit 91 }; echo (`word == true) (`word != true) (`word && true) (`word || true)",
     "mode": "code",
     "args": [],
     "stdout": "false true true true\n",

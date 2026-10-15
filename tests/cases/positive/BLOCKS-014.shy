@@ -1,7 +1,7 @@
 # BLOCKS-014: block before tail
 check ["id": "BLOCKS-014",
     "name": "block before tail",
-    "source": "fn f() { { 7 }; 8 }; echo (f)",
+    "source": "fn f(): any { { 7 }; 8 }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "8\n",

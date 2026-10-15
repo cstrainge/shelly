@@ -1,7 +1,7 @@
 # ENUM-023: repeated function declaration
 check ["id": "ENUM-023",
     "name": "repeated function declaration",
-    "source": "fn f() { enum Local { A }; Local::A }; echo ((f) == (f))",
+    "source": "fn f(): any { enum Local { A }; Local::A }; echo ((f) == (f))",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

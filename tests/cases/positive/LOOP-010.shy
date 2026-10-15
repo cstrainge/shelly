@@ -1,7 +1,7 @@
 # LOOP-010: bare return inside loop
 check ["id": "LOOP-010",
     "name": "bare return inside loop",
-    "source": "fn f() { loop { return } }; echo (f)",
+    "source": "fn f(): any { loop { return } }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

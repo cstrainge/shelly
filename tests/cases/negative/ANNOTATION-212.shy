@@ -1,7 +1,7 @@
 # ANNOTATION-212: variadic wrong element type
 check ["id": "ANNOTATION-212",
     "name": "variadic wrong element type",
-    "source": "fn f(\$xs: Number...) { echo \"body\" }; f 1 \"bad\"",
+    "source": "fn f(\$xs: Number...): any { echo \"body\" }; f 1 \"bad\"",
     "mode": "code",
     "args": [],
     "stdout": "",

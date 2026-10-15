@@ -2,7 +2,7 @@
 check [
     "id": "EXCLUSION-028",
     "name": "line breaks and comments",
-    "source": "[when true] # declaration\n# another comment\nfn gadget() { 3 }; echo (gadget)",
+    "source": "[when true] # declaration\n# another comment\nfn gadget(): any { 3 }; echo (gadget)",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

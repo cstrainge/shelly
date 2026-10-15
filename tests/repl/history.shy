@@ -13,7 +13,7 @@ fn history_commands($path: String): Array
     $commands
 }
 
-fn close_history_session($terminal: Terminal)
+fn close_history_session($terminal: Terminal): any
 {
     terminal_write $terminal "\x04"
     require ((drain $terminal)["eof"]) "history session did not close"

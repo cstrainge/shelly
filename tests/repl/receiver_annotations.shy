@@ -1,5 +1,5 @@
 check_repl ["id": "RECEIVER-ANNOTATIONS", "name": "Receiver-dependent method signatures", "steps": [
-    ["fn Array::push(\$v: \$self.value_type) { \$self = [\$v,\$self...] }; fn Array::push_many(\$v: \$self.value_type...) { \$self = [\$v.reverse...,\$self...] }; fn Array::pop(): \$self.value_type | () { if \$self.count == 0 { return () }; let \$v = \$self[0]; \$self = \$self[1..]; \$v }", "quiet", ""],
+    ["fn Array::push(\$v: \$self.value_type): any { \$self = [\$v,\$self...] }; fn Array::push_many(\$v: \$self.value_type...): any { \$self = [\$v.reverse...,\$self...] }; fn Array::pop(): \$self.value_type | () { if \$self.count == 0 { return () }; let \$v = \$self[0]; \$self = \$self[1..]; \$v }", "quiet", ""],
     ["let \$a: [Float] = []; \$a.push 1; \$a.push_many 2 3; echo \$a...", "output", "3.0 2.0 1.0"],
     ["\$a.push \"wrong\"", "error", "Expected Float, got String"],
     ["\$a.push_many 4 \"wrong\"", "error", "Expected Float, got String"],
@@ -7,7 +7,7 @@ check_repl ["id": "RECEIVER-ANNOTATIONS", "name": "Receiver-dependent method sig
     ["let \$bad: String = \$a.pop", "error", "Expected String"],
     ["echo \$a.pop \$a...", "output", "3.0 2.0 1.0"],
     ["echo \$a.pop \$a.pop \$a.pop", "output", "2.0 1.0 ()"],
-    ["fn HashMap::put(\$k: \$self.key_type, \$v: \$self.value_type) { \$self[\$k] = \$v }; fn HashMap::get(\$k: \$self.key_type): \$self.value_type | () { \$self[\$k] }", "quiet", ""],
+    ["fn HashMap::put(\$k: \$self.key_type, \$v: \$self.value_type): any { \$self[\$k] = \$v }; fn HashMap::get(\$k: \$self.key_type): \$self.value_type | () { \$self[\$k] }", "quiet", ""],
     ["let \$h: [String: Integer] = [:]; \$h.put \"x\" 1; echo (\$h.get \"x\") (\$h.get \"absent\")", "output", "1 ()"],
     ["\$h.put 2 3", "error", "Expected String, got Integer"],
     ["\$h.put \"x\" \"wrong\"", "error", "Expected Integer, got String"],

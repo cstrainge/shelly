@@ -1,7 +1,7 @@
 # STDLIB-005: standard callable reference
 let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
-printf "%s" ("pub let \$value = 7; pub struct Packet { pub code: Integer }; pub enum State { Ready }; pub fn ping(\$x) { echo \$x \$value }; pub fn read() { \$value }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/net.shy"
+printf "%s" ("pub let \$value = 7; pub struct Packet { pub code: Integer }; pub enum State { Ready }; pub fn ping(\$x): any { echo \$x \$value }; pub fn read(): any { \$value }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/net.shy"
 printf "%s" ("import std::net; let \$f = `std::net::read; echo (\$f)".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-005",

@@ -1,7 +1,7 @@
 # C095: Caller function lookup restored
 check ["id": "C095",
     "name": "Caller function lookup restored",
-    "source": "fn helper() { 1 }\nfn f() { fn local() { 7 }\nhelper ; local }\necho (f)",
+    "source": "fn helper(): any { 1 }\nfn f(): any { fn local(): any { 7 }\nhelper ; local }\necho (f)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

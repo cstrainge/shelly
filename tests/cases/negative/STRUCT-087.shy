@@ -1,7 +1,7 @@
 # STRUCT-087: unused function checked
 check ["id": "STRUCT-087",
     "name": "unused function checked",
-    "source": "struct S { pub n: Number }; fn unused() { S(n: \"x\") }",
+    "source": "struct S { pub n: Number }; fn unused(): any { S(n: \"x\") }",
     "mode": "code",
     "args": [],
     "stdout": "",

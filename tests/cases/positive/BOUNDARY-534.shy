@@ -1,7 +1,7 @@
 # BOUNDARY-534: unary conversion / `word
 check ["id": "BOUNDARY-534",
     "name": "unary conversion / `word",
-    "source": "fn word() { exit 91 }; echo !`word",
+    "source": "fn word(): any { exit 91 }; echo !`word",
     "mode": "code",
     "args": [],
     "stdout": "false\n",

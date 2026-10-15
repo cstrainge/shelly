@@ -1,7 +1,7 @@
 # EXTENSION-056: short circuit
 check ["id": "EXTENSION-056",
     "name": "short circuit",
-    "source": "fn Integer::fail() { 1 / 0 }; let \$n = 1; echo (false && \$n.fail) (true || \$n.fail)",
+    "source": "fn Integer::fail(): any { 1 / 0 }; let \$n = 1; echo (false && \$n.fail) (true || \$n.fail)",
     "mode": "code",
     "args": [],
     "stdout": "false true\n",

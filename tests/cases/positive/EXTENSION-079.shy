@@ -1,7 +1,7 @@
 # EXTENSION-079: method callback implicit return
 check ["id": "EXTENSION-079",
     "name": "method callback implicit return",
-    "source": "fn target() { echo \"bad\" }; fn Integer::callback() { return `target }; fn f(\$n) { \$n.callback }; echo (f 1)",
+    "source": "fn target(): any { echo \"bad\" }; fn Integer::callback(): any { return `target }; fn f(\$n): any { \$n.callback }; echo (f 1)",
     "mode": "code",
     "args": [],
     "stdout": "target\n",

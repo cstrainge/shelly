@@ -1,7 +1,7 @@
-# CONDITIONALS-032: if false { fn f() { 7 } }; echo (f)
+# CONDITIONALS-032: if false { fn f(): any { 7 } }; echo (f)
 check ["id": "CONDITIONALS-032",
-    "name": "if false { fn f() { 7 } }; echo (f)",
-    "source": "if false { fn f() { 7 } }; echo (f)",
+    "name": "if false { fn f(): any { 7 } }; echo (f)",
+    "source": "if false { fn f(): any { 7 } }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

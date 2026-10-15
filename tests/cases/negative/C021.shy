@@ -1,7 +1,7 @@
 # C021: Return with two values
 check ["id": "C021",
     "name": "Return with two values",
-    "source": "fn f() { return 1 2 }\necho (f)",
+    "source": "fn f(): any { return 1 2 }\necho (f)",
     "mode": "code",
     "args": [],
     "stdout": "",

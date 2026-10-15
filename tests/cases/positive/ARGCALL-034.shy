@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-034",
     "name": "alias call receives literal argument",
-    "source": "fn diff() { echo \"BAD\"; 7 }; alias show = /usr/bin/printf \"%s\\n\"; show diff",
+    "source": "fn diff(): any { echo \"BAD\"; 7 }; alias show = /usr/bin/printf \"%s\\n\"; show diff",
     "mode": "code",
     "args": [],
     "stdout": "diff\n",

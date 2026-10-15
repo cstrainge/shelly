@@ -1,7 +1,7 @@
 # ENUM-036: typed numeric comparison
 check ["id": "ENUM-036",
     "name": "typed numeric comparison",
-    "source": "fn f(\$x) { \$x == 3 }; echo (f 3) (f \"3\")",
+    "source": "fn f(\$x): any { \$x == 3 }; echo (f 3) (f \"3\")",
     "mode": "code",
     "args": [],
     "stdout": "true false\n",

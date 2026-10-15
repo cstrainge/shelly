@@ -1,7 +1,7 @@
 # MAP-254: key equality / "1" / `ref
 check ["id": "MAP-254",
     "name": "key equality / \"1\" / `ref",
-    "source": "fn ref() { exit 91 }; let \$m = [\"1\":7]; echo \$m[`ref]",
+    "source": "fn ref(): any { exit 91 }; let \$m = [\"1\":7]; echo \$m[`ref]",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

@@ -1,7 +1,7 @@
 # EXTENSION-084: bound return escape
 check ["id": "EXTENSION-084",
     "name": "bound return escape",
-    "source": "fn Integer::f() { \$self }; fn make() { let \$n = 7; return `\$n.f }; let \$r = make; echo (\$r)",
+    "source": "fn Integer::f(): any { \$self }; fn make(): any { let \$n = 7; return `\$n.f }; let \$r = make; echo (\$r)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

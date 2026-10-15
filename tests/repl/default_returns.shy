@@ -1,0 +1,16 @@
+check_repl ["id": "DEFAULT-RETURNS", "name": "Default unit returns and recovery", "steps": [
+    ['fn answer(): Integer { 7 }', "quiet", ""],
+    ['fn answer() { 42 }', "error", "Expected None, got Integer"],
+    ['echo (answer)', "output", "7"],
+    ['fn action() {}; let $action: fn() = `action; echo ($action)', "output", "()"],
+    ['fn action() { return 1 }', "error", "Expected None, got Integer"],
+    ['echo ($action)', "output", "()"],
+    ['let $bad = fn () { "wrong" }', "error", "Expected None, got String"],
+    ['let $value = fn ($x): any { $x }; echo ($value "valid")', "output", "valid"],
+    ['fn dynamic($x) { $x }; dynamic "wrong"', "error", "return value"],
+    ['echo (answer)', "output", "7"],
+    ['fn Integer::bump() { $self = $self + 1 }; let $n = 2', "quiet", ""],
+    ['let $bound: fn() = `$n.bump; echo ($bound) $n', "output", "() 3"],
+    ['fn Integer::bump() { $self }; echo $n.bump', "error", "Expected None, got Integer"],
+    ['echo ($bound) $n', "output", "() 4"],
+], "exit": 0]

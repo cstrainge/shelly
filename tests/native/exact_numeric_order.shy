@@ -1,0 +1,45 @@
+# Equality, relational operators and sorting must share an exact mixed-number relation.
+fn verify($integer: Integer, $float: Float, $relation: Integer)
+{
+    require (($integer == $float) == ($relation == 0)) "mixed equality differs from ordering"
+    require (($float == $integer) == ($relation == 0)) "reverse mixed equality differs"
+    require (($integer < $float) == ($relation < 0)) "mixed less-than rounded an Integer"
+    require (($integer <= $float) == ($relation <= 0)) "mixed less-equal rounded an Integer"
+    require (($integer > $float) == ($relation > 0)) "mixed greater-than rounded an Integer"
+    require (($integer >= $float) == ($relation >= 0)) "mixed greater-equal rounded an Integer"
+    require (($float < $integer) == ($relation > 0)) "reverse less-than differs"
+    require (($float <= $integer) == ($relation >= 0)) "reverse less-equal differs"
+    require (($float > $integer) == ($relation < 0)) "reverse greater-than differs"
+    require (($float >= $integer) == ($relation <= 0)) "reverse greater-equal differs"
+    let $sorted = [$integer, $float].sort
+    let $reverse = [$float, $integer].sort
+    require ($sorted[0] <= $sorted[1]) "sort disagrees with numeric ordering"
+    require ($reverse[0] <= $reverse[1]) "reverse sort disagrees with numeric ordering"
+}
+
+for ($integer, $float, $relation) in [
+    [9007199254740993, 9007199254740992.0, 1],
+    [-9007199254740993, -9007199254740992.0, -1],
+    [9007199254740992, 9007199254740992.0, 0],
+    [9223372036854775807, 9223372036854775808.0, -1],
+    [-9223372036854775808, -9223372036854775808.0, 0],
+    [-9223372036854775807, -9223372036854775808.0, 1],
+    [-9223372036854775808, -9223372036854777856.0, 1],
+    [9223372036854775807, 9223372036854774784.0, 1],
+    [0, 0.0, 0], [0, -0.0, 0], [0, 0.5, -1], [0, -0.5, 1],
+    [1, 1.5, -1], [-1, -1.5, 1], [2, 1.5, 1], [-2, -1.5, -1],
+    [0, 0.0000000000000000000001, -1], [0, -0.0000000000000000000001, 1],
+]
+{ verify $integer $float $relation }
+
+type Count = Number
+let $large: Count = 9007199254740993
+let $near: Count = 9007199254740992.0
+require (($large > $near) && ($large != $near)) "named numbers lost exact comparison"
+let $matched = match 9007199254740993
+{
+    9007199254740992..9007199254740993 => { "wrong" },
+    9007199254740993..=9007199254740993 => { "exact" },
+    _ => { "missing" },
+}
+require ($matched == "exact") "integer range containment rounded its subject"

@@ -1,7 +1,7 @@
 # EXTENSION-080: stored callable data field
 check ["id": "EXTENSION-080",
     "name": "stored callable data field",
-    "source": "fn target() { 8 }; struct S { pub call: String }; let \$s = S(call: `target); echo \$s.call (\$s.call)",
+    "source": "fn target(): any { 8 }; struct S { pub call: String }; let \$s = S(call: `target); echo \$s.call (\$s.call)",
     "mode": "code",
     "args": [],
     "stdout": "target 8\n",

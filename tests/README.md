@@ -375,3 +375,13 @@ streaming-buffer parity, editor diagnostics, and nested pipeline inputs.
 Ctrl+C recovery, foreground terminal input, and EOF restoration.
 `native/hash_iteration_types.shy` checks declared hash key types
 in native cursors, direct `next_item`, and split pipelines.
+
+`native/exact_numeric_order.shy` checks mixed Integer/Float equality and ordering
+in both directions around precision boundaries, i64 limits, fractions, and zero,
+including sorting, named numbers, and exact Integer range matching.
+`native/default_returns.shy` and `repl/default_returns.shy` check omitted return
+annotations as `()`, explicit `any` and concrete results, closures, methods,
+callable prototypes, live mutation, and recovery after rejected definitions.
+Existing data-returning fixtures use explicit annotations to retain their intended
+contracts; output-only functions finish with `()` when their last command returns status.
+The language-intelligence checks also verify the matching editor signatures.

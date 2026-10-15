@@ -1,7 +1,7 @@
 # Native and scripted exports use the same import and reference paths.
 let $fixture = $args[0]
 mkdir -p "${fixture}/std"
-printf "%s" "visible \"Terminal\"; visible `cd; pub fn move(\$path: String) { cd \$path; echo moved }; pub fn terminal_identity(\$value: Terminal): Terminal { \$value }" -> "${fixture}/std/private.shy"
+printf "%s" "visible \"Terminal\"; visible `cd; pub fn move(\$path: String): any { cd \$path; echo moved }; pub fn terminal_identity(\$value: Terminal): Terminal { \$value }" -> "${fixture}/std/private.shy"
 printf "%s" "pub visible \"Terminal\"; pub visible `run_process; pub visible `cd; pub fn marker(): String { \"public\" }" -> "${fixture}/std/public.shy"
 printf "%s" "pub import std::public; pub visible `std::public::run_process; pub visible \"std::public::Terminal\"; pub visible `std::public::marker" -> "${fixture}/std/bridge.shy"
 printf "%s" "pub import std::public; visible `std::public::run_process; visible \"std::public::Terminal\"; pub fn marker(): String { std::public::marker }" -> "${fixture}/std/private_bridge.shy"
@@ -11,7 +11,7 @@ printf "%s" "[when false] { pub visible \"UnknownNativeType\" }; pub fn marker()
 printf "%s" "pub let \$state = \"script\"; pub fn value(): String { \$state }" -> "${fixture}/std/script.shy"
 printf "%s" "pub import std::script; pub visible `std::script::value" -> "${fixture}/std/script_bridge.shy"
 
-fn visibility_case($source: String, $expected: String, $diagnostic: String)
+fn visibility_case($source: String, $expected: String, $diagnostic: String): any
 {
     let $fixture = $args[0]
     let $reply = run_process [`$shelly, "-m", "-c", $source] [
@@ -62,4 +62,4 @@ visibility_case "import std::missing" "" "not registered"
 visibility_case "struct Local {}; pub visible \"Local\"; echo Local()" "Local()\n" ""
 visibility_case "fn local(): String { \"local\" }; pub visible `local; echo (local)" "local\n" ""
 visibility_case "import std::script; fn value(): String { \"collision\" }; pub visible `std::script::value" "" "already bound"
-visibility_case "import std::public; fn cd() {}; pub visible `std::public::cd" "" "already bound"
+visibility_case "import std::public; fn cd(): any {}; pub visible `std::public::cd" "" "already bound"

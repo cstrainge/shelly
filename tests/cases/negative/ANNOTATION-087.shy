@@ -1,7 +1,7 @@
 # ANNOTATION-087: dynamic bad parameter Float
 check ["id": "ANNOTATION-087",
     "name": "dynamic bad parameter Float",
-    "source": "fn f(\$x: Float) { echo \"body ran\" }; let \$x = \"bad\"; f \$x",
+    "source": "fn f(\$x: Float): any { echo \"body ran\" }; let \$x = \"bad\"; f \$x",
     "mode": "code",
     "args": [],
     "stdout": "",

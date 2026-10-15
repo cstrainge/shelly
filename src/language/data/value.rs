@@ -342,9 +342,7 @@ impl Value
             (Value::Integer(integer), Value::Float(float, _))
             | (Value::Float(float, _), Value::Integer(integer)) =>
                 {
-                    // Avoid rounding large integers through f64, or saturating its cast.
-                    float.fract() == 0.0 && *float >= i64::MIN as f64
-                        && *float < -(i64::MIN as f64) && *float as i64 == *integer
+                    Self::integer_float_order(*integer, *float) == Ok(Ordering::Equal)
                 },
             (Value::Boolean(left), Value::Boolean(right)) => left == right,
             (Value::String(left, _), Value::String(right, _)) => left == right,
@@ -393,15 +391,39 @@ impl Value
             { return Err("Named comparisons require matching types; convert explicitly"); }
             return left.value.numeric_order(&right.value);
         }
-        if let (Value::Integer(left), Value::Integer(right)) = (self, other)
-        { return Ok(left.cmp(right)); }
-        if    !matches!(self, Value::Integer(_) | Value::Float(_, _))
-           || !matches!(other, Value::Integer(_) | Value::Float(_, _))
-        { return Err("Ordering comparisons require numbers"); }
-        let left = self.arithmetic_float().ok_or("Non-finite floating-point operand")?;
-        let right = other.arithmetic_float().ok_or("Non-finite floating-point operand")?;
-        Ok(left.partial_cmp(&right).unwrap())
+        match (self, other)
+        {
+            (Value::Integer(left), Value::Integer(right)) => Ok(left.cmp(right)),
+            (Value::Integer(left), Value::Float(right, _)) =>
+                Self::integer_float_order(*left, *right),
+            (Value::Float(left, _), Value::Integer(right)) =>
+                Self::integer_float_order(*right, *left).map(Ordering::reverse),
+            (Value::Float(left, _), Value::Float(right, _)) =>
+                {
+                    if !left.is_finite() || !right.is_finite()
+                    { return Err("Non-finite floating-point operand"); }
+                    Ok(left.partial_cmp(right).unwrap())
+                },
+            _ => Err("Ordering comparisons require numbers"),
+        }
     }
+
+
+    // Compare against the Float's integer part without rounding the Integer to
+    // f64. Check the exact i64 bounds before casting, then resolve fractions.
+    fn integer_float_order(integer: i64, float: f64) -> Result<Ordering, &'static str>
+    {
+        if !float.is_finite() { return Err("Non-finite floating-point operand"); }
+        if float >= -(i64::MIN as f64) { return Ok(Ordering::Less); }
+        if float < i64::MIN as f64 { return Ok(Ordering::Greater); }
+        Ok(integer.cmp(&(float as i64)).then_with(||
+            {
+                if float.fract() > 0.0 { Ordering::Less }
+                else if float.fract() < 0.0 { Ordering::Greater }
+                else { Ordering::Equal }
+            }))
+    }
+
 
     pub fn arithmetic_float(&self) -> Option<f64>
     {

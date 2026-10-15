@@ -1,7 +1,7 @@
 # BLOCKS-010: nested tail block
 check ["id": "BLOCKS-010",
     "name": "nested tail block",
-    "source": "fn f() { 9; { { 7 } } }; echo (f)",
+    "source": "fn f(): any { 9; { { 7 } } }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

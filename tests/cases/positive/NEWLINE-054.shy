@@ -1,7 +1,7 @@
 # NEWLINE-054: nested function none argument
 check ["id": "NEWLINE-054",
     "name": "nested function none argument",
-    "source": "fn f(\$x) { return \$x }; echo (f ())",
+    "source": "fn f(\$x): any { return \$x }; echo (f ())",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

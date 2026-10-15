@@ -1,7 +1,7 @@
 # ENUM-011: typed implicit return
 check ["id": "ENUM-011",
     "name": "typed implicit return",
-    "source": "enum Color { Red, Green, Blue }; fn f(\$c) { \$c }; let \$x = f Color::Red; echo (\$x == Color::Red)",
+    "source": "enum Color { Red, Green, Blue }; fn f(\$c): any { \$c }; let \$x = f Color::Red; echo (\$x == Color::Red)",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

@@ -1,7 +1,7 @@
 # MULTILINE-078: function return / != / ' # lhs\n\n # gap\n' ' # rhs\n'
 check ["id": "MULTILINE-078",
     "name": "function return / != / ' # lhs\\n\\n # gap\\n' ' # rhs\\n'",
-    "source": "fn f() { return 2 # lhs\n\n # gap\n!= # rhs\n2 }; echo (f)",
+    "source": "fn f(): any { return 2 # lhs\n\n # gap\n!= # rhs\n2 }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "false\n",

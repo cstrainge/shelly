@@ -1,7 +1,7 @@
 # ANNOTATION-208: typed variadic reassignment
 check ["id": "ANNOTATION-208",
     "name": "typed variadic reassignment",
-    "source": "fn f(\$xs: Number...) { \$xs = 1 }",
+    "source": "fn f(\$xs: Number...): any { \$xs = 1 }",
     "mode": "code",
     "args": [],
     "stdout": "",

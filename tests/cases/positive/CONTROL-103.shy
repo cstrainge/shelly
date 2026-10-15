@@ -1,7 +1,7 @@
 # CONTROL-103: return discards all frames
 check ["id": "CONTROL-103",
     "name": "return discards all frames",
-    "source": "fn f() { for \$i in [1,2] { for \$j in [3,4] { return \$j } } }; for \$i in [1,2] { echo (f); continue }",
+    "source": "fn f(): any { for \$i in [1,2] { for \$j in [3,4] { return \$j } } }; for \$i in [1,2] { echo (f); continue }",
     "mode": "code",
     "args": [],
     "stdout": "3\n3\n",

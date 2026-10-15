@@ -1,7 +1,7 @@
 # C100: Adjacent brace after return expression
 check ["id": "C100",
     "name": "Adjacent brace after return expression",
-    "source": "fn f() { return 7}\necho (f)",
+    "source": "fn f(): any { return 7}\necho (f)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

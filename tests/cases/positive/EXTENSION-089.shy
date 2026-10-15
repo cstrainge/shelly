@@ -1,7 +1,7 @@
 # EXTENSION-089: backtick argument suppresses execution
 check ["id": "EXTENSION-089",
     "name": "backtick argument suppresses execution",
-    "source": "fn value() { 3 }; fn Integer::call(\$f: String) { \$f }; let \$n = 2; echo (\$n.call `value)",
+    "source": "fn value(): any { 3 }; fn Integer::call(\$f: String): any { \$f }; let \$n = 2; echo (\$n.call `value)",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

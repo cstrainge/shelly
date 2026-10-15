@@ -40,6 +40,7 @@ fn help()
         Prefix text with // to send a literal leading slash.
         Ctrl+C discards an input draft. Ctrl+Enter or pasted newlines create multiline input.
         *"
+    ()
 }
 
 struct Options
@@ -298,6 +299,7 @@ fn Chat::configure_system($argument: String)
         $self.reset
         echo "Instructions updated. Conversation cleared."
     }
+    ()
 }
 
 fn Chat::configure_stream($argument: String): () | CommandError
@@ -344,6 +346,7 @@ fn Chat::show_status()
     {
         echo "A failed prompt is available with /retry."
     }
+    ()
 }
 
 fn Chat::retry(): () | ErrorValue

@@ -1,7 +1,7 @@
 # ENUM-051: unused function
 check ["id": "ENUM-051",
     "name": "unused function",
-    "source": "fn f() { Missing::A }",
+    "source": "fn f(): any { Missing::A }",
     "mode": "code",
     "args": [],
     "stdout": "",

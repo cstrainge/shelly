@@ -16,6 +16,7 @@ fn help()
         name NEW_NAME  Change the name in the prompt
         quit           Exit (or press Ctrl+D)
         *"
+    ()
 }
 
 fn main(): () | ErrorValue

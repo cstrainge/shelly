@@ -1,7 +1,7 @@
 # ANNOTATION-083: dynamic bad parameter Integer
 check ["id": "ANNOTATION-083",
     "name": "dynamic bad parameter Integer",
-    "source": "fn f(\$x: Integer) { echo \"body ran\" }; let \$x = \"bad\"; f \$x",
+    "source": "fn f(\$x: Integer): any { echo \"body ran\" }; let \$x = \"bad\"; f \$x",
     "mode": "code",
     "args": [],
     "stdout": "",

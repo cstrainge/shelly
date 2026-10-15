@@ -1,7 +1,7 @@
-# CONDITIONALS-013: fn choose() { if false { 8 } }; echo (choose)
+# CONDITIONALS-013: fn choose(): any { if false { 8 } }; echo (choose)
 check ["id": "CONDITIONALS-013",
-    "name": "fn choose() { if false { 8 } }; echo (choose)",
-    "source": "fn choose() { if false { 8 } }; echo (choose)",
+    "name": "fn choose(): any { if false { 8 } }; echo (choose)",
+    "source": "fn choose(): any { if false { 8 } }; echo (choose)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

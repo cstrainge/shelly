@@ -13,7 +13,7 @@ check_repl ["id": "NAMED_TYPES", "name": "Named identity and failed writes", "st
     ["\$n[0] = true", "error", "Expected Integer"],
     ["echo \$n \$copy", "output", "1:2 1:2"],
     ["let \$next = `\$n.next_item; echo (\$next) \$n \$copy", "output", "1 2 1:2"],
-    ["type Int = Integer; fn Integer::increment() { \$self = \$self + 1 }; let \$i: Int = 3; let \$saved = `\$i.increment", "quiet", ""],
+    ["type Int = Integer; fn Integer::increment(): any { \$self = \$self + 1 }; let \$i: Int = 3; let \$saved = `\$i.increment", "quiet", ""],
     ["\$saved; echo \$i (\$i == Int(4))", "output", "4 true"],
     ["type Key = String; let \$map: [Key: Integer] = [\"x\": 1]", "quiet", ""],
     ["\$map[\"x\"] = 2", "error", "Map keys collide"],

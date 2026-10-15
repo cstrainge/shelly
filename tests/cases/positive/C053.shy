@@ -1,7 +1,7 @@
 # C053: Explicit return exits only current function
 check ["id": "C053",
     "name": "Explicit return exits only current function",
-    "source": "fn f() { return 7 ; echo \"bad\" }\nfn g() { let \$x = f ; return \$x + 1 }\necho (g)",
+    "source": "fn f(): any { return 7 ; echo \"bad\" }\nfn g(): any { let \$x = f ; return \$x + 1 }\necho (g)",
     "mode": "code",
     "args": [],
     "stdout": "8\n",

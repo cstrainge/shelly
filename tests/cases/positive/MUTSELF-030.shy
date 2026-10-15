@@ -1,7 +1,7 @@
 # MUTSELF-030: self calls another method
 check ["id": "MUTSELF-030",
     "name": "self calls another method",
-    "source": "fn Integer::inc() { \$self = \$self + 1 }; fn Integer::twice() { \$self.inc; \$self.inc }; let \$n = 1; \$n.twice; echo \$n",
+    "source": "fn Integer::inc(): any { \$self = \$self + 1 }; fn Integer::twice(): any { \$self.inc; \$self.inc }; let \$n = 1; \$n.twice; echo \$n",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

@@ -1,7 +1,7 @@
 # MULTILINE-028: function return / || / ' ' '\n'
 check ["id": "MULTILINE-028",
     "name": "function return / || / ' ' '\\n'",
-    "source": "fn f() { return false ||\ntrue }; echo (f)",
+    "source": "fn f(): any { return false ||\ntrue }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

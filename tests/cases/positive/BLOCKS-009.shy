@@ -1,7 +1,7 @@
 # BLOCKS-009: tail block
 check ["id": "BLOCKS-009",
     "name": "tail block",
-    "source": "fn f() { { let \$x = 4; \$x + 3 } }; echo (f)",
+    "source": "fn f(): any { { let \$x = 4; \$x + 3 } }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

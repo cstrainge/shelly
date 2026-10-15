@@ -1,7 +1,7 @@
 # MAP-038: early return in map value
 check ["id": "MAP-038",
     "name": "early return in map value",
-    "source": "fn f() { [\"a\":if true { return [\"x\":9] }] }; echo (f)[\"x\"]",
+    "source": "fn f(): any { [\"a\":if true { return [\"x\":9] }] }; echo (f)[\"x\"]",
     "mode": "code",
     "args": [],
     "stdout": "9\n",

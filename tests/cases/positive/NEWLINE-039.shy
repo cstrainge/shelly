@@ -1,7 +1,7 @@
 # NEWLINE-039: spaced empty explicit return
 check ["id": "NEWLINE-039",
     "name": "spaced empty explicit return",
-    "source": "struct E {}; fn f() { return E () }; echo (f)",
+    "source": "struct E {}; fn f(): any { return E () }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "E()\n",

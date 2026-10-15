@@ -1,7 +1,7 @@
 # DISCARD-009: function tail yields none
 check ["id": "DISCARD-009",
     "name": "function tail yields none",
-    "source": "fn discard_tail() { let _ = 9 }; echo ((discard_tail) == ())",
+    "source": "fn discard_tail(): any { let _ = 9 }; echo ((discard_tail) == ())",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

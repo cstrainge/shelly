@@ -1,7 +1,7 @@
 # EXTENSION-052: direct call version
 check ["id": "EXTENSION-052",
     "name": "direct call version",
-    "source": "fn Integer::tag() { 1 }; let \$n = 2; echo \$n.tag; fn Integer::tag() { 3 }; echo \$n.tag",
+    "source": "fn Integer::tag(): any { 1 }; let \$n = 2; echo \$n.tag; fn Integer::tag(): any { 3 }; echo \$n.tag",
     "mode": "code",
     "args": [],
     "stdout": "1\n3\n",

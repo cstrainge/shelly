@@ -1,7 +1,7 @@
 # MUTSELF-067: readonly enum index
 check ["id": "MUTSELF-067",
     "name": "readonly enum index",
-    "source": "fn Integer::inc() { \$self = \$self + 1 }; enum E { A }; let \$e = E::A; \$e.index.inc",
+    "source": "fn Integer::inc(): any { \$self = \$self + 1 }; enum E { A }; let \$e = E::A; \$e.index.inc",
     "mode": "code",
     "args": [],
     "stdout": "",

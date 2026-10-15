@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-028",
     "name": "function parameter rejects literal without grouping",
-    "source": "fn answer() { 42 }; fn take(\$value: Integer) { echo \"BAD\" }; take answer",
+    "source": "fn answer(): any { 42 }; fn take(\$value: Integer): any { echo \"BAD\" }; take answer",
     "mode": "code",
     "args": [],
     "stdout": "",

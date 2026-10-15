@@ -1,7 +1,7 @@
 # MUTSELF-065: typed root constraint
 check ["id": "MUTSELF-065",
     "name": "typed root constraint",
-    "source": "fn Number::replace() { \$self = 1.5 }; let \$n: Integer = 1; \$n.replace",
+    "source": "fn Number::replace(): any { \$self = 1.5 }; let \$n: Integer = 1; \$n.replace",
     "mode": "code",
     "args": [],
     "stdout": "",

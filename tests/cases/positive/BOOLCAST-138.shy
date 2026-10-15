@@ -1,7 +1,7 @@
 # BOOLCAST-138: function parameter
 check ["id": "BOOLCAST-138",
     "name": "function parameter",
-    "source": "fn f(\$x: Boolean) { \$x }; echo (f Boolean(0))",
+    "source": "fn f(\$x: Boolean): any { \$x }; echo (f Boolean(0))",
     "mode": "code",
     "args": [],
     "stdout": "false\n",

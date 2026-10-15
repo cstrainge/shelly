@@ -1,7 +1,7 @@
 # BOUNDARY-090: return / if false {} else if true
 check ["id": "BOUNDARY-090",
     "name": "return / if false {} else if true",
-    "source": "echo \"PARSE_SENTINEL\"; fn f() { return if false {} else if true }",
+    "source": "echo \"PARSE_SENTINEL\"; fn f(): any { return if false {} else if true }",
     "mode": "code",
     "args": [],
     "stdout": "",

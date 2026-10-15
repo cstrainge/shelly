@@ -1,7 +1,7 @@
 # STRUCT-043: constructor evaluate source order
 check ["id": "STRUCT-043",
     "name": "constructor evaluate source order",
-    "source": "let \$order = 0; fn mark(\$n) { \$order = \$order * 10 + \$n; return \$n }; struct S { pub a: Number, pub b: Number }; let \$s = S(b: mark 2, a: mark 1); echo \$order \$s.a \$s.b",
+    "source": "let \$order = 0; fn mark(\$n): any { \$order = \$order * 10 + \$n; return \$n }; struct S { pub a: Number, pub b: Number }; let \$s = S(b: mark 2, a: mark 1); echo \$order \$s.a \$s.b",
     "mode": "code",
     "args": [],
     "stdout": "21 1 2\n",

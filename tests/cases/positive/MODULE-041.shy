@@ -5,7 +5,7 @@ printf "%s" ("import foo; foo::bar::ping".replace "<FIXTURE>" $args[0]) -> "${mo
 mkdir -p "${module_fixture}/lib"
 printf "%s" ("pub import bar".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/lib/foo.shy"
 mkdir -p "${module_fixture}/lib"
-printf "%s" ("pub fn ping() { echo \"nested\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/lib/bar.shy"
+printf "%s" ("pub fn ping(): any { echo \"nested\" }".replace "<FIXTURE>" $args[0]) -> "${module_fixture}/lib/bar.shy"
 check [
     "id": "MODULE-041",
     "name": "module imports relative to containing file",

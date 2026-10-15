@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-016",
     "name": "bound method reference stays value",
-    "source": "let \$items = [1, 2]; let \$call = `\$items.count; fn invoke(\$value) { (\$value) }; echo (invoke \$call)",
+    "source": "let \$items = [1, 2]; let \$call = `\$items.count; fn invoke(\$value): any { (\$value) }; echo (invoke \$call)",
     "mode": "code",
     "args": [],
     "stdout": "2\n",

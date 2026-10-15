@@ -1,7 +1,7 @@
 # CONVERT-282: unused body checked
 check ["id": "CONVERT-282",
     "name": "unused body checked",
-    "source": "fn f() { Integer(Missing::Value) }",
+    "source": "fn f(): any { Integer(Missing::Value) }",
     "mode": "code",
     "args": [],
     "stdout": "",

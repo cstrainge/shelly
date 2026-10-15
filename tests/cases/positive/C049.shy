@@ -1,7 +1,7 @@
 # C049: Grouped call
 check ["id": "C049",
     "name": "Grouped call",
-    "source": "fn foo(\$a)\n{\n 2048 * \$a\n}\necho (foo 3)",
+    "source": "fn foo(\$a): any\n{\n 2048 * \$a\n}\necho (foo 3)",
     "mode": "code",
     "args": [],
     "stdout": "6144\n",

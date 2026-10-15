@@ -1,7 +1,7 @@
 # ARRAY-036: executable element explicit parameters
 check ["id": "ARRAY-036",
     "name": "executable element explicit parameters",
-    "source": "fn f(\$n) { \$n * 2 }; let \$a = [`f]; echo (\$a[0] 3)",
+    "source": "fn f(\$n): any { \$n * 2 }; let \$a = [`f]; echo (\$a[0] 3)",
     "mode": "code",
     "args": [],
     "stdout": "6\n",

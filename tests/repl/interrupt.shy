@@ -3,7 +3,7 @@ let $fixture = $args[0]
 let $terminal = session $fixture
 require (!(drain $terminal)["eof"]) "shell exited during startup"
 
-fn interrupt($terminal: Terminal, $source: String)
+fn interrupt($terminal: Terminal, $source: String): any
 {
     terminal_write $terminal "\x1b[200~echo INTERRUPT-READY; ${source}\x1b[201~\r"
     let $output = ""

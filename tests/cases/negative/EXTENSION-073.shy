@@ -1,7 +1,7 @@
 # EXTENSION-073: bad variadic
 check ["id": "EXTENSION-073",
     "name": "bad variadic",
-    "source": "fn Integer::f(\$n: Integer...) { \$n }; let \$n = 1; \$n.f 2 \"bad\"",
+    "source": "fn Integer::f(\$n: Integer...): any { \$n }; let \$n = 1; \$n.f 2 \"bad\"",
     "mode": "code",
     "args": [],
     "stdout": "",

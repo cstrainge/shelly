@@ -1,7 +1,7 @@
 # C052: Last expression wins
 check ["id": "C052",
     "name": "Last expression wins",
-    "source": "fn f() { 1 + 1 ; 4 + 3 ; }\necho (f)",
+    "source": "fn f(): any { 1 + 1 ; 4 + 3 ; }\necho (f)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

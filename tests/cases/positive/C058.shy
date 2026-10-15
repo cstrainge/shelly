@@ -1,7 +1,7 @@
 # C058: Function ending in declaration returns None
 check ["id": "C058",
     "name": "Function ending in declaration returns None",
-    "source": "fn f() { let \$x = 7 }\necho (f)",
+    "source": "fn f(): any { let \$x = 7 }\necho (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

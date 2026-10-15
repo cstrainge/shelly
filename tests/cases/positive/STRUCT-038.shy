@@ -1,7 +1,7 @@
 # STRUCT-038: callable data field argument stays a reference
 check ["id": "STRUCT-038",
     "name": "callable data field argument stays a reference",
-    "source": "struct S { pub call }; fn answer() { 42 }; let \$s = S(call: `answer); echo \$s.call",
+    "source": "struct S { pub call }; fn answer(): any { 42 }; let \$s = S(call: `answer); echo \$s.call",
     "mode": "code",
     "args": [],
     "stdout": "answer\n",

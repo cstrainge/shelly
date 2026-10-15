@@ -1,7 +1,7 @@
-# BOOLEAN-011: fn probe() { echo "called"; 7 }; echo (false && (probe)) (true || (probe)) (true && (probe)) (f
+# BOOLEAN-011: fn probe(): any { echo "called"; 7 }; echo (false && (probe)) (true || (probe)) (true && (probe)) (f
 check ["id": "BOOLEAN-011",
-    "name": "fn probe() { echo \"called\"; 7 }; echo (false && (probe)) (true || (probe)) (true && (probe)) (f",
-    "source": "fn probe() { echo \"called\"; 7 }; echo (false && (probe)) (true || (probe)) (true && (probe)) (false || (probe))",
+    "name": "fn probe(): any { echo \"called\"; 7 }; echo (false && (probe)) (true || (probe)) (true && (probe)) (f",
+    "source": "fn probe(): any { echo \"called\"; 7 }; echo (false && (probe)) (true || (probe)) (true && (probe)) (false || (probe))",
     "mode": "code",
     "args": [],
     "stdout": "called\ncalled\nfalse true true true\n",

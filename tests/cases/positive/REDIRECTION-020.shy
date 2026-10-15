@@ -1,7 +1,7 @@
 # REDIRECTION-020: return cleanup
 check ["id": "REDIRECTION-020",
     "name": "return cleanup",
-    "source": "let \$out: String; fn f() { return (echo \"kept\" -> \$out) }; f; printf \"%s\" \$out; echo \"normal\"",
+    "source": "let \$out: String; fn f(): any { return (echo \"kept\" -> \$out) }; f; printf \"%s\" \$out; echo \"normal\"",
     "mode": "code",
     "args": [],
     "stdout": "kept\nnormal\n",

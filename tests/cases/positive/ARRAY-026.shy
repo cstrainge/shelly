@@ -1,7 +1,7 @@
 # ARRAY-026: RHS mutation preserved
 check ["id": "ARRAY-026",
     "name": "RHS mutation preserved",
-    "source": "let \$a = [1,2]; fn rhs() { \$a[1] = 8; 9 }; \$a[0] = rhs; echo (\$a == [9,8])",
+    "source": "let \$a = [1,2]; fn rhs(): any { \$a[1] = 8; 9 }; \$a[0] = rhs; echo (\$a == [9,8])",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

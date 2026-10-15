@@ -1,6 +1,6 @@
 let $fixture = $args[0]
 
-fn native_sized_case($reply: String, $size: String, $rows: Integer, $columns: Integer, $marker: String)
+fn native_sized_case($reply: String, $size: String, $rows: Integer, $columns: Integer, $marker: String): any
 {
     # No sixel attribute: the native path must still query cell dimensions.
     banner_case_graphics $fixture "\x1b[?62;1;2c" ["--norc"] true false true true $marker $reply $size $rows $columns ["TERM_PROGRAM": "iTerm.app"]

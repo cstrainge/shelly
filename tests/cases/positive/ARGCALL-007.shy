@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-007",
     "name": "grouped reference invokes",
-    "source": "fn answer() { 42 }; let \$call = `answer; echo (\$call)",
+    "source": "fn answer(): any { 42 }; let \$call = `answer; echo (\$call)",
     "mode": "code",
     "args": [],
     "stdout": "42\n",

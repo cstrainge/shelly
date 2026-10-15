@@ -1,7 +1,7 @@
 # MATCH-056: single subject evaluation
 check ["id": "MATCH-056",
     "name": "single subject evaluation",
-    "source": "let \$calls = 0; fn once() { \$calls = \$calls + 1; 2 }; echo (match (once) { 1 => { 1 } 2 => { 2 } _ => { 3 } }) \$calls",
+    "source": "let \$calls = 0; fn once(): any { \$calls = \$calls + 1; 2 }; echo (match (once) { 1 => { 1 } 2 => { 2 } _ => { 3 } }) \$calls",
     "mode": "code",
     "args": [],
     "stdout": "2 1\n",

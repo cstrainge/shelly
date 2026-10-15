@@ -1,7 +1,7 @@
 # CONDLOOP-103: until / function break result
 check ["id": "CONDLOOP-103",
     "name": "until / function break result",
-    "source": "fn f() { until false { break } }; echo (f)",
+    "source": "fn f(): any { until false { break } }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

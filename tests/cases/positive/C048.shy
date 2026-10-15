@@ -1,7 +1,7 @@
 # C048: Multiline function and result
 check ["id": "C048",
     "name": "Multiline function and result",
-    "source": "fn foo(\$a)\n{\n 2048 * \$a\n}\nlet \$x = foo 3 ; echo \$x",
+    "source": "fn foo(\$a): any\n{\n 2048 * \$a\n}\nlet \$x = foo 3 ; echo \$x",
     "mode": "code",
     "args": [],
     "stdout": "6144\n",

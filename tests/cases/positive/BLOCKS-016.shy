@@ -1,7 +1,7 @@
 # BLOCKS-016: calls see locals
 check ["id": "BLOCKS-016",
     "name": "calls see locals",
-    "source": "fn read() { \$x }; { let \$x = 8; echo (read) }",
+    "source": "fn read(): any { \$x }; { let \$x = 8; echo (read) }",
     "mode": "code",
     "args": [],
     "stdout": "8\n",

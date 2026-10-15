@@ -21,7 +21,7 @@ let $paste_start = "\x1b[200~"
 let $paste_end = "\x1b[201~"
 
 # Switching modes preserves the buffer without submitting or inserting a newline.
-let _ = edit_keys $terminal "${paste_start}fn multiline_value()${paste_end}"
+let _ = edit_keys $terminal "${paste_start}fn multiline_value(): Integer${paste_end}"
 let $output = edit_keys $terminal $ctrl_enter
 require (!($output.contains "[multiline]")) "mode toggle changed prompt alignment"
 require (!($output.contains "Interpreter error at ")) "toggle submitted incomplete text"

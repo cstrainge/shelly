@@ -1,7 +1,7 @@
 # EXTENSION-091: keyword method name
 check ["id": "EXTENSION-091",
     "name": "keyword method name",
-    "source": "fn Integer::if() { \$self }; let \$n = 3; echo \$n.if",
+    "source": "fn Integer::if(): any { \$self }; let \$n = 3; echo \$n.if",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

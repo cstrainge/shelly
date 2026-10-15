@@ -1,7 +1,7 @@
 # C168: Private declaration shadows exported variable
 check ["id": "C168",
     "name": "Private declaration shadows exported variable",
-    "source": "let export \$AUDIT_FLAG = \"old\" ; fn f() { let \$AUDIT_FLAG = \"private\" ; /usr/bin/printenv AUDIT_FLAG }\nlet \$x = f ; echo \$x",
+    "source": "let export \$AUDIT_FLAG = \"old\" ; fn f(): any { let \$AUDIT_FLAG = \"private\" ; /usr/bin/printenv AUDIT_FLAG }\nlet \$x = f ; echo \$x",
     "mode": "code",
     "args": [],
     "stdout": "ExecResult(1)\n",

@@ -1,7 +1,7 @@
 # EXTENSION-037: receiver once
 check ["id": "EXTENSION-037",
     "name": "receiver once",
-    "source": "let \$hits = 0; fn make() { \$hits = \$hits + 1; 2 }; fn Integer::twice(): Integer { \$self * 2 }; echo (make).twice \$hits",
+    "source": "let \$hits = 0; fn make(): any { \$hits = \$hits + 1; 2 }; fn Integer::twice(): Integer { \$self * 2 }; echo (make).twice \$hits",
     "mode": "code",
     "args": [],
     "stdout": "4 1\n",

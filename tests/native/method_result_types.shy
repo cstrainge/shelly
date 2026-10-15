@@ -2,7 +2,7 @@
 let $fixture = $args[0]
 printf "%s" "pub fn Array::probe(): Number | () { () }" -> "${fixture}/signatures.shy"
 printf "%s" "pub import signatures" -> "${fixture}/bridge.shy"
-fn signature_case($source: String, $stdout: String, $diagnostic: String)
+fn signature_case($source: String, $stdout: String, $diagnostic: String): any
 {
     let $reply = run_process [`$shelly, "-m", "-c", $source] [
         "cwd": $fixture, "env": ["PATH": "/usr/bin:/bin", "SHELLY_STD_PATH": ""],
@@ -50,7 +50,7 @@ signature_case "import signatures; fn wrap(\$a: Array): Number | () { \$a.probe 
 signature_case "import bridge; fn wrap(\$a: Array): Integer { \$a.probe }" "" "Expected Integer, got Number | ()"
 signature_case "fn Array::probe(): fn(): Integer { fn(): Integer { 7 } }; fn wrap(\$a: Array): fn(): Integer { \$a.probe }; let \$f = (wrap []); echo (\$f)" "7\n" ""
 signature_case "fn Array::probe(): fn(): Integer { fn(): Integer { 7 } }; fn wrap(\$a: Array): Integer { \$a.probe }" "" "Expected Integer, got fn(): Integer"
-signature_case "fn Array::count() { \"dynamic\" }; fn wrap(\$a: Array): String { \$a.count }; echo (wrap [])" "dynamic\n" ""
+signature_case "fn Array::count(): any { \"dynamic\" }; fn wrap(\$a: Array): String { \$a.count }; echo (wrap [])" "dynamic\n" ""
 signature_case "fn Number::probe(): Integer { 1 }; fn Float::probe(): String { \"float\" }; fn wrap(\$n: Number): Integer { \$n.probe }" "" "Expected Integer, got Integer | String"
 signature_case "fn Number::probe(): Integer { 1 }; fn Float::probe(): String { \"float\" }; fn wrap(\$n: Number): Integer | String { \$n.probe }; echo (wrap 1) (wrap 1.0)" "1 float\n" ""
 signature_case "fn Array::probe(): String { \"text\" }; let \$a: Array = []; let \$bad: Integer = \$a.probe" "" "Expected Integer, got String"

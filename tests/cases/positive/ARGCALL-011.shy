@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-011",
     "name": "grouped struct field invokes",
-    "source": "struct S { pub call }; fn answer() { 42 }; let \$s = S(call: `answer); echo (\$s.call)",
+    "source": "struct S { pub call }; fn answer(): any { 42 }; let \$s = S(call: `answer); echo (\$s.call)",
     "mode": "code",
     "args": [],
     "stdout": "42\n",

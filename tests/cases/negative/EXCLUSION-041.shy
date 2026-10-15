@@ -2,7 +2,7 @@
 check [
     "id": "EXCLUSION-041",
     "name": "function parameter unavailable at compilation",
-    "source": "fn gadget(\$enabled) { [when \$enabled] { 1 } }",
+    "source": "fn gadget(\$enabled): any { [when \$enabled] { 1 } }",
     "mode": "code",
     "args": [],
     "stdout": "",

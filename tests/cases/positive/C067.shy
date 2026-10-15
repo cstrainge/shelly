@@ -1,7 +1,7 @@
 # C067: Plain string variable is inert
 check ["id": "C067",
     "name": "Plain string variable is inert",
-    "source": "fn f() { echo \"bad\" }\nlet \$r = \"f\" ; \$r ; echo \"done\"",
+    "source": "fn f(): any { echo \"bad\" }\nlet \$r = \"f\" ; \$r ; echo \"done\"",
     "mode": "code",
     "args": [],
     "stdout": "done\n",

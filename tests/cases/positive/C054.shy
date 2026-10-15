@@ -1,7 +1,7 @@
 # C054: Bare return gives None
 check ["id": "C054",
     "name": "Bare return gives None",
-    "source": "fn f() { return ; echo \"bad\" }\necho (f)",
+    "source": "fn f(): any { return ; echo \"bad\" }\necho (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

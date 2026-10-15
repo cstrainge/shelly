@@ -1,7 +1,7 @@
 # STRUCT-048: declaration result
 check ["id": "STRUCT-048",
     "name": "declaration result",
-    "source": "fn f() { struct S {} }; echo (f)",
+    "source": "fn f(): any { struct S {} }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

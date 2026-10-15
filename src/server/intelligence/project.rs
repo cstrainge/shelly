@@ -89,9 +89,8 @@ impl Module
                 types: &mut BTreeMap<String, Type>)
     {
         if !enabled(function.condition.as_ref()) { return; }
-        let ty = function.return_annotation.as_ref().map(annotation).unwrap_or_else(||
-            if function.receiver.is_some() && function.name.starts_with("set_")
-            { "()".into() } else { "any".into() });
+        let ty = function.return_annotation.as_ref().map(annotation)
+            .unwrap_or_else(|| "()".into());
         let kind = if function.receiver.is_some() { Kind::Method } else { Kind::Function };
         let mut symbol = Symbol::new(&function.name, kind, &ty, home, function.public);
         symbol.parameters = function.parameters.iter().filter(|parameter|

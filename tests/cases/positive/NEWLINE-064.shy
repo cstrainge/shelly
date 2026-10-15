@@ -1,7 +1,7 @@
 # NEWLINE-064: escaped command preserves arguments
 check ["id": "NEWLINE-064",
     "name": "escaped command preserves arguments",
-    "source": "fn f() { 42 }; echo `f ()",
+    "source": "fn f(): any { 42 }; echo `f ()",
     "mode": "code",
     "args": [],
     "stdout": "f ()\n",

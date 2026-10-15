@@ -1,7 +1,7 @@
-# CONDITIONALS-025: fn positive($x) { !!$x }; if positive 0 {} else if positive 1 { echo "ok" }
+# CONDITIONALS-025: fn positive($x): any { !!$x }; if positive 0 {} else if positive 1 { echo "ok" }
 check ["id": "CONDITIONALS-025",
-    "name": "fn positive(\$x) { !!\$x }; if positive 0 {} else if positive 1 { echo \"ok\" }",
-    "source": "fn positive(\$x) { !!\$x }; if positive 0 {} else if positive 1 { echo \"ok\" }",
+    "name": "fn positive(\$x): any { !!\$x }; if positive 0 {} else if positive 1 { echo \"ok\" }",
+    "source": "fn positive(\$x): any { !!\$x }; if positive 0 {} else if positive 1 { echo \"ok\" }",
     "mode": "code",
     "args": [],
     "stdout": "ok\n",

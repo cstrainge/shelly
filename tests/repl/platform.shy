@@ -6,7 +6,7 @@ check_repl [
         ['let $saved_pid: Integer = $pid', "quiet", ""],
         ['echo ($saved_pid == $pid)', "output", "true"],
         ['echo ($os == $OS)', "output", "true"],
-        ['fn host_family() { if $os == "macos" { "bsd" } else { "unix" } }', "quiet", ""],
+        ['fn host_family(): any { if $os == "macos" { "bsd" } else { "unix" } }', "quiet", ""],
         ['echo (host_family)', "output", (if $os == "macos" { "bsd" } else { "unix" })],
     ],
 ]

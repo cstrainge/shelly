@@ -1,7 +1,7 @@
 # Prompt is a native named union of a String and a zero-argument String factory.
 check_repl ["id": "PROMPT-VARIABLE", "exit": 0, "steps": [
     ['echo ($prompt.type == Prompt)', "output", "true"],
-    ['fn prompt() { echo "legacy-must-not-run" }', "output", "<shelly> [~]"],
+    ['fn prompt(): any { echo "legacy-must-not-run" }', "output", "<shelly> [~]"],
     ['$prompt = \'static λ\\n\'', "output", "static λ"],
     ['echo ($prompt.type == Prompt)', "output", "true"],
     ['let $label = "before"; $prompt = \'label=${label} cwd=${pwd}\\n\'', "output", "label=before cwd=~"],

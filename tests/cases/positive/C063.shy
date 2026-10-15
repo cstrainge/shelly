@@ -1,7 +1,7 @@
 # C063: Executable variable with args as statement
 check ["id": "C063",
     "name": "Executable variable with args as statement",
-    "source": "fn foo(\$a)\n{\n 2048 * \$a\n}\nlet \$r = `foo ; \$r 3 ; echo \"done\"",
+    "source": "fn foo(\$a): any\n{\n 2048 * \$a\n}\nlet \$r = `foo ; \$r 3 ; echo \"done\"",
     "mode": "code",
     "args": [],
     "stdout": "done\n",

@@ -1,7 +1,7 @@
 # MUTSELF-054: any replace
 check ["id": "MUTSELF-054",
     "name": "any replace",
-    "source": "fn any::replace(\$v) { \$self = \$v }; let \$v = 1; \$v.replace \"new\"; echo \$v",
+    "source": "fn any::replace(\$v): any { \$self = \$v }; let \$v = 1; \$v.replace \"new\"; echo \$v",
     "mode": "code",
     "args": [],
     "stdout": "new\n",

@@ -1,7 +1,7 @@
 # MAP-048: executable map value
 check ["id": "MAP-048",
     "name": "executable map value",
-    "source": "fn f(\$n) { \$n * 2 }; let \$m = [\"f\":`f]; echo (\$m[\"f\"] 3)",
+    "source": "fn f(\$n): any { \$n * 2 }; let \$m = [\"f\":`f]; echo (\$m[\"f\"] 3)",
     "mode": "code",
     "args": [],
     "stdout": "6\n",

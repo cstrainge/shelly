@@ -1,7 +1,7 @@
-# BOUNDARY-196: runtime rejection / fn f($x) { $x }; f
+# BOUNDARY-196: runtime rejection / fn f($x): any { $x }; f
 check ["id": "BOUNDARY-196",
-    "name": "runtime rejection / fn f(\$x) { \$x }; f",
-    "source": "fn f(\$x) { \$x }; f; echo \"AFTER_ERROR\"",
+    "name": "runtime rejection / fn f(\$x): any { \$x }; f",
+    "source": "fn f(\$x): any { \$x }; f; echo \"AFTER_ERROR\"",
     "mode": "code",
     "args": [],
     "stdout": "",

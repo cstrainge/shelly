@@ -1,7 +1,7 @@
 # CONTROL-104: recursive frames
 check ["id": "CONTROL-104",
     "name": "recursive frames",
-    "source": "fn f(\$n) { if \$n == 0 { return 1 }; let \$sum = 0; for \$i in [1,2,3] { if \$i == 3 { break }; \$sum = \$sum + (f (\$n - 1)); continue }; \$sum }; echo (f 3)",
+    "source": "fn f(\$n): any { if \$n == 0 { return 1 }; let \$sum = 0; for \$i in [1,2,3] { if \$i == 3 { break }; \$sum = \$sum + (f (\$n - 1)); continue }; \$sum }; echo (f 3)",
     "mode": "code",
     "args": [],
     "stdout": "8\n",

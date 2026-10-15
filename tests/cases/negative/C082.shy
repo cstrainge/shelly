@@ -1,7 +1,7 @@
 # C082: Return outside function after a call
 check ["id": "C082",
     "name": "Return outside function after a call",
-    "source": "fn f() { 1 }\nf ; return 3",
+    "source": "fn f(): any { 1 }\nf ; return 3",
     "mode": "code",
     "args": [],
     "stdout": "",

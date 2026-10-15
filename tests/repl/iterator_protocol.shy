@@ -4,7 +4,7 @@ check_repl ["id": "ITERATOR", "name": "ITERATOR", "steps": [
     ["struct Counter { pub n: Integer }; let \$counter = Counter(n: 2)", "quiet", ""],
     ["fn Counter::next_item(): Integer | () { if \$self.n == 0 { return () }; \$self.n = \$self.n - 1; \$self.n }", "quiet", ""],
     ["for \$x in \$counter { echo \$x }; echo \$counter.n", "output", "1\n0\n2"],
-    ["fn consume(\$c: Counter) { for \$x in \$c { echo \$x } }", "quiet", ""],
+    ["fn consume(\$c: Counter): any { for \$x in \$c { echo \$x } }", "quiet", ""],
     ["fn Counter::next_item(): Integer | () { 1 / 0 }", "quiet", ""],
     ["for \$x in \$counter { echo wrong }", "error", "Arithmetic error"],
     ["echo \$counter.n", "output", "2"],

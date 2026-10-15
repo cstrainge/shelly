@@ -25,7 +25,7 @@ for $line in $groups.split "\n"
 }
 
 # Last-reference drop also stops and reaps a terminal child.
-fn abandoned_terminal($fixture: String)
+fn abandoned_terminal($fixture: String): any
 {
     let $identity = process_identity_source
     let $source = "${identity} echo \$audit_pid; loop {}"

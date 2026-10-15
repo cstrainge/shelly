@@ -1,6 +1,6 @@
 # Separate submissions preserve bindings, constraints and saved converter identities.
 let $fixture = $args[0]
-printf "%s" 'pub fn show() { echo $TYPED_ENV.value_type; printenv TYPED_ENV }' -> "${fixture}/typed_child.shy"
+printf "%s" 'pub fn show(): any { echo $TYPED_ENV.value_type; printenv TYPED_ENV }' -> "${fixture}/typed_child.shy"
 printf "%s" 'pub type Count = Integer; pub fn Count::to_string(): String { "module-" + String(Integer($self)) }' -> "${fixture}/typed_methods.shy"
 mkdir -p "${fixture}/completion"
 ln -s -- `$shelly "${fixture}/completion/typed_environment_probe"

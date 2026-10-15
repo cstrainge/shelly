@@ -1,7 +1,7 @@
 # MUTSELF-066: enclosing self constraint
 check ["id": "MUTSELF-066",
     "name": "enclosing self constraint",
-    "source": "fn any::bad() { \$self = \"bad\" }; fn Integer::call() { \$self.bad }; let \$n = 1; \$n.call",
+    "source": "fn any::bad(): any { \$self = \"bad\" }; fn Integer::call(): any { \$self.bad }; let \$n = 1; \$n.call",
     "mode": "code",
     "args": [],
     "stdout": "",

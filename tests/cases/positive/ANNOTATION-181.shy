@@ -1,7 +1,7 @@
 # ANNOTATION-181: optional variable executable
 check ["id": "ANNOTATION-181",
     "name": "optional variable executable",
-    "source": "fn f(\$a: Number | ()) { return \$a }; let \$r = `f; echo (\$r)",
+    "source": "fn f(\$a: Number | ()): any { return \$a }; let \$r = `f; echo (\$r)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

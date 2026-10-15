@@ -1,7 +1,7 @@
 # C066: Executable variable with args in return
 check ["id": "C066",
     "name": "Executable variable with args in return",
-    "source": "fn foo(\$a)\n{\n 2048 * \$a\n}\nlet \$r = `foo ; fn f() { return \$r 3 }\necho (f)",
+    "source": "fn foo(\$a): any\n{\n 2048 * \$a\n}\nlet \$r = `foo ; fn f(): any { return \$r 3 }\necho (f)",
     "mode": "code",
     "args": [],
     "stdout": "6144\n",

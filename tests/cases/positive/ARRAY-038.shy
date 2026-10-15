@@ -1,7 +1,7 @@
 # ARRAY-038: executable element statement invokes
 check ["id": "ARRAY-038",
     "name": "executable element statement invokes",
-    "source": "fn f() { echo \"called\" }; let \$a = [`f]; \$a[0]",
+    "source": "fn f(): any { echo \"called\" }; let \$a = [`f]; \$a[0]",
     "mode": "code",
     "args": [],
     "stdout": "called\n",

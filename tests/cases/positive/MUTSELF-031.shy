@@ -1,7 +1,7 @@
 # MUTSELF-031: recursive mutator
 check ["id": "MUTSELF-031",
     "name": "recursive mutator",
-    "source": "fn Integer::zero() { if \$self != 0 { \$self = \$self - 1; \$self.zero } }; let \$n = 4; \$n.zero; echo \$n",
+    "source": "fn Integer::zero(): any { if \$self != 0 { \$self = \$self - 1; \$self.zero } }; let \$n = 4; \$n.zero; echo \$n",
     "mode": "code",
     "args": [],
     "stdout": "0\n",

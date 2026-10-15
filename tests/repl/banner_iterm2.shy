@@ -1,7 +1,7 @@
 let $fixture = $args[0]
 
 fn iterm_case($response: String, $options: [String], $expect_probe: Boolean,
-              $expect_iterm2: Boolean, $expect_banner: Boolean, $marker: String)
+              $expect_iterm2: Boolean, $expect_banner: Boolean, $marker: String): any
 {
     banner_case_graphics $fixture $response $options $expect_probe false $expect_iterm2 $expect_banner $marker "" "" 40 160 ["TERM_PROGRAM": "iTerm.app"]
 }
@@ -20,7 +20,7 @@ iterm_case "\x1b[?62;4c" ["--norc", "-b"] false false false ""
 
 printf "%s" 'let $banner = "CUSTOM-NATIVE-BANNER"' -> "${fixture}/native-init.shy"
 iterm_case "\x1b[?62;4c" ["--rcfile", "${fixture}/native-init.shy"] true false false "CUSTOM-NATIVE-BANNER"
-printf "%s" 'fn λ() { echo "native-unicode-input" }' -> "${fixture}/native-unicode.shy"
+printf "%s" 'fn λ(): any { echo "native-unicode-input" }' -> "${fixture}/native-unicode.shy"
 iterm_case "λ\r\x1b[?62;4c" ["--rcfile", "${fixture}/native-unicode.shy"] true true true "\nnative-unicode-input\n"
 
 # Unsupported identities and unhandled multiplexer transports keep the sixel fallback.

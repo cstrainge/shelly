@@ -1,7 +1,7 @@
 # MUTSELF-014: struct grouped
 check ["id": "MUTSELF-014",
     "name": "struct grouped",
-    "source": "fn Integer::inc() { \$self = \$self + 1 }; struct S { pub n: Integer }; let \$v = S(n: 1);(\$v.n).inc; echo \$v.n",
+    "source": "fn Integer::inc(): any { \$self = \$self + 1 }; struct S { pub n: Integer }; let \$v = S(n: 1);(\$v.n).inc; echo \$v.n",
     "mode": "code",
     "args": [],
     "stdout": "2\n",

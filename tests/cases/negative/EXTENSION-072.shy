@@ -1,7 +1,7 @@
 # EXTENSION-072: bad arg
 check ["id": "EXTENSION-072",
     "name": "bad arg",
-    "source": "fn Integer::f(\$n: Integer) { \$n }; let \$n = 1; \$n.f \"bad\"",
+    "source": "fn Integer::f(\$n: Integer): any { \$n }; let \$n = 1; \$n.f \"bad\"",
     "mode": "code",
     "args": [],
     "stdout": "",

@@ -1,7 +1,7 @@
 # BOUNDARY-313: value pair / 2.5 and `word
 check ["id": "BOUNDARY-313",
     "name": "value pair / 2.5 and `word",
-    "source": "fn word() { exit 91 }; echo (2.5 == `word) (2.5 != `word) (2.5 && `word) (2.5 || `word)",
+    "source": "fn word(): any { exit 91 }; echo (2.5 == `word) (2.5 != `word) (2.5 && `word) (2.5 || `word)",
     "mode": "code",
     "args": [],
     "stdout": "false true true true\n",

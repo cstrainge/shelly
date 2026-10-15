@@ -1,7 +1,7 @@
 visible "Terminal"
 let $fixture = $args[0]
 printf "%s" "pub visible \"Terminal\"; pub visible `cd; pub fn name(): String { \"exposed\" }" -> "${fixture}/exposed.shy"
-printf "%s" "visible \"Terminal\"; visible `cd; pub fn move() { cd \".\" }" -> "${fixture}/private.shy"
+printf "%s" "visible \"Terminal\"; visible `cd; pub fn move(): any { cd \".\" }" -> "${fixture}/private.shy"
 printf "%s" "pub visible `cd; pub visible \"Terminal\"; pub let \$broken: Integer = \"wrong\"" -> "${fixture}/broken.shy"
 check_repl ["id": "VISIBILITY", "name": "VISIBILITY", "steps": [
     ["import exposed; let \$saved = `exposed::cd", "quiet", ""],

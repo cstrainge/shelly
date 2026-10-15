@@ -1,7 +1,7 @@
 # ARRAY-132: array variable implicit function result
 check ["id": "ARRAY-132",
     "name": "array variable implicit function result",
-    "source": "let \$a = [1,2]; fn f() { \$a }; echo ((f) == [1,2])",
+    "source": "let \$a = [1,2]; fn f(): any { \$a }; echo ((f) == [1,2])",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

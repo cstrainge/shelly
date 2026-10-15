@@ -2,7 +2,7 @@
 check [
     "id": "EXCLUSION-004",
     "name": "platform condition",
-    "source": "[when \$os == \"linux\"] fn host() { \"linux\" }; [when \$os == \"macos\"] fn host() { \"macos\" }; echo ((host) == \$os)",
+    "source": "[when \$os == \"linux\"] fn host(): any { \"linux\" }; [when \$os == \"macos\"] fn host(): any { \"macos\" }; echo ((host) == \$os)",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

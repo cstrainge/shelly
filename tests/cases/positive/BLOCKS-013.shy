@@ -1,7 +1,7 @@
 # BLOCKS-013: nested empty tail
 check ["id": "BLOCKS-013",
     "name": "nested empty tail",
-    "source": "fn f() { 9; { 7; {} } }; echo (f)",
+    "source": "fn f(): any { 9; { 7; {} } }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

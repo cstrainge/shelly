@@ -3,7 +3,7 @@ let $std_fixture = $args[0]
 mkdir -p "${std_fixture}/std"
 printf "%s" ("pub import helper".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/net.shy"
 mkdir -p "${std_fixture}/std"
-printf "%s" ("pub fn ping() { echo sibling }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/helper.shy"
+printf "%s" ("pub fn ping(): any { echo sibling }".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/std/helper.shy"
 printf "%s" ("import std::net; std::net::helper::ping".replace "<FIXTURE>" $std_fixture) -> "${std_fixture}/entry.shy"
 check [
     "id": "STDLIB-021",

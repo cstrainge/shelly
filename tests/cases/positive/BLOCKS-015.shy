@@ -1,7 +1,7 @@
 # BLOCKS-015: tail status
 check ["id": "BLOCKS-015",
     "name": "tail status",
-    "source": "fn f() { { /usr/bin/false } }; let \$status = f; echo !\$status",
+    "source": "fn f(): any { { /usr/bin/false } }; let \$status = f; echo !\$status",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

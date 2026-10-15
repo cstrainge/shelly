@@ -1,7 +1,7 @@
 # MULTILINE-003: function return / && / '\n' ' '
 check ["id": "MULTILINE-003",
     "name": "function return / && / '\\n' ' '",
-    "source": "fn f() { return true\n&& false }; echo (f)",
+    "source": "fn f(): any { return true\n&& false }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "false\n",

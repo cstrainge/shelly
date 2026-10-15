@@ -1,7 +1,7 @@
 # ARRAY-020: function returns array
 check ["id": "ARRAY-020",
     "name": "function returns array",
-    "source": "fn f() { [3,4] }; echo (f)[1]",
+    "source": "fn f(): any { [3,4] }; echo (f)[1]",
     "mode": "code",
     "args": [],
     "stdout": "4\n",

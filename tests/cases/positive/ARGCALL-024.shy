@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-024",
     "name": "backtick argument remains reference",
-    "source": "fn answer() { 42 }; fn invoke(\$call) { (\$call) }; echo (invoke `answer)",
+    "source": "fn answer(): any { 42 }; fn invoke(\$call): any { (\$call) }; echo (invoke `answer)",
     "mode": "code",
     "args": [],
     "stdout": "42\n",

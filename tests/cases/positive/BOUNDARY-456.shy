@@ -1,7 +1,7 @@
 # BOUNDARY-456: value pair / `word and 1.0
 check ["id": "BOUNDARY-456",
     "name": "value pair / `word and 1.0",
-    "source": "fn word() { exit 91 }; echo (`word == 1.0) (`word != 1.0) (`word && 1.0) (`word || 1.0)",
+    "source": "fn word(): any { exit 91 }; echo (`word == 1.0) (`word != 1.0) (`word && 1.0) (`word || 1.0)",
     "mode": "code",
     "args": [],
     "stdout": "false true true true\n",

@@ -1,7 +1,7 @@
 # MUTSELF-005: array immediate
 check ["id": "MUTSELF-005",
     "name": "array immediate",
-    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$v = [1];\$v[0].inc; echo \$v[0]",
+    "source": "fn Integer::inc(): any { \$self = \$self + 1 }; let \$v = [1];\$v[0].inc; echo \$v[0]",
     "mode": "code",
     "args": [],
     "stdout": "2\n",

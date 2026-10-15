@@ -1,7 +1,7 @@
 # C062: Reference copy is inert
 check ["id": "C062",
     "name": "Reference copy is inert",
-    "source": "fn f() { 7 }\nlet \$r = `f ; let \$copy = \$r ; echo \"\$copy\"",
+    "source": "fn f(): any { 7 }\nlet \$r = `f ; let \$copy = \$r ; echo \"\$copy\"",
     "mode": "code",
     "args": [],
     "stdout": "f\n",

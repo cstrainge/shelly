@@ -1,7 +1,7 @@
 # NEWLINE-051: type wins name conflict
 check ["id": "NEWLINE-051",
     "name": "type wins name conflict",
-    "source": "struct E {}; fn E(\$x) { return 99 }; echo E ()",
+    "source": "struct E {}; fn E(\$x): any { return 99 }; echo E ()",
     "mode": "code",
     "args": [],
     "stdout": "E()\n",

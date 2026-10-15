@@ -1,7 +1,7 @@
 # C091: Reading a function local outside
 check ["id": "C091",
     "name": "Reading a function local outside",
-    "source": "fn f() { let \$audit_local = 4 ; return }\nf ; echo \$audit_local",
+    "source": "fn f(): any { let \$audit_local = 4 ; return }\nf ; echo \$audit_local",
     "mode": "code",
     "args": [],
     "stdout": "",

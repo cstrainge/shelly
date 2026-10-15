@@ -1,7 +1,7 @@
 # ARRAY-032: indexed assignment ends function with None
 check ["id": "ARRAY-032",
     "name": "indexed assignment ends function with None",
-    "source": "let \$a = [1]; fn f() { \$a[0] = 2 }; echo (f) \$a[0]",
+    "source": "let \$a = [1]; fn f(): any { \$a[0] = 2 }; echo (f) \$a[0]",
     "mode": "code",
     "args": [],
     "stdout": "() 2\n",

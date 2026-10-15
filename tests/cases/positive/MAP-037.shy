@@ -1,7 +1,7 @@
 # MAP-037: implicit variable return
 check ["id": "MAP-037",
     "name": "implicit variable return",
-    "source": "let \$m = [\"a\":1]; fn f() { \$m }; echo ((f) == \$m)",
+    "source": "let \$m = [\"a\":1]; fn f(): any { \$m }; echo ((f) == \$m)",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

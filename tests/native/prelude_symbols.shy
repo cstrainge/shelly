@@ -2,7 +2,7 @@
 let $fixture = $args[0]
 let $suite = $args[1]
 mkdir -p "${fixture}/std" "${fixture}/empty"
-printf "%s" 'pub fn selected(): String { "selected" }; pub let $selected_value = 8; fn private_selected() { "private" }' -> "${fixture}/std/dep.shy"
+printf "%s" 'pub fn selected(): String { "selected" }; pub let $selected_value = 8; fn private_selected(): any { "private" }' -> "${fixture}/std/dep.shy"
 printf "%s" 'pub fn greet(): String { "namespace" }' -> "${fixture}/std/nested.shy"
 printf "%s" '*
 pub struct Marker {}
@@ -18,10 +18,10 @@ pub import nested
 *' -> "${fixture}/std/prelude.shy"
 printf "%s" 'pub fn use_prelude(): String { "${counter}:${selected_value}:" + (selected) + ":" + (nested::greet) }; pub fn increase(): Integer { bump }; pub fn marker(): Marker { Marker() }' -> "${fixture}/consumer.shy"
 printf "%s" 'pub import std::prelude::{ read, $counter, Marker, prelude_say }; pub fn use_prelude(): Integer { read }' -> "${fixture}/bridge.shy"
-printf "%s" 'pub fn own(): String { "ordinary" }; pub let $own_value = 5; fn private_own() { "private" }' -> "${fixture}/ordinary.shy"
+printf "%s" 'pub fn own(): String { "ordinary" }; pub let $own_value = 5; fn private_own(): any { "private" }' -> "${fixture}/ordinary.shy"
 printf "%s" '' -> "${fixture}/empty/prelude.shy"
 
-fn prelude_case($source: String, $expected: String, $diagnostic: String)
+fn prelude_case($source: String, $expected: String, $diagnostic: String): any
 {
     let $fixture = $args[0]
     let $reply = run_process [`$shelly, "-m", "-c", $source] [

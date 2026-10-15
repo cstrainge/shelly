@@ -1,7 +1,7 @@
 # NEWLINE-038: spaced empty function result
 check ["id": "NEWLINE-038",
     "name": "spaced empty function result",
-    "source": "struct E {}; fn f() { E () }; echo (f)",
+    "source": "struct E {}; fn f(): any { E () }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "E()\n",

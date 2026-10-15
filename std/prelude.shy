@@ -484,6 +484,8 @@ pub fn path()
             echo "The path contains ${bad_paths} bad paths."
         }
     }
+
+    ()
 }
 
 
@@ -502,14 +504,14 @@ pub fn file_exists($path: String): Boolean
 }
 
 
-# Is the standard input a pipe?
+# Is the standard output a pipe?
 pub fn is_pipe(): Boolean
 {
     __test "-p" 1
 }
 
 
-# Is the standard input a terminal?
+# Is the standard output a terminal?
 pub fn is_tty(): Boolean
 {
     __test "-t" 1

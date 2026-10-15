@@ -1,7 +1,7 @@
 # FOR-011: call iterable evaluated once
 check ["id": "FOR-011",
     "name": "call iterable evaluated once",
-    "source": "let \$hits = 0; fn make() { \$hits = \$hits + 1; [1,2] }; for \$v in make { echo \$v }; echo \$hits",
+    "source": "let \$hits = 0; fn make(): any { \$hits = \$hits + 1; [1,2] }; for \$v in make { echo \$v }; echo \$hits",
     "mode": "code",
     "args": [],
     "stdout": "1\n2\n1\n",

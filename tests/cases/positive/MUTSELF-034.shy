@@ -1,7 +1,7 @@
 # MUTSELF-034: function result temporary
 check ["id": "MUTSELF-034",
     "name": "function result temporary",
-    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$n = 1; fn make() { \$n }; fn Integer::next() { \$self.inc; \$self }; echo (make).next \$n",
+    "source": "fn Integer::inc(): any { \$self = \$self + 1 }; let \$n = 1; fn make(): any { \$n }; fn Integer::next(): any { \$self.inc; \$self }; echo (make).next \$n",
     "mode": "code",
     "args": [],
     "stdout": "2 1\n",

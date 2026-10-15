@@ -1,7 +1,7 @@
-# BOOLEAN-022: fn f() { (false || true) == (true && true) }; echo (f)
+# BOOLEAN-022: fn f(): any { (false || true) == (true && true) }; echo (f)
 check ["id": "BOOLEAN-022",
-    "name": "fn f() { (false || true) == (true && true) }; echo (f)",
-    "source": "fn f() { (false || true) == (true && true) }; echo (f)",
+    "name": "fn f(): any { (false || true) == (true && true) }; echo (f)",
+    "source": "fn f(): any { (false || true) == (true && true) }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-018",
     "name": "method argument is literal",
-    "source": "fn word() { echo \"BAD\"; 3 }; fn Integer::describe(\$text: String) { \$text }; let \$value = 1; echo (\$value.describe word)",
+    "source": "fn word(): any { echo \"BAD\"; 3 }; fn Integer::describe(\$text: String): any { \$text }; let \$value = 1; echo (\$value.describe word)",
     "mode": "code",
     "args": [],
     "stdout": "word\n",

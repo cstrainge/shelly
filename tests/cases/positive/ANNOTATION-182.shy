@@ -1,7 +1,7 @@
 # ANNOTATION-182: optional alias
 check ["id": "ANNOTATION-182",
     "name": "optional alias",
-    "source": "fn f(\$a: String | (), \$b: Number | ()) { echo \$a \$b }; alias g = f \"a\"; g",
+    "source": "fn f(\$a: String | (), \$b: Number | ()): any { echo \$a \$b }; alias g = f \"a\"; g",
     "mode": "code",
     "args": [],
     "stdout": "a ()\n",

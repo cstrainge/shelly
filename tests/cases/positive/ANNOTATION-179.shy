@@ -1,7 +1,7 @@
 # ANNOTATION-179: all optional zero arguments
 check ["id": "ANNOTATION-179",
     "name": "all optional zero arguments",
-    "source": "fn f(\$a: Number | (), \$b: any | ()) { echo \$a \$b }; f",
+    "source": "fn f(\$a: Number | (), \$b: any | ()): any { echo \$a \$b }; f",
     "mode": "code",
     "args": [],
     "stdout": "() ()\n",

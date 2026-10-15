@@ -1,7 +1,7 @@
 # EXTENSION-077: local method does not escape
 check ["id": "EXTENSION-077",
     "name": "local method does not escape",
-    "source": "fn outer() { fn Integer::local() { 2 }; let \$n = 1; \$n.local }; outer; let \$n = 1; \$n.local",
+    "source": "fn outer(): any { fn Integer::local(): any { 2 }; let \$n = 1; \$n.local }; outer; let \$n = 1; \$n.local",
     "mode": "code",
     "args": [],
     "stdout": "",

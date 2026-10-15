@@ -2,7 +2,7 @@
 check [
     "id": "EXCLUSION-016",
     "name": "nested function declarations",
-    "source": "fn gadget() { [when true] fn inner() { 6 }; inner }; echo (gadget)",
+    "source": "fn gadget(): any { [when true] fn inner(): any { 6 }; inner }; echo (gadget)",
     "mode": "code",
     "args": [],
     "stdout": "6\n",

@@ -1,7 +1,7 @@
 # MUTSELF-019: nested stored reference
 check ["id": "MUTSELF-019",
     "name": "nested stored reference",
-    "source": "fn Integer::inc() { \$self = \$self + 1 }; struct S { pub a: [HashMap] }; let \$v = S(a: [[\"k\": 1]]);let \$r = `\$v.a[0][\"k\"].inc; \$r; \$r; echo \$v.a[0][\"k\"]",
+    "source": "fn Integer::inc(): any { \$self = \$self + 1 }; struct S { pub a: [HashMap] }; let \$v = S(a: [[\"k\": 1]]);let \$r = `\$v.a[0][\"k\"].inc; \$r; \$r; echo \$v.a[0][\"k\"]",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

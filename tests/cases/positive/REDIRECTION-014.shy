@@ -1,7 +1,7 @@
 # REDIRECTION-014: function capture
 check ["id": "REDIRECTION-014",
     "name": "function capture",
-    "source": "fn f() { echo \"one\"; echo \"two\" }; let \$out: String; f -> \$out; printf \"%s\" \$out",
+    "source": "fn f(): any { echo \"one\"; echo \"two\" }; let \$out: String; f -> \$out; printf \"%s\" \$out",
     "mode": "code",
     "args": [],
     "stdout": "one\ntwo\n",

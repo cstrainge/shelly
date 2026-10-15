@@ -1,7 +1,7 @@
 # C069: Backtick suppresses argument call
 check ["id": "C069",
     "name": "Backtick suppresses argument call",
-    "source": "fn f() { 7 }\necho `f",
+    "source": "fn f(): any { 7 }\necho `f",
     "mode": "code",
     "args": [],
     "stdout": "f\n",

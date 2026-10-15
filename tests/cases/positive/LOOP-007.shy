@@ -1,7 +1,7 @@
 # LOOP-007: function loop returns None
 check ["id": "LOOP-007",
     "name": "function loop returns None",
-    "source": "fn f() { loop { break } }; echo (f)",
+    "source": "fn f(): any { loop { break } }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

@@ -1,7 +1,7 @@
-# CONTROL-037: break outside active frame / fn f() { break }; f
+# CONTROL-037: break outside active frame / fn f(): any { break }; f
 check ["id": "CONTROL-037",
-    "name": "break outside active frame / fn f() { break }; f",
-    "source": "fn f() { break }; f; echo \"AFTER_ERROR\"",
+    "name": "break outside active frame / fn f(): any { break }; f",
+    "source": "fn f(): any { break }; f; echo \"AFTER_ERROR\"",
     "mode": "code",
     "args": [],
     "stdout": "",

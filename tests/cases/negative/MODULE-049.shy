@@ -3,7 +3,7 @@ let $module_fixture = $args[0]
 check [
     "id": "MODULE-049",
     "name": "same-file function unavailable to condition",
-    "source": "fn enabled() { true }; import missing when (enabled 1)",
+    "source": "fn enabled(): any { true }; import missing when (enabled 1)",
     "mode": "file",
     "args": [],
     "stdout": "",

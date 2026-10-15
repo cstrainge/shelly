@@ -1,7 +1,7 @@
 # CONVERT-239: variadic call conversion
 check ["id": "CONVERT-239",
     "name": "variadic call conversion",
-    "source": "fn f(\$v: Integer...) { \$v }; echo (f Integer(\"1\") Integer(\"2\"))...",
+    "source": "fn f(\$v: Integer...): any { \$v }; echo (f Integer(\"1\") Integer(\"2\"))...",
     "mode": "code",
     "args": [],
     "stdout": "1 2\n",

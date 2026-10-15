@@ -1,7 +1,7 @@
 # MUTSELF-048: boolean toggle
 check ["id": "MUTSELF-048",
     "name": "boolean toggle",
-    "source": "fn Boolean::toggle() { \$self = !\$self }; let \$v = true; \$v.toggle; echo \$v",
+    "source": "fn Boolean::toggle(): any { \$self = !\$self }; let \$v = true; \$v.toggle; echo \$v",
     "mode": "code",
     "args": [],
     "stdout": "false\n",

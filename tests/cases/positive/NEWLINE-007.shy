@@ -1,7 +1,7 @@
 # NEWLINE-007: empty parentheses separate from function
 check ["id": "NEWLINE-007",
     "name": "empty parentheses separate from function",
-    "source": "fn f() { echo \"called\" }; f\n()",
+    "source": "fn f(): any { echo \"called\" }; f\n()",
     "mode": "code",
     "args": [],
     "stdout": "called\n",

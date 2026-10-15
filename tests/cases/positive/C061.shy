@@ -1,7 +1,7 @@
 # C061: Standalone executable variable
 check ["id": "C061",
     "name": "Standalone executable variable",
-    "source": "fn f() { echo \"called\" }\nlet \$r = `f ; \$r",
+    "source": "fn f(): any { echo \"called\" }\nlet \$r = `f ; \$r",
     "mode": "code",
     "args": [],
     "stdout": "called\n",

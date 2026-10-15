@@ -1,7 +1,7 @@
 # ANNOTATION-141: typed executable string
 check ["id": "ANNOTATION-141",
     "name": "typed executable string",
-    "source": "fn f() { 7 }; let \$x: String = `f; echo \$x (\$x)",
+    "source": "fn f(): any { 7 }; let \$x: String = `f; echo \$x (\$x)",
     "mode": "code",
     "args": [],
     "stdout": "f 7\n",

@@ -1,7 +1,7 @@
 # C060: Backtick stores reference
 check ["id": "C060",
     "name": "Backtick stores reference",
-    "source": "fn f() { echo \"bad\" }\nlet \$r = `f ; echo \"\$r\"",
+    "source": "fn f(): any { echo \"bad\" }\nlet \$r = `f ; echo \"\$r\"",
     "mode": "code",
     "args": [],
     "stdout": "f\n",

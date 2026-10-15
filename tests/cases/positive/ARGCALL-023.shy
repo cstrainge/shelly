@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-023",
     "name": "arguments evaluate left to right only when grouped",
-    "source": "let \$count = 0; fn next() { \$count = \$count + 1; \$count }; echo next (next) next (next) \$count",
+    "source": "let \$count = 0; fn next(): any { \$count = \$count + 1; \$count }; echo next (next) next (next) \$count",
     "mode": "code",
     "args": [],
     "stdout": "next 1 next 2 2\n",

@@ -1,7 +1,7 @@
 # C160: Grouped backtick reference runs
 check ["id": "C160",
     "name": "Grouped backtick reference runs",
-    "source": "fn f() { 7 }\necho (`f)",
+    "source": "fn f(): any { 7 }\necho (`f)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

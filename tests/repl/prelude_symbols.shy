@@ -33,7 +33,7 @@ check_repl ["id": "PRELUDE-SYMBOLS", "name": "PRELUDE-SYMBOLS", "steps": [
     ["nested::greet", "error", "unavailable"],
     ["import after; echo (after::text) (after::label)", "output", "two two"],
     ["\$label = \"new-edit\"; echo (after::text) (before::text)", "output", "new-edit edited"],
-    ["fn refresh() { let \$label = \"local\"; prelude_reload; echo \$label }; refresh", "output", "local"],
+    ["fn refresh(): any { let \$label = \"local\"; prelude_reload; echo \$label }; refresh", "output", "local"],
     ["echo \$label (read) (after::text)", "output", "two two new-edit"],
     ["fn local_only(): String { \"local\" }; let \$SHELLY_STD_PATH = \"<FIXTURE>/conflict\"; prelude_reload", "error", "already bound"],
     ["echo \$label (read) (prelude_say) (local_only) (added_fn)", "output", "two two two local added"],

@@ -1,7 +1,7 @@
 # ANNOTATION-178: optional default parameters
 check ["id": "ANNOTATION-178",
     "name": "optional default parameters",
-    "source": "fn f(\$a: Number, \$b: String | (), \$c: Number | ()) { echo \$a \$b \$c }; f 1; f 1 \"b\"; f 1 \"b\" 2",
+    "source": "fn f(\$a: Number, \$b: String | (), \$c: Number | ()): any { echo \$a \$b \$c }; f 1; f 1 \"b\"; f 1 \"b\" 2",
     "mode": "code",
     "args": [],
     "stdout": "1 () ()\n1 b ()\n1 b 2\n",

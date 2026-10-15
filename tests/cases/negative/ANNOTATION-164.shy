@@ -1,7 +1,7 @@
 # ANNOTATION-164: bad dynamic parameter mutation
 check ["id": "ANNOTATION-164",
     "name": "bad dynamic parameter mutation",
-    "source": "fn f(\$x: Number) { let \$bad = \"bad\"; \$x = \$bad }; f 1",
+    "source": "fn f(\$x: Number): any { let \$bad = \"bad\"; \$x = \$bad }; f 1",
     "mode": "code",
     "args": [],
     "stdout": "",

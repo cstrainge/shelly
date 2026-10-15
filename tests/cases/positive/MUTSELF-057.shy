@@ -1,7 +1,7 @@
 # MUTSELF-057: nested group callable result
 check ["id": "MUTSELF-057",
     "name": "nested group callable result",
-    "source": "fn target() { echo \"bad\" }; fn Integer::callback() { return `target }; fn String::label() { \"ok\" }; let \$n = 1; echo ((\$n.callback)).label",
+    "source": "fn target(): any { echo \"bad\" }; fn Integer::callback(): any { return `target }; fn String::label(): any { \"ok\" }; let \$n = 1; echo ((\$n.callback)).label",
     "mode": "code",
     "args": [],
     "stdout": "ok\n",

@@ -30,6 +30,7 @@ fn quote($text: String)
         else { /usr/bin/printf "%s" $character }
     }
     /usr/bin/printf '"'
+    ()
 }
 /usr/bin/printf "["
 let $separator = ""

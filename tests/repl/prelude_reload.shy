@@ -5,7 +5,7 @@ printf "%s" "pub import dep::{ Stable }; echo loaded-one; pub let \$label = \"on
 printf "%s" "pub import std::prelude::{ Shared }; pub fn build(): Shared { Shared(code: 10) }; pub fn label(): String { std::prelude::read }; pub fn state(): State { State::Ready }" -> "${fixture}/one/helper.shy"
 printf "%s" "pub fn build(): Shared { Shared(code: 20) }; pub fn label(): String { std::prelude::read }" -> "${fixture}/local.shy"
 printf "%s" "pub fn build(): Shared { Shared(code: 30) }; pub fn label(): String { std::prelude::read }" -> "${fixture}/other.shy"
-printf "%s" "pub fn reload() { prelude_reload }; pub fn build(): Shared { Shared(code: 40) }; pub fn label(): String { std::prelude::read }" -> "${fixture}/caller.shy"
+printf "%s" "pub fn reload(): any { prelude_reload }; pub fn build(): Shared { Shared(code: 40) }; pub fn label(): String { std::prelude::read }" -> "${fixture}/caller.shy"
 printf "%s" "pub fn build(): Added { Added() }" -> "${fixture}/newtype.shy"
 printf "%s" "pub struct Bad {}; pub let \$bad = 1 / 0" -> "${fixture}/bad/prelude.shy"
 printf "%s" "let \$" -> "${fixture}/parse/prelude.shy"

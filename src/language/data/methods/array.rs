@@ -36,30 +36,12 @@ pub(super) fn zip(receiver: &mut Value, arguments: &[Value]) -> Result<Value, Na
         Value::from_array(vec![left.clone(), right.clone()])).collect()))
 }
 
-// Compare mixed numeric types without rounding a large integer to f64 first.
-fn integer_float(integer: i64, float: f64) -> Ordering
-{
-    if float >= 9_223_372_036_854_775_808.0 { return Ordering::Less; }
-    if float < i64::MIN as f64 { return Ordering::Greater; }
-    integer.cmp(&(float as i64)).then_with(||
-        {
-            if float.fract() > 0.0 { Ordering::Less }
-            else if float.fract() < 0.0 { Ordering::Greater }
-            else { Ordering::Equal }
-        })
-}
-
 fn compare(left: &Value, right: &Value) -> Option<Ordering>
 {
     match (left, right)
     {
-        (Value::Integer(left), Value::Integer(right)) => Some(left.cmp(right)),
-        (Value::Float(left, _), Value::Float(right, _))
-            if left.is_finite() && right.is_finite() => left.partial_cmp(right),
-        (Value::Integer(left), Value::Float(right, _)) if right.is_finite() =>
-            Some(integer_float(*left, *right)),
-        (Value::Float(left, _), Value::Integer(right)) if left.is_finite() =>
-            Some(integer_float(*right, *left).reverse()),
+        (Value::Integer(_) | Value::Float(_, _), Value::Integer(_) | Value::Float(_, _)) =>
+            left.numeric_order(right).ok(),
         (Value::String(left, _), Value::String(right, _)) => Some(left.cmp(right)),
         (Value::Boolean(left), Value::Boolean(right)) => Some(left.cmp(right)),
         (Value::Enum(left), Value::Enum(right)) if left.definition.id == right.definition.id =>

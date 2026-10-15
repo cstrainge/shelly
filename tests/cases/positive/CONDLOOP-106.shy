@@ -1,7 +1,7 @@
 # CONDLOOP-106: until / return in condition
 check ["id": "CONDLOOP-106",
     "name": "until / return in condition",
-    "source": "fn f() { until (if true { return 7 }) {}; 9 }; echo (f)",
+    "source": "fn f(): any { until (if true { return 7 }) {}; 9 }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

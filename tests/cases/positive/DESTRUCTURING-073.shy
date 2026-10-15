@@ -1,7 +1,7 @@
 # DESTRUCTURING-073: early return
 check ["id": "DESTRUCTURING-073",
     "name": "early return",
-    "source": "fn f() { for (\$x, \$y) in [[1, 2]] { return \$y }; 0 }; echo (f)",
+    "source": "fn f(): any { for (\$x, \$y) in [[1, 2]] { return \$y }; 0 }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "2\n",

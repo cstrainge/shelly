@@ -1,7 +1,7 @@
 # C089: Function definition missing closing brace
 check ["id": "C089",
     "name": "Function definition missing closing brace",
-    "source": "fn f() { return 3",
+    "source": "fn f(): any { return 3",
     "mode": "code",
     "args": [],
     "stdout": "",

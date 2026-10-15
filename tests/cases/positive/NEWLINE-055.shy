@@ -1,7 +1,7 @@
 # NEWLINE-055: command arguments stay separate
 check ["id": "NEWLINE-055",
     "name": "command arguments stay separate",
-    "source": "fn f() { return 42 }; echo f ()",
+    "source": "fn f(): any { return 42 }; echo f ()",
     "mode": "code",
     "args": [],
     "stdout": "f ()\n",

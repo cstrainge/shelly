@@ -2,7 +2,7 @@
 check [
     "id": "EXCLUSION-001",
     "name": "included function",
-    "source": "[when true]\nfn gadget() { 7 }; echo (gadget)",
+    "source": "[when true]\nfn gadget(): any { 7 }; echo (gadget)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

@@ -1,7 +1,7 @@
 # BLOCKS-008: bare return
 check ["id": "BLOCKS-008",
     "name": "bare return",
-    "source": "fn f() { { return }; echo \"bad\" }; echo (f)",
+    "source": "fn f(): any { { return }; echo \"bad\" }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

@@ -1,7 +1,7 @@
 # EXTENSION-061: method returns callback
 check ["id": "EXTENSION-061",
     "name": "method returns callback",
-    "source": "fn target() { echo \"bad\" }; fn Integer::callback() { return `target }; let \$n = 1; echo \$n.callback",
+    "source": "fn target(): any { echo \"bad\" }; fn Integer::callback(): any { return `target }; let \$n = 1; echo \$n.callback",
     "mode": "code",
     "args": [],
     "stdout": "target\n",

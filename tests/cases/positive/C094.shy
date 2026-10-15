@@ -1,7 +1,7 @@
 # C094: Nested function sees outer parameter
 check ["id": "C094",
     "name": "Nested function sees outer parameter",
-    "source": "fn f(\$x) { fn g() { \$x }\ng }\necho (f 7)",
+    "source": "fn f(\$x): any { fn g(): any { \$x }\ng }\necho (f 7)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

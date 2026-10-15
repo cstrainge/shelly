@@ -1,7 +1,7 @@
 # MUTSELF-063: typed parent collection constraint
 check ["id": "MUTSELF-063",
     "name": "typed parent collection constraint",
-    "source": "fn any::replace() { \$self = \"bad\" }; let \$a: [Integer] = [1]; \$a[0].replace",
+    "source": "fn any::replace(): any { \$self = \"bad\" }; let \$a: [Integer] = [1]; \$a[0].replace",
     "mode": "code",
     "args": [],
     "stdout": "",

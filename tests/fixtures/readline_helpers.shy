@@ -40,9 +40,9 @@ pub fn wait_for($terminal: Terminal, $needle: String): String
     echo "Missing terminal output: ${needle}"
     exit 1
 }
-pub fn input($terminal: Terminal, $text: String)
+pub fn input($terminal: Terminal, $text: String): any
 { terminal_write $terminal "\x1b[200~${text}\x1b[201~\r" }
-pub fn finish($terminal: Terminal)
+pub fn finish($terminal: Terminal): any
 {
     let $output = ""
     for $attempt in 0..150

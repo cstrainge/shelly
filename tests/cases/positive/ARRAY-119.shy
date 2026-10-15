@@ -1,7 +1,7 @@
 # ARRAY-119: argument expansion snapshot survives later argument mutation
 check ["id": "ARRAY-119",
     "name": "argument expansion snapshot survives later argument mutation",
-    "source": "let \$a = [1,2]; fn change() { \$a[0] = 9; \"changed\" }; audit_args \$a... (change); echo \$a...",
+    "source": "let \$a = [1,2]; fn change(): any { \$a[0] = 9; \"changed\" }; audit_args \$a... (change); echo \$a...",
     "mode": "code",
     "args": [],
     "stdout": "[\"1\", \"2\", \"changed\"]\n9 2\n",

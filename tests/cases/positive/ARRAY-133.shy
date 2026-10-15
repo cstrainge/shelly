@@ -1,7 +1,7 @@
 # ARRAY-133: array variable explicit function result
 check ["id": "ARRAY-133",
     "name": "array variable explicit function result",
-    "source": "let \$a = [1,2]; fn f() { return \$a }; echo ((f) == [1,2])",
+    "source": "let \$a = [1,2]; fn f(): any { return \$a }; echo ((f) == [1,2])",
     "mode": "code",
     "args": [],
     "stdout": "true\n",

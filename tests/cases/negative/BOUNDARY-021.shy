@@ -1,7 +1,7 @@
 # BOUNDARY-021: fn unclosed body
 check ["id": "BOUNDARY-021",
     "name": "fn unclosed body",
-    "source": "echo \"PARSE_SENTINEL\"; fn f() {",
+    "source": "echo \"PARSE_SENTINEL\"; fn f(): any {",
     "mode": "code",
     "args": [],
     "stdout": "",

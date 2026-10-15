@@ -21,7 +21,7 @@ banner_case $fixture "\x03\x1b[?62;4c" ["--norc"] true false true "Ctrl+C presse
 printf "%s" 'let $banner = "CUSTOM-BANNER"' -> "${fixture}/banner-init.shy"
 banner_case $fixture "\x1b[?62;4c" ["--rcfile",
     "${fixture}/banner-init.shy"] true false false "CUSTOM-BANNER"
-printf "%s" 'fn λ() { echo "unicode-input" }' -> "${fixture}/unicode-init.shy"
+printf "%s" 'fn λ(): any { echo "unicode-input" }' -> "${fixture}/unicode-init.shy"
 banner_case $fixture "λ\r\x1b[?62;4c" ["--rcfile",
     "${fixture}/unicode-init.shy"] true false true "\nunicode-input\n"
 

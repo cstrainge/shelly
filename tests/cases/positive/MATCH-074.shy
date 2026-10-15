@@ -1,7 +1,7 @@
 # MATCH-074: arm function hoisting
 check ["id": "MATCH-074",
     "name": "arm function hoisting",
-    "source": "echo (match 1 { _ => { fn local() { 7 }; local } })",
+    "source": "echo (match 1 { _ => { fn local(): any { 7 }; local } })",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

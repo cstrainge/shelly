@@ -1,7 +1,7 @@
 # BLOCKS-017: function hoisting
 check ["id": "BLOCKS-017",
     "name": "function hoisting",
-    "source": "{ fn f() { 7 } }; echo (f)",
+    "source": "{ fn f(): any { 7 } }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

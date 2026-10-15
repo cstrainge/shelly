@@ -1,7 +1,7 @@
 # FOR-033: loop function result None
 check ["id": "FOR-033",
     "name": "loop function result None",
-    "source": "fn f() { for \$v in [1,2] { 7 } }; echo (f)",
+    "source": "fn f(): any { for \$v in [1,2] { 7 } }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

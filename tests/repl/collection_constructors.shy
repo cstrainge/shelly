@@ -1,6 +1,6 @@
 check_repl ["id": "COLLECTION-CONSTRUCTORS", "name": "Typed constructor state and recovery", "steps": [
     ["let \$a = [Integer]; echo \$a.count \$a.value_type.name", "output", "0 Integer"],
-    ["fn Array::push(\$v: \$self.value_type) { \$self = [\$v, \$self...] }; \$a.push 7", "quiet", ""],
+    ["fn Array::push(\$v: \$self.value_type): any { \$self = [\$v, \$self...] }; \$a.push 7", "quiet", ""],
     ["\$a.push \"bad\"", "error", "Expected Integer, got String"],
     ["echo \$a... \$a.value_type.name", "output", "7 Integer"],
     ["\$a[0] = \"bad\"", "error", "Expected Integer, got String"],

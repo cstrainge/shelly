@@ -1,7 +1,7 @@
 # EXTENSION-088: explicit argument execution
 check ["id": "EXTENSION-088",
     "name": "explicit argument execution",
-    "source": "fn value() { 3 }; fn Integer::add(\$n: Integer) { \$self + \$n }; let \$n = 2; echo (\$n.add (value))",
+    "source": "fn value(): any { 3 }; fn Integer::add(\$n: Integer): any { \$self + \$n }; let \$n = 2; echo (\$n.add (value))",
     "mode": "code",
     "args": [],
     "stdout": "5\n",

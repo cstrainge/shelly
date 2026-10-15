@@ -1,7 +1,7 @@
 # LOOP-022: callee frame isolation
 check ["id": "LOOP-022",
     "name": "callee frame isolation",
-    "source": "fn f() { loop { break }; 7 }; for \$i in [1,2] { echo (f) }",
+    "source": "fn f(): any { loop { break }; 7 }; for \$i in [1,2] { echo (f) }",
     "mode": "code",
     "args": [],
     "stdout": "7\n7\n",

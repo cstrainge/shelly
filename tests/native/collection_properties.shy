@@ -1,6 +1,6 @@
 # Collection metadata is typed, read-only data and appears in reflection.
 let $fixture = $args[0]
-fn collection_property_case($source: String, $stdout: String, $diagnostic: String)
+fn collection_property_case($source: String, $stdout: String, $diagnostic: String): any
 {
     let $reply = run_process [`$shelly, "-m", "-c", $source] [
         "cwd": $fixture, "env": ["PATH": "/usr/bin:/bin", "SHELLY_STD_PATH": ""],
@@ -27,7 +27,7 @@ collection_property_case "struct Item { pub rows: [Float], pub counts: [String: 
 collection_property_case "struct Item { pub rows: [Float] }; let \$a = [Item(rows: [])]; echo \$a[0].rows.value_type" "Float\n" ""
 collection_property_case "let \$a: [[Float]] = [[]]; let \$h: [String: [Integer]] = [\"x\": []]; echo \$a[0].value_type \$h[\"x\"].value_type" "Float Integer\n" ""
 collection_property_case "let \$a: [Float] = []; fn Array::item_type(): Type { \$self.value_type }; echo \$a.item_type; let \$h: [String: Integer] = [:]; fn HashMap::item_type(): Type { \$self.value_type }; echo \$h.item_type" "Float\nInteger\n" ""
-collection_property_case "fn types(\$a: [Number], \$h: [String: Float]) { echo \$a.value_type \$h.key_type \$h.value_type }; types [] [:]" "Number String Float\n" ""
+collection_property_case "fn types(\$a: [Number], \$h: [String: Float]): any { echo \$a.value_type \$h.key_type \$h.value_type }; types [] [:]" "Number String Float\n" ""
 collection_property_case "let \$a = [1]; echo \$a.value_type; \$a[0] = \"s\"; echo \$a.value_type; \$a = [1,\"s\"]; echo \$a.value_type" "Integer\nString\nany\n" ""
 collection_property_case "let \$a: [Float] = []; let \$p = \$a.properties; echo \$p[\"value_type\"] (\$p[\"value_type\"].type == Type); let \$h: [String: Integer] = [:]; let \$p = \$h.properties; echo \$p[\"key_type\"] \$p[\"value_type\"]" "Float true\nString Integer\n" ""
 collection_property_case "let \$a = [1]; let \$saved = `\$a.properties; let \$p = (\$saved); \$a = [\"s\"]; echo \$p[\"value_type\"] (\$saved)[\"value_type\"]" "Integer String\n" ""

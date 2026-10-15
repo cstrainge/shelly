@@ -2,7 +2,7 @@
 check [
     "id": "ARGCALL-020",
     "name": "explicit returned reference is not invoked twice",
-    "source": "fn answer() { echo \"BAD\"; 42 }; fn reference() { return `answer }; echo (reference)",
+    "source": "fn answer(): any { echo \"BAD\"; 42 }; fn reference(): any { return `answer }; echo (reference)",
     "mode": "code",
     "args": [],
     "stdout": "answer\n",

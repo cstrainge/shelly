@@ -2,7 +2,7 @@
 check [
     "id": "EXCLUSION-047",
     "name": "false function skips nested condition",
-    "source": "[when false] fn gadget() { [when \$missing] fn inner() {} }; echo ok",
+    "source": "[when false] fn gadget(): any { [when \$missing] fn inner() {} }; echo ok",
     "mode": "code",
     "args": [],
     "stdout": "ok\n",

@@ -1,7 +1,7 @@
 # ANNOTATION-149: bad constant parameter reassignment
 check ["id": "ANNOTATION-149",
     "name": "bad constant parameter reassignment",
-    "source": "fn f(\$x: Number) { \$x = \"bad\" }",
+    "source": "fn f(\$x: Number): any { \$x = \"bad\" }",
     "mode": "code",
     "args": [],
     "stdout": "",

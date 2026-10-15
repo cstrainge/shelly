@@ -1,7 +1,7 @@
 # EXTENSION-060: method call as statement
 check ["id": "EXTENSION-060",
     "name": "method call as statement",
-    "source": "fn Integer::say() { echo \$self }; let \$n = 3; \$n.say",
+    "source": "fn Integer::say(): any { echo \$self }; let \$n = 3; \$n.say",
     "mode": "code",
     "args": [],
     "stdout": "3\n",

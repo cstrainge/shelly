@@ -1,7 +1,7 @@
 # CONDLOOP-102: until / function normal loop result
 check ["id": "CONDLOOP-102",
     "name": "until / function normal loop result",
-    "source": "fn f() { until true {} }; echo (f)",
+    "source": "fn f(): any { until true {} }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

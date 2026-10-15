@@ -1,7 +1,7 @@
 # NEWLINE-053: function additional argument
 check ["id": "NEWLINE-053",
     "name": "function additional argument",
-    "source": "fn f(\$x, \$y) { echo \$x \$y }; f () 3",
+    "source": "fn f(\$x, \$y): any { echo \$x \$y }; f () 3",
     "mode": "code",
     "args": [],
     "stdout": "() 3\n",

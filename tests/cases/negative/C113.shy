@@ -1,7 +1,7 @@
 # C113: Intermediate command failure stops function
 check ["id": "C113",
     "name": "Intermediate command failure stops function",
-    "source": "fn f() { /usr/bin/false ; echo \"bad\" }\nlet \$x = f ; echo \"bad\"",
+    "source": "fn f(): any { /usr/bin/false ; echo \"bad\" }\nlet \$x = f ; echo \"bad\"",
     "mode": "code",
     "args": [],
     "stdout": "",

@@ -1,7 +1,7 @@
 # MUTSELF-009: map immediate
 check ["id": "MUTSELF-009",
     "name": "map immediate",
-    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$v = [\"k\": 1];\$v[\"k\"].inc; echo \$v[\"k\"]",
+    "source": "fn Integer::inc(): any { \$self = \$self + 1 }; let \$v = [\"k\": 1];\$v[\"k\"].inc; echo \$v[\"k\"]",
     "mode": "code",
     "args": [],
     "stdout": "2\n",

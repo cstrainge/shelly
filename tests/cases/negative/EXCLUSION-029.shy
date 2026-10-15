@@ -2,7 +2,7 @@
 check [
     "id": "EXCLUSION-029",
     "name": "excluded syntax must still parse",
-    "source": "[when false] fn gadget() { let \$x = }",
+    "source": "[when false] fn gadget(): any { let \$x = }",
     "mode": "code",
     "args": [],
     "stdout": "",

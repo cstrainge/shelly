@@ -1,7 +1,7 @@
 # CONVERT-234: evaluation once
 check ["id": "CONVERT-234",
     "name": "evaluation once",
-    "source": "let \$hits = 0; fn next() { \$hits = \$hits + 1; \"2\" }; echo Integer(next); echo \$hits",
+    "source": "let \$hits = 0; fn next(): any { \$hits = \$hits + 1; \"2\" }; echo Integer(next); echo \$hits",
     "mode": "code",
     "args": [],
     "stdout": "2\n1\n",

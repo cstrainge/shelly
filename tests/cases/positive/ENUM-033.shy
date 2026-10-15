@@ -1,7 +1,7 @@
 # ENUM-033: typed arrays
 check ["id": "ENUM-033",
     "name": "typed arrays",
-    "source": "fn f(\$a) { \$a[0] }; echo (f [42])",
+    "source": "fn f(\$a): any { \$a[0] }; echo (f [42])",
     "mode": "code",
     "args": [],
     "stdout": "42\n",

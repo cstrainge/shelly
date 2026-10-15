@@ -2,7 +2,7 @@
 let $fixture = $args[0]
 let $suite = $args[1]
 mkdir -p "${fixture}/std"
-printf "%s" 'pub struct Shared {}; struct PreludePrivate {}; pub fn helper(): String { "prelude" }; fn private_helper() { "private" }' -> "${fixture}/std/prelude.shy"
+printf "%s" 'pub struct Shared {}; struct PreludePrivate {}; pub fn helper(): String { "prelude" }; fn private_helper(): any { "private" }' -> "${fixture}/std/prelude.shy"
 let $api = '*
 let $secret: Integer = 9
 let export $ENV_SECRET = "secret"
@@ -26,7 +26,7 @@ pub fn Item::next_item(): Integer | ()
 }
 pub struct PrivateIterator { pub n: Integer }
 fn PrivateIterator::next_item(): Integer | () { () }
-pub fn private_loop() { for $n in PrivateIterator(n: 1) {}; echo internal }
+pub fn private_loop(): any { for $n in PrivateIterator(n: 1) {}; echo internal }
 pub fn exposed(): Integer { hidden }
 pub fn make(): Item { Item(n: 2) }
 pub fn shared(): Shared { Shared() }
@@ -45,12 +45,12 @@ printf "%s" 'pub import api::{ exposed, Item, $value, Count, say }' -> "${fixtur
 printf "%s" 'pub import api' -> "${fixture}/namespace.shy"
 printf "%s" 'import namespace; pub fn wrapped(): Integer { namespace::api::exposed }' -> "${fixture}/nested_private.shy"
 printf "%s" 'pub fn revision(): Integer { 1 }; fn revision(): Integer { 2 }; pub let $v = 1; let $v = 2' -> "${fixture}/redeclared.shy"
-printf "%s" 'pub visible "Terminal"; pub visible `cd; visible `run_process; pub fn move() { cd "." }' -> "${fixture}/native_api.shy"
+printf "%s" 'pub visible "Terminal"; pub visible `cd; visible `run_process; pub fn move(): any { cd "." }' -> "${fixture}/native_api.shy"
 printf "%s" 'pub fn String::tag(): String { "tag:${self}" }; fn String::secret_tag(): String { "secret" }; pub fn internal(): String { "x".secret_tag }' -> "${fixture}/extensions.shy"
 printf "%s" 'pub fn String::tag(): String { "other" }' -> "${fixture}/other_extensions.shy"
 cp "${suite}/std/widgets.shy" "${fixture}/std/widgets.shy"
 
-fn privacy_case($source: String, $expected: String, $diagnostic: String)
+fn privacy_case($source: String, $expected: String, $diagnostic: String): any
 {
     let $fixture = $args[0]
     let $reply = run_process [`$shelly, "-m", "-c", $source] [
@@ -117,13 +117,13 @@ privacy_case 'import redeclared; echo $redeclared::v' "" "not found"
 privacy_case 'pub' "" "pub must precede"
 privacy_case 'pub echo hello' "" "pub must precede"
 privacy_case 'pub let _ = 1' "" "pub must precede"
-privacy_case 'pub fn () { 1 }' "" "Parser error"
-privacy_case 'pub pub fn f() {}' "" "pub must precede"
-privacy_case 'fn f() { pub fn nested() {} }' "" "pub is only allowed"
+privacy_case 'pub fn (): any { 1 }' "" "Parser error"
+privacy_case 'pub pub fn f(): any {}' "" "pub must precede"
+privacy_case 'fn f(): any { pub fn nested(): any {} }' "" "pub is only allowed"
 privacy_case '{ pub let $value = 1 }' "" "pub is only allowed"
 privacy_case 'if true { pub struct S {} }' "" "pub is only allowed"
-privacy_case 'let $f = fn () { pub type T = Integer }' "" "pub is only allowed"
-privacy_case 'fn f() { pub visible `cd }' "" "pub is only allowed"
+privacy_case 'let $f = fn (): any { pub type T = Integer }' "" "pub is only allowed"
+privacy_case 'fn f(): any { pub visible `cd }' "" "pub is only allowed"
 privacy_case 'visible --export `cd' "" "use pub visible"
 privacy_case 'import extensions; echo "x".tag (extensions::internal)' "tag:x secret\n" ""
 privacy_case 'import extensions; echo "x".secret_tag' "" "field"

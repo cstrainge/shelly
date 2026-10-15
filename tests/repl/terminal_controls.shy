@@ -4,7 +4,7 @@ let $reply = submit $terminal 'import std::terminal::{ term_size, cursor_positio
 require (repl_matches "quiet" "" $reply["output"]) "terminal import failed"
 let $reply = submit $terminal 'let $size = term_size; echo $size...'
 require (repl_matches "output" "40 140" $reply["output"]) "REPL terminal size differs"
-let $reply = submit $terminal 'fn λ() { echo unicode-kept }'
+let $reply = submit $terminal 'fn λ(): any { echo unicode-kept }'
 require (repl_matches "quiet" "" $reply["output"]) "Unicode command declaration failed"
 
 fn query_prompt($terminal: Terminal, $prefix: String): String

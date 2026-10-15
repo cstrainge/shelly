@@ -31,7 +31,7 @@ fn strip_ansi($text: String): String
     $output
 }
 
-fn drain($terminal: Terminal)
+fn drain($terminal: Terminal): HashMap
 {
     let $raw = ""
     for $attempt in 0..50
@@ -60,7 +60,7 @@ fn drain($terminal: Terminal)
     fail "terminal did not reach a prompt or EOF"
 }
 
-fn submit($terminal: Terminal, $source: String)
+fn submit($terminal: Terminal, $source: String): HashMap
 {
     terminal_write $terminal "\x1b[200~${source}\x1b[201~\r"
     drain $terminal

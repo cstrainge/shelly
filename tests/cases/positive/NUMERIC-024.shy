@@ -2,7 +2,7 @@
 check [
     "id": "NUMERIC-024",
     "name": "variadic promotion",
-    "source": "fn f(\$values: Float...) { \$values }; let \$x = f 7 9; echo (\$x[0] / 2) (\$x[1] / 2)",
+    "source": "fn f(\$values: Float...): any { \$values }; let \$x = f 7 9; echo (\$x[0] / 2) (\$x[1] / 2)",
     "mode": "code",
     "args": [],
     "stdout": "3.5 4.5\n",

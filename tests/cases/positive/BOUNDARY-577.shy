@@ -1,7 +1,7 @@
 # BOUNDARY-577: stdin / nested early return
 check ["id": "BOUNDARY-577",
     "name": "stdin / nested early return",
-    "source": "fn f() { if true { { return 7 } } }; echo (f)",
+    "source": "fn f(): any { if true { { return 7 } } }; echo (f)",
     "mode": "stdin",
     "args": [],
     "stdout": "7\n",

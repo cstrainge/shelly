@@ -1,7 +1,7 @@
 # CONDLOOP-035: while / return in condition
 check ["id": "CONDLOOP-035",
     "name": "while / return in condition",
-    "source": "fn f() { while (if true { return 7 }) {}; 9 }; echo (f)",
+    "source": "fn f(): any { while (if true { return 7 }) {}; 9 }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "7\n",

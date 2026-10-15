@@ -113,6 +113,14 @@ fn has($items: Array, $label: String): Boolean
 fn hover_text($hover: any): String
 { if $hover == () { return "" }; $hover["contents"]["value"] }
 
+# Editor signatures follow the same default-unit contract as compilation.
+let $returns = inspect 'fn action() {}\nfn identity($value): any { $value }\nfn answer(): Integer { 42 }' \
+    [["textDocument/hover", 0, 5], ["textDocument/hover", 1, 5],
+     ["textDocument/hover", 2, 5]] ""
+require ((hover_text $returns[0]).contains "action(): ()") "omitted editor return was not unit"
+require ((hover_text $returns[1]).contains ": any") "explicit any editor return was lost"
+require ((hover_text $returns[2]).contains ": Integer") "explicit editor return was lost"
+
 mkdir -p "${fixture}/bin"
 printf "%s\n%s\n" '#!/bin/sh' 'touch binary-executed' -> "${fixture}/bin/shelly_test_binary"
 chmod +x "${fixture}/bin/shelly_test_binary"

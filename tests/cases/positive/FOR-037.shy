@@ -1,7 +1,7 @@
 # FOR-037: bare return from loop
 check ["id": "FOR-037",
     "name": "bare return from loop",
-    "source": "fn f() { for \$i in [1] { return }; 9 }; echo (f)",
+    "source": "fn f(): any { for \$i in [1] { return }; 9 }; echo (f)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

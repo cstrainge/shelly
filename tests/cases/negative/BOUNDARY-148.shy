@@ -1,7 +1,7 @@
-# BOUNDARY-148: missing RHS / + / fn f() {{ return 1 {} }}
+# BOUNDARY-148: missing RHS / + / fn f(): any {{ return 1 {} }}
 check ["id": "BOUNDARY-148",
-    "name": "missing RHS / + / fn f() {{ return 1 {} }}",
-    "source": "echo \"PARSE_SENTINEL\"; fn f() { return 1 + }",
+    "name": "missing RHS / + / fn f(): any {{ return 1 {} }}",
+    "source": "echo \"PARSE_SENTINEL\"; fn f(): any { return 1 + }",
     "mode": "code",
     "args": [],
     "stdout": "",

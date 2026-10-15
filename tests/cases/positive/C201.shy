@@ -1,7 +1,7 @@
 # C201: Exit status through nested call
 check ["id": "C201",
     "name": "Exit status through nested call",
-    "source": "fn f() { exit 7 ; echo \"bad\" }\necho (f) ; echo \"bad\"",
+    "source": "fn f(): any { exit 7 ; echo \"bad\" }\necho (f) ; echo \"bad\"",
     "mode": "code",
     "args": [],
     "stdout": "",

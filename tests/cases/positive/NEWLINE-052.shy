@@ -1,7 +1,7 @@
 # NEWLINE-052: function none argument
 check ["id": "NEWLINE-052",
     "name": "function none argument",
-    "source": "fn f(\$x) { return \$x }; let \$x = f (); echo \$x",
+    "source": "fn f(\$x): any { return \$x }; let \$x = f (); echo \$x",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

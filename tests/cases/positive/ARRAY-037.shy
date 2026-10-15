@@ -1,7 +1,7 @@
 # ARRAY-037: executable element argument stays a reference
 check ["id": "ARRAY-037",
     "name": "executable element argument stays a reference",
-    "source": "fn f() { 7 }; let \$a = [`f]; echo \$a[0]",
+    "source": "fn f(): any { 7 }; let \$a = [`f]; echo \$a[0]",
     "mode": "code",
     "args": [],
     "stdout": "f\n",

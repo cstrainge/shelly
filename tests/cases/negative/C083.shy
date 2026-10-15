@@ -1,7 +1,7 @@
 # C083: Backtick in grouped call target
 check ["id": "C083",
     "name": "Backtick in grouped call target",
-    "source": "fn foo(\$a)\n{\n 2048 * \$a\n}\necho (`foo 3)",
+    "source": "fn foo(\$a): any\n{\n 2048 * \$a\n}\necho (`foo 3)",
     "mode": "code",
     "args": [],
     "stdout": "",

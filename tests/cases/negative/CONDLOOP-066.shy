@@ -1,7 +1,7 @@
-# CONDLOOP-066: while runtime / fn f() { continue }; while true { f }
+# CONDLOOP-066: while runtime / fn f(): any { continue }; while true { f }
 check ["id": "CONDLOOP-066",
-    "name": "while runtime / fn f() { continue }; while true { f }",
-    "source": "fn f() { continue }; while true { f }; echo \"AFTER_ERROR\"",
+    "name": "while runtime / fn f(): any { continue }; while true { f }",
+    "source": "fn f(): any { continue }; while true { f }; echo \"AFTER_ERROR\"",
     "mode": "code",
     "args": [],
     "stdout": "",

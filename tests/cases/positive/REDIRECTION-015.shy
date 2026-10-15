@@ -1,7 +1,7 @@
 # REDIRECTION-015: nested capture
 check ["id": "REDIRECTION-015",
     "name": "nested capture",
-    "source": "fn f() { let \$inner: String; echo \"inner\" -> \$inner; printf \"%s\" \$inner }; let \$out: String; f -> \$out; printf \"%s\" \$out",
+    "source": "fn f(): any { let \$inner: String; echo \"inner\" -> \$inner; printf \"%s\" \$inner }; let \$out: String; f -> \$out; printf \"%s\" \$out",
     "mode": "code",
     "args": [],
     "stdout": "inner\n",

@@ -2,7 +2,7 @@
 check [
     "id": "EXCLUSION-014",
     "name": "empty excluded function result",
-    "source": "fn gadget() { [when false] { 8 } }; echo (gadget)",
+    "source": "fn gadget(): any { [when false] { 8 } }; echo (gadget)",
     "mode": "code",
     "args": [],
     "stdout": "()\n",

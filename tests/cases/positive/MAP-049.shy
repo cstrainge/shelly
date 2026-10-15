@@ -1,7 +1,7 @@
 # MAP-049: executable map argument stays a reference
 check ["id": "MAP-049",
     "name": "executable map argument stays a reference",
-    "source": "fn f() { 7 }; let \$m = [\"f\":`f]; echo \$m[\"f\"]",
+    "source": "fn f(): any { 7 }; let \$m = [\"f\":`f]; echo \$m[\"f\"]",
     "mode": "code",
     "args": [],
     "stdout": "f\n",

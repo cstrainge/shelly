@@ -1,7 +1,7 @@
 # STRUCT-044: indexes before RHS once
 check ["id": "STRUCT-044",
     "name": "indexes before RHS once",
-    "source": "let \$order = 0; fn mark(\$n) { \$order = \$order * 10 + \$n; return \$n }; struct S { pub xs: [Number] }; let \$s = S(xs: [0, 0]); \$s.xs[(mark 1)] = mark 2; echo \$order \$s.xs...",
+    "source": "let \$order = 0; fn mark(\$n): any { \$order = \$order * 10 + \$n; return \$n }; struct S { pub xs: [Number] }; let \$s = S(xs: [0, 0]); \$s.xs[(mark 1)] = mark 2; echo \$order \$s.xs...",
     "mode": "code",
     "args": [],
     "stdout": "12 0 2\n",

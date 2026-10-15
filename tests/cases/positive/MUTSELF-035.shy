@@ -1,7 +1,7 @@
 # MUTSELF-035: argument remains by value
 check ["id": "MUTSELF-035",
     "name": "argument remains by value",
-    "source": "fn Integer::inc() { \$self = \$self + 1 }; let \$n = 1; fn f(\$n: Integer) { \$n.inc; \$n }; echo (f \$n) \$n",
+    "source": "fn Integer::inc(): any { \$self = \$self + 1 }; let \$n = 1; fn f(\$n: Integer): any { \$n.inc; \$n }; echo (f \$n) \$n",
     "mode": "code",
     "args": [],
     "stdout": "2 1\n",

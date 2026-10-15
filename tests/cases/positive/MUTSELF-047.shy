@@ -1,7 +1,7 @@
 # MUTSELF-047: string replace
 check ["id": "MUTSELF-047",
     "name": "string replace",
-    "source": "fn String::replace(\$text: String) { \$self = \$text }; let \$s = \"old\"; \$s.replace \"new\"; echo \$s",
+    "source": "fn String::replace(\$text: String): any { \$self = \$text }; let \$s = \"old\"; \$s.replace \"new\"; echo \$s",
     "mode": "code",
     "args": [],
     "stdout": "new\n",
