@@ -149,5 +149,6 @@ language documentation, worked examples, and standard-library guides. Start with
 - [Standard library](https://github.com/cstrainge/shelly/wiki/Standard-Library)
 - [Prompts and widgets](https://github.com/cstrainge/shelly/wiki/Prompts-and-Widgets)
 - [VS Code support](https://github.com/cstrainge/shelly/wiki/Editor-Integration)
+- [Vim support](https://github.com/cstrainge/shelly/wiki/Vim-Integration)
 
 Shelly is available under the [MIT license](LICENSE).

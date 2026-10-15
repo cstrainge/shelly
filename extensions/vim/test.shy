@@ -1,0 +1,259 @@
+import std::json
+
+# Vim reports editor state; Shelly owns the assertions and process deadlines.
+fn require($condition: Boolean, $message: String)
+{
+    if !$condition { echo "FAIL:" $message; exit 1 }
+}
+
+let $root: String
+pwd -P -> $root
+$root = $root.trim
+let $plugin = "${root}/extensions/vim"
+let $client = if $args.count > 0 { $args[0] } else { "${plugin}/.deps/lsp" }
+require (file_exists "${client}/plugin/lsp.vim") "Install yegappan/lsp; see the Vim adapter README."
+let $work: String
+mktemp -d -> $work
+$work = $work.trim
+echo "Vim fixtures:" $work
+ln -s `$shelly "${work}/shelly server"
+ln -s `$shelly "${work}/shelly"
+printf "%s" 'echo BAD_STARTUP; touch startup-executed' -> "${work}/.shelly_init.shy"
+printf "%s" '#!/usr/bin/env shelly\necho "script"\n' -> "${work}/script"
+printf "%s" "Plain text.\n" -> "${work}/plain.txt"
+let $source = '#tab-size 8\nlet $name = "Ada"\necho let\necho "💜 ${name}" # [](\n' \
+    + 'fn greet($who: String): String { "Hi " + $who }\ngreet $name\nlet $n = 7\n' \
+    + 'touch document-executed\n'
+let $lexical = '#tab-size 8\n# [] "* \' unmatched (\necho "[]" () # )\necho \'[]\' {}\n' \
+    + 'echo "a\\"[]" ()\necho "[ unfinished\n[]\necho "*\n[ \'# ()\n}\n*" []\n' \
+    + 'echo \'*\n[ "# ()\n}\n*\' {}\n'
+printf "%s" $source -> "${work}/sample.shy"
+printf "%s" $lexical -> "${work}/lexical.shy"
+
+fn observe($scenario: String, $script: String, $server: String): any
+{
+    let $result = run_process ["vim", "-Nu", $script, "-n", "-i", "NONE", "-es",
+        "-S", "${plugin}/tests/" + (if $script == "NONE" { "configuration.vim" }
+            else { "integration.vim" })] [
+        "cwd": $work, "timeout_ms": 30000,
+        "stdout_file": "${work}/stdout", "stderr_file": "${work}/stderr",
+        "env": ["HOME": $work, "PATH": "${work}:/usr/bin:/bin", "LANG": "C.UTF-8",
+            "SHELLY_STD_PATH": "bundled", "SHELLY_TAB_SIZE":
+                (if $scenario == "env-tabs" { "6" } else { "4" }),
+            "SHELLY_TEST_PLUGIN": $plugin, "SHELLY_TEST_CLIENT": $client,
+            "SHELLY_TEST_SERVER": $server, "SHELLY_TEST_WORK": $work,
+            "SHELLY_TEST_SCENARIO": $scenario]]
+    require ((!$result["timed_out"]) && ($result["exit_code"] == 0)) "${scenario}: Vim ${result}"
+    let $json: String
+    cat "${work}/report.json" -> $json
+    let $report = std::json::decode $json
+    require ($report["exception"] == ()) "Vim error: ${scenario} ${report}"
+    require (!(file_exists "${work}/startup-executed")) "language server ran startup code"
+    require (!(file_exists "${work}/document-executed")) "language server executed the document"
+    $report
+}
+
+fn has_property($rows: Array, $row: Integer, $column: Integer, $kind: String): Boolean
+{
+    for $property in $rows[$row - 1]
+    {
+        if ($property["col"] == $column) && ($property["type"] == $kind) { return true }
+    }
+    false
+}
+
+for $scenario in ["client-first", "plugin-first", "manual", "zero-delay", "spaces", "tilde",
+    "path", "env-tabs", "syntax-first", "filetype-first"]
+{
+    let $server = match $scenario
+        {
+            "spaces" => { "${work}/shelly server" }
+            _ => { `$shelly }
+        }
+    let $report = observe $scenario "${plugin}/tests/vimrc.vim" $server
+    require ($report["filetype"] == "shelly") "filetype detection failed"
+    require ($report["commentstring"] == "# %s") "comment formatting missing"
+    require ($report["tabstop"] == 8) "file tab pragma ignored"
+    require ($report["before"] == $report["after"]) "highlighting changed source text"
+    require ($report["legend"][9] == "string") "custom argument token not translated"
+    require ($report["legend"][7] == "macro") "custom alias token not translated"
+    require ($report["legend"] == $report["restart_legend"]) "restart lost token translation"
+    require ($report["restarted"] == true) "restart kept the old server process"
+    require ($report["registered"] == 1) "repeat registration failed"
+    require ($report["error"] == "") "unexpected registration error"
+    for $properties in [$report["properties"], $report["restart_properties"],
+        $report["invalid_properties"]]
+    {
+        require (has_property $properties 2 1 "LspSemanticKeyword") "missing keyword highlighting"
+        require (has_property $properties 3 1 "LspSemanticFunction") "builtin token was dropped"
+        require (has_property $properties 3 6 "LspSemanticString") "argument was treated as keyword"
+        require (has_property $properties 4 12 "LspSemanticVariable") "Unicode span shifted"
+        require (has_property $properties 5 16 "LspSemanticType") "missing type highlighting"
+        require (has_property $properties 6 1 "LspSemanticFunction") "missing function highlight"
+    }
+    require ($report["hover"]["result"]["contents"]["value"].contains "fn greet") "hover failed"
+    let $found = false
+    for $entry in $report["completion"]["result"]
+    { if $entry["label"] == "greet" { $found = true } }
+    require $found "completion omitted the local function"
+    require ($report["diagnostics"] == []) "valid source has diagnostics"
+    require ($report["invalid"].count > 0) "unfinished input has no diagnostic"
+    require ($report["fixed"] == []) "diagnostics did not clear after edit"
+    require ($report["shebang"] == "shelly") "extensionless shebang detection failed"
+    require ($report["other_filetype"] != "shelly") "unrelated filetype was claimed"
+    require ($report["wrong_filetype_start"] == 0) "manual start accepted unrelated source"
+    require ($report["wrong_filetype_error"].contains "filetype=shelly") "filetype error is unclear"
+    require ($report["recovered_error"] == "") "recovered startup retained the old error"
+    require ($report["edited_tabstop"] == 3) "editing pragma did not update tab stops"
+    let $default_tab = if $scenario == "env-tabs" { 6 } else { 4 }
+    require ($report["invalid_tabstop"] == $default_tab) "invalid tab width not rejected"
+    require ($report["late_tabstop"] == $default_tab) "pragma after code affected layout"
+    require (!$report["expandtab"]) "plugin changed user's tab insertion preference"
+    require ($report["vartabstop"] == "") "variable tab stops can misalign diagrams"
+    if $scenario == "manual"
+    { require (!$report["manual_before"]) "automatic startup was not disabled" }
+    let $structural = []
+    for ($row, $column, $character, $group) in $report["brackets"]
+    {
+        if ($group != "shellyString") && ($group != "shellyComment")
+        { $structural = [$structural..., [$row, $column, $character]] }
+    }
+    require ($structural == [[3, 11, "("], [3, 12, ")"], [4, 11, "{"], [4, 12, "}"],
+        [5, 14, "("], [5, 15, ")"], [7, 1, "["], [7, 2, "]"], [11, 4, "["],
+        [11, 5, "]"], [15, 4, "{"], [15, 5, "}"]]) "incorrect comment/string bracket boundaries"
+    echo "PASS" $scenario
+}
+
+for ($scenario, $message) in [["missing-client", "yegappan/lsp"],
+    ["missing-server", "executable not found"]]
+{
+    let $report = observe $scenario "NONE" "${work}/no-such-shelly"
+    require ($report["setup"] == 0) "invalid configuration was accepted"
+    require ($report["error"].contains $message) "configuration error is unclear"
+    require ($report["filetype"] == "shelly") "lexical editing depends on a running server"
+    echo "PASS" $scenario
+}
+
+# Exercise VimEnter and actual terminal rendering, without forcing LSP enablement.
+let $terminal = open_terminal ["vim", "-Nu", "${plugin}/tests/vimrc.vim", "-n", "-i",
+    "NONE", "-S", "${plugin}/tests/startup.vim", "${work}/sample.shy"] [
+    "cwd": $work, "rows": 30, "columns": 100,
+    "env": ["HOME": $work, "PATH": "/usr/bin:/bin", "LANG": "C.UTF-8",
+        "TERM": "xterm-256color", "SHELLY_STD_PATH": "bundled",
+        "SHELLY_TEST_PLUGIN": $plugin, "SHELLY_TEST_CLIENT": $client,
+        "SHELLY_TEST_SERVER": `$shelly, "SHELLY_TEST_WORK": $work]]
+let $output = ""
+let $finished = false
+for _ in 0..120
+{
+    let $reply = terminal_read $terminal 100
+    $output = $output + $reply["text"]
+    if $reply["eof"] { $finished = true; break }
+}
+let $status = terminal_close $terminal
+require ($finished && ($status["exit_code"] == 0)) "terminal Vim startup failed"
+let $json: String
+cat "${work}/startup.json" -> $json
+let $startup = std::json::decode $json
+require ($startup["ready"] && ($startup["tokens"] > 0)) "automatic LSP startup failed"
+require ($startup["filetype"] == "shelly") "terminal filetype detection failed"
+let $keyword = false
+for $property in $startup["properties"]
+{
+    if ($property["col"] == 1) && ($property["type"] == "LspSemanticKeyword")
+    { $keyword = true }
+}
+require $keyword "terminal keyword property missing"
+require ($startup["keyword_color"] != "") "semantic keyword has no terminal color"
+require ($output.contains "mlet") "terminal did not render the colored keyword"
+echo "PASS terminal-startup"
+
+fn wait_for_edit($terminal: Terminal, $phase: String): any
+{
+    let $report: any = ()
+    for _ in 0..80
+    {
+        let $reply = terminal_read $terminal 100
+        require (!$reply["eof"]) "Vim exited during ${phase}"
+        let $path = "${work}/insert.json"
+        if !(file_exists $path) { continue }
+        let $json: String
+        $path -> $json
+        $report = std::json::decode $json
+        require ($report["exception"] == ()) "insert fixture failed: ${report}"
+        if !$report["ready"] { continue }
+        let $rows = $report["properties"]
+        if $phase == "ready"
+        {
+            if (has_property $rows 2 1 "LspSemanticKeyword") { return $report }
+            continue
+        }
+        let $row = $report["lines"].count
+        let $line = $report["lines"][$row - 1]
+        if $phase == "normal"
+        {
+            if $report["mode"] == "n" { return $report }
+            continue
+        }
+        if !($report["mode"].starts_with "i") { continue }
+        require ($report["events"]["leave"] == 0) "fixture left Insert mode before ${phase}"
+        if $phase == "typed"
+        {
+            if ($line == 'let $live = 123') && (has_property $rows $row 1 "LspSemanticKeyword")
+                && (has_property $rows $row 13 "LspSemanticNumber") { return $report }
+        }
+        else if $phase == "incomplete"
+        {
+            if ($line == 'let $live = "unfinished')
+                && (has_property $rows $row 1 "LspSemanticKeyword")
+                && !(has_property $rows $row 13 "LspSemanticNumber") { return $report }
+        }
+        else if $phase == "popup-before"
+        {
+            if ($line == "gre") && ($report["popup"] == 1) { return $report }
+        }
+        else if ($phase == "popup-after") && ($line == "gree") && ($report["popup"] == 1)
+        {
+            for $property in $rows[$row - 1]
+            {
+                if ($property["col"] == 1) && ($property["length"] == 4)
+                    && ($property["type"] == "LspSemanticFunction") { return $report }
+            }
+        }
+    }
+    require false "No live highlight during ${phase}: ${report}"
+    ()
+}
+
+let $terminal = open_terminal ["vim", "-Nu", "${plugin}/tests/vimrc.vim", "-n", "-i",
+    "NONE", "-S", "${plugin}/tests/insert.vim", "${work}/sample.shy"] [
+    "cwd": $work, "rows": 30, "columns": 100,
+    "env": ["HOME": $work, "PATH": "/usr/bin:/bin", "LANG": "C.UTF-8",
+        "TERM": "xterm-256color", "SHELLY_STD_PATH": "bundled",
+        "SHELLY_TEST_PLUGIN": $plugin, "SHELLY_TEST_CLIENT": $client,
+        "SHELLY_TEST_SERVER": `$shelly, "SHELLY_TEST_WORK": $work,
+        "SHELLY_TEST_SCENARIO": "insert"]]
+let _ = wait_for_edit $terminal "ready"
+terminal_write $terminal 'Golet $live = 123'
+let $typed = wait_for_edit $terminal "typed"
+require ($typed["events"]["insert"] > 0) "actual Insert-mode change event missing"
+terminal_write $terminal '\x15let $live = "unfinished'
+let _ = wait_for_edit $terminal "incomplete"
+terminal_write $terminal '\x15let $live = 456\rgre\x18\x0f'
+let _ = wait_for_edit $terminal "popup-before"
+terminal_write $terminal "e"
+let $popup = wait_for_edit $terminal "popup-after"
+require ($popup["events"]["popup"] > 0) "completion-popup change event missing"
+terminal_write $terminal "\x1b\x1b"
+let _ = wait_for_edit $terminal "normal"
+terminal_write $terminal ":qa!\r"
+let $finished = false
+for _ in 0..50
+{
+    if (terminal_read $terminal 100)["eof"] { $finished = true; break }
+}
+let $status = terminal_close $terminal
+require ($finished && ($status["exit_code"] == 0)) "insert fixture did not close cleanly"
+echo "PASS insert-highlighting"
+rm -rf $work
+echo "Vim integration tests passed."

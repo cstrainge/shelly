@@ -1,0 +1,83 @@
+*shelly.txt*                  Shelly language support for Vim
+
+                            SHELLY                         *shelly*
+
+Shelly uses yegappan/lsp with the existing `shelly --language-server` executable.
+Vim 9 with jobs, channels, text properties and popup windows is required.
+A recent Vim 9.1 is recommended. This adapter targets classic Vim.
+
+REPOSITORY CONFIGURATION                                    *shelly-setup*
+
+Install https://github.com/yegappan/lsp in a Vim package directory, for example
+~/.vim/pack/downloads/opt/lsp. Add to your vimrc: >
+
+    set nocompatible
+    packadd lsp
+    let g:shelly_server_path = expand('~/workdir/shelly/target/release/shelly')
+    execute 'set runtimepath^=' . fnameescape(expand('~/workdir/shelly/extensions/vim'))
+    runtime plugin/shelly.vim
+    filetype plugin on
+    syntax enable
+<
+Adjust paths to your checkout. The plugin uses the existing executable; it never
+builds or replaces your login shell. To use a debug build, select
+~/workdir/shelly/target/debug/shelly instead.
+
+Restart Vim after changing plugin code or the executable path. Restart only the
+server after replacing the binary at the same path: |:ShellyLspRestart|.
+
+SETTINGS                                                    *shelly-settings*
+
+Set before loading the plugin:
+
+g:shelly_server_path                                         *g:shelly_server_path*
+    Executable path or command from PATH. Default: 'shelly'. A leading ~/ is
+    expanded. Paths containing spaces are supported, without shell quoting.
+
+g:shelly_auto_start                                          *g:shelly_auto_start*
+    Default: 1. Set to 0 to start with |:ShellyLspStart| instead.
+
+g:shelly_highlight_delay                                     *g:shelly_highlight_delay*
+    Default: 150 milliseconds. Nonnegative integer debounce for semantic tokens.
+    This sets the LSP client's global semanticHighlightDelay option. Registration
+    also enables its global semanticHighlight option, affecting its other servers.
+
+COMMANDS                                                    *shelly-commands*
+
+:ShellyLspStart                                              *:ShellyLspStart*
+    Start or attach to Shelly in a Shelly buffer. Retry setup after correcting a
+    missing client or executable. Errors are also stored in g:shelly_lsp_error.
+    A different filetype produces a warning. For Shelly source misidentified by
+    an earlier detection rule, use :set filetype=shelly before starting.
+
+:ShellyLspRestart                                            *:ShellyLspRestart*
+    Restart the server for attached Shelly buffers using the registered path.
+
+Client commands include :LspHover, :LspDiag show, :LspServer show status, and
+:LspServer debug messages. Insert-mode CTRL-X CTRL-O uses omnifunc completion.
+No key mappings are installed. See the LSP client's help for its full controls.
+
+HIGHLIGHTING AND LAYOUT                                      *shelly-highlighting*
+
+The language server supplies semantic roles; the adapter translates Shelly's
+custom token names to the client's supported standard names. Token indices and
+UTF-16 source positions remain unchanged. The server needs no Vim-specific build.
+Your theme controls LspSemantic* colors. Syntax rules supply only comment/string
+boundaries needed for bracket matching, including incomplete strings.
+
+Semantic colors refresh in Insert mode, including with the completion menu open.
+Requests are debounced using the client's semanticHighlightDelay (default 150 ms).
+The client's semanticHighlight option also controls these Insert-mode requests.
+Pending refreshes are cancelled when leaving Insert mode or the buffer.
+
+*.shy files and extensionless scripts with a Shelly shebang use filetype shelly.
+The server analyzes source without executing it or running startup scripts.
+Current features: semantic tokens, diagnostics, hover, completion. Rename,
+definition navigation and formatting are not yet server capabilities.
+
+A header #tab-size N selects tabstop (1 through 32). Otherwise inherited
+$SHELLY_TAB_SIZE is used, with a default of 4. A changed header updates tabstop.
+The plugin clears vartabstop and preserves expandtab and shiftwidth. Prefer a
+file pragma for portable pipeline diagrams.
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

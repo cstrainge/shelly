@@ -55,6 +55,25 @@ VS Code's TextMate/Oniguruma engines for native bracket eligibility and comment/
 exclusion; run `npm test` from `extensions/vscode` after building the
 debug binary and installing the extension's development dependencies.
 
+The classic Vim adapter has a separate integration runner so Vim and its LSP
+client are not requirements of the ordinary language suite. Install
+`yegappan/lsp` under the ignored `extensions/vim/.deps/lsp` directory (or pass an
+absolute client directory as the final argument), then run from the repository root:
+
+```sh
+./target/debug/shelly -m extensions/vim/test.shy
+```
+
+This launches real headless Vim processes against the debug server, checking
+actual text properties, plugin-side token translation, Unicode interpolation,
+diagnostic updates, restart, bracket boundaries, tab pragmas, early system syntax
+and filetype setup, configuration, and
+startup isolation. A PTY check verifies ordinary `VimEnter` startup and rendered
+keyword color without manually enabling the client. See `extensions/vim/README.md`
+for setup. Another PTY session types new code and incomplete input without
+leaving Insert mode, then edits with the completion menu open, verifying actual
+semantic text properties and the Insert-mode change events.
+
 `native/nested_imports.shy` checks nested module paths, `init.shy` packages,
 search precedence, ambiguous file/directory layouts, public re-exports, shared identities,
 directory preludes, reloads, rejected direct entry-point imports, and source spans.

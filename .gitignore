@@ -34,6 +34,14 @@ temp/
 /extensions/vscode/out/
 /extensions/vscode/*.vsix
 
+# Local Vim client dependencies and generated help tags.
+/extensions/vim/.deps/
+/extensions/vim/doc/tags
+
+# Vim swap, persistent undo, and backup files.
+.*.sw[a-p]
+*.un~
+*~
 
 # Ignore all draft documents in the repository.
 *-draft.md
