@@ -1,7 +1,8 @@
 
 use std::fmt::{ self, Debug, Display, Formatter };
 
-use crate::language::text::location::Location;
+use crate::language::{ data::value::TypeId, text::location::Location };
+
 
 
 /**
@@ -12,7 +13,12 @@ pub enum CoreErrorKind
     /**
      * An error occurred during lexing of the source code.
      */
-    LexicalError
+    LexicalError,
+
+    /**
+     * The code expected a value to be one type but found another type.
+     */
+    TypeError(TypeId, TypeId)
 }
 
 
@@ -66,6 +72,30 @@ impl CoreError
 
         Ok(())
     }
+
+    /**
+     * Format a type error for display to the user.
+     */
+    fn fmt_type_error(&self, f: &mut Formatter<'_>, expected: TypeId, found: TypeId) -> fmt::Result
+    {
+        if let Some(location) = &self.location
+        {
+            write!(f, "{}: ", location)?;
+        }
+
+        write!(f, "Type error")?;
+
+        if let Some(message) = &self.message
+        {
+            write!(f, ": {}", message)?;
+        }
+        else
+        {
+            write!(f, ". Expected {:?}, found {:?}", expected, found)?;
+        }
+
+        Ok(())
+    }
 }
 
 
@@ -75,7 +105,8 @@ impl Display for CoreError
     {
         match self.kind
         {
-            CoreErrorKind::LexicalError => self.fmt_lexical_error(f)
+            CoreErrorKind::LexicalError => self.fmt_lexical_error(f),
+            CoreErrorKind::TypeError(expected, found) => self.fmt_type_error(f, expected, found)
         }
     }
 }

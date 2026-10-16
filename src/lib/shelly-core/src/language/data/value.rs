@@ -1,33 +1,12 @@
 
 use std::{ fmt::{ self, Debug, Display, Formatter },sync::atomic::AtomicU64 };
 
-use crate::language::data::{ exec_result::ExecResult, range::Range };
+use crate::{ language::data::{ exec_result::ExecResult, range::ScriptRange },
+             result::{ CoreError, CoreErrorKind, CoreResult } };
 
 
 
 pub type TypeId = u16;
-
-
-pub struct TypeError
-{
-    pub expected: TypeId,
-    pub found: TypeId
-}
-
-
-impl Debug for TypeError
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
-    {
-        write!(f,
-               "Type error expected type ID {}, but found type ID {}.",
-               self.expected,
-               self.found)
-    }
-}
-
-
-pub type ValueResult<T> = Result<T, TypeError>;
 
 
 /**
@@ -218,7 +197,7 @@ impl Value
         new_self
     }
 
-    pub fn new_range(range: Range) -> Self
+    pub fn new_range(range: ScriptRange) -> Self
     {
         let start = range.start.unwrap_or(0);
         let end = range.end.unwrap_or(0);
@@ -276,26 +255,31 @@ impl Value
         ((self.word0 & SYSTEM_TYPE_ID_MASK) >> SYSTEM_TYPE_ID_SHIFT) as TypeId
     }
 
-    fn expect_type(&self, expected: TypeId) -> ValueResult<()>
+    fn expect_type(&self, expected: TypeId) -> CoreResult<()>
     {
         let found = self.type_id();
 
         if found != expected
         {
-            return Err(TypeError { expected, found });
+            return Err(CoreError
+                {
+                    location: None,
+                    kind: CoreErrorKind::TypeError(expected, found),
+                    message: None
+                });
         }
 
         Ok(())
     }
 
-    pub fn as_bool(&self) -> ValueResult<bool>
+    pub fn as_bool(&self) -> CoreResult<bool>
     {
         self.expect_type(TYPE_ID_BOOL)?;
 
         Ok(self.word1 != 0)
     }
 
-    pub fn as_exec_result(&self) -> ValueResult<ExecResult>
+    pub fn as_exec_result(&self) -> CoreResult<ExecResult>
     {
         self.expect_type(TYPE_ID_EXECRESULT)?;
 
@@ -306,21 +290,21 @@ impl Value
             })
     }
 
-    pub fn as_integer(&self) -> ValueResult<i64>
+    pub fn as_integer(&self) -> CoreResult<i64>
     {
         self.expect_type(TYPE_ID_INTEGER)?;
 
         Ok(self.word1 as i64)
     }
 
-    pub fn as_float(&self) -> ValueResult<f64>
+    pub fn as_float(&self) -> CoreResult<f64>
     {
         self.expect_type(TYPE_ID_FLOAT)?;
 
         Ok(f64::from_bits(self.word1))
     }
 
-    pub fn as_range(&self) -> ValueResult<Range>
+    pub fn as_range(&self) -> CoreResult<ScriptRange>
     {
         self.expect_type(TYPE_ID_RANGE)?;
 
@@ -333,7 +317,7 @@ impl Value
         let start = (self.word1 >> 32) as u32 as i32;
         let end = self.word1 as u32 as i32;
 
-        Ok(Range
+        Ok(ScriptRange
             {
                 start: if has_start { Some(start as _) } else { None },
                 end: if has_end { Some(end as _) } else { None },

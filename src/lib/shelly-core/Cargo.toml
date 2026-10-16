@@ -8,5 +8,9 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 
+
 [dependencies]
+cranelift-frontend = "0.136.3"
 cranelift-codegen = "0.136.3"
+cranelift-jit = "0.136.3"
+cranelift-module = "0.136.3"

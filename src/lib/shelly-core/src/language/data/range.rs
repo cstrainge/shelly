@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 
 
 
-pub struct Range
+pub struct ScriptRange
 {
     pub start: Option<i64>,
     pub end: Option<i64>,
@@ -11,7 +11,7 @@ pub struct Range
 }
 
 
-impl Display for Range
+impl Display for ScriptRange
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
     {

@@ -5,6 +5,9 @@ use crate::language::text::location::Location;
 
 
 
+/**
+ * The different kinds of tokens that can be recognized by the tokenizer.
+ */
 #[derive(Clone, Debug)]
 pub enum TokenKind
 {
