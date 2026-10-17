@@ -98,10 +98,6 @@ pub(super) type ParserFunction<T> = fn (buffer: &mut TokenBuffer<'_, '_>) -> Cor
 pub(super) fn match_one_of<T>(buffer: &mut TokenBuffer<'_, '_>,
                               parsers: &[ParserFunction<T>]) -> CoreResult<Option<T>>
 {
-    // Call the matchers in order and return the first successful match, or collect errors if none
-    // succeed.
-    let mut results = vec![];
-
     for parser in parsers
     {
         let mut lookahead = LookaheadGuard::new(buffer);
@@ -126,19 +122,7 @@ pub(super) fn match_one_of<T>(buffer: &mut TokenBuffer<'_, '_>,
         }
     }
 
-    // If no parser succeeded, check if we have any errors collected.
-    if results.is_empty()
-    {
-        return Ok(None);
-    }
-
-    // It looks like at least one of the matchers returned an error so we return a combined error.
-    Err(CoreError
-        {
-            location: None,
-            kind: CoreErrorKind::FailedMatch(results),
-            message: None
-        })
+    return Ok(None);
 }
 
 
