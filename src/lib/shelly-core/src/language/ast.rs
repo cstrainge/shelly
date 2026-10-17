@@ -1,4 +1,6 @@
 
+use std::fmt::{self, Display, Formatter };
+
 use crate::language::text::location::Location;
 
 
@@ -77,6 +79,15 @@ pub enum Expression
 
 impl Expression
 {
+    pub fn new_literal_none(location: Location) -> Self
+    {
+        Expression::Literal(Box::new(LiteralExpression
+            {
+                location,
+                value: LiteralValue::None
+            }))
+    }
+
     pub fn new_literal_expression(location: Location,
                                   value: LiteralValue) -> Self
     {
@@ -115,6 +126,15 @@ impl Expression
 }
 
 
+impl Display for Expression
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
+    {
+        write!(f, "<expression>")
+    }
+}
+
+
 pub struct LetStatement
 {
     pub location: Location,
@@ -147,7 +167,8 @@ pub enum Statement
     Null,
     Let(Box<LetStatement>),
     Assignment(Box<AssignmentStatement>),
-    Expression(Box<Expression>)
+    Expression(Box<Expression>),
+    Call(Box<CallExpression>)
 
     // FunctionDefinitionStatement
     // StructDefinitionStatement
@@ -196,7 +217,64 @@ impl Statement
     {
         Statement::Expression(Box::new(expression))
     }
+
+    pub fn new_call_statement(location: Location,
+                              identifier: String,
+                              arguments: Vec<Expression>) -> Self
+    {
+        Statement::Call(Box::new(CallExpression
+            {
+                location,
+                identifier,
+                arguments
+            }))
+    }
 }
 
 
 pub type TopLevel = Vec<Statement>;
+
+
+pub fn print_ast(ast: &TopLevel)
+{
+    fn print_let(statement: &Box<LetStatement>)
+    {
+        print!("let {}", statement.identifier);
+
+        if let Some(expression) = &statement.expression
+        {
+            print!(" = ");
+            print_expression(expression);
+        }
+
+        println!("");
+    }
+
+    fn print_assignment(statement: &Box<AssignmentStatement>)
+    {
+        println!("{} = ", statement.identifier);
+        print_expression(&statement.expression);
+    }
+
+    fn print_expression(expression: &Box<Expression>)
+    {
+        println!("{}", expression);
+    }
+
+    fn print_call(_expression: &Box<CallExpression>)
+    {
+        println!("call_expression");
+    }
+
+    for statement in ast
+    {
+        match statement
+        {
+            Statement::Null                   => println!("-"),
+            Statement::Let(statement)         => print_let(statement),
+            Statement::Assignment(statement)  => print_assignment(statement),
+            Statement::Expression(expression) => print_expression(expression),
+            Statement::Call(call_expression)  => print_call(call_expression),
+        }
+    }
+}

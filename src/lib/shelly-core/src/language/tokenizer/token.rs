@@ -8,7 +8,7 @@ use crate::language::text::location::Location;
 /**
  * The different kinds of tokens that can be recognized by the tokenizer.
  */
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TokenKind
 {
     /**
@@ -336,6 +336,21 @@ pub struct Token
      * type.
      */
     pub value: TokenValue
+}
+
+
+impl Token
+{
+    pub fn as_text(&self) -> String
+    {
+        match &self.value
+        {
+            TokenValue::None                   => String::new(),
+            TokenValue::Literal(literal)       => format!("{}", literal),
+            TokenValue::Identifier(identifier) => identifier.clone(),
+            TokenValue::Symbol(symbol)         => symbol.clone(),
+        }
+    }
 }
 
 
