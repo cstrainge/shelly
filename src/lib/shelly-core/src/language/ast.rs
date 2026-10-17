@@ -1,7 +1,7 @@
 
 use std::fmt::{self, Display, Formatter };
 
-use crate::language::text::location::Location;
+use crate::language::{ text::location::Location, tokenizer::{ TokenLiteral, StringFlag } };
 
 
 
@@ -31,7 +31,7 @@ pub enum LiteralValue
     Boolean(bool),
     Integer(i64),
     Float(f64, Option<String>),
-    String(String)
+    String(String, StringFlag)
 }
 
 
@@ -89,8 +89,16 @@ impl Expression
     }
 
     pub fn new_literal_expression(location: Location,
-                                  value: LiteralValue) -> Self
+                                  value: TokenLiteral) -> Self
     {
+        let value = match value
+            {
+                TokenLiteral::Boolean(b)   => LiteralValue::Boolean(b),
+                TokenLiteral::Integer(i)   => LiteralValue::Integer(i),
+                TokenLiteral::Float(f, s)  => LiteralValue::Float(f, Some(s)),
+                TokenLiteral::String(s, f) => LiteralValue::String(s, f)
+            };
+
         Expression::Literal(Box::new(LiteralExpression
             {
                 location,
@@ -235,46 +243,159 @@ impl Statement
 pub type TopLevel = Vec<Statement>;
 
 
+/**
+ * Print the AST as a tree, including nested expressions and the roles of their child nodes.
+ */
 pub fn print_ast(ast: &TopLevel)
 {
-    fn print_let(statement: &Box<LetStatement>)
+    fn print_branch(prefix: &str, last: bool, label: &str) -> String
     {
-        print!("let {}", statement.identifier);
+        let branch = if last { "└── " } else { "├── " };
+        let continuation = if last { "    " } else { "│   " };
 
-        if let Some(expression) = &statement.expression
+        println!("{prefix}{branch}{label}");
+
+        format!("{prefix}{continuation}")
+    }
+
+    fn literal_label(value: &LiteralValue) -> String
+    {
+        match value
         {
-            print!(" = ");
-            print_expression(expression);
+            LiteralValue::None           => "None ()".into(),
+            LiteralValue::Boolean(value) => format!("Boolean {value}"),
+            LiteralValue::Integer(value) => format!("Integer {value}"),
+            LiteralValue::Float(_, Some(representation)) =>
+                {
+                    format!("Float {}", representation.escape_debug())
+                },
+
+            LiteralValue::Float(value, None) => format!("Float {value:?}"),
+
+            LiteralValue::String(value, flag) =>
+                {
+                    let interpolation = match flag
+                        {
+                            StringFlag::Interpolated    => "interpolated",
+                            StringFlag::NonInterpolated => "non-interpolated"
+                        };
+
+                    // Escape control characters so a string cannot break the tree's layout.
+                    format!("String ({interpolation}) {value:?}")
+                }
         }
-
-        println!("");
     }
 
-    fn print_assignment(statement: &Box<AssignmentStatement>)
+    fn print_expression(expression: &Expression, prefix: &str, last: bool, label: &str)
     {
-        println!("{} = ", statement.identifier);
-        print_expression(&statement.expression);
+        match expression
+        {
+            Expression::Literal(expression) =>
+                {
+                    print_branch(prefix, last, &format!("{label}{}",
+                                                       literal_label(&expression.value)));
+                },
+
+            Expression::MathOperation(expression) =>
+                {
+                    let operation = match expression.operation
+                        {
+                            MathOperation::Addition       => "Addition (+)",
+                            MathOperation::Subtraction    => "Subtraction (-)",
+                            MathOperation::Multiplication => "Multiplication (*)",
+                            MathOperation::Division       => "Division (/)",
+                            MathOperation::Modulus        => "Modulus (%)"
+                        };
+
+                    let children = print_branch(prefix, last, &format!("{label}{operation}"));
+
+                    print_expression(&expression.left, &children, false, "Left: ");
+                    print_expression(&expression.right, &children, true, "Right: ");
+                },
+
+            Expression::Call(call) => print_call(call, prefix, last, &format!("{label}Call: "))
+        }
     }
 
-    fn print_expression(expression: &Box<Expression>)
+    fn print_call(call: &CallExpression, prefix: &str, last: bool, label: &str)
     {
-        println!("{}", expression);
+        let children = print_branch(prefix, last, &format!("{label}{}",
+                                                           call.identifier.escape_debug()));
+
+        for (index, argument) in call.arguments.iter().enumerate()
+        {
+            print_expression(argument, &children, index + 1 == call.arguments.len(),
+                             &format!("Argument {}: ", index + 1));
+        }
     }
 
-    fn print_call(_expression: &Box<CallExpression>)
-    {
-        println!("call_expression");
-    }
-
-    for statement in ast
+    fn print_statement(statement: &Statement, last: bool)
     {
         match statement
         {
-            Statement::Null                   => println!("-"),
-            Statement::Let(statement)         => print_let(statement),
-            Statement::Assignment(statement)  => print_assignment(statement),
-            Statement::Expression(expression) => print_expression(expression),
-            Statement::Call(call_expression)  => print_call(call_expression),
+            Statement::Null =>
+                {
+                    print_branch("", last, "Null statement");
+                },
+
+            Statement::Let(statement) =>
+                {
+                    let visibility = match statement.visibility
+                        {
+                            ItemVisibility::Private => "private",
+                            ItemVisibility::Public  => "public"
+                        };
+
+                    let environment = match statement.environment
+                        {
+                            Environment::Local    => "local",
+                            Environment::Exported => "exported"
+                        };
+
+                    let children = print_branch("", last,
+                        &format!("Let {} ({visibility}, {environment})",
+                                 statement.identifier.escape_debug()));
+
+                    if statement.type_annotation.is_some()
+                    {
+                        print_branch(&children, statement.expression.is_none(), "Type annotation");
+                    }
+
+                    if let Some(expression) = &statement.expression
+                    {
+                        print_expression(expression, &children, true, "Initializer: ");
+                    }
+                },
+
+            Statement::Assignment(statement) =>
+                {
+                    let children = print_branch("", last,
+                        &format!("Assignment {}", statement.identifier.escape_debug()));
+
+                    print_expression(&statement.expression, &children, true, "Value: ");
+                },
+
+            Statement::Expression(expression) =>
+                {
+                    let children = print_branch("", last, "Expression statement");
+
+                    print_expression(expression, &children, true, "");
+                },
+
+            Statement::Call(call) => print_call(call, "", last, "Call statement: ")
         }
+    }
+
+    if ast.is_empty()
+    {
+        println!("AST (empty)");
+        return;
+    }
+
+    println!("AST");
+
+    for (index, statement) in ast.iter().enumerate()
+    {
+        print_statement(statement, index + 1 == ast.len());
     }
 }

@@ -121,7 +121,7 @@ pub(super) fn match_one_of<T>(buffer: &mut TokenBuffer<'_, '_>,
 
             Err(error) =>
                 {
-                    results.push(error);
+                    return Err(error);
                 }
         }
     }

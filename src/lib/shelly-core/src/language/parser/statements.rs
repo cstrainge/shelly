@@ -24,15 +24,11 @@ fn parse_block_statement(_input: &mut TokenBuffer<'_, '_>) -> CoreResult<Option<
 
 fn parse_call_statement(input: &mut TokenBuffer<'_, '_>) -> CoreResult<Option<Statement>>
 {
-    let name = try_expect_one_of_tokens(input, &[TokenKind::Identifier, TokenKind::Symbol])?;
-
-    if let Some(name) = name
+    if let Some(call) = parse_call(input, CallContext::Statement)?
     {
-        let parameters = parse_until_break(input, &name.location, EofOk::Yes, parse_expression)?;
-
-        return Ok(Some(Statement::new_call_statement(name.location.clone(),
-                                                     name.as_text(),
-                                                     parameters)));
+        return Ok(Some(Statement::new_call_statement(call.location,
+                                                     call.identifier,
+                                                     call.arguments)));
     }
 
     Ok(None)
