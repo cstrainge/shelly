@@ -10,4 +10,5 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
-shelly-runtime = { path = "../../lib/shelly-runtime" }
+# shelly-runtime = { path = "../../lib/shelly-runtime" }
+shelly-core = { path = "../../lib/shelly-core" }

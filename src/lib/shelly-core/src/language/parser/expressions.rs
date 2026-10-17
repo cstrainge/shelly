@@ -126,23 +126,6 @@ fn parse_primary_expression(input: &mut TokenBuffer<'_, '_>) -> CoreResult<Optio
 }
 
 
-fn expected_expression(input: &mut TokenBuffer<'_, '_>) -> CoreResult<Option<Expression>>
-{
-    let Some(token) = input.next()?
-        else
-        {
-            return Ok(None);
-        };
-
-    Err(CoreError
-        {
-            location: Some(token.location),
-            kind: CoreErrorKind::ExpectedExpression,
-            message: None
-        })
-}
-
-
 fn parse_expression_with_binding_power(input: &mut TokenBuffer<'_, '_>,
                                        minimum_power: u8) -> CoreResult<Option<Expression>>
 {
@@ -195,6 +178,6 @@ pub(super) fn parse_expression(input: &mut TokenBuffer<'_, '_>) -> CoreResult<Op
     match parse_expression_with_binding_power(input, 0)?
     {
         Some(expression) => Ok(Some(expression)),
-        None             => expected_expression(input)
+        None             => Ok(None) //expected_expression(input)
     }
 }

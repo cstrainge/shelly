@@ -335,7 +335,7 @@ pub fn print_ast(ast: &TopLevel)
         {
             Statement::Null =>
                 {
-                    print_branch("", last, "Null statement");
+                    print_branch("", last, "Null statement.");
                 },
 
             Statement::Let(statement) =>

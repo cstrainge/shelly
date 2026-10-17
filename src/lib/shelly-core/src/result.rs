@@ -150,7 +150,7 @@ impl CoreError
         }
         else
         {
-            write!(f, ". Expected {:?}, found {:?}", expected, found)?;
+            write!(f, ". Expected {:?}, found {:?}.", expected, found)?;
         }
 
         Ok(())
