@@ -1,0 +1,88 @@
+# exec replaces only an ordinary shell process, never a Shelly pipeline/capture task.
+let $fixture = $args[0]
+printf "%s" 'echo ($pid == Integer($args[0]))' -> "${fixture}/identity.shy"
+printf "%s" 'echo (optional_env "EXEC_PUBLIC") (optional_env "EXEC_PRIVATE")' -> "${fixture}/environment.shy"
+printf "%s" 'echo ($pwd == $args[0])' -> "${fixture}/cwd.shy"
+printf "%s" "not an executable image" -> "${fixture}/bad-image"
+chmod +x "${fixture}/bad-image"
+printf "%s" "not executable" -> "${fixture}/not-executable"
+mkdir -p "${fixture}/blocked" "${fixture}/usable"
+cp "${fixture}/not-executable" "${fixture}/blocked/probe"
+ln -s /usr/bin/printf "${fixture}/usable/probe"
+ln -s /usr/bin/printf "${fixture}/probe"
+
+fn exec_case($source: String, $expected: String, $code: Integer, $diagnostic: String)
+{
+    let $fixture = $args[0]
+    let $result = run_process [`$shelly, "-m", "-c", $source] [
+        "cwd": $fixture, "env": (environment $fixture), "stdin_file": "/dev/null",
+        "stdout_file": "${fixture}/out", "stderr_file": "${fixture}/err", "timeout_ms": 3000]
+    let $out: String
+    let $err: String
+    "${fixture}/out" -> $out
+    "${fixture}/err" -> $err
+    require (($result["error"] == ()) && ($result["signal"] == ()) &&
+        (!$result["timed_out"])) "exec child failed to complete"
+    if ($out != $expected) || ($result["exit_code"] != $code) ||
+        (($diagnostic == "") && ($err != "")) ||
+        (($diagnostic != "") && (!($err.contains $diagnostic)))
+    { echo $source $result $out $err; fail "exec mismatch" }
+}
+
+exec_case 'echo before; exec $shelly -m identity.shy $pid; echo unreachable' "before\ntrue\n" 0 ""
+exec_case 'exec $shelly -m -c "exit 7"; echo unreachable' "" 7 ""
+exec_case 'try { exec /usr/bin/printf "%s" replaced } finally { echo unreachable }' "replaced" 0 ""
+exec_case 'exec -- /usr/bin/printf "%s" success' "success" 0 ""
+exec_case 'exec audit_args "two words" "" "雪"' "[\"two words\", \"\", \"\\u96ea\"]\n" 0 ""
+exec_case 'let $program = "/usr/bin/printf"; let $values = ["one", "two"]; exec $program "%s\\n" $values...' "one\ntwo\n" 0 ""
+exec_case 'fn printf($args...): String { "wrong" }; alias printf = echo wrong; exec printf "%s" external' "external" 0 ""
+exec_case 'let export $EXEC_PUBLIC = "visible"; let $EXEC_PRIVATE = "hidden"; exec $shelly -m environment.shy' "visible ()\n" 0 ""
+exec_case 'let type $PATH = [String]; $PATH = ["/usr/bin", "/bin"]; exec printenv PATH' "/usr/bin:/bin\n" 0 ""
+exec_case 'exec $shelly -m cwd.shy $pwd' "true\n" 0 ""
+exec_case 'let $HOME = $pwd; exec $shelly -m ~/identity.shy $pid' "true\n" 0 ""
+exec_case 'let export $PATH = "${pwd}/blocked:${pwd}/usable"; exec probe "%s" found' "found" 0 ""
+exec_case 'exec ./bin/audit_args relative' "[\"relative\"]\n" 0 ""
+exec_case 'let export $PATH = ""; exec probe "%s" current-directory' "current-directory" 0 ""
+exec_case 'exec; echo after' "after\n" 0 ""
+exec_case 'exec -> persistent.out; echo persisted' "" 0 ""
+let $text: String
+"${fixture}/persistent.out" -> $text
+require ($text == "persisted\n") "exec without arguments did not retain stdout redirection"
+exec_case 'exec ~-> persistent.err; audit_streams output "error" 0' "output" 0 ""
+"${fixture}/persistent.err" -> $text
+require ($text == "error") "exec without arguments did not retain stderr redirection"
+exec_case 'exec /usr/bin/printf "%s" redirected -> replaced.out' "" 0 ""
+"${fixture}/replaced.out" -> $text
+require ($text == "redirected") "exec lost file redirection"
+exec_case 'exec audit_streams output "error" 0 ~+-> both.out' "" 0 ""
+"${fixture}/both.out" -> $text
+require ($text == "outputerror") "exec lost combined redirection"
+exec_case 'try { exec missing_exec_program -> failed.out } catch ($error: RuntimeError) { echo recovered }; echo after' "recovered\nafter\n" 0 ""
+"${fixture}/failed.out" -> $text
+require ($text == "") "failed exec leaked its stdout redirection"
+exec_case 'try { exec ./bad-image ~-> failed.err } catch ($error: RuntimeError) { echo recovered }; missing_after_exec' "recovered\n" 1 "Executable not found: missing_after_exec"
+"${fixture}/failed.err" -> $text
+require ($text == "") "failed exec leaked its stderr redirection"
+exec_case 'exec missing_exec_program; echo unreachable' "" 1 "Executable not found: missing_exec_program"
+exec_case 'exec ""' "" 1 "Executable not found:"
+exec_case 'let export $PATH = "${pwd}/not-executable"; exec missing_exec_program' "" 1 "Executable not found: missing_exec_program"
+exec_case 'exec ./not-executable' "" 1 "Permission denied"
+exec_case 'let export $PATH = "${pwd}/blocked"; exec probe' "" 1 "Permission denied"
+exec_case 'exec /usr/bin/printf "bad\\x00"' "" 1 "cannot contain NUL"
+exec_case 'let $out: String; exec /usr/bin/printf bad -> $out' "" 1 "exec cannot redirect into a Shelly variable"
+exec_case 'exec /usr/bin/printf "%s" pipeline | cat; echo after' "pipelineafter\n" 0 ""
+exec_case 'let $out: String; "input" | exec -- cat | $out; echo $out' "input\n" 0 ""
+exec_case 'type Command = String; let $run: Command = `exec; let $out: String; "bound" | $run cat | $out; echo $out' "bound\n" 0 ""
+exec_case 'alias replace = exec printf; let $out: String; replace "%s" alias | cat | $out; echo $out' "alias\n" 0 ""
+exec_case 'let $out: String; [1, 2] | exec printf "%s" $ | $out; echo $out' "12\n" 0 ""
+exec_case 'let $out: String; let $status = exec /usr/bin/false | cat | $out; echo $status' "ExecResult(1)\n" 0 ""
+exec_case 'exec missing_exec_program | cat' "" 1 "Executable not found: missing_exec_program"
+exec_case 'exec | cat' "" 1 "exec in a pipeline requires a program"
+exec_case 'fn replace($item: any): any { exec /usr/bin/printf bad }; [1] | replace' "" 1 "exec cannot replace the shell inside a pipeline"
+exec_case 'try {} finally { exec /usr/bin/printf bad }' "" 1 "not admitted during cleanup/reporting"
+
+# Rust ignores SIGPIPE in Shelly; an ordinary replacement must receive its default action.
+let $result = run_process [`$shelly, "-m", "-c", 'exec /bin/kill -s PIPE $pid'] [
+    "env": (environment $fixture), "stdin_file": "/dev/null", "timeout_ms": 3000]
+require (($result["signal"] == 13) && ($result["error"] == ()) &&
+    (!$result["timed_out"])) "exec replacement inherited Rust's ignored SIGPIPE"

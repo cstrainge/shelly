@@ -18,6 +18,13 @@ Run from the repository root with the binary being tested:
 ./target/debug/shelly -m test.shy REDIRECTION-
 ```
 
+`native/exec.shy` checks process replacement with the same PID, exit status,
+arguments, PATH lookup, cwd, exported and typed environment values, file redirections,
+persistent redirections without a program, pipeline stages, and failed-launch recovery.
+`repl/exec.shy` checks recovery across separate inputs, replacement of the interactive
+shell, inherited terminal input/output, and normal Ctrl+C termination. These fixtures
+target Linux/WSL and macOS with the same executable paths.
+
 An optional argument selects a group or a substring of a test filename. Empty
 selections fail. Full/process runs validate `INVENTORY.tsv` against the files on
 disk, rejecting duplicate IDs, missing/orphan files, and invalid paths. Focused

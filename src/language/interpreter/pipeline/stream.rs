@@ -241,6 +241,7 @@ impl<'a> StageStream<'a>
             }
             return Ok(Step::Pending);
         }
+        let mut external_name = None;
         if    self.stage.call && !executable.is_callable()
            && (self.stage.command_word || self.stage.explicit_arguments
                 || executable.is_executable())
@@ -258,18 +259,30 @@ impl<'a> StageStream<'a>
             { executable = Value::String(name, Executable::Function(function)); }
             else if !external_only && let Some(function) = interpreter.module_native_function(&name)
             { executable = Value::String(name, Executable::Native(function)); }
-            else
-            {
-                let Some(mut external) = External::new(interpreter, self.stage, &name, &arguments,
-                    self.index == 0)? else { return Ok(Step::End); };
-                self.per_item_external = self.index > 0 && self.stage.input_used;
-                if self.per_item_external { external.close_input(); }
-                else { self.pending = data; }
-                if self.index == 0 { external.close_input(); }
-                self.external = Some(external);
-                self.external_started = true;
-                return Ok(Step::Pending);
-            }
+            else { external_name = Some(name); }
+        }
+        if self.stage.call && matches!(executable.underlying(),
+            Value::String(_, Executable::Native(function)) if function.name == "exec")
+        {
+            // Pipeline stages are already child processes. Launch the exec target directly,
+            // retaining the pipeline's input, output, status and cancellation ownership.
+            if arguments.first().is_some_and(|value| value.as_text() == "--")
+            { arguments.remove(0); }
+            if arguments.is_empty()
+            { return Err(self.error("exec in a pipeline requires a program")); }
+            external_name = Some(arguments.remove(0).as_text());
+        }
+        if let Some(name) = external_name
+        {
+            let Some(mut external) = External::new(interpreter, self.stage, &name, &arguments,
+                self.index == 0)? else { return Ok(Step::End); };
+            self.per_item_external = self.index > 0 && self.stage.input_used;
+            if self.per_item_external { external.close_input(); }
+            else { self.pending = data; }
+            if self.index == 0 { external.close_input(); }
+            self.external = Some(external);
+            self.external_started = true;
+            return Ok(Step::Pending);
         }
         if let Some(Data::Bytes(bytes)) = data
         {

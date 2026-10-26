@@ -4,6 +4,7 @@ mod call_stack;
 mod collection_types;
 mod conversions;
 mod environment;
+mod exec;
 mod exceptions;
 mod file_test;
 mod interpreter;

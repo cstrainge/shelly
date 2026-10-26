@@ -1,0 +1,48 @@
+let $fixture = $args[0]
+printf "%s" 'echo ($pid == Integer($args[0])); exit 7' -> "${fixture}/exec_identity.shy"
+let $terminal = session $fixture
+require (!(drain $terminal)["eof"]) "shell exited during startup"
+let $reply = submit $terminal 'let $saved_pid = $pid; exec shelly_missing_exec_program'
+require (!$reply["eof"]) "failed exec terminated interactive shell"
+require ($reply["output"].contains "Executable not found: shelly_missing_exec_program") "missing exec diagnostic"
+let $reply = submit $terminal 'echo ($pid == $saved_pid)'
+require (repl_matches "output" "true" $reply["output"]) "failed exec changed shell identity"
+let $reply = submit $terminal 'try { exec shelly_missing_exec_program -> failed.out } catch ($error: RuntimeError) { echo recovered }'
+require (repl_matches "output" "recovered" $reply["output"]) "failed exec did not restore interactive output"
+let $reply = submit $terminal 'exec $shelly -m exec_identity.shy $pid'
+require $reply["eof"] "successful exec returned to the REPL"
+require ($reply["output"].contains "\ntrue\n") ("interactive exec changed PID: " + $reply["output"])
+let $result = terminal_close $terminal
+require (($result["exit_code"] == 7) && ($result["signal"] == ())) "exec lost exit status"
+
+# Terminal input and SIGINT handling must belong to the replacement program.
+let $terminal = session $fixture
+require (!(drain $terminal)["eof"]) "second shell exited during startup"
+terminal_write $terminal "\x1b[200~exec /bin/cat\x1b[201~\r"
+let $started = false
+for _ in 0..30
+{
+    let $reply = terminal_read $terminal 100
+    require (!$reply["eof"]) "replacement cat exited early"
+    if $reply["timed_out"] { $started = true; break }
+}
+require $started "replacement did not start"
+terminal_write $terminal "exec-terminal-input\n"
+let $output = ""
+for _ in 0..30
+{
+    let $reply = terminal_read $terminal 100
+    $output = $output + $reply["text"]
+    if (($output.split "exec-terminal-input").count >= 3) { break }
+}
+require (($output.split "exec-terminal-input").count >= 3) "replacement did not inherit terminal stdin/stdout"
+terminal_write $terminal "\x03"
+let $eof = false
+for _ in 0..30
+{
+    let $reply = terminal_read $terminal 100
+    if $reply["eof"] { $eof = true; break }
+}
+require $eof "replacement ignored Ctrl+C or returned to Shelly"
+let $result = terminal_close $terminal
+require ($result["signal"] == 2) "replacement lost normal SIGINT behavior"

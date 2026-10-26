@@ -76,6 +76,15 @@ impl Interpreter
     pub(super) fn execute_pipeline(&mut self, pipeline: &Rc<CompiledPipeline>)
     -> InterpreterResult<()>
     {
+        self.pipeline_depth += 1;
+        let result = self.execute_pipeline_inner(pipeline);
+        self.pipeline_depth -= 1;
+        result
+    }
+
+    fn execute_pipeline_inner(&mut self, pipeline: &Rc<CompiledPipeline>)
+    -> InterpreterResult<()>
+    {
         if pipeline.primary_len != pipeline.stages.len()
         { return self.execute_split_pipeline(pipeline); }
         // Each layer pulls at most one item/chunk. External descriptors use nonblocking

@@ -406,6 +406,7 @@ pub struct Interpreter
     pub(super) prompt_widgets: Option<Rc<RefCell<ScopedValue>>>,
     pub(super) pipeline_inputs: Vec<Value>,
     pub(super) pipeline_worker: bool,
+    pub(super) pipeline_depth: usize,
     pub(super) captured_stdout: Option<Vec<u8>>,
     pub(super) redirections: Vec<Redirection>,
     last_cmd_time: Duration,
@@ -456,6 +457,7 @@ impl Interpreter
             prompt_widgets: None,
             pipeline_inputs: Vec::new(),
             pipeline_worker: self.pipeline_worker,
+            pipeline_depth: self.pipeline_depth,
             captured_stdout: None,
             redirections: Vec::new(),
             last_cmd_time: Duration::default(),
@@ -520,6 +522,11 @@ impl Interpreter
                 (
                     "prelude_reload",
                     Rc::new(Interpreter::handle_prelude_reload) as BuiltIn<'static>
+                ),
+
+                (
+                    "exec",
+                    Rc::new(Interpreter::handle_exec) as BuiltIn<'static>
                 ),
 
                 (
@@ -902,6 +909,7 @@ impl Interpreter
                 prompt_widgets: None,
                 pipeline_inputs: Vec::new(),
                 pipeline_worker: false,
+                pipeline_depth: 0,
                 captured_stdout: None,
                 redirections: Vec::new(),
                 last_cmd_time: Duration::ZERO,
